@@ -23,6 +23,7 @@ The most precise way to write down the MiniRust spec would be with mathematical 
 However, without LaTeX this is a pain, and it also involves a lot of jargon which hurts accessibility of the spec.
 Therefore, the spec is written in a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
 imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types.
+We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
 Also, all types are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
@@ -48,6 +49,6 @@ If you want to help, please talk to me -- PRs to add missing features are very w
   * [Prelude](lang/prelude.md)
   * [Values](lang/values.md): the domain of high-level MiniRust values
   * [Types](lang/types.md): the set of MiniRust types **and how they relate values with their representation** (a key part of the language)
-  * [Syntax](lang/syntax.md): the syntax of MiniRust programs
+  * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
   * [Abstract Machine](lang/am.md): the state that makes up a MiniRust Abstract Machine (AM)
   * [Semantics](lang/sem.md): the operational semantics of the MiniRust Abstract Machine

@@ -99,10 +99,10 @@ trait MemoryInterface {
     fn deallocate(&mut self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
-    fn write(&mut self, ptr: Self::Pointer, bytes: Vec<Self::AbstractByte>) -> Result;
+    fn write(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>) -> Result;
 
     /// Read some bytes from memory.
-    fn read(&mut self, ptr: Self::Pointer, len: Size) -> Result<Vec<Self::AbstractByte>>;
+    fn read(&mut self, ptr: Self::Pointer, len: Size) -> Result<List<Self::AbstractByte>>;
 
     /// Test whether the given pointer is dereferencable for the given size and alignment.
     /// Raises UB if that is not the case.

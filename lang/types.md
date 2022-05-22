@@ -18,10 +18,7 @@ In the future, we might want to separate a type from its layout, and consider th
 
 ```rust
 enum Type {
-    Int {
-        signed: Signedness,
-        size: Size,
-    },
+    Int(IntType),
     Bool,
     Ref {
         mutbl: Mutability,
@@ -44,7 +41,7 @@ enum Type {
         /// Each variant is given by a list of fields.
         /// The "variant index" of a variant is its index in this list.
         /// (The Rust type `!` is encoded as an `Enum` with an empty list of variants.)
-        variants: Vec<Fields>,
+        variants: List<Fields>,
         /// This contains all the tricky details of how to encode the active variant
         /// at runtime.
         tag_encoding: TagEncoding,
@@ -61,7 +58,12 @@ enum Type {
     },
 }
 
-type Fields = Vec<(Size, Type)>; // (offset, type) pair for each field
+struct IntType {
+    signed: Signedness,
+    size: Size,
+}
+
+type Fields = List<(Size, Type)>; // (offset, type) pair for each field
 
 enum Signedness {
     Unsigned,
@@ -108,11 +110,11 @@ impl Type {
     ///    In other words, all valid low-level representations must have the length given by the size of the type.
     ///  - `type.uninhabited() -> type.decode(bytes) = None`.
     ///    In other words, uninhabited type can never successfully decode anything.
-    fn decode(self, bytes: Vec<AbstractByte>) -> Option<Value> {
+    fn decode(self, bytes: List<AbstractByte>) -> Option<Value> {
         /* see below */
     }
 
-    fn encode(self, v: Value) -> Vec<AbstractByte> {
+    fn encode(self, v: Value) -> List<AbstractByte> {
         // Non-deterministically pick a list of bytes that decodes to the given value.
         pick(|bytes| self.decode(bytes) == Some(v))
     }
@@ -127,7 +129,7 @@ If any pattern is not covered, that is a bug in the spec.)
 
 ```rust
 impl Type {
-  fn decode(Bool: Self, bytes: Vec<AbstractByte>) -> Option<Value> {
+  fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
     match *bytes {
       [AbstractByte::Raw(0)] => Some(Value::Bool(false)),
       [AbstractByte::Raw(1)] => Some(Value::Bool(true)),
@@ -145,7 +147,7 @@ For now we only define `u16` and `i16`.
 
 ```rust
 impl Type {
-    fn decode(Int { signed, size: Size::from_bits(16) }: Self, bytes: Vec<AbstractByte>) -> Option<Value> {
+    fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
         let [AbstractByte::Raw(b0), AbstractByte::Raw(b1)] = *bytes else { return None };
         Some(Value::Int(ENDIANESS.decode(signed, [b0, b1])))
     }
@@ -160,7 +162,7 @@ That corresponds to ruling out ptr-to-int transmutation.
 For simplicity, we assume `PTR_SIZE` is 8 bytes.
 
 ```rust
-fn decode_ptr(bytes: Vec<AbstractByte>) -> Option<Pointer> {
+fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     let [b0, b1, b2, b3, b4, b5, b6, b7] = *bytes else { return None };
     match (b0, b1, b2, b3, b4, b5, b6, b7) {
         (AbstractByte::Raw(a0),
@@ -193,7 +195,7 @@ fn decode_ptr(bytes: Vec<AbstractByte>) -> Option<Pointer> {
 }
 
 impl Type {
-    fn decode(RawPtr { .. }: Self, bytes: Vec<AbstractByte>) -> Option<Value> {
+    fn decode(RawPtr { .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         Some(Value::Ptr(decode_ptr(bytes)?))
     }
 }
@@ -203,7 +205,7 @@ impl Type {
 
 ```
 impl Type {
-    fn decode(Ref { pointee, .. }: Self, bytes: Vec<AbstractByte>) -> Option<Value> {
+    fn decode(Ref { pointee, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let (addr, provenance) = decode_ptr(bytes)?;
         if addr == 0 { return None; }
         if pointee.uninhabited() { return None; }
@@ -243,7 +245,7 @@ Certainly, it is the case that if a list of bytes is not related to any value fo
 We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
 
 ```rust
-fn bytes_valid_for_type(ty: Type, bytes: Vec<AbstractByte>) -> Result {
+fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
   ty.decode(bytes)?;
 }
 ```

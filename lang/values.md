@@ -22,14 +22,14 @@ enum Value {
     /// A pointer value, used for (thin) references and raw pointers.
     Ptr(Pointer),
     /// An n-tuple, used for arrays, structs, tuples (including unit).
-    Tuple(Vec<Self>),
+    Tuple(List<Value>),
     /// A variant of a sum type, used for enums.
     Variant {
         idx: BigInt,
-        data: Box<Self>,
+        data: Value,
     },
     /// A "bag of raw bytes", used for unions.
-    RawBag(Vec<AbstractByte>),
+    RawBag(List<AbstractByte>),
 }
 ```
 
