@@ -27,6 +27,10 @@ We use generic type names like `List`, `Map`, `Set` rather than concrete impleme
 Also, all types are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
+We use `Result` to make operations fallible (where failure indicates UB), and omit trailing `Ok(())`.
+We sue a `throw_ub!` macro to make the current function return a UB error.
+We use `panic!` (and `unwrap` and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
+
 We also need one language feature that Rust does not have direct support for: non-determinism.
 The function `pick<T>(fn(T) -> bool) -> T` will return a value of type `T` such that the given closure returns `true` for this value.
 (If there is no such value, the function does not return. This is a bug, the spec should never do that.
@@ -50,5 +54,5 @@ If you want to help, please talk to me -- PRs to add missing features are very w
   * [Values](lang/values.md): the domain of high-level MiniRust values
   * [Types](lang/types.md): the set of MiniRust types **and how they relate values with their representation** (a key part of the language)
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
-  * [Abstract Machine](lang/am.md): the state that makes up a MiniRust Abstract Machine (AM)
-  * [Semantics](lang/sem.md): the operational semantics of the MiniRust Abstract Machine
+  * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine (AM)
+  * [Semantics](lang/step.md): the operational semantics ("`step` function") of the MiniRust Abstract Machine

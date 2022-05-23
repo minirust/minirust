@@ -35,8 +35,8 @@ struct Function {
 
 /// A basic block is a sequence of statements followed by a terminator.
 struct BasicBlock {
-  statements: List<Statement>,
-  terminator: Terminator,
+    statements: List<Statement>,
+    terminator: Terminator,
 }
 ```
 
@@ -55,6 +55,10 @@ enum Statement {
         place: PlaceExpr,
         type: Type,
     },
+    /// Allocate the backing store for this local.
+    StorageLive(LocalName, Type),
+    /// Deallocate the backing store for this local.
+    StorageDead(LocalName, Type),
 }
 
 enum Terminator {
@@ -71,6 +75,8 @@ enum Terminator {
     Call {
         callee: FnName,
         arguments: List<(ValueExpr, Type)>,
+        return_value: PlaceExpr,
+        next_block: BbName,
     }
     /// Return from the current function.
     Return,
@@ -93,6 +99,8 @@ enum ValueExpr {
     Ref {
         /// The place to create a reference to.
         target: PlaceExpr,
+        /// The type of the place.
+        type: Type,
     },
     /// Unary operators.
     UnOp {
@@ -122,12 +130,8 @@ enum PlaceExpr {
     /// Denotes a local variable.
     Local(LocalName),
     /// Dereference a value (of pointer/reference type).
-    Deref(ValueExpr),
+    Deref(ValueExpr, Type),
 }
-
-/// For now, a `Place` is just a pointer.
-/// (But this might have to change.)
-type Place = Pointer;
 ```
 
 Obviously, these are all quite incomplete still.

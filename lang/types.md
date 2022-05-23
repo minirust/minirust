@@ -24,6 +24,9 @@ enum Type {
         mutbl: Mutability,
         pointee: Type,
     },
+    Box {
+        pointee: Type,
+    },
     RawPtr {
         mutbl: Mutability,
         pointee: Type,
@@ -110,10 +113,10 @@ impl Type {
     ///    In other words, all valid low-level representations must have the length given by the size of the type.
     ///  - `type.uninhabited() -> type.decode(bytes) = None`.
     ///    In other words, uninhabited type can never successfully decode anything.
-    fn decode(self, bytes: List<AbstractByte>) -> Option<Value> {
-        /* see below */
-    }
+    fn decode(self, bytes: List<AbstractByte>) -> Option<Value>;
 
+    /// Encode `v` into a list of bytes according to the type `self`.
+    /// Note that it is a spec bug if `v` is not valid according to `ty`!
     fn encode(self, v: Value) -> List<AbstractByte> {
         // Non-deterministically pick a list of bytes that decodes to the given value.
         pick(|bytes| self.decode(bytes) == Some(v))
@@ -125,16 +128,19 @@ The definition of `decode` is huge, so we split it by type.
 (We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
 If any pattern is not covered, that is a bug in the spec.)
 
+TODO: Define this for the other types.
+
 ### `bool`
 
 ```rust
 impl Type {
-  fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
-    match *bytes {
-      [AbstractByte::Raw(0)] => Some(Value::Bool(false)),
-      [AbstractByte::Raw(1)] => Some(Value::Bool(true)),
-      _ => None,
-  }
+    fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        match *bytes {
+            [AbstractByte::Raw(0)] => Some(Value::Bool(false)),
+            [AbstractByte::Raw(1)] => Some(Value::Bool(true)),
+            _ => None,
+        }
+    }
 }
 ```
 
@@ -185,24 +191,26 @@ impl Type {
 Note that, crucially, a pointer with "invalid" (`None`) provenance is never encoded as `AbstractByte::Ptr`.
 This avoids having two encodings of the same abstract value.
 
-### References
+### References and `Box`
 
 ```
+/// Check if the given pointer is valid for safe pointer types (`Ref`, `Box`).
+fn check_safe_ptr(ptr: Pointer, pointee: Type) -> bool {
+    // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
+    // (Think: uninhabited types have impossible alignment.)
+    ptr.addr != 0 && ptr.addr % pointee.align() == 0 && !pointee.uninhabited()
+}
+
 impl Type {
-    fn decode(Ref { pointee, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Ref { pointee, .. } | Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let ptr = decode_ptr(bytes)?;
-        // References need to be non-null and aligned.
-        if ptr.addr == 0 { return None; }
-        if ptr.addr % pointee.align() != 0 { return None; }
-        // References to uninhabited types are invalid.
-        // (Think: uninhabited types have impossible alignment.)
-        if pointee.uninhabited() { return None; }
+        if !check_safe_ptr(ptr, pointee) { return None; }
         Some(Value::Ptr(ptr))
     }
 }
 ```
 
-Note how types like `&!` are uninhabited: when the pointee type is uninhabited, there exists no valid reference to that type.
+Note that types like `&!` are uninhabited: when the pointee type is uninhabited, there exists no valid reference to that type.
 
 ## Typed memory accesses
 
@@ -212,15 +220,19 @@ This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberu
 ```rust
 trait TypedMemory: Memory {
     /// Write a value of the given type to memory.
-    fn typed_write(&mut self, ptr: Self::Pointer, val: Value, ty: Type) -> Result {
+    /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
+    fn typed_store(&mut self, ptr: Self::Pointer, val: Value, ty: Type) -> Result {
         let bytes = ty.encode(val);
-        self.write(ptr, bytes)
+        self.store(ptr, bytes)
     }
 
     /// Read a value of the given type.
-    fn typed_read(&mut self, ptr: Self::Pointer, ty: Type) -> Result<Value> {
-        let bytes = self.read(ptr, ty.size());
-        Ok(ty.decode(bytes)?)
+    fn typed_load(&mut self, ptr: Self::Pointer, ty: Type) -> Result<Value> {
+        let bytes = self.load(ptr, ty.size());
+        match ty.decode(bytes) {
+            Some(val) => Ok(val),
+            None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
+        }
     }
 }
 ```
@@ -233,7 +245,9 @@ We could decide that this is an "if and only if", i.e., that the validity invari
 
 ```rust
 fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
-  ty.decode(bytes)?;
+    if ty.decode(bytes).is_none() {
+        throw_ub!("data violates validity invariant of type {ty}"),
+    }
 }
 ```
 

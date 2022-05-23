@@ -64,11 +64,6 @@ impl AbstractByte<P> {
 The MiniRust memory interface is described by the following (not-yet-complete) trait definition:
 
 ```rust
-/// All operations are fallible, so they return `Result`.  If they fail, that
-/// means the program caused UB. What exactly the `UndefinedBehavior` type is
-/// does not matter here.
-type Result<T=()> = std::result::Result<T, UndefinedBehavior>;
-
 /// An "address" is a location in memory. This corresponds to the actual
 /// location in the real program.
 /// `u64` should be large enough for all targets... TM ;)
@@ -103,10 +98,10 @@ trait MemoryInterface {
     fn deallocate(&mut self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
-    fn write(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>) -> Result;
+    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>) -> Result;
 
     /// Read some bytes from memory.
-    fn read(&mut self, ptr: Self::Pointer, len: Size) -> Result<List<Self::AbstractByte>>;
+    fn load(&mut self, ptr: Self::Pointer, len: Size) -> Result<List<Self::AbstractByte>>;
 
     /// Test whether the given pointer is dereferencable for the given size and alignment.
     /// Raises UB if that is not the case.
@@ -119,7 +114,7 @@ trait MemoryInterface {
 This is a very basic memory interface that is incomplete in at least the following ways:
 
 * We need to add support for [casting pointers to integers](https://doc.rust-lang.org/nightly/std/primitive.pointer.html#method.expose_addr) and [back](https://doc.rust-lang.org/nightly/std/ptr/fn.from_exposed_addr.html).
-* To represent concurrency, many operations need to take a "thread ID" and `read` and `write` need to take an [`Ordering`].
+* To represent concurrency, many operations need to take a "thread ID" and `load` and `store` need to take an [`Option<Ordering>`] (with `None` indicating non-atomic accesses).
 * To represent [Stacked Borrows], there needs to be a "retag" operation, and that one might have to be "lightly typed" (to care about `UnsafeCell`).
 * Maybe we want operations that can compare pointers without casting them to integers.
 
