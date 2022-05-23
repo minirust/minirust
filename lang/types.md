@@ -160,38 +160,19 @@ That corresponds to ruling out ptr-to-int transmutation.
 ### Raw pointers
 
 For simplicity, we assume `PTR_SIZE` is 8 bytes.
+TODO: Write this in a way that is generic over `PTR_SIZE`.
 
 ```rust
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     let [b0, b1, b2, b3, b4, b5, b6, b7] = *bytes else { return None };
-    match (b0, b1, b2, b3, b4, b5, b6, b7) {
-        (AbstractByte::Raw(a0),
-            AbstractByte::Raw(a1),
-            AbstractByte::Raw(a2),
-            AbstractByte::Raw(a3),
-            AbstractByte::Raw(a4),
-            AbstractByte::Raw(a5),
-            AbstractByte::Raw(a6),
-            AbstractByte::Raw(a7)) =>
-        {
-            let addr = ENDIANESS.decode(signed, [a0, a1, a2, a3, a4, a5, a6, a7]).to_u64();
-            let provenance = Memory::INVALID_PROVENANCE;
-            Some((addr, provenance))
-        }
-        // By using the same binder multiple times, we require all these values to be the same.
-        (AbstractByte::Ptr(a0, p),
-            AbstractByte::Ptr(a1, p),
-            AbstractByte::Ptr(a2, p),
-            AbstractByte::Ptr(a3, p),
-            AbstractByte::Ptr(a4, p),
-            AbstractByte::Ptr(a5, p),
-            AbstractByte::Ptr(a6, p),
-            AbstractByte::Ptr(a7, p)) =>
-        {
-            let addr = ENDIANESS.decode(signed, [a0, a1, a2, a3, a4, a5, a6, a7]).to_u64();
-            Some((adr, p))
-        }
-        _ => None,
+    // Get the address. Will fail if any byte is uninitialized.
+    let addr = ENDIANESS.decode(signed, [b0.data()?, b1.data()?, b2.data()?, b3.data()?, b4.data()?, b5.data()?, b6.data()?, b7.data()?]).to_u64();
+    // Get the provenance. Must be the same for all bytes.
+    let provenance = b0.provenance();
+    for b in [b0, b1, b2, b3, b4, b5, b6, b7] {
+        if b.provenance() != provenance { return None; }
+    }
+    Some(Pointer { addr, provenance })
 }
 
 impl Type {
@@ -201,16 +182,22 @@ impl Type {
 }
 ```
 
+Note that, crucially, a pointer with "invalid" (`None`) provenance is never encoded as `AbstractByte::Ptr`.
+This avoids having two encodings of the same abstract value.
+
 ### References
 
 ```
 impl Type {
     fn decode(Ref { pointee, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        let (addr, provenance) = decode_ptr(bytes)?;
-        if addr == 0 { return None; }
+        let ptr = decode_ptr(bytes)?;
+        // References need to be non-null and aligned.
+        if ptr.addr == 0 { return None; }
+        if ptr.addr % pointee.align() != 0 { return None; }
+        // References to uninhabited types are invalid.
+        // (Think: uninhabited types have impossible alignment.)
         if pointee.uninhabited() { return None; }
-        if addr % pointee.align() != 0 { return None; }
-        Some((addr, provenance))
+        Some(Value::Ptr(ptr))
     }
 }
 ```

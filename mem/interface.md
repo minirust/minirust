@@ -69,10 +69,18 @@ The MiniRust memory interface is described by the following (not-yet-complete) t
 /// does not matter here.
 type Result<T=()> = std::result::Result<T, UndefinedBehavior>;
 
-/// A "pointer" is an address (`u64` should be large enough for all targets... TM)
-/// together with its Provenance.
+/// An "address" is a location in memory. This corresponds to the actual
+/// location in the real program.
+/// `u64` should be large enough for all targets... TM ;)
 type Address = u64;
-type Pointer<Provenance> = (Address, Provenance);
+
+/// A "pointer" is an address together with its Provenance.
+/// Provenance can be absent; those pointers are
+/// invalid for all non-zero-sized accesses.
+struct Pointer<Provenance> {
+    addr: Address,
+    provenance: Option<Provenance>,
+}
 
 /// *Note*: All memory operations can be non-deterministic, which means that
 /// executing the same operation on the same memory can have different results.
@@ -86,10 +94,6 @@ trait MemoryInterface {
     /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.
     type Pointer = Pointer<Self::Provenance>;
     type AbstractByte = AbstractByte<Self::Provenance>;
-
-    /// The provenance of an "invalid" pointer that cannot be used for (non-ZST)
-    /// memory accesses.
-    const INVALID_PROVENANCE: Provenance;
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
