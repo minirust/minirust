@@ -4,6 +4,8 @@ MiniRust is the cornerstone of my vision for a normative specification of Rust s
 It is an idealized MIR-like language with the purpose of serving as a "core language" of Rust.
 This is part of a larger story whose goal is to precisely specify the operational behavior of Rust, i.e., the possible behaviors that a Rust program might have when being executed:
 the behavior of a Rust program is defined by first translating it to MiniRust (which is outside the scope of this repository), and then considering the possible behaviors of the MiniRust program as specified in this document.
+That translation does a *lot* of work; for example, traits and pattern matching are basically gone on the level of MiniRust.
+On the other hand, MiniRust is concerned a lot with details such as the exact evaluation order, data representations, and precisely what is and is not Undefined Behavior.
 
 To separate the complexities of memory from the semantics of MiniRust statements and expressions, we introduce the MiniRust *memory interface*:
 think of memory as implementing some trait; MiniRust semantics is generic over the actual implementation of that trait.
