@@ -17,6 +17,7 @@ For statements it also advances the program counter.
 
 ```rust
 impl Machine {
+    /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     fn step(&mut self) -> Result {
         let frame = self.cur_frame_mut();
         let (next_block, next_stmt) = &mut frame.next;
@@ -210,8 +211,9 @@ impl Machine {
 A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
-- TODO: Right now, the *caller* allocates the return place. That makes `Return` very elegant, but is it truly what we want?
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
+- TODO: Right now, the *caller* allocates the return place. That makes `Return` very elegant, but is it truly what we want?
+  In particular this means the callee cannot even tread this allocation as entirely private. (Aliasing will get us *some* exclusivity but not all of it.)
 - TODO: This should do some kind of ABI compatibility check. Not all types with the same layout are okay to be type-punned across a call.
 
 ```rust
