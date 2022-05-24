@@ -47,6 +47,7 @@ There are lots of TODOs.
 The language syntax is also missing many of the Rust operators and casts.
 I hope to slowly chip away at all this over time.
 If you want to help, please talk to me -- PRs to add missing features are very welcome. :)
+But we also need to ensure the entire document stays coherent, and I already have vague ideas for many of these things.
 
 ## Table of Contents
 
