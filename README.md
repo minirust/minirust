@@ -2,7 +2,7 @@
 
 MiniRust is the cornerstone of my vision for a normative specification of Rust semantics.
 It is an idealized MIR-like language with the purpose of serving as a "core language" of Rust.
-This is part of a grater story whose goal is to precisely specify the operational behavior of Rust, i.e., the possible behaviors that a Rust program might have when being executed:
+This is part of a larger story whose goal is to precisely specify the operational behavior of Rust, i.e., the possible behaviors that a Rust program might have when being executed:
 the behavior of a Rust program is defined by first translating it to MiniRust (which is outside the scope of this repository), and then considering the possible behaviors of the MiniRust program as specified in this document.
 
 To separate the complexities of memory from the semantics of MiniRust statements and expressions, we introduce the MiniRust *memory interface*:
@@ -11,11 +11,11 @@ The interface between the MiniRust language (specified in `lang`) and its memory
 For now, we only define the memory interface, but do not give an implementation.
 Even without deciding what exactly the final memory model will look like, we can answer a surprising amount of interesting questions about Rust semantics!
 
-On the MiniRust langauge side, the most important concept to understand is that of a *value* and how it relates to *types*.
-Values form a high-level, structural view of data (e.g. mathematical integers); types serve to relate values and their low-level byte-oriented representation.
+On the MiniRust language side, the most important concept to understand is that of a *value* and how it relates to *types*.
+Values form a high-level, structural view of data (e.g. mathematical integers); types serve to relate values with their low-level byte-oriented representation.
 Types are just parameters attached to certain operations to define the (de)serialization format.
 There is no MiniRust type system (as in, typing rules that would define when a MiniRust program is "well-typed").
-(We might have a type system in the future as a basic sanity check, but MiniRust is by design *not* type-safe.)
+We might have a type system in the future as a basic sanity check, but MiniRust is by design *not* type-safe.
 
 ## How to read MiniRust
 
@@ -28,29 +28,31 @@ Also, all types are `Copy` (let's just imagine we implicitly `Clone` where neede
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
 We use `Result` to make operations fallible (where failure indicates UB), and omit trailing `Ok(())`.
-We sue a `throw_ub!` macro to make the current function return a UB error.
+We use a `throw_ub!` macro to make the current function return a UB error.
 We use `panic!` (and `unwrap` and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
 
 We also need one language feature that Rust does not have direct support for: non-determinism.
 The function `pick<T>(fn(T) -> bool) -> T` will return a value of type `T` such that the given closure returns `true` for this value.
-(If there is no such value, the function does not return. This is a bug, the spec should never do that.
-This non-determinism is interpreted *daemonically*, which means that the compiler can refine it arbitrarily and the program has to be correct for every possible choice.)
+If there is no such value, the function does not return. This is a bug, the spec should never do that.
+This non-determinism is interpreted *daemonically*, which means that the compiler can refine it arbitrarily and the program has to be correct for every possible choice.
 
 ## Status
 
 MiniRust is extremely incomplete!
 Many features are entirely missing (e.g. floats, unsized types) or only partially sketched (enum layouts).
 Many types have missing representation relations.
+There are lots of TODOs.
 The language syntax is also missing many of the Rust operators and casts.
+I hope to slowly chip away at all this over time.
 If you want to help, please talk to me -- PRs to add missing features are very welcome. :)
 
 ## Table of Contents
 
-* [Prelude](prelude.md)
+* [Prelude](prelude.md): common definitions and parameters shared by everything
 * MiniRust memory
-  * [Memory interface](mem/interface.md): the API via which the MiniRust AM interacts with memory
+  * [Memory interface](mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
 * MiniRust language
-  * [Prelude](lang/prelude.md)
+  * [Prelude](lang/prelude.md): common definitions and parameters of the language
   * [Values](lang/values.md): the domain of high-level MiniRust values
   * [Types](lang/types.md): the set of MiniRust types **and how they relate values with their representation** (a key part of the language)
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs

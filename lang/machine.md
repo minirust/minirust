@@ -35,12 +35,12 @@ struct StackFrame {
 }
 ```
 
-We also define a bunch of helper functions that will be useful later.
+We also define some helper functions that will be useful later.
 
 ```rust
 impl Machine {
     fn cur_frame(&self) -> &StackFrame {
-        self.stack.last_mut().unwrap()
+        self.stack.last().unwrap()
     }
 
     fn cur_frame_mut(&mut self) -> &mut StackFrame {

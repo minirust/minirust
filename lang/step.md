@@ -4,6 +4,11 @@ This file defines the heart of MiniRust: the `step` function of the `Machine`, i
 (To avoid having huge functions, we again use the approach of having fallible patterns in function declarations,
 and having a collection of declarations with non-overlapping patterns for the same function that together cover all patterns.)
 
+One design decision I made here is that `eval_value` and `eval_place` just return a `Value`/`Place`, but not its type.
+This could be done either way, and has consequences for where in the syntax we need type annotations.
+I am not sure which is better.
+Miri always keeps the type with the value, so I wanted to experiment with the alternative approach and see how it goes.
+
 ## Top-level step function
 
 The top-level step function identifies the next terminator/statement to execute, and dispatches appropriately.
