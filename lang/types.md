@@ -93,11 +93,13 @@ They *do* have a mutability since that is (or will be) relevant for the memory m
 
 Each type has a size, an alignment, and it is considered uninhabited or not.
 
+- TODO: define size, alignment, uninhabited for our types.
+
 ```rust
 impl Type {
-    fn size(self) -> Size { /* TODO */ }
-    fn align(self) -> Align { /* TODO */ }
-    fn uninhabited(self) -> bool { /* TODO */ }
+    fn size(self) -> Size;
+    fn align(self) -> Align;
+    fn uninhabited(self) -> bool;
 }
 ```
 
@@ -128,7 +130,7 @@ The definition of `decode` is huge, so we split it by type.
 (We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
 If any pattern is not covered, that is a bug in the spec.)
 
-TODO: Define this for the other types.
+- TODO: Define this for the other types.
 
 ### `bool`
 

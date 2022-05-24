@@ -32,9 +32,6 @@ struct StackFrame {
     /// the second the statement inside that basic block.
     /// If the index is len+1, it refers to the terminator.
     next: (BbName, u64),
-
-    /// The place to copy the return value to when this function returns.
-    return_place: Place,
 }
 ```
 

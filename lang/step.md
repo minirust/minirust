@@ -31,7 +31,7 @@ impl Machine {
 
 ## Value Expressions
 
-TODO: Add unary and binary operators.
+- TODO: Add unary and binary operators.
 
 ### Constants
 
@@ -48,7 +48,8 @@ impl Machine {
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").
-TODO: Actually implement the "destructive" part of this.
+
+- TODO: Actually implement the "destructive" part of this.
 
 ```rust
 impl Machine {
@@ -122,7 +123,8 @@ Here we define how statements are evaluated.
 ### Assignment
 
 Assignment evaluates its two operands, and then stores the value into the destination.
-TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
+
+- TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
 
 ```rust
 impl Machine {
@@ -138,9 +140,10 @@ impl Machine {
 
 This statement asserts that a value satisfies its validity invariant.
 This is equivalent to the assignment `_ = place`.
-TODO: Should we even have it, if it is equivalent?
-TODO: Should this also store back the value? That would reset padding. It might also make this not equivalent to an assignment if assignment has aliasing constraints.
-TODO: Should this do the job of `Retag` as well? That seems quite elegant, but might sometimes be a bit redundant.
+
+- TODO: Should we even have it, if it is equivalent?
+- TODO: Should this also store back the value? That would reset padding. It might also make this not equivalent to an assignment if assignment has aliasing constraints.
+- TODO: Should this do the job of `Retag` as well? That seems quite elegant, but might sometimes be a bit redundant.
 
 ```rust
 impl Machine {
@@ -199,8 +202,55 @@ impl Machine {
 
 ### Call
 
-TODO: implement this
+A lot of things happen when a function is being called!
+In particular, we have to initialize the new stack frame.
+
+- TODO: Right now, the *caller* allocates the return place. That makes `Return` very elegant, but is it truly what we want?
+- TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
+- TODO: This should do some kind of ABI compatibility check. Not all types with the same layout are okay to be type-punned across a call.
+
+```rust
+impl Machine {
+    fn eval_terminator(&mut self, Call { callee, arguments, return_place, next_block }: Terminator) -> Result {
+        let func = self.prog.functions[callee];
+        // Evaluate all arguments and put them into fresh places.
+        let arguments: List<Place> = arguments.map(|(val, ty)| {
+            let val = self.eval_value(val)?;
+            // Allocate place and store argument value (a lot like `StorageLive`).
+            let p = self.mem.allocate(type.size(), type.align())?;
+            self.mem.typed_store(p, val, ty)?;
+            Ok(p)
+        }).collect()?;
+        // Arguments are the only locals that are live when a function starts.
+        assert_eq!(func.args.len(), arguments.len());
+        let mut locals: Map<LocalName, Place> = func.args.iter().zip(arguments.iter()).collect();
+        // Add the return place.
+        let ret_place = self.eval_place(return_place)?;
+        locals.try_insert(func.ret, ret_place).unwrap();
+        // Advance the PC for this stack frame.
+        self.cur_frame_mut().next = (next_block, 0);
+        // Push new stack frame, so it is executed next.
+        self.stack.push(StackFrame {
+            func,
+            locals,
+            next: (func.start, 0),
+            return_place,
+        });
+    }
+}
+```
+
+Note that the arguments and return place are entirely controlled by the caller.
+The callee should probably start with a bunch of `Finalize` statements to ensure that all these arguments match the type the callee thinks they should have, and the return place is big enough.
+(The latter can be done by `Finalize` with a type like `MaybeUninit<T>`.)
 
 ### Return
 
-TODO: implement this
+```rust
+impl Machine {
+    fn eval_terminator(&mut self, Return: Terminator) -> Result {
+        self.stack.pop().unwrap();
+        // The callee has already written the return place to where the caller needs it, so we are done.
+    }
+}
+```

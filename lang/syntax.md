@@ -23,10 +23,11 @@ type BbName;
 /// A MiniRust function.
 struct Function {
     /// A list of names used to refer to the function arguments.
+    /// The caller will allocate these when creating the stack frame.
     args: List<LocalName>,
-    /// Further local variables declared inside this function.
-    locals: Set<LocalName>,
-
+    /// The name used to refer to the local that stored the return value.
+    /// The caller will allocate this when creating the stack frame.
+    ret: LocalName,
     /// Associate each basic block name with the associated block.
     blocks: Map<BbName, BasicBlock>,
     /// The basic block where execution starts.
@@ -75,7 +76,7 @@ enum Terminator {
     Call {
         callee: FnName,
         arguments: List<(ValueExpr, Type)>,
-        return_value: PlaceExpr,
+        return_place: PlaceExpr,
         next_block: BbName,
     }
     /// Return from the current function.
@@ -138,6 +139,6 @@ Obviously, these are all quite incomplete still.
 
 ## Well-formed programs
 
-MiniRust programs need to satisfy some conditions to be well-formed, e.g. all `PlaceExpr::Local` need to refer to a local that actually exists in the current function.
+MiniRust programs need to satisfy some conditions to be well-formed and avoid panics during evaluation, e.g. the operand on an `If` needs to always evaluate to a `bool`.
 
-TODO: define this.
+- TODO: define this. Or should we just make some of these panics into UB?
