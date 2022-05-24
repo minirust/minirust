@@ -165,17 +165,17 @@ That corresponds to ruling out ptr-to-int transmutation.
 
 ### Raw pointers
 
-For simplicity, we assume `PTR_SIZE` is 8 bytes.
-TODO: Write this in a way that is generic over `PTR_SIZE`.
+Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 
 ```rust
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
-    let [b0, b1, b2, b3, b4, b5, b6, b7] = *bytes else { return None };
-    // Get the address. Will fail if any byte is uninitialized.
-    let addr = ENDIANESS.decode(signed, [b0.data()?, b1.data()?, b2.data()?, b3.data()?, b4.data()?, b5.data()?, b6.data()?, b7.data()?]).to_u64();
+    if bytes.len() != PTR_SIZE { return None; }
+    // Convert into list of bytes; fail if any byte is uninitialized.
+    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
+    let addr = ENDIANESS.decode(signed, &bytes_data).to_u64();
     // Get the provenance. Must be the same for all bytes.
-    let provenance = b0.provenance();
-    for b in [b0, b1, b2, b3, b4, b5, b6, b7] {
+    let provenance = bytes[0].provenance();
+    for b in bytes {
         if b.provenance() != provenance { return None; }
     }
     Some(Pointer { addr, provenance })
