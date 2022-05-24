@@ -231,7 +231,7 @@ This avoids having two encodings of the same abstract value.
 
 ### References and `Box`
 
-```
+```rust
 /// Check if the given pointer is valid for safe pointer types (`Ref`, `Box`).
 fn check_safe_ptr(ptr: Pointer, pointee: Type) -> bool {
     // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.

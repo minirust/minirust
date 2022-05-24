@@ -239,7 +239,6 @@ impl Machine {
             func,
             locals,
             next: (func.start, 0),
-            return_place,
         });
     }
 }
