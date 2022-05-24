@@ -53,8 +53,7 @@ If you want to help, please talk to me -- PRs to add missing features are very w
   * [Memory interface](mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
 * MiniRust language
   * [Prelude](lang/prelude.md): common definitions and parameters of the language
-  * [Values](lang/values.md): the domain of high-level MiniRust values
-  * [Types](lang/types.md): the set of MiniRust types **and how they relate values with their representation** (a key part of the language)
+  * [Values and Types](lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
   * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine (AM)
   * [Semantics](lang/step.md): the operational semantics ("`step` function") of the MiniRust Abstract Machine
