@@ -168,6 +168,7 @@ impl Machine {
 Assignment evaluates its two operands, and then stores the value into the destination.
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
+- TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust. Is that a good idea? Can we make the order not matter for UB-free executions by adding more aliasing UB?
 
 ```rust
 impl Machine {
@@ -303,3 +304,6 @@ impl Machine {
     }
 }
 ```
+
+Note that the caller has no guarantee at all about the value that it finds in its return place.
+It should probably do a `Finalize` as the next step to encode that it would be UB for the callee to return an invalid value.
