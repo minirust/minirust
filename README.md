@@ -24,9 +24,9 @@ We might have a type system in the future as a basic sanity check, but MiniRust 
 The most precise way to write down the MiniRust spec would be with mathematical notation.
 However, without LaTeX this is a pain, and it also involves a lot of jargon which hurts accessibility of the spec.
 Therefore, the spec is written in a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
-imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types.
+imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
 We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
-Also, all types are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
+Also, all types except for mutable references are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
 We use `Result` to make operations fallible (where failure indicates UB or machine termination), and omit trailing `Ok(())`.
