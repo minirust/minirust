@@ -208,6 +208,8 @@ impl Type {
 Again, if any byte is `AbstractByte::Ptr` this will return `None`.
 That corresponds to ruling out ptr-to-int transmutation.
 
+- TODO: Is that the right semantics? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286).
+
 ### Raw pointers
 
 Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
@@ -219,7 +221,7 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
     let addr = ENDIANESS.decode(signed, &bytes_data).to_u64();
     // Get the provenance. Must be the same for all bytes.
-    let provenance = bytes[0].provenance();
+    let provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
         if b.provenance() != provenance { return None; }
     }
@@ -234,7 +236,14 @@ impl Type {
 ```
 
 Note that, crucially, a pointer with "invalid" (`None`) provenance is never encoded as `AbstractByte::Ptr`.
+(This is not even structurally possible: `Pointer` carries `Option<Provenance>` while `AbstractByte::Ptr` carries `Provenance`.)
 This avoids having two encodings of the same abstract value.
+
+- TODO: This definition fails to decode a pointer unless the provenance is the same for *all* its bytes.
+  Is that the semantics we want? It seems most conservative. Also, if we want to keep the perfect symmetry of decode and encode,
+  if during decoding we allow some bytes to have no provenance (and then use the provenance of the remaining bytes),
+  then during encoding we allow the machine to pick an arbitrary subset of bytes and *not* give it provenance.
+  That seems rather odd.
 
 ### References and `Box`
 
