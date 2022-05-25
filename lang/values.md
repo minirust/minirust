@@ -147,7 +147,16 @@ impl Type {
 
 ## Representation relation
 
-The main purpose of types is to define how [values](values.md) are (de)serialized from memory:
+The main purpose of types is to define how [values](values.md) are (de)serialized from memory.
+`decode` converts a list of bytes into a value; this operation can fail but it is otherwise functional (i.e., a given list of bytes encodes at most one value).
+`encode` inverts `decode`; we can define it generically by saying "just pick a list of bytes that would decode to the given value".
+This means that starting with a `value`, if we encode and then decode it, we will definitely get that `value` back (assuming it is valid for the given type),
+and if we start with some `bytes`, if we decode and then encode them, we have a set of possible encodings to pick from but that set definitely contains the original `bytes` that we started with (again assuming it is valid for the given type).
+This is called an "adjoint" relationship, or a "Galois connection".
+
+The definition of `decode` is huge, so we split it by type.
+(We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
+If any pattern is not covered, that is a bug in the spec.)
 
 ```rust
 impl Type {
@@ -168,10 +177,6 @@ impl Type {
     }
 }
 ```
-
-The definition of `decode` is huge, so we split it by type.
-(We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
-If any pattern is not covered, that is a bug in the spec.)
 
 - TODO: Define this for the other types.
 
