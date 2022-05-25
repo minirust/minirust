@@ -52,6 +52,21 @@ But we also need to ensure the entire document stays coherent, and I already hav
 - TODO: establish global variable name conventions. Do we use `v: Value`, `val: Value`, `value: Value`?
   What do we use for `ValueExpr`? Similar questions exist around `Place`/`PlaceExpr` and `ty: Type`/`type: Type`.
 
+## What about a-mir-formality?
+
+You might wonder how this project compares to Niko's [a-mir-formality](https://github.com/nikomatsakis/a-mir-formality/).
+The obvious answer is that Niko is much better at picking names. ;)
+
+On a more serious note, these things happened in parallel -- MiniRust has been sitting in my head for well over a year, i.e. long before a-mir-formality was made public.
+The projects also have very different scope: MiniRust is *only* about the operational semantics.
+a-mir-formality is a lot more ambitious; as the [inaugurate blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
+a-mir-formality is machine-readable and written in PLT redex; MiniRust uses pseudo-code that is not currently machine-readable (but I have ideas :).
+The primary goals of MiniRust are to be precise and human-readable; I would argue that while PLT redex is more precise than the style I use, it does lack in readability when compared with Rust-style pseudo-code.
+I am willing to sacrifice some precision for the significant gain in readability, in particular since I think we can recover this precision with some amount of work.
+And finally, the "operational semantics" layer in a-mir-formality is "not even sketched out yet", so as of now, the projects are actually disjoint.
+If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just written in a different style.
+(Niko writes this layer of a-mir-formality is "basically equivalent to Miri"; MiniRust is basically an idealized Miri, so I think this would work well.)
+
 ## Table of Contents
 
 * [Prelude](prelude.md): common definitions and parameters shared by everything
