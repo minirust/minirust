@@ -15,7 +15,7 @@ const PTR_SIZE: Size;
 trait Endianess {
     fn decode<N: usize>(self, signed: Signedness, bytes: [u8; N]) -> BigInt;
     /// This can fail if the `int` does not fit into `N` bytes, or if it is
-    /// negative and `signed == Signed`.
+    /// negative and `signed == Unsigned`.
     fn encode<N: usize>(self, signed: Signedness, int: BigInt) -> Option<[u8; N]>;
 }
 const ENDIANESS: impl Endianess;
