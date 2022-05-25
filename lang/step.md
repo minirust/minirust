@@ -8,6 +8,9 @@ One design decision I made here is that `eval_value` and `eval_place` just retur
 This could be done either way, and has consequences for where in the syntax we need type annotations.
 I am not sure which is better.
 Miri always keeps the type with the value, so I wanted to experiment with the alternative approach and see how it goes.
+The MiniRust approach has the advantage of better separating "static" from "dynamic" information.
+However, I think it needs slightly more careful type-checker as part of well-formedness checking.
+On the other hand, the Miri approach makes for easier to state invariants during execution.
 
 ## Top-level step function
 
@@ -112,11 +115,11 @@ It also ensures that the pointer is dereferencable.
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Deref(value, type): PlaceExpr) -> Result<Place> {
+    fn eval_place(&mut self, Deref(value, layout): PlaceExpr) -> Result<Place> {
         let Value::Ptr(p) = self.eval_value(value)? else {
             panic!("dereferencing a non-pointer")
         };
-        self.mem.dereferencable(p, type.size(), type.align())?;
+        self.mem.dereferencable(p, layout.size, layout.align)?;
         Ok(p)
     }
 }

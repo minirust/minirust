@@ -53,19 +53,29 @@ As always, this definition is incomplete.
 In the future, we might want to separate a type from its layout, and consider these separate components -- we will have to see what works best.
 
 ```rust
+/// The "layout" of a type defines its outline or shape.
+struct Layout {
+    size: Size,
+    align: Align,
+    inhabited: bool,
+}
+
 enum Type {
     Int(IntType),
     Bool,
     Ref {
         mutbl: Mutability,
-        pointee: Type,
+        /// We only need to know the layout of the pointee.
+        /// (This also means we have a finite representation even when the Rust type is recursive.)
+        pointee: Layout,
     },
     Box {
-        pointee: Type,
+        pointee: Layout,
     },
     RawPtr {
         mutbl: Mutability,
-        pointee: Type,
+        /// TODO: do we need this at all?
+        pointee: Layout,
     },
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     /// It is also used for arrays; then all fields will have the same type.
@@ -125,17 +135,25 @@ enum TagEncoding { /* ... */ }
 Note that references have no lifetime, since the lifetime is irrelevant for their representation in memory!
 They *do* have a mutability since that is (or will be) relevant for the memory model.
 
+### Well-formed types
+
+Not all types are well-formed; for example, the fields of a `Tuple` must not overlap.
+
+- TODO: define this
+
 ## Type properties
 
-Each type has a size, an alignment, and it is considered uninhabited or not.
+Each type has a layout.
 
-- TODO: define size, alignment, uninhabited for our types.
+- TODO: define this
 
 ```rust
 impl Type {
-    fn size(self) -> Size;
-    fn align(self) -> Align;
-    fn uninhabited(self) -> bool;
+    fn layout(self) -> Layout;
+
+    fn size(self) -> Size { self.layout().size }
+    fn align(self) -> Align { self.layout().align }
+    fn inhabited(self) -> bool { self.layout().inhabited }
 }
 ```
 
@@ -146,11 +164,12 @@ The main purpose of types is to define how [values](values.md) are (de)serialize
 ```rust
 impl Type {
     /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
-    /// `decode` must satisfy the following properties:
-    ///  - `type.decode(bytes) = Some(_) -> bytes.len() == type.size()`.
-    ///    In other words, all valid low-level representations must have the length given by the size of the type.
-    ///  - `type.uninhabited() -> type.decode(bytes) = None`.
-    ///    In other words, uninhabited type can never successfully decode anything.
+    /// `decode` must satisfy the following property:
+    /// ```
+    /// type.decode(bytes) = Some(_) -> bytes.len() == type.size() && type.inhabited()`
+    /// ```
+    /// In other words, all valid low-level representations must have the length given by the size of the type,
+    /// and the existence of a valid low-level representation implies that the type is inhabited.
     fn decode(self, bytes: List<AbstractByte>) -> Option<Value>;
 
     /// Encode `v` into a list of bytes according to the type `self`.
@@ -233,10 +252,10 @@ This avoids having two encodings of the same abstract value.
 
 ```rust
 /// Check if the given pointer is valid for safe pointer types (`Ref`, `Box`).
-fn check_safe_ptr(ptr: Pointer, pointee: Type) -> bool {
+fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
     // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
     // (Think: uninhabited types have impossible alignment.)
-    ptr.addr != 0 && ptr.addr % pointee.align() == 0 && !pointee.uninhabited()
+    ptr.addr != 0 && ptr.addr % pointee.align == 0 && pointee.inhabited
 }
 
 impl Type {
@@ -271,6 +290,15 @@ trait TypedMemory: Memory {
             Some(val) => Ok(val),
             None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
         }
+    }
+
+    /// Check that the given pointer is dereferencable according to the given layout.
+    fn layout_dereferencable(&self, ptr: Self::Pointer, layout: Layout) -> Result {
+        if !layout.inhabited() {
+            // TODO: I don't think Miri does this check.
+            throw_ub!("uninhabited types are not dereferencable");
+        }
+        self.dereferencable(ptr, layout.size, layout.align)?;
     }
 }
 ```

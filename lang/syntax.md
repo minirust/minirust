@@ -105,13 +105,13 @@ enum ValueExpr {
     },
     /// Unary operators.
     UnOp {
-        op: BinOp,
+        operator: BinOp,
         operand: ValueExpr,
     }
     /// Binary operators.
     BinOp {
         left: ValueExpr,
-        op: BinOp,
+        operator: BinOp,
         right: ValueExpr,
     }
 }
@@ -131,7 +131,10 @@ enum PlaceExpr {
     /// Denotes a local variable.
     Local(LocalName),
     /// Dereference a value (of pointer/reference type).
-    Deref(ValueExpr, Type),
+    Deref {
+        operand: ValueExpr,
+        pointee: Layout,
+    }
 }
 ```
 
