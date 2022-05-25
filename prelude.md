@@ -12,4 +12,32 @@ type Result<T=()> = std::result::Result<T, TerminationInfo>;
 /// and <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html>.
 type Size;
 type Align;
+
+/// Whether an integer value is signed or unsigned.
+enum Signedness {
+    Unsigned,
+    Signed,
+}
+pub use Signedness::*;
+
+/// Whether a pointer/reference/allocation is mutable or immutable.
+enum Mutability {
+    Mutable,
+    Immutable,
+}
+pub use Mutability::*;
+
+
+/// The type of mathematical integers.
+/// We assume all the usual arithmetic operations to be defined.
+type BigInt;
+
+impl BigInt {
+    /// Returns the unique value that is equal to `self` modulo `2^size.bits()`.
+    /// If `signed == Unsigned`, the result is in the interval `0..2^size.bits()`,
+    /// else it is in the interval `-2^(size.bits()-1) .. 2^(size.bits()-1)`.
+    ///
+    /// `size` must not be zero.
+    fn modulo(self, signed: Signedess, size: Size) -> BigInt;
+}
 ```

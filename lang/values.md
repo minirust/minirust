@@ -114,18 +114,6 @@ struct IntType {
 
 type Fields = List<(Size, Type)>; // (offset, type) pair for each field
 
-enum Signedness {
-    Unsigned,
-    Signed,
-}
-pub use Signedness::*;
-
-enum Mutability {
-    Mutable,
-    Immutable,
-}
-pub use Mutability::*;
-
 /// We leave the details of enum tags to the future.
 /// (We might want to extend the "variants" field of `Enum` to also have a
 /// discriminant for each variant. We will see.)

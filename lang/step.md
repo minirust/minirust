@@ -40,7 +40,13 @@ impl Machine {
 
 ## Value Expressions
 
-- TODO: Add unary and binary operators.
+This section defines the following function:
+
+```rust
+impl Machine {
+    fn eval_value(&mut self, val: ValueExpr) -> Result<Value>;
+}
+```
 
 ### Constants
 
@@ -86,6 +92,24 @@ impl Machine {
 }
 ```
 
+### Unary and binary operators
+
+The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](operator.md).
+
+```rust
+impl Machine {
+    fn eval_value(&mut self, UnOp { operator, operand }: ValueExpr) -> Result<Value> {
+        let operand = self.eval_value(operand)?;
+        self.eval_un_op(operator, operand)?
+    }
+    fn eval_value(&mut self, BinOp { operator, left, right }: ValueExpr) -> Result<Value> {
+        let left = self.eval_value(left)?;
+        let right = self.eval_value(right)?;
+        self.eval_bin_op(operator, left, right)?
+    }
+}
+```
+
 ## Place Expressions
 
 Place expressions evaluate to places.
@@ -93,6 +117,10 @@ For now, that is just a pointer (but this might have to change).
 
 ```rust
 type Place = Pointer;
+
+impl Machine {
+    fn eval_place(&mut self, place: PlaceExpr) -> Result<Place>;
+}
 ```
 
 ### Locals
@@ -128,6 +156,12 @@ impl Machine {
 ## Statements
 
 Here we define how statements are evaluated.
+
+```rust
+impl Machine {
+    fn eval_statement(&mut self, statement: Statement);
+}
+```
 
 ### Assignment
 
@@ -182,6 +216,12 @@ impl Machine {
 ```
 
 ## Terminators
+
+```rust
+impl Machine {
+    fn eval_terminator(&mut self, terminator: Terminator);
+}
+```
 
 ### Goto
 

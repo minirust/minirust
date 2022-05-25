@@ -110,8 +110,8 @@ enum ValueExpr {
     }
     /// Binary operators.
     BinOp {
-        left: ValueExpr,
         operator: BinOp,
+        left: ValueExpr,
         right: ValueExpr,
     }
 }
@@ -119,6 +119,8 @@ enum ValueExpr {
 enum UnOp {
     /// Negate an integer value.
     INeg(IntType),
+    /// Cast an integer to another.
+    ICast { to: IntType },
 }
 
 enum BinOp {

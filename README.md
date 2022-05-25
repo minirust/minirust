@@ -49,6 +49,9 @@ I hope to slowly chip away at all this over time.
 If you want to help, please talk to me -- PRs to add missing features are very welcome. :)
 But we also need to ensure the entire document stays coherent, and I already have vague ideas for many of these things.
 
+- TODO: establish global variable name conventions. Do we use `v: Value`, `val: Value`, `value: Value`?
+  What do we use for `ValueExpr`? Similar questions exist around `Place`/`PlaceExpr` and `ty: Type`/`type: Type`.
+
 ## Table of Contents
 
 * [Prelude](prelude.md): common definitions and parameters shared by everything
@@ -60,3 +63,4 @@ But we also need to ensure the entire document stays coherent, and I already hav
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
   * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine (AM)
   * [Semantics](lang/step.md): the operational semantics ("`step` function") of the MiniRust Abstract Machine
+    * [Operator semantics](lang/operator.md): the operational semantics of unary and binary operators
