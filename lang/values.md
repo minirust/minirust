@@ -29,8 +29,8 @@ enum Value {
         idx: BigInt,
         data: Value,
     },
-    /// A "bag of raw bytes", used for unions.
-    RawBag(List<AbstractByte>),
+    /// A "bag of bytes", used for unions.
+    Bytes(List<AbstractByte>),
 }
 ```
 
@@ -346,7 +346,7 @@ impl<T: PartialOrd> PartialOrd for List<T> {
 }
 ```
 
-For `Value`, we lift the order on byte lists to relate `RawBag`s, and otherwise require equality:
+For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise require equality:
 ```rust
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
@@ -361,7 +361,7 @@ impl PartialOrd for Value {
                 vals1 <= vals2,
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
                 idx == idx1 && data1 <= data2
-            (RawBag(bytes1), RawBag(bytes2)) => bytes1 <= bytes2,
+            (Bytes(bytes1), Bytes(bytes2)) => bytes1 <= bytes2,
             _ => false
         }
     }
