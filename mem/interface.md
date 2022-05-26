@@ -33,6 +33,7 @@ Abstract bytes differ from `u8` to support representing uninitialized Memory and
 We define the `AbstractByte` type as follows, where `Provenance` will later be instantiated with the `Memory::Provenance` associated type.
 
 ```rust
+#[derive(PartialEq, Eq)]
 enum AbstractByte<Provenance> {
     /// An uninitialized byte.
     Uninit,
@@ -72,6 +73,7 @@ type Address = u64;
 /// A "pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
+#[derive(PartialEq, Eq)]
 struct Pointer<Provenance> {
     addr: Address,
     provenance: Option<Provenance>,
@@ -83,7 +85,7 @@ struct Pointer<Provenance> {
 /// change the current state in concurrent memory models and in Stacked Borrows).
 trait MemoryInterface {
     /// The type of pointer provenance.
-    type Provenance;
+    type Provenance : Eq;
 
     /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
     /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.

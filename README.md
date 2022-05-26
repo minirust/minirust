@@ -33,8 +33,9 @@ We use `Result` to make operations fallible (where failure indicates UB or machi
 We use a `throw_ub!` macro to make the current function return a UB error, and `throw_machine_step!` to indicate that and how the machine has stopped.
 We use `panic!` (and `unwrap` and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
 
-We also need one language feature that Rust does not have direct support for: non-determinism.
-The function `pick<T>(fn(T) -> bool) -> T` will return a value of type `T` such that the given closure returns `true` for this value.
+We also need one language feature that Rust does not have direct support for: functions returning `Result` can exhibit non-determinism.
+(If you are a monad kind of person, think of `Result` as also containing the non-determinism monad, not just the error monad.)
+The function `pick<T>(fn(T) -> bool) -> Result<T>` will return a value of type `T` such that the given closure returns `true` for this value.
 If there is no such value, the function does not return. This is a bug, the spec should never do that.
 This non-determinism is interpreted *daemonically*, which means that the compiler can refine it arbitrarily and the program has to be correct for every possible choice.
 

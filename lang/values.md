@@ -14,6 +14,7 @@ However, before we can even start specifying the relation, we have to specify th
 The MiniRust value domain is described by the following type definition.
 
 ```rust
+#[derive(PartialEq, Eq)]
 enum Value {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -41,7 +42,7 @@ That is okay; all previously defined representation relations are still well-def
 
 Note that MiniRust types play a somewhat different role than Rust types:
 every Rust type corresponds to a MiniRust type, but MiniRust types are merely annotated at various operations to define how data is represented in memory.
-Basically, they only define a (de)serialization format -- the **representation relation**.
+Basically, they only define a (de)serialization format -- the **representation relation**, define by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
 In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists if (abstract) bytes and [values](values.md).
 For pointer types (references and raw pointers), we types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
@@ -148,13 +149,10 @@ impl Type {
 ## Representation relation
 
 The main purpose of types is to define how [values](values.md) are (de)serialized from memory.
-`decode` converts a list of bytes into a value; this operation can fail but it is otherwise functional (i.e., a given list of bytes encodes at most one value).
-`encode` inverts `decode`; we can define it generically by saying "just pick a list of bytes that would decode to the given value".
-This means that starting with a `value`, if we encode and then decode it, we will definitely get that `value` back (assuming it is valid for the given type),
-and if we start with some `bytes`, if we decode and then encode them, we have a set of possible encodings to pick from but that set definitely contains the original `bytes` that we started with (again assuming it is valid for the given type).
-This is called an "adjoint" relationship, or a "Galois connection".
+`decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
+`encode` inverts `decode`; it will always work when the value is valid for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
 
-The definition of `decode` is huge, so we split it by type.
+The definition of these functions is huge, so we split it by type.
 (We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
 If any pattern is not covered, that is a bug in the spec.)
 
@@ -171,10 +169,9 @@ impl Type {
 
     /// Encode `v` into a list of bytes according to the type `self`.
     /// Note that it is a spec bug if `v` is not valid according to `ty`!
-    fn encode(self, v: Value) -> List<AbstractByte> {
-        // Non-deterministically pick a list of bytes that decodes to the given value.
-        pick(|bytes| self.decode(bytes) == Some(v))
-    }
+    ///
+    /// See below for the general properties relation `encode` and `decode`.
+    fn encode(self, v: Value) -> List<AbstractByte>;
 }
 ```
 
@@ -190,6 +187,10 @@ impl Type {
             [AbstractByte::Raw(1)] => Some(Value::Bool(true)),
             _ => None,
         }
+    }
+    fn encode(Bool: Self, v: Value) -> List<AbstractByte> {
+        let Value::Bool(b) = v else { panic!() };
+        [AbstractByte::Raw(if b then 1 else 0)]
     }
 }
 ```
@@ -207,6 +208,11 @@ impl Type {
         let [AbstractByte::Raw(b0), AbstractByte::Raw(b1)] = *bytes else { return None };
         Some(Value::Int(ENDIANESS.decode(signed, [b0, b1])))
     }
+    fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, v: Value) -> List<AbstractByte> {
+        let Value::Int(i) = v else { panic!() };
+        let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
+        [AbstractByte::Raw(b0), AbstractByte::Raw(b1)]
+    }
 }
 ```
 
@@ -223,8 +229,8 @@ Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     if bytes.len() != PTR_SIZE { return None; }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
-    let addr = ENDIANESS.decode(signed, &bytes_data).to_u64();
+    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect().unwrap();
+    let addr = ENDIANESS.decode(Unsigned, &bytes_data).to_u64();
     // Get the provenance. Must be the same for all bytes.
     let provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
@@ -233,9 +239,20 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     Some(Pointer { addr, provenance })
 }
 
+fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
+    let bytes_data: [u8; PTR_SIZE] = ENDIANESS.encode(Unsigned, ptr.addr).unwrap();
+    bytes_data
+        .map(|b| if let Some(p) = ptr.provenance { AbstractByte::Ptr(b, p) } else { AbstractByte::Raw(b) })
+        .collect()
+}
+
 impl Type {
     fn decode(RawPtr { .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         Some(Value::Ptr(decode_ptr(bytes)?))
+    }
+    fn encode(RawPtr { .. }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Ptr(ptr) = v else { panic!() };
+        encode_ptr(ptr)
     }
 }
 ```
@@ -245,10 +262,7 @@ Note that, crucially, a pointer with "invalid" (`None`) provenance is never enco
 This avoids having two encodings of the same abstract value.
 
 - TODO: This definition fails to decode a pointer unless the provenance is the same for *all* its bytes.
-  Is that the semantics we want? It seems most conservative. Also, if we want to keep the perfect symmetry of decode and encode,
-  if during decoding we allow some bytes to have no provenance (and then use the provenance of the remaining bytes),
-  then during encoding we allow the machine to pick an arbitrary subset of bytes and *not* give it provenance.
-  That seems rather odd.
+  Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
 
 ### References and `Box`
 
@@ -266,10 +280,71 @@ impl Type {
         if !check_safe_ptr(ptr, pointee) { return None; }
         Some(Value::Ptr(ptr))
     }
+    fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Ptr(ptr) = v else { panic!() };
+        encode_ptr(ptr)
+    }
 }
 ```
 
 Note that types like `&!` are uninhabited: when the pointee type is uninhabited, there exists no valid reference to that type.
+
+### Generic properties
+
+There are some generic properties that `encode` and `decode` must satisfy.
+For instance, starting with a (valid) value, encoding it, and then decoding it, must produce the same result.
+
+To make this precise, we first have to define an order in values and byte lists that captures when one value (byte list) is "more defined" than another.
+Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
+```rust
+impl PartialOrd for AbstractByte {
+    fn le(self, other: Self) -> bool {
+        self == Uninit || self == other
+    }
+}
+```
+Basically, `Uninit <= _`; otherwise this is just the reflexive relation.
+
+The order on `List<AbstractByte>` is assumed to be such that `bytes1 <= bytes2` if and only if they have the same length and are bytewise related by `<=`.
+
+For `Value`, we lift the order on byte lists to relate `RawBag`s, and otherwise require equality:
+```rust
+impl PartialOrd for Value {
+    fn le(self, other: Self) -> bool {
+        matches (self, other) {
+            (RawBag(bytes1), RawBag(bytes2)) => bytes1 <= bytes2,
+            _ => self == other
+        }
+    }
+}
+```
+
+Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only of `v1 <= v2`.
+
+We say that a `v: Value` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
+
+Now we can state the laws that we require.
+First of all, `encode` and `decode` must both be "monotone":
+- If `val1 <= val2` (and if both values are valid for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
+- If `bytes1 <= bytes2`, then `ty.decode(val1) <= ty.decode(val2)`.
+
+More interesting are the round-trip properties:
+- If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
+  In other words, encoding a value and then decoding it again is lossless.
+- If `ty.decode(bytes) == Some(val)`, then `ty.encode(val) <= bytes`.
+  In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
+  (some bytes might have become `Uninit`, but otherwise it is the same).
+
+The last property might sound surprising, but consider what happens for padding: `encode` will always make it `Uninit`,
+so a bytes-value-bytes roundtrip of some data with padding will reset some bytes to `Uninit`.
+
+Together, these properties ensure that it is okay to optimize away a self-assignment like `tmp = x; x = tmp`.
+The effect of this assignment (as defined [later](step.md)) is to decode the `bytes1` stored at `x`, and then encode them again into `bytes2` and store that back.
+(We ignore the intermediate storage of these bytes in `tmp`.)
+The second round-trip property ensures that `bytes2 <= bytes2`.
+If we remove the assignment, we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).
+According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
+For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
 
 ## Typed memory accesses
 
