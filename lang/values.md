@@ -364,6 +364,9 @@ More interesting are the round-trip properties:
   In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
   (some bytes might have become `Uninit`, but otherwise it is the same).
 
+(For the category theory experts: this is called an "adjoint" relationship, or a "Galois connection" in abstract interpretation speak.
+Monotonicity ensures that `encode` and `decode` are functors.)
+
 The last property might sound surprising, but consider what happens for padding: `encode` will always make it `Uninit`,
 so a bytes-value-bytes roundtrip of some data with padding will reset some bytes to `Uninit`.
 
