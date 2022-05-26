@@ -368,7 +368,7 @@ impl PartialOrd for Value {
 }
 ```
 
-Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only of `v1 <= v2`:
+Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only if `v1 <= v2`:
 ```rust
 impl<T: PartialOrd> PartialOrd for Option<T> {
     fn le(self, other: Self) -> bool {
@@ -402,10 +402,10 @@ The last property might sound surprising, but consider what happens for padding:
 so a bytes-value-bytes roundtrip of some data with padding will reset some bytes to `Uninit`.
 
 Together, these properties ensure that it is okay to optimize away a self-assignment like `tmp = x; x = tmp`.
-The effect of this assignment (as defined [later](step.md)) is to decode the `bytes1` stored at `x`, and then encode them again into `bytes2` and store that back.
-(We ignore the intermediate storage of these bytes in `tmp`.)
-The second round-trip property ensures that `bytes2 <= bytes2`.
-If we remove the assignment, we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).
+The effect of this assignment (as defined [later](step.md)) is to decode the `bytes1` stored at `x`, and then encode the resulting value again into `bytes2` and store that back.
+(We ignore the intermediate storage in `tmp`.)
+The second round-trip property ensures that `bytes2 <= bytes1`.
+If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
 
