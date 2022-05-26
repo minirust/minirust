@@ -289,6 +289,35 @@ impl Type {
 
 Note that types like `&!` are uninhabited: when the pointee type is uninhabited, there exists no valid reference to that type.
 
+### Tuples (and arrays, structs, ...)
+
+For simplicity, we only define pairs for now.
+
+```rust
+impl Type {
+    fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != size { return None; }
+        let (size1, type1) = field1;
+        let val1 = type1.decode(bytes[size1..type1.size()]);
+        let (size2, type2) = field2;
+        let val2 = type1.decode(bytes[size2..type2.size()]);
+        Some(Value::Tuple([val1, val2]))
+    }
+    fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Tuple([val1, val2]) = val else { panic!() };
+        let mut bytes = [AbstractByte::Uninit; size];
+        let (size1, type1) = field1;
+        bytes[size1..type1.size()] = type1.encode(val1);
+        bytes[size2..type2.size()] = type2.encode(val1);
+        bytes
+    }
+}
+```
+
+Note in particular that `decode` ignores the bytes which are before, between, or after the fields (usually called "padding").
+`encode` in turn always and deterministically makes those bytes `Uninit`.
+(The generic properties defined below make this the only possible choice for `encode`.)
+
 ### Generic properties
 
 There are some generic properties that `encode` and `decode` must satisfy.
