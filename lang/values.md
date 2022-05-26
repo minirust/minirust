@@ -188,9 +188,9 @@ impl Type {
             _ => None,
         }
     }
-    fn encode(Bool: Self, v: Value) -> List<AbstractByte> {
-        let Value::Bool(b) = v else { panic!() };
-        [AbstractByte::Raw(if b then 1 else 0)]
+    fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
+        let Value::Bool(b) = val else { panic!() };
+        [AbstractByte::Raw(if b { 1 } else { 0 })]
     }
 }
 ```
@@ -208,8 +208,8 @@ impl Type {
         let [AbstractByte::Raw(b0), AbstractByte::Raw(b1)] = *bytes else { return None };
         Some(Value::Int(ENDIANESS.decode(signed, [b0, b1])))
     }
-    fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, v: Value) -> List<AbstractByte> {
-        let Value::Int(i) = v else { panic!() };
+    fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
+        let Value::Int(i) = val else { panic!() };
         let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
         [AbstractByte::Raw(b0), AbstractByte::Raw(b1)]
     }
@@ -251,7 +251,7 @@ impl Type {
         Some(Value::Ptr(decode_ptr(bytes)?))
     }
     fn encode(RawPtr { .. }: Self, val: Value) -> List<AbstractByte> {
-        let Value::Ptr(ptr) = v else { panic!() };
+        let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
 }
@@ -281,13 +281,13 @@ impl Type {
         Some(Value::Ptr(ptr))
     }
     fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
-        let Value::Ptr(ptr) = v else { panic!() };
+        let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
 }
 ```
 
-Note that types like `&!` are uninhabited: when the pointee type is uninhabited, there exists no valid reference to that type.
+Note that types like `&!` have no valid value: when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
 
 ### Tuples (and arrays, structs, ...)
 
@@ -298,17 +298,18 @@ impl Type {
     fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { return None; }
         let (size1, type1) = field1;
-        let val1 = type1.decode(bytes[size1..type1.size()]);
+        let val1 = type1.decode(bytes[size1..][..type1.size()]);
         let (size2, type2) = field2;
-        let val2 = type1.decode(bytes[size2..type2.size()]);
+        let val2 = type1.decode(bytes[size2..][..type2.size()]);
         Some(Value::Tuple([val1, val2]))
     }
     fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple([val1, val2]) = val else { panic!() };
         let mut bytes = [AbstractByte::Uninit; size];
         let (size1, type1) = field1;
-        bytes[size1..type1.size()] = type1.encode(val1);
-        bytes[size2..type2.size()] = type2.encode(val1);
+        bytes[size1..][..type1.size()] = type1.encode(val1);
+        let (size2, type2) = field2;
+        bytes[size2..][..type2.size()] = type2.encode(val2);
         bytes
     }
 }
@@ -335,20 +336,50 @@ impl PartialOrd for AbstractByte {
 Basically, `Uninit <= _`; otherwise this is just the reflexive relation.
 
 The order on `List<AbstractByte>` is assumed to be such that `bytes1 <= bytes2` if and only if they have the same length and are bytewise related by `<=`.
+In fact, we define this to be in general how lists are partially ordered:
+```rust
+impl<T: PartialOrd> PartialOrd for List<T> {
+    fn le(self, other: Self) -> bool {
+        self.len() == other.len() &&
+            self.iter().zip(other.iter()).all(|(l, r)| l <= r)
+    }
+}
+```
 
 For `Value`, we lift the order on byte lists to relate `RawBag`s, and otherwise require equality:
 ```rust
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
         matches (self, other) {
+            (Int(i1), Int(i2)) =>
+                i1 == i2,
+            (Bool(b1), Bool(b2)) =>
+                b1 == b2,
+            (Ptr(p1), Ptr(p2)) =>
+                p1 == p2,
+            (Tuple(vals1), Tuple(vals2)) =>
+                vals1 <= vals2,
+            (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
+                idx == idx1 && data1 <= data2
             (RawBag(bytes1), RawBag(bytes2)) => bytes1 <= bytes2,
-            _ => self == other
+            _ => false
         }
     }
 }
 ```
 
-Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only of `v1 <= v2`.
+Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only of `v1 <= v2`:
+```rust
+impl<T: PartialOrd> PartialOrd for Option<T> {
+    fn le(self, other: Self) -> bool {
+        match (self, other) {
+            (None, _) => true,
+            (Some(l), Some(r)) => l <= r,
+            _ => false
+        }
+    }
+}
+```
 
 We say that a `v: Value` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
 
@@ -401,13 +432,13 @@ trait TypedMemory: Memory {
         }
     }
 
-    /// Check that the given pointer is dereferencable according to the given layout.
-    fn layout_dereferencable(&self, ptr: Self::Pointer, layout: Layout) -> Result {
+    /// Check that the given pointer is dereferenceable according to the given layout.
+    fn layout_dereferenceable(&self, ptr: Self::Pointer, layout: Layout) -> Result {
         if !layout.inhabited() {
             // TODO: I don't think Miri does this check.
-            throw_ub!("uninhabited types are not dereferencable");
+            throw_ub!("uninhabited types are not dereferenceable");
         }
-        self.dereferencable(ptr, layout.size, layout.align)?;
+        self.dereferenceable(ptr, layout.size, layout.align)?;
     }
 }
 ```
@@ -426,10 +457,10 @@ fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
 }
 ```
 
-For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferencable" and "points to valid data" cannot be part of the validity invariant for references.
+For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
 The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
 This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything juts falls out of how a "typed copy" applies the value representation twice.
 
-Justifying the `dereferencable` LLVM attribute is, in this case, left to the aliasing model (e.g. [Stacked Borrows]), just like the `noalias` attribute.
+Justifying the `dereferenceable` LLVM attribute is, in this case, left to the aliasing model (e.g. [Stacked Borrows]), just like the `noalias` attribute.
 
 [Stacked Borrows]: stacked-borrows.md

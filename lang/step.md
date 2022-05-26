@@ -139,7 +139,7 @@ impl Machine {
 ### Dereferencing a pointer
 
 The `*` operator turns a value of pointer type into a place.
-It also ensures that the pointer is dereferencable.
+It also ensures that the pointer is dereferenceable.
 
 ```rust
 impl Machine {
@@ -147,7 +147,7 @@ impl Machine {
         let Value::Ptr(p) = self.eval_value(value)? else {
             panic!("dereferencing a non-pointer")
         };
-        self.mem.dereferencable(p, layout.size, layout.align)?;
+        self.mem.dereferenceable(p, layout.size, layout.align)?;
         Ok(p)
     }
 }
