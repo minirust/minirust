@@ -14,17 +14,20 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_un_op(&mut self, INeg(int_type): UnOp, operand: Value) -> Result<Value> {
-        let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
-
-        let result = (-operand).modulo(int_type.signed, int_type.size);
-        Ok(Value::Int(result))
+    fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> Result<BigInt> {
+        use UnOpInt::*;
+        Ok(match op {
+            Neg => -operand,
+            Cast => operand,
+        })
     }
-
-    fn eval_un_op(&mut self, ICast { to: int_type }: UnOp, operand: Value) -> Result<Value> {
+    fn eval_un_op(&mut self, Int(op, int_type): UnOp, operand: Value) -> Result<Value> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
-        let result = operand.modulo(int_type.signed, int_type.size);
+        // Perform the operation.
+        let result = self.eval_un_op_int(op, operand);
+        // Put the result into the right range (in case of overflow).
+        let result = result.modulo(int_type.signed, int_type.size);
         Ok(Value::Int(result))
     }
 }
@@ -42,11 +45,21 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_bin_op(&mut self, IAdd(int_type): BinOp, left: Value, right: Value) -> Result<Value> {
+    fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> Result<BigInt> {
+        use BinOpInt::*;
+        Ok(match op {
+            Add => left+right,
+            Sub => left-right,
+        })
+    }
+    fn eval_bin_op(&mut self, Int(op, int_type): BinOp, left: Value, right: Value) -> Result<Value> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
-        let result = (left+right).modulo(int_type.signed, int_type.size);
+        // Perform the operation.
+        let result = self.eval_bin_op_int(op, left, right);
+        // Put the result into the right range (in case of overflow).
+        let result = result.modulo(int_type.signed, int_type.size);
         Ok(Value::Int(result))
     }
 }

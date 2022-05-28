@@ -116,16 +116,26 @@ enum ValueExpr {
     }
 }
 
-enum UnOp {
+enum UnOpInt {
     /// Negate an integer value.
-    INeg(IntType),
+    Neg,
     /// Cast an integer to another.
-    ICast { to: IntType },
+    Cast,
+}
+enum UnOp {
+    /// An operation on integers, with the given output type.
+    Int(UnOpInt, IntType),
 }
 
-enum BinOp {
+enum BinOpInt {
     /// Add two integer values.
-    IAdd(IntType),
+    Add,
+    /// Subtract two integer values.
+    Sub,
+}
+enum BinOp {
+    /// An operation on integers, with the given output type.
+    Int(BinOpInt, IntType),
 }
 
 /// A "place expression" evaluates to a `Place`.
