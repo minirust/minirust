@@ -35,9 +35,12 @@ We use `panic!` (and `unwrap` and similar standard Rust operations) to indicate 
 
 We also need one language feature that Rust does not have direct support for: functions returning `Result` can exhibit non-determinism.
 (If you are a monad kind of person, think of `Result` as also containing the non-determinism monad, not just the error monad.)
+This is only used in the memory model; the expression language is perfectly deterministic.
 The function `pick<T>(fn(T) -> bool) -> Result<T>` will return a value of type `T` such that the given closure returns `true` for this value.
-If there is no such value, the function does not return. This is a bug, the spec should never do that.
-This non-determinism is interpreted *daemonically*, which means that the compiler can refine it arbitrarily and the program has to be correct for every possible choice.
+This non-determinism is interpreted *daemonically*, which means that the program has to be correct for every possible choice.
+In particular, if the closure is `|_| false` or `T` is uninhabited, then this corresponds to "no behavior" (which is basically the perfect opposite of Undefined Behavior, and also very confusing).
+Similarly, the function `predict<T>(fn(T) -> bool) -> Result<T>` also returns a `T` satisfying the closure, but this non-determinism is interpreted *angelically*, which means there has to *exist* a possible choice that makes the program behave as intended.
+In particular, if the closure is `|_| false` or `T` is uninhabited, then this operation is exactly the same as `hint::unreachable_unchecked()`: no possible choice exists, and hence ever reaching this operation is Undefined Behavior.
 
 ## Status
 
@@ -58,15 +61,20 @@ But we also need to ensure the entire document stays coherent, and I already hav
 You might wonder how this project compares to Niko's [a-mir-formality](https://github.com/nikomatsakis/a-mir-formality/).
 The obvious answer is that Niko is much better at picking names. ;)
 
-On a more serious note, these things happened in parallel -- MiniRust has been sitting in my head for well over a year, i.e. long before a-mir-formality was made public.
-The projects also have very different scope: MiniRust is *only* about the operational semantics.
+On a more serious note, these projects have very different scope: MiniRust is *only* about the operational semantics.
 a-mir-formality is a lot more ambitious; as the [inaugurate blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
 a-mir-formality is machine-readable and written in PLT redex; MiniRust uses pseudo-code that is not currently machine-readable (but I have ideas :).
 The primary goals of MiniRust are to be precise and human-readable; I would argue that while PLT redex is more precise than the style I use, it does lack in readability when compared with Rust-style pseudo-code.
 I am willing to sacrifice some precision for the significant gain in readability, in particular since I think we can recover this precision with some amount of work.
 And finally, the "operational semantics" layer in a-mir-formality is "not even sketched out yet", so as of now, the projects are actually disjoint.
-If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just written in a different style.
+If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just translated into PLT redex.
 (Niko writes this layer of a-mir-formality is "basically equivalent to Miri"; MiniRust is basically an idealized Miri, so I think this would work well.)
+
+## What about Miri?
+
+MiniRust is in, at least conceptually, very similar to Miri!
+You can think of it as "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and didn't care about performance nor diagnostics, then it would be implemented like this specification.
+There are some [differences between Miri and MiniRust](https://github.com/rust-lang/miri/issues/2159); these are generally Miri bugs and I intend to slowly chip away at the remaining (tricky) ones.
 
 ## Table of Contents
 
