@@ -100,7 +100,7 @@ enum ValueExpr {
     Ref {
         /// The place to create a reference to.
         target: PlaceExpr,
-        /// The type of the place.
+        /// The type of the place. Must be a reference or raw pointer type.
         type: Type,
     },
     /// Unary operators.

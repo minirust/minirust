@@ -219,7 +219,8 @@ impl Type {
 Again, if any byte is `AbstractByte::Ptr` this will return `None`.
 That corresponds to ruling out ptr-to-int transmutation.
 
-- TODO: Is that the right semantics? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286).
+- TODO: Is that the right semantics for ptr-to-int transmutation? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286).
+- TODO: This does not allow uninitialized integers. I think that is fairly clearly what we want, also considering LLVM is moving towards using `noundef` heavily to avoid many of the current issues in their `undef` handling. But this is also still [being discussed](https://github.com/rust-lang/unsafe-code-guidelines/issues/71).
 
 ### Raw pointers
 
@@ -259,7 +260,7 @@ impl Type {
 
 Note that, crucially, a pointer with "invalid" (`None`) provenance is never encoded as `AbstractByte::Ptr`.
 (This is not even structurally possible: `Pointer` carries `Option<Provenance>` while `AbstractByte::Ptr` carries `Provenance`.)
-This avoids having two encodings of the same abstract value.
+This avoids having two encodings of the same abstract value, which would violate our "generic properties" below.
 
 - TODO: This definition fails to decode a pointer unless the provenance is the same for *all* its bytes.
   Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
@@ -288,6 +289,11 @@ impl Type {
 ```
 
 Note that types like `&!` have no valid value: when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
+This means we could make `&!` itself have `inhabited: false` in its layout; I consider that decision part of "compiling surface Rust to MiniRust" and thus out-of-scope for this document.
+
+- TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
+  (The latter would not even be possible with the current structure of MiniRust.)
+  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).
 
 ### Tuples (and arrays, structs, ...)
 
@@ -325,6 +331,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 
 - TODO: Some real unions actually do not preserve all bytes, they [can have padding](https://github.com/rust-lang/unsafe-code-guidelines/issues/156).
   So we have to model that there can be "gaps" between the parts of the byte list that are preserved perfectly.
+- TODO: Should we require *some* kind of validity? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/73).
 
 ```rust
 impl Type {
@@ -476,6 +483,13 @@ fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
     }
 }
 ```
+
+Note that there is a second, different, kind of validity invariant:
+the invariant satisfied by any possible *encoding* of a value of a given type.
+The way things are defined above, `encode` is more strict than `decode` (in the sense that there are valid inputs to `decode` that `encode` will never produce).
+For example, `encode` makes padding between struct fields always `Uninit`, but `decode` accepts *any* data there.
+So after a typed assignment, the compiler can actually know that this stricter kind of validity is satisfied.
+The programmer, on the other hand, only ever has to ensure the weaker kind of validity defined above.
 
 For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
 The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.

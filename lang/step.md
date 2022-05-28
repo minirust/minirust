@@ -65,6 +65,7 @@ impl Machine {
 This loads a value from a place (often called "place-to-value coercion").
 
 - TODO: Actually implement the "destructive" part of this.
+  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/188).
 
 ```rust
 impl Machine {
@@ -84,6 +85,8 @@ The `&` operator simply convert a place to the pointer it denotes.
 impl Machine {
     fn eval_value(&mut self, Ref { target, type }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(target)?;
+        // We need a check here, to ensure that encoding this value at the given type is valid.
+        // (If the type is a reference, and this is a packed struct, it might be insufficiently aligned.)
         if !check_safe_ptr(p, type) {
             throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
         }
@@ -141,6 +144,9 @@ impl Machine {
 The `*` operator turns a value of pointer type into a place.
 It also ensures that the pointer is dereferenceable.
 
+- TODO: Should we truly ensure that `eval_place` always creates a dereferencable pointer?
+  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
+
 ```rust
 impl Machine {
     fn eval_place(&mut self, Deref(value, layout): PlaceExpr) -> Result<Place> {
@@ -168,7 +174,8 @@ impl Machine {
 Assignment evaluates its two operands, and then stores the value into the destination.
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
-- TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust. Is that a good idea? Can we make the order not matter for UB-free executions by adding more aliasing UB?
+- TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust.
+  Is that a good idea? Can we make the order not matter for UB-free executions by adding more aliasing UB?
 
 ```rust
 impl Machine {
@@ -186,7 +193,8 @@ This statement asserts that a value satisfies its validity invariant.
 This is equivalent to the assignment `_ = place`.
 
 - TODO: Should we even have it, if it is equivalent?
-- TODO: Should this also store back the value? That would reset padding. It might also make this not equivalent to an assignment if assignment has aliasing constraints.
+- TODO: Should this also store back the value? That would reset padding.
+  It might also make this not equivalent to an assignment if assignment has aliasing constraints.
 - TODO: Should this do the job of `Retag` as well? That seems quite elegant, but might sometimes be a bit redundant.
 
 ```rust
@@ -205,11 +213,13 @@ These operations (de)allocate the memory backing a local.
 ```rust
 impl Machine {
     fn eval_statement(&mut self, StorageLive(local, type): Statement) -> Result {
+        // Here we make it a spec bug to ever mark an already live local as live.
         let p = self.mem.allocate(type.size(), type.align())?;
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
     fn eval_statement(&mut self, StorageDead(local, type): Statement) -> Result {
+        // Here we make it a spec bug to ever mark an already dead local as dead.
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
         self.mem.deallocate(p, type.size(), type.align())?;
     }
@@ -257,7 +267,8 @@ In particular, we have to initialize the new stack frame.
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
 - TODO: Right now, the *caller* allocates the return place. That makes `Return` very elegant, but is it truly what we want?
-  In particular this means the callee cannot even tread this allocation as entirely private. (Aliasing will get us *some* exclusivity but not all of it.)
+  In particular this means the callee cannot even tread this allocation as entirely private.
+  (Aliasing will get us *some* exclusivity but not all of it.)
 - TODO: This should do some kind of ABI compatibility check. Not all types with the same layout are okay to be type-punned across a call.
 
 ```rust
