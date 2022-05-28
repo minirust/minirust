@@ -319,6 +319,26 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 `encode` in turn always and deterministically makes those bytes `Uninit`.
 (The generic properties defined below make this the only possible choice for `encode`.)
 
+### Unions
+
+A union simply stores the bytes directly, no high-level interpretation of data happens.
+
+- TODO: Some real unions actually do not preserve all bytes, they [can have padding](https://github.com/rust-lang/unsafe-code-guidelines/issues/156).
+  So we have to model that there can be "gaps" between the parts of the byte list that are preserved perfectly.
+
+```rust
+impl Type {
+    fn decode(Union { size, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != size { return None; }
+        Some(Value::Bytes(bytes))
+    }
+    fn encode(Union { size, .. }: Self, value: Value) -> List<AbstractByte> {
+        let Value::Bytes(bytes) = val else { panic!() };
+        bytes
+    }
+}
+```
+
 ### Generic properties
 
 There are some generic properties that `encode` and `decode` must satisfy.
