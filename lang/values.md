@@ -4,7 +4,7 @@ The purpose of this file is to describe what the set of *all possible values* is
 This is one of the key definitions in MiniRust.
 The representation relation relates values with lists of [abstract bytes](../mem/interface.md#abstract-bytes):
 it defines, for a given value and list of bytes, whether that value is represented by that list.
-However, before we can even start specifying the relation, we have to specify the domains of abstract bytes (part of the [memory interface](../mem/interface.md) and of values (this document).
+However, before we can even start specifying the relation, we have to specify the domains of abstract bytes (part of the [memory interface](../mem/interface.md)) and of values (this file).
 
 [representation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation
 [memory-interface]: memory-interface.md

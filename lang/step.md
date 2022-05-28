@@ -117,6 +117,7 @@ impl Machine {
 
 Place expressions evaluate to places.
 For now, that is just a pointer (but this might have to change).
+Place evaluation ensures that this pointer is always dereferenceable (for the type of the place expression).
 
 ```rust
 type Place = Pointer;
@@ -144,7 +145,7 @@ impl Machine {
 The `*` operator turns a value of pointer type into a place.
 It also ensures that the pointer is dereferenceable.
 
-- TODO: Should we truly ensure that `eval_place` always creates a dereferencable pointer?
+- TODO: Should we truly ensure that `eval_place` always creates a dereferenceable pointer?
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
 
 ```rust
@@ -153,6 +154,7 @@ impl Machine {
         let Value::Ptr(p) = self.eval_value(value)? else {
             panic!("dereferencing a non-pointer")
         };
+        // In case this is a raw pointer, make sure we know the place we create is dereferenceable.
         self.mem.dereferenceable(p, layout.size, layout.align)?;
         Ok(p)
     }
