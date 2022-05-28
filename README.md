@@ -72,7 +72,7 @@ If and when a-mir-formality obtains an operational semantics, my hope is that it
 
 ## What about Miri?
 
-MiniRust is in, at least conceptually, very similar to Miri!
+MiniRust is in, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
 You can think of it as "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and didn't care about performance nor diagnostics, then it would be implemented like this specification.
 There are some [differences between Miri and MiniRust](https://github.com/rust-lang/miri/issues/2159); these are generally Miri bugs and I intend to slowly chip away at the remaining (tricky) ones.
 
