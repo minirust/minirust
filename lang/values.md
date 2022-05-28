@@ -183,20 +183,19 @@ impl Type {
 impl Type {
     fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
         match *bytes {
-            [AbstractByte::Raw(0)] => Some(Value::Bool(false)),
-            [AbstractByte::Raw(1)] => Some(Value::Bool(true)),
+            [AbstractByte::Init(0, _)] => Some(Value::Bool(false)),
+            [AbstractByte::Init(1, _)] => Some(Value::Bool(true)),
             _ => None,
         }
     }
     fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
         let Value::Bool(b) = val else { panic!() };
-        [AbstractByte::Raw(if b { 1 } else { 0 })]
+        [AbstractByte::Init(if b { 1 } else { 0 }, None)]
     }
 }
 ```
 
-Note, in particular, that an `AbstractByte::Ptr` is *not* valid for `bool!`
-This corresponds to ruling out ptr-to-bool transmutation.
+Note, in particular, that `bool` just entirely ignored provenance; we discuss this a bit more when we come to integer types.
 
 ### Integers
 
@@ -205,21 +204,25 @@ For now we only define `u16` and `i16`.
 ```rust
 impl Type {
     fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
-        let [AbstractByte::Raw(b0), AbstractByte::Raw(b1)] = *bytes else { return None };
+        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { return None };
         Some(Value::Int(ENDIANESS.decode(signed, [b0, b1])))
     }
     fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
         let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
-        [AbstractByte::Raw(b0), AbstractByte::Raw(b1)]
+        [AbstractByte::Init(b0, None), AbstractByte::Init(b1, None)]
     }
 }
 ```
 
-Again, if any byte is `AbstractByte::Ptr` this will return `None`.
-That corresponds to ruling out ptr-to-int transmutation.
+This entirely ignores provenance during decoding, and generates `None` provenance during encoding.
+This corresponds to having ptr-to-int transmutation implicitly strip provenance (i.e., it behaves like [`addr`](https://doc.rust-lang.org/nightly/std/primitive.pointer.html#method.addr)),
+and having int-to-ptr transmutation generate "invalid" pointers (like [`ptr::invalid`](https://doc.rust-lang.org/nightly/std/ptr/fn.invalid.html)).
+This is required to achieve a "monotonicity" with respect to provenance (as discussed [below](#generic-properties)).
 
 - TODO: Is that the right semantics for ptr-to-int transmutation? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286).
+- TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
+  Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
 - TODO: This does not allow uninitialized integers. I think that is fairly clearly what we want, also considering LLVM is moving towards using `noundef` heavily to avoid many of the current issues in their `undef` handling. But this is also still [being discussed](https://github.com/rust-lang/unsafe-code-guidelines/issues/71).
 
 ### Raw pointers
@@ -230,12 +233,14 @@ Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     if bytes.len() != PTR_SIZE { return None; }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect().unwrap();
+    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
     let addr = ENDIANESS.decode(Unsigned, &bytes_data).to_u64();
-    // Get the provenance. Must be the same for all bytes.
-    let provenance: Option<Provenance> = bytes[0].provenance();
+    // Get the provenance. Must be the same for all bytes, else we use `None`.
+    let mut provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
-        if b.provenance() != provenance { return None; }
+        if b.provenance() != provenance {
+            provenance = None;
+        }
     }
     Some(Pointer { addr, provenance })
 }
@@ -243,7 +248,7 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
 fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
     let bytes_data: [u8; PTR_SIZE] = ENDIANESS.encode(Unsigned, ptr.addr).unwrap();
     bytes_data
-        .map(|b| if let Some(p) = ptr.provenance { AbstractByte::Ptr(b, p) } else { AbstractByte::Raw(b) })
+        .map(|b| AbstractByte::Init(b, ptr.provenance))
         .collect()
 }
 
@@ -257,13 +262,6 @@ impl Type {
     }
 }
 ```
-
-Note that, crucially, a pointer with "invalid" (`None`) provenance is never encoded as `AbstractByte::Ptr`.
-(This is not even structurally possible: `Pointer` carries `Option<Provenance>` while `AbstractByte::Ptr` carries `Provenance`.)
-This avoids having two encodings of the same abstract value, which would violate our "generic properties" below.
-
-- TODO: This definition fails to decode a pointer unless the provenance is the same for *all* its bytes.
-  Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
 
 ### References and `Box`
 
@@ -323,7 +321,7 @@ impl Type {
 
 Note in particular that `decode` ignores the bytes which are before, between, or after the fields (usually called "padding").
 `encode` in turn always and deterministically makes those bytes `Uninit`.
-(The generic properties defined below make this the only possible choice for `encode`.)
+(The [generic properties](#generic-properties) defined below make this the only possible choice for `encode`.)
 
 ### Unions
 
@@ -352,18 +350,51 @@ There are some generic properties that `encode` and `decode` must satisfy.
 For instance, starting with a (valid) value, encoding it, and then decoding it, must produce the same result.
 
 To make this precise, we first have to define an order in values and byte lists that captures when one value (byte list) is "more defined" than another.
+"More defined" here can either mean initializing some previously uninitialized data, or adding provenance to data that didn't have it.
+(Adding provenance means adding the permission to access some memory, so this can make previously undefined programs defined, but it can never make previously defined programs undefined.)
+
+Note that none of the definitions in this section are needed to define the semantics of a Rust program, or to make MiniRust into a runnable interpreter.
+They only serve as internal consistency requirements of the semantics.
+It would be a specification bug if the representation relations defined above violated these properties.
+
 Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 ```rust
 impl PartialOrd for AbstractByte {
     fn le(self, other: Self) -> bool {
-        self == Uninit || self == other
+        match (self, other) {
+            /// `Uninit <= _`: initializing something makes it "more defined".
+            (Uninit, _) =>
+                true,
+            /// Among initialized bytes, adding provenance makes it "more defined".
+            (Init(data1, None), Init(data2, _)) =>
+                data1 == data2,
+            /// If both bytes have provenance, everything must be equal.
+            (Init(data1, Some(provenance1)), Init(data2, Some(provenance2)) =>
+                data1 == data2 && provenance1 == provenance2,
+            /// Nothing else is related.
+            _ => false,
+        }
     }
 }
 ```
-Basically, `Uninit <= _`; otherwise this is just the reflexive relation.
+Note that with `eq` already being defined (all our types that we want to compare derive `PartialEq` and `Eq`), defining `le` is sufficient to also define all the other parts of `PartialOrd`.
+
+Similarly, on `Pointer` we say that adding provenance makes it more defined:
+```rust
+impl PartialOrd for Pointer {
+    fn le(self, other: Self) -> bool {
+        self.addr == other.addr &&
+            match (self.provenance, other.provenance) {
+                (None, _) => true,
+                (Some(prov1), Some(prov2)) => prov1 == prov2,
+                _ => false,
+            }
+    }
+}
+```
 
 The order on `List<AbstractByte>` is assumed to be such that `bytes1 <= bytes2` if and only if they have the same length and are bytewise related by `<=`.
-In fact, we define this to be in general how lists are partially ordered:
+In fact, we define this to be in general how lists are partially ordered (based on the order of their element type):
 ```rust
 impl<T: PartialOrd> PartialOrd for List<T> {
     fn le(self, other: Self) -> bool {
@@ -377,13 +408,13 @@ For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise r
 ```rust
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
-        matches (self, other) {
+        match (self, other) {
             (Int(i1), Int(i2)) =>
                 i1 == i2,
             (Bool(b1), Bool(b2)) =>
                 b1 == b2,
             (Ptr(p1), Ptr(p2)) =>
-                p1 == p2,
+                p1 <= p2,
             (Tuple(vals1), Tuple(vals2)) =>
                 vals1 <= vals2,
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>

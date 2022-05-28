@@ -37,24 +37,22 @@ We define the `AbstractByte` type as follows, where `Provenance` will later be i
 enum AbstractByte<Provenance> {
     /// An uninitialized byte.
     Uninit,
-    /// The "normal" case: a (frozen, initialized) integer in `0..256`.
-    Raw(u8),
-    /// One byte of a pointer.
-    Ptr(u8, Provenance),
+    /// An initialized byte, optionally with some provenance (if it is encoding a pointer).
+    Init(u8, Option<Provenance>),
 }
 
 impl AbstractByte<P> {
     fn data(self) -> Option<u8> {
         match self {
             Uninit => None,
-            Raw(data) | Ptr(data, _) => Some(data),
+            Init(data, _) => Some(data),
         }
     }
 
     fn provenance(self) -> Option<Provenance> {
         match self {
-            Uninit | Raw(_) => None,
-            Ptr(_, provenance) => Some(provenance),
+            Uninit => None,
+            Init(_, provenance) => provenance,
         }
     }
 }
