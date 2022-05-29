@@ -279,13 +279,15 @@ impl Machine {
         let func = self.prog.functions[callee];
         // Evaluate all arguments and put them into fresh places,
         // to initialize the local variable assignment.
-        assert_eq!(func.args.len(), arguments.len());
+        if func.args.len() != arguments.len() {
+            throw_ub!("call ABI violation: number of arguments does not agree");
+        }
         let mut arguments: Map<LocalName, Place> =
             func.args.iter().zip(arguments.iter()).map(|(local, local_layout), (arg_val, arg_ty)| {
                 let val = self.eval_value(val)?;
                 // Ensure argument and local layout match.
                 if local_layout != arg_ty.layout() {
-                    throw_ub!("call ABI violation");
+                    throw_ub!("call ABI violation: argument layout does not agree");
                 }
                 // Allocate place and store argument value (a lot like `StorageLive`).
                 let p = self.mem.allocate(local_layout.size, local_layout.align)?;
