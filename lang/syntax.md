@@ -22,10 +22,10 @@ type BbName;
 
 /// A MiniRust function.
 struct Function {
-    /// A list of names used to refer to the function arguments.
+    /// A list of names used to refer to the function arguments, and their layouts.
     /// The caller will allocate these when creating the stack frame.
-    args: List<LocalName>,
-    /// The name used to refer to the local that stored the return value.
+    args: List<(LocalName, Layout)>,
+    /// The name used to refer to the local that stores the return value.
     /// The caller will allocate this when creating the stack frame.
     ret: LocalName,
     /// Associate each basic block name with the associated block.

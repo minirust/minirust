@@ -277,17 +277,22 @@ In particular, we have to initialize the new stack frame.
 impl Machine {
     fn eval_terminator(&mut self, Call { callee, arguments, return_place, next_block }: Terminator) -> Result {
         let func = self.prog.functions[callee];
-        // Evaluate all arguments and put them into fresh places.
-        let arguments: List<Place> = arguments.map(|(val, ty)| {
-            let val = self.eval_value(val)?;
-            // Allocate place and store argument value (a lot like `StorageLive`).
-            let p = self.mem.allocate(type.size(), type.align())?;
-            self.mem.typed_store(p, val, ty)?;
-            Ok(p)
-        }).collect()?;
-        // Arguments are the only locals that are live when a function starts.
+        // Evaluate all arguments and put them into fresh places,
+        // to initialize the local variable assignment.
         assert_eq!(func.args.len(), arguments.len());
-        let mut locals: Map<LocalName, Place> = func.args.iter().zip(arguments.iter()).collect();
+        let mut arguments: Map<LocalName, Place> =
+            func.args.iter().zip(arguments.iter()).map(|(local, local_layout), (arg_val, arg_ty)| {
+                let val = self.eval_value(val)?;
+                // Ensure argument and local layout match.
+                if local_layout != arg_ty.layout() {
+                    throw_ub!("call ABI violation");
+                }
+                // Allocate place and store argument value (a lot like `StorageLive`).
+                let p = self.mem.allocate(local_layout.size, local_layout.align)?;
+                self.mem.typed_store(p, val, ty)?;
+                Ok((local, p))
+            }
+            .collect()?;
         // Add the return place.
         let ret_place = self.eval_place(return_place)?;
         locals.try_insert(func.ret, ret_place).unwrap();
@@ -312,7 +317,16 @@ The callee should probably start with a bunch of `Finalize` statements to ensure
 ```rust
 impl Machine {
     fn eval_terminator(&mut self, Return: Terminator) -> Result {
-        self.stack.pop().unwrap();
+        let frame = self.stack.pop().unwrap();
+        // Deallocate the arguments (that were allocated during `Call`).
+        for (local, layout) in frame.func.args {
+            // A lot like `StorageDead`.
+            let p = frame.locals.remove(local).unwrap();
+            self.mem.deallocate(p, layout.size, layout.align)?;
+        }
+        // There should be only the return local left.
+        let _ret = frame.locals.remove(frame.func.ret).unwrap();
+        assert!(frame.locals.is_empty());
         // The callee has already written the return place to where the caller needs it, so we are done.
     }
 }
