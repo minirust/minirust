@@ -87,23 +87,26 @@ enum Type {
         /// Must be large enough to contain all fields.
         size: Size,
     },
-    Enum {
-        /// Each variant is given by a list of fields.
-        /// The "variant index" of a variant is its index in this list.
-        /// (The Rust type `!` is encoded as an `Enum` with an empty list of variants.)
-        variants: List<Fields>,
-        /// This contains all the tricky details of how to encode the active variant
-        /// at runtime.
-        tag_encoding: TagEncoding,
-        /// The total size of the type can indicate trailing padding.
-        /// Must be large enough to contain all fields of all variants.
-        size: Size,
-    },
     Union {
         /// Fields *may* overlap.
         fields: Fields,
         /// The total size of the type can indicate trailing padding.
         /// Must be large enough to contain all fields.
+        size: Size,
+    },
+    Enum {
+        /// Each variant is given by a type. All types are thought to "start at offset 0";
+        /// if the discriminant is encoded as an explicit tag, then that will be put
+        /// into the padding of the active variant. (This means it is *not* safe to hand
+        /// out mutable references to a variant at that type, as then the tag might be
+        /// overwritten!)
+        /// The Rust type `!` is encoded as an `Enum` with an empty list of variants.
+        variants: List<Type>,
+        /// This contains all the tricky details of how to encode the active variant
+        /// at runtime.
+        tag_encoding: TagEncoding,
+        /// The total size of the type can indicate trailing padding.
+        /// Must be large enough to contain all variants.
         size: Size,
     },
 }

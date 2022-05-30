@@ -23,21 +23,6 @@ impl Layout(self) {
 }
 
 impl Type {
-    fn check_fields(fields: Fields, total_size: Size) -> Option<()> {
-        // The fields must not overlap.
-        fields.sort_by_key(|(offset, type)| offset);
-        let mut last_end = Size::ZERO;
-        for (offset, type) in fields {
-            // Recursively check the field type.
-            type.check()?;
-            // And ensure it fits after the one we previously checked.
-            if offset < last_end { return None; }
-            last_end = offset.checked_add(type.size())?;
-        }
-        // And they must all fit into the size.
-        if size < last_end { return None; }
-    }
-
     fn check(self) -> Option<()> {
         use Type::*;
         match self {
@@ -50,18 +35,31 @@ impl Type {
                 pointee.check()?;
             }
             Tuple { fields, size, align } => {
-                Type::check_fields(fields, size)?;
-            }
-            Enum { variants, size, .. } => {
-                for variant in variants {
-                    Type::check_fields(variant, size)?;
+                // The fields must not overlap.
+                // We check fields in the order of their (absolute) offsets.
+                fields.sort_by_key(|(offset, type)| offset);
+                let mut last_end = Size::ZERO;
+                for (offset, type) in fields {
+                    // Recursively check the field type.
+                    type.check()?;
+                    // And ensure it fits after the one we previously checked.
+                    if offset < last_end { return None; }
+                    last_end = offset.checked_add(type.size())?;
                 }
+                // And they must all fit into the size.
+                if size < last_end { return None; }
             }
             Union { fields, size } => {
                 // These may overlap, but they must all fit the size.
                 for (offset, type) in fields {
                     type.check()?;
                     if size < offset.checked_add(type.size())? { return None; }
+                }
+            }
+            Enum { variants, size, .. } => {
+                for variant in variants {
+                    variant.check()?;
+                    if size < variant.size() { return None; }
                 }
             }
         }
