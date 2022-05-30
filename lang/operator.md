@@ -64,3 +64,53 @@ impl Machine {
     }
 }
 ```
+
+### Pointer arithmetic
+
+```rust
+impl Machine {
+    /// Perform a wrapping offset on the given pointer. (Can never fail.)
+    fn ptr_offset_wrapping(&self, ptr: Pointer, offset: BigInt) -> Pointer {
+        let offset = offset.modulo(Signed, PTR_SIZE);
+        let addr = ptr.addr + offset;
+        let addr = addr.modulo(Unsigned, PTR_SIZE);
+        Pointer { addr, ..ptr }
+    }
+
+    /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
+    /// and the offset must stay in bounds of a single allocation.
+    fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> Result<Pointer> {
+        if !offset.in_bounds(Signed, PTR_SIZE) {
+            throw_ub!("inbounds offset does not fit into `isize`):
+        }
+        let addr = ptr.addr + offset;
+        if !addr.in_bounds(Unsigned, PTR_SIZE) {
+            throw_ub!("overflowing inbounds pointer arithmetic");
+        }
+        let new_ptr = Pointer { addr, ..ptr };
+        // We check that the range between the two pointers is dereferenceable.
+        // For this, we figure out which pointer is the smaller one.
+        let min_ptr = if ptr.addr <= new_ptr.addr {
+            ptr
+        } else {
+            new_ptr
+        };
+        // `offset` will fit into a `Size` since we did the overflow check above.
+        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset).unwrap(), Align::ONE)?;
+        // If this check passed, we are good.
+        Ok(new_ptr)
+    }
+
+    fn eval_bin_op(&mut self, PtrOffset { inbounds }: BinOp, left: Value, right: Value) -> Result<Value> {
+        let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
+        let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
+
+        let result = if inbounds {
+            self.ptr_offset_inbounds(left, right)?
+        } else {
+            self.ptr_offset_wrapping(left, right)
+        };
+        Ok(Value::Ptr(result))
+    }
+}
+```

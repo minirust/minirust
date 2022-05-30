@@ -136,6 +136,8 @@ enum BinOpInt {
 enum BinOp {
     /// An operation on integers, with the given output type.
     Int(BinOpInt, IntType),
+    /// Pointer arithmetic (with or without inbounds requirement).
+    PtrOffset { inbounds: bool },
 }
 
 /// A "place expression" evaluates to a `Place`.
@@ -146,6 +148,15 @@ enum PlaceExpr {
     Deref {
         operand: ValueExpr,
         pointee: Layout,
+    }
+    /// Project to a field.
+    Field {
+        /// The place to base the projection on.
+        root: PlaceExpr,
+        /// The type of `root`.
+        type: Type,
+        /// The field to project to.
+        field: usize,
     }
 }
 ```

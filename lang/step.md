@@ -161,6 +161,25 @@ impl Machine {
 }
 ```
 
+### Field projection
+
+```rust
+impl Machine {
+    fn eval_place(&mut self, Field { root, type, field }: PlaceExpr) -> Result<Place> {
+        let root = self.eval_place(root)?;
+        let offset = match type {
+            Tuple { fields, .. } => fields[field].0,
+            Union { fields, .. } => fields[field].0,
+            _ => panic!("field projection on non-projectable type"),
+        };
+        assert!(offset < type.size());
+        // Note that the "inbounds" test here can never fail, since we ensure that
+        // all places are dereferenceable. That's why we can `unwrap()`.
+        Ok(self.ptr_offset_inbounds(root, offset.bytes()).unwrap())
+    }
+}
+```
+
 ## Statements
 
 Here we define how statements are evaluated.

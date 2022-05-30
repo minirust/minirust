@@ -231,7 +231,7 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     if bytes.len() != PTR_SIZE { return None; }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
-    let addr = ENDIANESS.decode(Unsigned, &bytes_data).to_u64();
+    let addr = ENDIANESS.decode(Unsigned, &bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
@@ -267,7 +267,7 @@ impl Type {
 fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
     // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
     // (Think: uninhabited types have impossible alignment.)
-    ptr.addr != 0 && ptr.addr % pointee.align == 0 && pointee.inhabited
+    ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited
 }
 
 impl Type {

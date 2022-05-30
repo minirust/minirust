@@ -65,8 +65,9 @@ The MiniRust memory interface is described by the following (not-yet-complete) t
 ```rust
 /// An "address" is a location in memory. This corresponds to the actual
 /// location in the real program.
-/// `u64` should be large enough for all targets... TM ;)
-type Address = u64;
+/// We make it a mathematical integer, but of course it is bounded by the size
+/// of the address space.
+type Address = BigInt;
 
 /// A "pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
@@ -103,11 +104,11 @@ trait MemoryInterface {
     /// Read some bytes from memory.
     fn load(&mut self, ptr: Self::Pointer, len: Size) -> Result<List<Self::AbstractByte>>;
 
-    /// Test whether the given pointer is dereferencable for the given size and alignment.
+    /// Test whether the given pointer is dereferenceable for the given size and alignment.
     /// Raises UB if that is not the case.
     /// Note that a successful read/write/deallocate implies that the pointer
-    /// was dereferencable before that operation (but not vice versa).
-    fn dereferencable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
+    /// was dereferenceable before that operation (but not vice versa).
+    fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
 }
 ```
 
