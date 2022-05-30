@@ -151,9 +151,3 @@ enum PlaceExpr {
 ```
 
 Obviously, these are all quite incomplete still.
-
-## Well-formed programs
-
-MiniRust programs need to satisfy some conditions to be well-formed and avoid panics during evaluation, e.g. the operand on an `If` needs to always evaluate to a `bool`.
-
-- TODO: define this. Or should we just make some of these panics into UB?

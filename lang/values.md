@@ -124,12 +124,6 @@ enum TagEncoding { /* ... */ }
 Note that references have no lifetime, since the lifetime is irrelevant for their representation in memory!
 They *do* have a mutability since that is (or will be) relevant for the memory model.
 
-### Well-formed types
-
-Not all types are well-formed; for example, the fields of a `Tuple` must not overlap.
-
-- TODO: define this
-
 ## Type properties
 
 Each type has a layout.

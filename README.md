@@ -15,9 +15,8 @@ Even without deciding what exactly the final memory model will look like, we can
 
 On the MiniRust language side, the most important concept to understand is that of a *value* and how it relates to *types*.
 Values form a high-level, structural view of data (e.g. mathematical integers); types serve to relate values with their low-level byte-oriented representation.
-Types are just parameters attached to certain operations to define the (de)serialization format.
-There is no MiniRust type system (as in, typing rules that would define when a MiniRust program is "well-typed").
-We might have a type system in the future as a basic sanity check, but MiniRust is by design *not* type-safe.
+Types are essentially just parameters attached to certain operations to define the (de)serialization format.
+Well-formedness of a MiniRust program ensures that expressions and statements satisfy some basic typing discipline, but MiniRust is by design *not* type-safe.
 
 ## How to read MiniRust
 
@@ -29,7 +28,7 @@ We use generic type names like `List`, `Map`, `Set` rather than concrete impleme
 Also, all types except for mutable references are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
-We use `Result` to make operations fallible (where failure indicates UB or machine termination), and omit trailing `Ok(())`.
+We use `Result` to make operations fallible (where failure indicates UB or machine termination), and omit trailing `Ok(())` and `Some(())`.
 We use a `throw_ub!` macro to make the current function return a UB error, and `throw_machine_step!` to indicate that and how the machine has stopped.
 We use `panic!` (and `unwrap` and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
 
@@ -85,6 +84,7 @@ There are some [differences between Miri and MiniRust](https://github.com/rust-l
   * [Prelude](lang/prelude.md): common definitions and parameters of the language
   * [Values and Types](lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
-  * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine (AM)
-  * [Semantics](lang/step.md): the operational semantics ("`step` function") of the MiniRust Abstract Machine
+  * [Well-formedness](lang/well-formed.md): the requirements for well-formed types and programs
+  * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine
+  * [Semantics](lang/step.md): the operational semantics ("`step` function") of the Abstract Machine
     * [Operator semantics](lang/operator.md): the operational semantics of unary and binary operators

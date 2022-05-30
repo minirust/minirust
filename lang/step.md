@@ -79,14 +79,14 @@ impl Machine {
 
 ### Creating a reference/pointer
 
-The `&` operator simply convert a place to the pointer it denotes.
+The `&` operator simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
     fn eval_value(&mut self, Ref { target, type }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(target)?;
         // We need a check here, to ensure that encoding this value at the given type is valid.
-        // (If the type is a reference, and this is a packed struct, it might be insufficiently aligned.)
+        // (For example, if the type is a reference, and this is a packed struct, it might be insufficiently aligned.)
         if !check_safe_ptr(p, type) {
             throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
         }
