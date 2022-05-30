@@ -127,19 +127,39 @@ enum TagEncoding { /* ... */ }
 Note that references have no lifetime, since the lifetime is irrelevant for their representation in memory!
 They *do* have a mutability since that is (or will be) relevant for the memory model.
 
-## Type properties
-
-Each type has a layout.
-
-- TODO: define this
+## Layout of a type
 
 ```rust
 impl Type {
-    fn layout(self) -> Layout;
+    fn size(self) -> Size {
+        match self {
+            Int(int_type) => int_type.size,
+            Bool => Size::from_bytes(1).unwrap(),
+            Ref { .. } | Box { .. } | RawPtr { .. } => PTR_SIZE,
+            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
+        }
+    }
 
-    fn size(self) -> Size { self.layout().size }
-    fn align(self) -> Align { self.layout().align }
-    fn inhabited(self) -> bool { self.layout().inhabited }
+    // TODO: define this
+    fn align(self) -> Align;
+
+    fn inhabited(self) -> bool {
+        match self {
+            Int(..) | Bool | RawPtr { .. } => true,
+            Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
+            Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
+            Union { .. } => true,
+            Enum { variants, .. } => fields.iter().any(|type| type.inhabited()),
+        }
+    }
+
+    fn layout(self) -> Layout {
+        Layout {
+            size: self.size(),
+            align: self.align(),
+            inhabited: self.inhabited(),
+        }
+    }
 }
 ```
 
@@ -284,7 +304,6 @@ impl Type {
 ```
 
 Note that types like `&!` have no valid value: when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
-This means we could make `&!` itself have `inhabited: false` in its layout; I consider that decision part of "compiling surface Rust to MiniRust" and thus out-of-scope for this document.
 
 - TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
   (The latter would not even be possible with the current structure of MiniRust.)
