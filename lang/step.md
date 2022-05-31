@@ -161,7 +161,7 @@ impl Machine {
 }
 ```
 
-### Field projection
+### Place projections
 
 ```rust
 impl Machine {
@@ -171,6 +171,27 @@ impl Machine {
             Tuple { fields, .. } => fields[field].0,
             Union { fields, .. } => fields[field].0,
             _ => panic!("field projection on non-projectable type"),
+        };
+        assert!(offset < type.size());
+        // Note that the "inbounds" test here can never fail, since we ensure that
+        // all places are dereferenceable. That's why we can `unwrap()`.
+        Ok(self.ptr_offset_inbounds(root, offset.bytes()).unwrap())
+    }
+
+    fn eval_place(&mut self, Index { root, type, index }: PlaceExpr) -> Result<Place> {
+        let root = self.eval_place(root)?;
+        let Value::Int(index) = self.eval_value(index)? else {
+            panic!("non-integer operand for array index")
+        };
+        let offset = match type {
+            Array { elem, count } => {
+                if index < count {
+                    index * elem.size()
+                } else {
+                    throw_ub!("out-of-bounds array access")
+                }
+            }
+            _ => panic!("index projection on non-indexable type"),
         };
         assert!(offset < type.size());
         // Note that the "inbounds" test here can never fail, since we ensure that

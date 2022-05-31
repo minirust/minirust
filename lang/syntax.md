@@ -150,7 +150,7 @@ enum PlaceExpr {
     Deref {
         operand: ValueExpr,
         pointee: Layout,
-    }
+    },
     /// Project to a field.
     Field {
         /// The place to base the projection on.
@@ -158,8 +158,17 @@ enum PlaceExpr {
         /// The type of `root`.
         type: Type,
         /// The field to project to.
-        field: usize,
-    }
+        field: BigInt,
+    },
+    /// Index to an array element.
+    Index {
+        /// The array to index into.
+        root: PlaceExpr,
+        /// The type of `root`.
+        type: Type,
+        /// The index to project to.
+        index: ValueExpr,
+    },
 }
 ```
 
