@@ -22,12 +22,14 @@ type BbName;
 
 /// A MiniRust function.
 struct Function {
-    /// A list of names used to refer to the function arguments, and their layouts.
-    /// The caller will allocate these when creating the stack frame.
-    args: List<(LocalName, Layout)>,
-    /// The name used to refer to the local that stores the return value.
-    /// The caller will allocate this when creating the stack frame.
+    /// The locals of this function, and their layout.
+    locals: Map<LocalName, Layout>,
+    /// A list of locals that the caller will allocate and fill with the function arguments.
+    args: List<LocalName>,
+    /// The name of a local that the caller will allocate and expect the callee to
+    /// fill it with the return value.
     ret: LocalName,
+
     /// Associate each basic block name with the associated block.
     blocks: Map<BbName, BasicBlock>,
     /// The basic block where execution starts.
@@ -57,9 +59,9 @@ enum Statement {
         type: Type,
     },
     /// Allocate the backing store for this local.
-    StorageLive(LocalName, Type),
+    StorageLive(LocalName),
     /// Deallocate the backing store for this local.
-    StorageDead(LocalName, Type),
+    StorageDead(LocalName),
 }
 
 enum Terminator {
@@ -76,7 +78,7 @@ enum Terminator {
     Call {
         callee: FnName,
         arguments: List<(ValueExpr, Type)>,
-        return_place: PlaceExpr,
+        return_place: (PlaceExpr, Type),
         next_block: BbName,
     }
     /// Return from the current function.

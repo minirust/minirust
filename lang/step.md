@@ -233,16 +233,22 @@ These operations (de)allocate the memory backing a local.
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, StorageLive(local, type): Statement) -> Result {
+    fn eval_statement(&mut self, StorageLive(local): Statement) -> Result {
         // Here we make it a spec bug to ever mark an already live local as live.
-        let p = self.mem.allocate(type.size(), type.align())?;
+        let p = self.mem.allocate(layout.size, layout.align)?;
+        let layout = self.cur_frame().func.locals[local];
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
-    fn eval_statement(&mut self, StorageDead(local, type): Statement) -> Result {
+    fn eval_statement(&mut self, StorageDead(local): Statement) -> Result {
+        let func = self.cur_frame().func;
+        if func.ret == local || func.args.contains(local) {
+            panic!("trying to make an argument or return local dead");
+        }
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
-        self.mem.deallocate(p, type.size(), type.align())?;
+        let layout = self.cur_frame().func.locals[local];
+        self.mem.deallocate(p, layout.size, layout.align)?;
     }
 }
 ```
@@ -302,8 +308,9 @@ impl Machine {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         let mut arguments: Map<LocalName, Place> =
-            func.args.iter().zip(arguments.iter()).map(|(local, local_layout), (arg_val, arg_ty)| {
+            func.args.iter().zip(arguments.iter()).map(|local, (arg_val, arg_ty)| {
                 let val = self.eval_value(val)?;
+                let local_layout = func.locals[local];
                 // Ensure argument and local layout match.
                 if local_layout != arg_ty.layout() {
                     throw_ub!("call ABI violation: argument layout does not agree");
@@ -315,6 +322,10 @@ impl Machine {
             }
             .collect()?;
         // Add the return place.
+        let (return_place, return_ty) = return_place;
+        if func.locals[func.ret] != return_ty.layout() {
+            throw_ub!("call ABI violation: return value layout does not agree");
+        }
         let ret_place = self.eval_place(return_place)?;
         locals.try_insert(func.ret, ret_place).unwrap();
         // Advance the PC for this stack frame.
@@ -339,14 +350,18 @@ The callee should probably start with a bunch of `Finalize` statements to ensure
 impl Machine {
     fn eval_terminator(&mut self, Return: Terminator) -> Result {
         let frame = self.stack.pop().unwrap();
-        // Deallocate the arguments (that were allocated during `Call`).
-        for (local, layout) in frame.func.args {
-            // A lot like `StorageDead`.
-            let p = frame.locals.remove(local).unwrap();
-            self.mem.deallocate(p, layout.size, layout.align)?;
+        let func = frame.func;
+        // Deallocate everything except for the return place (which is the one
+        // thing we did not allocate during `Call` or while running this function).
+        for (local, layout) in func.locals {
+            if local != func.ret && frame.locals.contains(local) {
+                // A lot like `StorageDead`.
+                let p = frame.locals.remove(local).unwrap();
+                self.mem.deallocate(p, layout.size, layout.align)?;
+            }
         }
         // There should be only the return local left.
-        let _ret = frame.locals.remove(frame.func.ret).unwrap();
+        let _ret = frame.locals.remove(func.ret).unwrap();
         assert!(frame.locals.is_empty());
         // The callee has already written the return place to where the caller needs it, so we are done.
     }
