@@ -82,7 +82,8 @@ There are some [differences between Miri and MiniRust](https://github.com/rust-l
   * [Memory interface](mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
 * MiniRust language
   * [Prelude](lang/prelude.md): common definitions and parameters of the language
-  * [Values and Types](lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
+  * [Types](lang/types.md): the set of MiniRust types
+  * [Values and representation relation](lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
   * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
   * [Well-formedness](lang/well-formed.md): the requirements for well-formed types and programs
   * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine

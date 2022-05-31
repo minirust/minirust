@@ -22,8 +22,8 @@ type BbName;
 
 /// A MiniRust function.
 struct Function {
-    /// The locals of this function, and their layout.
-    locals: Map<LocalName, Layout>,
+    /// The locals of this function, and their type.
+    locals: Map<LocalName, PlaceType>,
     /// A list of locals that the caller will allocate and fill with the function arguments.
     args: List<LocalName>,
     /// The name of a local that the caller will allocate and expect the callee to
@@ -50,7 +50,7 @@ enum Statement {
     /// Copy value from `source` to `target`.
     Assign {
         destination: PlaceExpr,
-        type: Type,
+        ptype: PlaceType,
         source: ValueExpr,
     },
     /// Ensure that `place` contains a valid value of type `type` (else UB).
@@ -77,8 +77,13 @@ enum Terminator {
     /// Call the given function with the given arguments.
     Call {
         callee: FnName,
-        arguments: List<(ValueExpr, Type)>,
-        return_place: (PlaceExpr, Type),
+        /// The arguments to pass, and the types to pass them at.
+        // TODO: It seems asymmetric to pass arguments by value but use a place for the return value.
+        // Should we have `PlaceExpr` for the arguments as well? But then we need to do some fancy alias control.
+        arguments: List<(ValueExpr, PlaceType)>,
+        /// The place to put the return value into.
+        return_place: PlaceExpr,
+        /// The block to jump to when this call returns.
         next_block: BbName,
     }
     /// Return from the current function.
@@ -88,26 +93,33 @@ enum Terminator {
 /// A "value expression" evaluates to a `Value`.
 enum ValueExpr {
     /// Just return a constant.
-    Constant(Value),
+    Constant(Value, Type),
     /// Load a value from memory.
     Load {
         /// Whether this load de-initializes the source it is loaded from ("move").
         destructive: bool,
         /// The place to load from.
         source: PlaceExpr,
-        /// The type to load at.
-        type: Type,
     },
-    /// Take the address of ("create a reference to") a place.
+    /// Create a reference to a place.
     Ref {
         /// The place to create a reference to.
         target: PlaceExpr,
-        /// The type of the place. Must be a reference or raw pointer type.
-        type: Type,
+        /// The desired alignment of the pointee.
+        align: Align,
+        /// Mutability of the reference.
+        mutbl: Mutability,
+    },
+    /// Create a raw pointer to a place.
+    AddrOf {
+        /// The place to create a raw pointer to.
+        target: PlaceExpr,
+        /// Mutability of the raw pointer.
+        mutbl: Mutability,
     },
     /// Unary operators.
     UnOp {
-        operator: BinOp,
+        operator: UnOp,
         operand: ValueExpr,
     }
     /// Binary operators.
@@ -149,14 +161,13 @@ enum PlaceExpr {
     /// Dereference a value (of pointer/reference type).
     Deref {
         operand: ValueExpr,
-        pointee: Layout,
+        // The alignment guarantee of the newly created place.
+        align: Align,
     },
     /// Project to a field.
     Field {
         /// The place to base the projection on.
         root: PlaceExpr,
-        /// The type of `root`.
-        type: Type,
         /// The field to project to.
         field: BigInt,
     },
@@ -164,8 +175,6 @@ enum PlaceExpr {
     Index {
         /// The array to index into.
         root: PlaceExpr,
-        /// The type of `root`.
-        type: Type,
         /// The index to project to.
         index: ValueExpr,
     },

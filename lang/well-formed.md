@@ -29,9 +29,8 @@ impl Type {
             Int(int_type) => {
                 int_type.check()?;
             }
-            Bool => {
-            }
-            Ref { pointee, .. } | Box { pointee } | RawPtr { pointee, .. } => {
+            Bool | RawPtr { .. } => (),
+            Ref { pointee, .. } | Box { pointee } => {
                 pointee.check()?;
             }
             Tuple { fields, size, align } => {
@@ -69,8 +68,111 @@ impl Type {
         }
     }
 }
+
+impl PlaceType {
+    fn check(self) -> Option<()> {
+        self.type.check()?;
+        self.layout().check()?;
+    }
+}
 ```
 
 ## Well-formed expressions, functions, and programs
 
-- TODO: define this
+```rust
+impl ValueExpr {
+    fn check(self, locals: Map<Local, PlaceType>) -> Option<Type> {
+        match self {
+            Constant(_value, type) => Some(type),
+            Load { source, destructive: _ } => {
+                let ptype = source.check(locals)?;
+                Some(ptype.type)
+            }
+            Ref { target, align, mutbl } => {
+                let ptype = target.check(locals)?;
+                // If `align > ptype.align`, then this operation is "unsafe"
+                // since the reference promises more alignment than what the place
+                // guarantees. That is exactly what happens for references
+                // to packed fields.
+                let pointee = Layout { align, ..ptype.layout() };
+                Some(Ref { mutbl, pointee })
+            }
+            AddrOf { target, mutbl } => {
+                let ptype = target.check(locals)?;
+                Some(RawPtr { mutbl });
+            }
+            UnOp { operator, operand } => {
+                let operand = operand.check(locals)?;
+                match operator {
+                    Int(int_op, int_ty) => {
+                        if !matches!(operand, Int(_)) { return None; }
+                        Some(Int(int_ty))
+                    }
+                }
+            }
+            BinOp { operator, left, right } => {
+                let left = left.check(locals)?;
+                let right = right.check(locals)?;
+                match operator {
+                    Int(int_op, int_ty) => {
+                        if !matches!(left, Int(_)) { return None; }
+                        if !matches!(right, Int(_)) { return None; }
+                        Some(Int(int_ty))
+                    }
+                    PtrOffset { inbounds: _ } => {
+                        if !matches!(left, Ref { .. } | RawPtr { .. }) { return None; }
+                        if !matches!(right, Int(_)) { return None; }
+                        Some(left)
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl PlaceExpr {
+    fn check(self, locals: Map<Local, PlaceType) -> Option<PlaceType> {
+        match self {
+            Local(name) => locals.get(name),
+            Deref { operand, align } => {
+                let type = operand.check(locals)?;
+                Some(PlaceType { type, align })
+            }
+            Field { root, field } => {
+                let root = root.check(locals)?;
+                let (offset, field_ty) = match root.type {
+                    Tuple { fields, .. } => fields[field],
+                    Union { fields, .. } => fields[field],
+                    _ => return None,
+                };
+                // TODO: I am not sure that that this is a valid PlaceType
+                // (specifically, that size is a multiple of align).
+                Some(PlaceType {
+                    align: root.align.restrict_for_offset(offset),
+                    type: field_ty,
+                })
+            }
+            Index { root, index } => {
+                let root = root.check(locals)?;
+                let index = index.check(locals)?;
+                if !matches!(index, Int(_)) { return None; }
+                let field_ty = match root.type {
+                    Array { elem, .. } => elem,
+                    _ => return None,
+                };
+                // We might be adding a multiple of `field_ty.size`, so we have to
+                // lower the alignment compared to `root`. `restrict_for_offset`
+                // is good for any multiple of that offset as well.
+                // TODO: I am not sure that that this is a valid PlaceType
+                // (specifically, that size is a multiple of align).
+                Some(PlaceType {
+                    align: root.align.restrict_for_offset(field_ty.size()),
+                    type: field_ty,
+                })
+            }
+        }
+    }
+}
+```
+
+- TODO: define `check` for statements, terminators, functions, programs

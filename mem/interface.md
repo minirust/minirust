@@ -99,10 +99,10 @@ trait MemoryInterface {
     fn deallocate(&mut self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
-    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>) -> Result;
+    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result;
 
     /// Read some bytes from memory.
-    fn load(&mut self, ptr: Self::Pointer, len: Size) -> Result<List<Self::AbstractByte>>;
+    fn load(&mut self, ptr: Self::Pointer, len: Size, align: Align) -> Result<List<Self::AbstractByte>>;
 
     /// Test whether the given pointer is dereferenceable for the given size and alignment.
     /// Raises UB if that is not the case.

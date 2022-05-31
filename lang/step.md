@@ -5,12 +5,8 @@ This file defines the heart of MiniRust: the `step` function of the `Machine`, i
 and having a collection of declarations with non-overlapping patterns for the same function that together cover all patterns.)
 
 One design decision I made here is that `eval_value` and `eval_place` just return a `Value`/`Place`, but not its type.
-This could be done either way, and has consequences for where in the syntax we need type annotations.
-I am not sure which is better.
-Miri always keeps the type with the value, so I wanted to experiment with the alternative approach and see how it goes.
-The MiniRust approach has the advantage of better separating "static" from "dynamic" information.
-However, I think it needs slightly more careful type-checker as part of well-formedness checking.
-On the other hand, the Miri approach makes for easier to state invariants during execution.
+Separately, [well-formedness](well-formed.md) defines `check` functions that return a `Type`/`PlaceType`.
+This adds some redundancy, but makes also enforces structurally that the type information is determined entirely statically.
 
 ## Top-level step function
 
@@ -54,7 +50,7 @@ Constants are trivial, as one would hope.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, Constant { value }: ValueExpr) -> Result<Value> {
+    fn eval_value(&mut self, Constant(value, _type): ValueExpr) -> Result<Value> {
         value
     }
 }
@@ -69,9 +65,10 @@ This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, Load { destructive, source, type }: ValueExpr) -> Result<Value> {
+    fn eval_value(&mut self, Load { destructive, source }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(source)?;
-        let val = self.mem.typed_load(p, type)?;
+        let ptype = source.check(self.cur_frame().func.locals).unwrap();
+        let val = self.mem.typed_load(p, ptype)?;
         Ok(val)
     }
 }
@@ -79,19 +76,26 @@ impl Machine {
 
 ### Creating a reference/pointer
 
-The `&` operator simply converts a place to the pointer it denotes.
+The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, Ref { target, type }: ValueExpr) -> Result<Value> {
+    fn eval_value(&mut self, AddrOf { target, .. }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(target)?;
+        Ok(Value::Ptr(p))
+    }
+
+    fn eval_value(&mut self, Ref { target, align, .. }: ValueExpr) -> Result<Value> {
+        let p = self.eval_place(target)?;
+        let ptype = target.check(self.cur_frame().func.locals).unwrap();
         // We need a check here, to ensure that encoding this value at the given type is valid.
-        // (For example, if the type is a reference, and this is a packed struct, it might be insufficiently aligned.)
-        if !check_safe_ptr(p, type) {
+        // (For example, if this is a packed struct, it might be insufficiently aligned.)
+        if !check_safe_ptr(p, Layout { align, ..ptype.layout() }) {
             throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
         }
         Ok(Value::Ptr(p))
     }
+
 }
 ```
 
@@ -150,12 +154,13 @@ It also ensures that the pointer is dereferenceable.
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Deref(value, layout): PlaceExpr) -> Result<Place> {
-        let Value::Ptr(p) = self.eval_value(value)? else {
+    fn eval_place(&mut self, expr @ Deref { operand, align }: PlaceExpr) -> Result<Place> {
+        let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
+        let ptype = expr.check(self.cur_frame().func.locals).unwrap();
         // In case this is a raw pointer, make sure we know the place we create is dereferenceable.
-        self.mem.dereferenceable(p, layout.size, layout.align)?;
+        self.mem.layout_dereferenceable(p, ptype.layout())?;
         Ok(p)
     }
 }
@@ -165,8 +170,9 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Field { root, type, field }: PlaceExpr) -> Result<Place> {
+    fn eval_place(&mut self, Field { root, field }: PlaceExpr) -> Result<Place> {
         let root = self.eval_place(root)?;
+        let type = root.check(self.cur_frame().func.locals).unwrap().type;
         let offset = match type {
             Tuple { fields, .. } => fields[field].0,
             Union { fields, .. } => fields[field].0,
@@ -178,8 +184,9 @@ impl Machine {
         Ok(self.ptr_offset_inbounds(root, offset.bytes()).unwrap())
     }
 
-    fn eval_place(&mut self, Index { root, type, index }: PlaceExpr) -> Result<Place> {
+    fn eval_place(&mut self, Index { root, index }: PlaceExpr) -> Result<Place> {
         let root = self.eval_place(root)?;
+        let type = root.check(self.cur_frame().func.locals).unwrap().type;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
@@ -221,10 +228,10 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, Assign { destination, type, source }: Statement) -> Result {
+    fn eval_statement(&mut self, Assign { destination, ptype, source }: Statement) -> Result {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
-        self.mem.typed_store(place, val, type)?;
+        self.mem.typed_store(place, val, ptype)?;
     }
 }
 ```
@@ -257,7 +264,7 @@ impl Machine {
     fn eval_statement(&mut self, StorageLive(local): Statement) -> Result {
         // Here we make it a spec bug to ever mark an already live local as live.
         let p = self.mem.allocate(layout.size, layout.align)?;
-        let layout = self.cur_frame().func.locals[local];
+        let layout = self.cur_frame().func.locals[local].layout();
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
@@ -268,7 +275,7 @@ impl Machine {
         }
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
-        let layout = self.cur_frame().func.locals[local];
+        let layout = self.cur_frame().func.locals[local].layout();
         self.mem.deallocate(p, layout.size, layout.align)?;
     }
 }
@@ -329,24 +336,21 @@ impl Machine {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         let mut arguments: Map<LocalName, Place> =
-            func.args.iter().zip(arguments.iter()).map(|local, (arg_val, arg_ty)| {
+            func.args.iter().zip(arguments.iter()).map(|local, (arg_val, arg_pty)| {
                 let val = self.eval_value(val)?;
-                let local_layout = func.locals[local];
+                let local_layout = func.locals[local].layout();
                 // Ensure argument and local layout match.
-                if local_layout != arg_ty.layout() {
+                if local_layout != arg_pty.layout() {
                     throw_ub!("call ABI violation: argument layout does not agree");
                 }
                 // Allocate place and store argument value (a lot like `StorageLive`).
                 let p = self.mem.allocate(local_layout.size, local_layout.align)?;
-                self.mem.typed_store(p, val, ty)?;
+                self.mem.typed_store(p, val, arg_pty)?;
                 Ok((local, p))
             }
             .collect()?;
         // Add the return place.
-        let (return_place, return_ty) = return_place;
-        if func.locals[func.ret] != return_ty.layout() {
-            throw_ub!("call ABI violation: return value layout does not agree");
-        }
+        // TODO: Do we need to check that caller and callee agree on the layout and some kind of ABI?
         let ret_place = self.eval_place(return_place)?;
         locals.try_insert(func.ret, ret_place).unwrap();
         // Advance the PC for this stack frame.
@@ -374,10 +378,11 @@ impl Machine {
         let func = frame.func;
         // Deallocate everything except for the return place (which is the one
         // thing we did not allocate during `Call` or while running this function).
-        for (local, layout) in func.locals {
+        for (local, ptype) in func.locals {
             if local != func.ret && frame.locals.contains(local) {
                 // A lot like `StorageDead`.
                 let p = frame.locals.remove(local).unwrap();
+                let layout = ptype.layout();
                 self.mem.deallocate(p, layout.size, layout.align)?;
             }
         }
