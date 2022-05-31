@@ -8,9 +8,6 @@ use mem::interface::*;
 type Memory: MemoryInterface;
 use Memory::{Provenance, Pointer, AbstractByte};
 
-// The size of a pointer.
-const PTR_SIZE: Size;
-
 // The endianess, which defines how integers are encoded and decoded.
 trait Endianess {
     /// If `signed == Signed`, the data is interpreted as two's complement.

@@ -10,8 +10,17 @@ type Result<T=()> = std::result::Result<T, TerminationInfo>;
 /// Basically copies of the `Size` and `Align` types in the Rust compiler.
 /// See <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Size.html>
 /// and <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html>.
+///
+/// `Size` is essentially a `BigInt` newtype that is always in-bounds for both
+/// signed and unsigned `PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
+/// `Size::from_bytes` and the checked arithmetic operations return `None`
+/// when the result would be out-of-bounds.
+/// `Align` is additionally always a power of two.
 type Size;
 type Align;
+
+/// The size of a pointer.
+const PTR_SIZE: Size;
 
 /// Whether an integer value is signed or unsigned.
 enum Signedness {

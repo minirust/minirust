@@ -95,8 +95,10 @@ impl Machine {
         } else {
             new_ptr
         };
-        // `offset` will fit into a `Size` since we did the overflow check above.
-        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset).unwrap(), Align::ONE)?;
+        // `offset.abs()` will fit into a `Size` since we did the overflow check above.
+        // FIXME: actually, it could be isize::MIN and then everything breaks? Is that
+        // a valid offset?
+        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()).unwrap(), Align::ONE)?;
         // If this check passed, we are good.
         Ok(new_ptr)
     }

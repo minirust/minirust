@@ -49,6 +49,10 @@ impl Type {
                 // And they must all fit into the size.
                 if size < last_end { return None; }
             }
+            Array { elem, count } => {
+                elem.check()?;
+                elem.size().checked_mul(count)?;
+            }
             Union { fields, size } => {
                 // These may overlap, but they must all fit the size.
                 for (offset, type) in fields {

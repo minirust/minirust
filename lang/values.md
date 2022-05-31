@@ -79,7 +79,6 @@ enum Type {
         pointee: Layout,
     },
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
-    /// It is also used for arrays; then all fields will have the same type.
     Tuple {
         /// Fields must not overlap.
         fields: Fields,
@@ -87,6 +86,10 @@ enum Type {
         /// Must be large enough to contain all fields.
         size: Size,
     },
+    Array {
+        elem: Type,
+        count: BigInt,
+    }
     Union {
         /// Fields *may* overlap.
         fields: Fields,
@@ -137,6 +140,7 @@ impl Type {
             Bool => Size::from_bytes(1).unwrap(),
             Ref { .. } | Box { .. } | RawPtr { .. } => PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
+            Array { elem, count } => elem.size() * count,
         }
     }
 
@@ -148,6 +152,7 @@ impl Type {
             Int(..) | Bool | RawPtr { .. } => true,
             Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
             Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
+            Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => fields.iter().any(|type| type.inhabited()),
         }
