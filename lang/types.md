@@ -13,6 +13,7 @@ MiniRust has types `Type` for values, and `PlaceType` for places.
 Place types combine a value type with an alignment; places of that type are guaranteed to be suitably aligned.
 Rust types correspond to place types.
 This distinction allows us to elegantly encode `repr(packed)` and `repr(align)` by varying the `align` field of the place type.
+It also elegantly avoids having to define a function that computes the alignment for any `Type` -- that is almost entirely target-dependent anyway, and not at all related to how values of that type get (de)serialized.
 
 Note that for now, we make the exact offsets of each field part of the type.
 As always, this definition is incomplete.

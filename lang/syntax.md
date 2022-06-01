@@ -25,10 +25,10 @@ struct Function {
     /// The locals of this function, and their type.
     locals: Map<LocalName, PlaceType>,
     /// A list of locals that are initially filled with the function arguments.
-    /// Also stores the call ABI for each argument.
+    /// Also determines the call ABI for each argument.
     args: List<(LocalName, ArgAbi)>,
     /// The name of a local that holds the return value when the function returns
-    /// Also stores the return ABI.
+    /// Also determines the return ABI.
     ret: (LocalName, ArgAbi),
 
     /// Associate each basic block name with the associated block.
@@ -44,7 +44,7 @@ struct BasicBlock {
 }
 ```
 
-And finally, the statements and terminators that MiniRust programs consist of:
+Next, the statements and terminators that MiniRust programs consist of:
 
 ```rust
 enum Statement {
@@ -86,7 +86,11 @@ enum Terminator {
     /// Return from the current function.
     Return,
 }
+```
 
+And finally, the syntax of expressions:
+
+```rust
 /// A "value expression" evaluates to a `Value`.
 enum ValueExpr {
     /// Just return a constant.

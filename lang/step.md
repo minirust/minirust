@@ -270,10 +270,6 @@ impl Machine {
     }
 
     fn eval_statement(&mut self, StorageDead(local): Statement) -> Result {
-        let func = self.cur_frame().func;
-        if func.ret == local || func.args.contains(local) {
-            panic!("trying to make an argument or return local dead");
-        }
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
         let layout = self.cur_frame().func.locals[local].layout();
@@ -396,8 +392,10 @@ impl Machine {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
         // Copy return value to where the caller wants it.
-        let ret_pty = func.locals[func.ret];
-        let ret_val = self.mem.typed_load(frame.locals[func.ret], ret_pty)?;
+        // We use the type as given by `func` here as otherwise we
+        // would never ensure that the value is valid at that type.
+        let ret_pty = func.locals[func.ret.0];
+        let ret_val = self.mem.typed_load(frame.locals[func.ret.0], ret_pty)?;
         self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
         // Deallocate everything.
         for (local, place) in frame.locals {

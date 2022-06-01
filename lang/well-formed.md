@@ -120,7 +120,7 @@ impl ValueExpr {
             UnOp { operator, operand } => {
                 let operand = operand.check(locals)?;
                 match operator {
-                    Int(int_op, int_ty) => {
+                    Int(_int_op, int_ty) => {
                         if !matches!(operand, Int(_)) { yeet!(); }
                         Int(int_ty)
                     }
@@ -130,7 +130,7 @@ impl ValueExpr {
                 let left = left.check(locals)?;
                 let right = right.check(locals)?;
                 match operator {
-                    Int(int_op, int_ty) => {
+                    Int(_int_op, int_ty) => {
                         if !matches!(left, Int(_)) { yeet!(); }
                         if !matches!(right, Int(_)) { yeet!(); }
                         Int(int_ty)
@@ -223,6 +223,10 @@ impl Statement {
                 locals
             }
             StorageDead(local) => {
+                if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi) arg_name == local) {
+                    // Trying to mark an argument or the return local as dead.
+                    yeet!();
+                }
                 locals.remove(local)?;
                 locals
             }
@@ -266,11 +270,11 @@ impl Function {
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
         let mut start_live: Map<Local, PlaceType> = default();
-        for arg in self.args {
+        for (arg, _abi) in self.args {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?)?;
         }
-        start_live.try_insert(self.ret, self.locals.get(self.ret)?)?;
+        start_live.try_insert(self.ret.0, self.locals.get(self.ret.0)?)?;
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
         // which blocks we still have to check. We also track the live locals
@@ -281,7 +285,7 @@ impl Function {
         while let Some(block_name) = todo.pop_front() {
             let block = self.blocks.get(block_name)?;
             let mut live_locals = bb_live_at_entry[block_name];
-            // Check this block.
+            // Check this block, updating the live locals along the way.
             for statement in block.statements {
                 live_locals = statement.check(live_locals, self)?;
             }
@@ -301,14 +305,17 @@ impl Function {
 
         // Ensure there are no dead blocks that we failed to reach.
         for block_name in self.blocks.keys() {
-            if !bb_live_at_entry.contains(block_name) { yeet!(): }
+            if !bb_live_at_entry.contains(block_name) { yeet!(); }
         }
     }
 }
 
 impl Program {
     fn check(self) -> Option<()> {
-        self.functions.get(start)?;
+        // Ensure the start function exists, and takes no arguments.
+        let func = self.functions.get(start)?;
+        if func.args.len() > 0 { return None; }
+        // Check all the functions.
         for function in self.functions.values() {
             function.check()?;
         }
