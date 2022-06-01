@@ -83,7 +83,7 @@ impl PlaceType {
 impl ValueExpr {
     fn check(self, locals: Map<Local, PlaceType>) -> Option<Type> {
         match self {
-            Constant(_value, type) => Some(type),
+            Constant(_value, type) => Some(type), // FIXME this accepts all values at all types!
             Load { source, destructive: _ } => {
                 let ptype = source.check(locals)?;
                 Some(ptype.type)
@@ -141,8 +141,8 @@ impl PlaceExpr {
             Field { root, field } => {
                 let root = root.check(locals)?;
                 let (offset, field_ty) = match root.type {
-                    Tuple { fields, .. } => fields[field],
-                    Union { fields, .. } => fields[field],
+                    Tuple { fields, .. } => fields.get(field)?,
+                    Union { fields, .. } => fields.get(field)?,
                     _ => return None,
                 };
                 // TODO: I am not sure that that this is a valid PlaceType
