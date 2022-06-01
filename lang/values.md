@@ -75,9 +75,9 @@ impl Type {
 impl Type {
     fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
         match *bytes {
-            [AbstractByte::Init(0, _)] => Some(Value::Bool(false)),
-            [AbstractByte::Init(1, _)] => Some(Value::Bool(true)),
-            _ => None,
+            [AbstractByte::Init(0, _)] => Value::Bool(false),
+            [AbstractByte::Init(1, _)] => Value::Bool(true),
+            _ => yeet!(),
         }
     }
     fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
@@ -96,8 +96,8 @@ For now we only define `u16` and `i16`.
 ```rust
 impl Type {
     fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
-        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { return None };
-        Some(Value::Int(ENDIANESS.decode(signed, [b0, b1])))
+        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { yeet!() };
+        Value::Int(ENDIANESS.decode(signed, [b0, b1]))
     }
     fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
@@ -123,7 +123,7 @@ Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 
 ```rust
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
-    if bytes.len() != PTR_SIZE { return None; }
+    if bytes.len() != PTR_SIZE { yeet!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
     let addr = ENDIANESS.decode(Unsigned, &bytes_data);
@@ -134,7 +134,7 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
             provenance = None;
         }
     }
-    Some(Pointer { addr, provenance })
+    Pointer { addr, provenance }
 }
 
 fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
@@ -146,7 +146,7 @@ fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
 
 impl Type {
     fn decode(RawPtr { .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        Some(Value::Ptr(decode_ptr(bytes)?))
+        Value::Ptr(decode_ptr(bytes)?)
     }
     fn encode(RawPtr { .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
@@ -168,8 +168,8 @@ fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
 impl Type {
     fn decode(Ref { pointee, .. } | Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let ptr = decode_ptr(bytes)?;
-        if !check_safe_ptr(ptr, pointee) { return None; }
-        Some(Value::Ptr(ptr))
+        if !check_safe_ptr(ptr, pointee) { yeet!(); }
+        Value::Ptr(ptr)
     }
     fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
@@ -191,12 +191,12 @@ For simplicity, we only define pairs for now.
 ```rust
 impl Type {
     fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { return None; }
+        if bytes.len() != size { yeet!(); }
         let (size1, type1) = field1;
         let val1 = type1.decode(bytes[size1..][..type1.size()]);
         let (size2, type2) = field2;
         let val2 = type1.decode(bytes[size2..][..type2.size()]);
-        Some(Value::Tuple([val1, val2]))
+        Value::Tuple([val1, val2])
     }
     fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple([val1, val2]) = val else { panic!() };
@@ -225,8 +225,8 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 ```rust
 impl Type {
     fn decode(Union { size, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { return None; }
-        Some(Value::Bytes(bytes))
+        if bytes.len() != size { yeet!(); }
+        Value::Bytes(bytes)
     }
     fn encode(Union { size, .. }: Self, value: Value) -> List<AbstractByte> {
         let Value::Bytes(bytes) = val else { panic!() };
@@ -369,14 +369,14 @@ trait TypedMemory: Memory {
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
     fn typed_store(&mut self, ptr: Self::Pointer, val: Value, pty: PlaceType) -> Result {
         let bytes = pty.type.encode(val);
-        self.store(ptr, bytes, pty.align)
+        self.store(ptr, bytes, pty.align)?;
     }
 
     /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Self::Pointer, pty: PlaceType) -> Result<Value> {
-        let bytes = self.load(ptr, pty.type.size(), pty.align);
+        let bytes = self.load(ptr, pty.type.size(), pty.align)?;
         match pty.type.decode(bytes) {
-            Some(val) => Ok(val),
+            Some(val) => val,
             None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
         }
     }

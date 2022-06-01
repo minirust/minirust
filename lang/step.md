@@ -68,8 +68,7 @@ impl Machine {
     fn eval_value(&mut self, Load { destructive, source }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(source)?;
         let ptype = source.check(self.cur_frame().func.locals).unwrap();
-        let val = self.mem.typed_load(p, ptype)?;
-        Ok(val)
+        self.mem.typed_load(p, ptype)?
     }
 }
 ```
@@ -82,7 +81,7 @@ The `&` operators simply converts a place to the pointer it denotes.
 impl Machine {
     fn eval_value(&mut self, AddrOf { target, .. }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(target)?;
-        Ok(Value::Ptr(p))
+        Value::Ptr(p)
     }
 
     fn eval_value(&mut self, Ref { target, align, .. }: ValueExpr) -> Result<Value> {
@@ -93,7 +92,7 @@ impl Machine {
         if !check_safe_ptr(p, Layout { align, ..ptype.layout() }) {
             throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
         }
-        Ok(Value::Ptr(p))
+        Value::Ptr(p)
     }
 
 }
@@ -139,7 +138,7 @@ The place for a local is directly given by the stack frame.
 impl Machine {
     fn eval_place(&mut self, Local(name): PlaceExpr) -> Result<Place> {
         // This implicitly asserts that the local is live!
-        Ok(self.cur_frame().locals[name])
+        self.cur_frame().locals[name]
     }
 }
 ```
@@ -161,7 +160,7 @@ impl Machine {
         let ptype = expr.check(self.cur_frame().func.locals).unwrap();
         // In case this is a raw pointer, make sure we know the place we create is dereferenceable.
         self.mem.layout_dereferenceable(p, ptype.layout())?;
-        Ok(p)
+        p
     }
 }
 ```
@@ -181,7 +180,7 @@ impl Machine {
         assert!(offset < type.size());
         // Note that the "inbounds" test here can never fail, since we ensure that
         // all places are dereferenceable. That's why we can `unwrap()`.
-        Ok(self.ptr_offset_inbounds(root, offset.bytes()).unwrap())
+        self.ptr_offset_inbounds(root, offset.bytes()).unwrap()
     }
 
     fn eval_place(&mut self, Index { root, index }: PlaceExpr) -> Result<Place> {
@@ -203,7 +202,7 @@ impl Machine {
         assert!(offset < type.size());
         // Note that the "inbounds" test here can never fail, since we ensure that
         // all places are dereferenceable. That's why we can `unwrap()`.
-        Ok(self.ptr_offset_inbounds(root, offset.bytes()).unwrap())
+        self.ptr_offset_inbounds(root, offset.bytes()).unwrap()
     }
 }
 ```
