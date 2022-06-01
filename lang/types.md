@@ -129,6 +129,10 @@ impl Type {
 }
 
 impl PlaceType {
+    fn new(type: Type, align: Align) -> Self {
+        PlaceType { type, align }
+    }
+
     fn layout(self) -> Layout {
         Layout {
             size: self.type.size(),

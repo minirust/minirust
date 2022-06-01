@@ -27,6 +27,9 @@ struct StackFrame {
     /// For each live local, the place in memory where its value is stored.
     locals: Map<LocalName, Place>,
 
+    /// The place where the caller wants to see the return value.
+    caller_ret_place: Place,
+
     /// The next statement/terminator to execute (the "program counter").
     /// The first component identifies the basic block,
     /// the second the statement inside that basic block.

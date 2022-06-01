@@ -329,37 +329,51 @@ In particular, we have to initialize the new stack frame.
 
 ```rust
 impl Machine {
-    fn eval_terminator(&mut self, Call { callee, arguments, return_place, next_block }: Terminator) -> Result {
-        let func = self.prog.functions[callee];
+    fn eval_terminator(
+        &mut self,
+        Call { callee, arguments, return_place, next_block }: Terminator
+    ) -> Result {
+        let Some(func) = self.prog.functions.get(callee) else {
+            throw_ub!("calling non-existing function");
+        };
         // Evaluate all arguments and put them into fresh places,
         // to initialize the local variable assignment.
         if func.args.len() != arguments.len() {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
-        let mut arguments: Map<LocalName, Place> =
-            func.args.iter().zip(arguments.iter()).map(|local, (arg_val, arg_pty)| {
-                let val = self.eval_value(val)?;
-                let local_layout = func.locals[local].layout();
-                // Ensure argument and local layout match.
-                if local_layout != arg_pty.layout() {
-                    throw_ub!("call ABI violation: argument layout does not agree");
+        let mut locals: Map<LocalName, Place> =
+            func.args.iter().zip(arguments.iter()).map(|local, arg| {
+                let val = self.eval_value(arg)?;
+                let caller_ty = arg.check(func.locals).unwrap();
+                let callee_layout = func.locals[local].layout();
+                if caller_ty.size() != callee_layout.size {
+                    throw_ub!("call ABI violation: argument size does not agree");
                 }
-                // Allocate place and store argument value (a lot like `StorageLive`).
-                let p = self.mem.allocate(local_layout.size, local_layout.align)?;
-                self.mem.typed_store(p, val, arg_pty)?;
-                Ok((local, p))
+                // Allocate place with callee layout (a lot like `StorageLive`).
+                let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
+                // Store value with caller type (otherwise we could get panics).
+                // The size check above should ensure that this does not go OOB,
+                // and it is a fresh pointer so there should be no other reason this can fail.
+                self.mem.typed_store(p, val, PlaceType::new(caller_ty, Align::ONE)).unwrap();
+                (local, p)
             }
             .collect()?;
-        // Add the return place.
-        // TODO: Do we need to check that caller and callee agree on the layout and some kind of ABI?
-        let ret_place = self.eval_place(return_place)?;
-        locals.try_insert(func.ret, ret_place).unwrap();
+        // Create place for return local.
+        let callee_ret_layout = func.locals[func.ret].layout();
+        locals.insert(func.ret, self.mem.allocate(ret_layout.size, ret_layout.align)?);
+        // Remember the return place (will be relevant during `Return`).
+        let caller_ret_place = self.eval_place(return_place)?;
+        let caller_ret_layout = return_place.check(func.locals).unwrap().layout();
+        if caller_ret_layout.size != callee_ret_layout.size {
+            throw_ub!("call ABI violation: return size does not agree");
+        }
         // Advance the PC for this stack frame.
         self.cur_frame_mut().next = (next_block, 0);
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
             func,
             locals,
+            caller_ret_place,
             next: (func.start, 0),
         });
     }
@@ -377,20 +391,16 @@ impl Machine {
     fn eval_terminator(&mut self, Return: Terminator) -> Result {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
-        // Deallocate everything except for the return place (which is the one
-        // thing we did not allocate during `Call` or while running this function).
-        for (local, ptype) in func.locals {
-            if local != func.ret && frame.locals.contains(local) {
-                // A lot like `StorageDead`.
-                let p = frame.locals.remove(local).unwrap();
-                let layout = ptype.layout();
-                self.mem.deallocate(p, layout.size, layout.align)?;
-            }
+        // Copy return value to where the caller wants it.
+        let ret_pty = func.locals[func.ret];
+        let ret_val = self.mem.typed_load(frame.locals[func.ret], ret_pty)?;
+        self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        // Deallocate everything.
+        for (local, place) in frame.locals {
+            // A lot like `StorageDead`.
+            let layout = func.locals[local].layout();
+            self.mem.deallocate(place, layout.size, layout.align)?;
         }
-        // There should be only the return local left.
-        let _ret = frame.locals.remove(func.ret).unwrap();
-        assert!(frame.locals.is_empty());
-        // The callee has already written the return place to where the caller needs it, so we are done.
     }
 }
 ```

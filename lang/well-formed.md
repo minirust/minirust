@@ -232,7 +232,10 @@ impl Statement {
 
 impl Terminator {
     /// Returns the successor basic blocks that need to be checked next.
-    fn check(self, live_locals: Map<Local, PlaceType>) -> Option<List<BbName>> {
+    fn check(
+        self,
+        live_locals: Map<Local, PlaceType>,
+    ) -> Option<List<BbName>> {
         match self {
             Goto(block_name) => {
                 list![block_name]
@@ -242,10 +245,72 @@ impl Terminator {
                 if !matches!(type, Type::Bool) { yeet!(); }
                 list![then_block, else_block]
             }
-            // TODO: Call, Return
+            Call { callee: _, arguments, return_place, next_block } => {
+                // Argument and return expressions must all typecheck with some type.
+                for arg in arguments {
+                    arg.check(live_locals)?;
+                }
+                return_place.check(live_locals)?;
+                list![next_block]
+            }
+            Return => {
+                list![]
+            }
+        }
+    }
+}
+
+impl Function {
+    fn check(self) -> Option<()> {
+        // Construct initially live locals.
+        // Also ensures that argument and return locals must exist.
+        let mut start_live: Map<Local, PlaceType> = default();
+        for arg in self.args {
+            // Also ensures that no two arguments refer to the same local.
+            start_live.try_insert(arg, self.locals.get(arg)?)?;
+        }
+        start_live.try_insert(self.ret, self.locals.get(self.ret)?)?;
+
+        // Check the basic blocks. They can be cyclic, so we keep a worklist of
+        // which blocks we still have to check. We also track the live locals
+        // they start out with.
+        let mut bb_live_at_entry: Map<BbName, Map<Local, PlaceType>> = default();
+        bb_live_at_entry.insert(self.start, start_live);
+        let mut todo = list![self.start];
+        while let Some(block_name) = todo.pop_front() {
+            let block = self.blocks.get(block_name)?;
+            let mut live_locals = bb_live_at_entry[block_name];
+            // Check this block.
+            for statement in block.statements {
+                live_locals = statement.check(live_locals, self)?;
+            }
+            let successors = block.terminator.check(live_locals)?;
+            for block_name in successors {
+                if let Some(precondition) = bb_live_at_entry.get(block_name) {
+                    // A block we already visited (or already have in the worklist).
+                    // Make sure the set of initially live locals is consistent!
+                    if precondition != live_locals { yeet!(); }
+                } else {
+                    // A new block.
+                    bb_live_at_entry.insert(block_name, live_locals);
+                    todo.push_back(block_name);
+                }
+            }
+        }
+
+        // Ensure there are no dead blocks that we failed to reach.
+        for block_name in self.blocks.keys() {
+            if !bb_live_at_entry.contains(block_name) { yeet!(): }
+        }
+    }
+}
+
+impl Program {
+    fn check(self) -> Option<()> {
+        self.functions.get(start)?;
+        for function in self.functions.values() {
+            function.check()?;
         }
     }
 }
 ```
-
-- TODO: define `check` for functions, programs

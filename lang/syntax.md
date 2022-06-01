@@ -24,10 +24,9 @@ type BbName;
 struct Function {
     /// The locals of this function, and their type.
     locals: Map<LocalName, PlaceType>,
-    /// A list of locals that the caller will allocate and fill with the function arguments.
+    /// A list of locals that are initially filled with the function arguments.
     args: List<LocalName>,
-    /// The name of a local that the caller will allocate and expect the callee to
-    /// fill it with the return value.
+    /// The name of a local that holds the return value when the function returns
     ret: LocalName,
 
     /// Associate each basic block name with the associated block.
@@ -75,10 +74,8 @@ enum Terminator {
     /// Call the given function with the given arguments.
     Call {
         callee: FnName,
-        /// The arguments to pass, and the types to pass them at.
-        // TODO: It seems asymmetric to pass arguments by value but use a place for the return value.
-        // Should we have `PlaceExpr` for the arguments as well? But then we need to do some fancy alias control.
-        arguments: List<(ValueExpr, PlaceType)>,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
         /// The place to put the return value into.
         return_place: PlaceExpr,
         /// The block to jump to when this call returns.
