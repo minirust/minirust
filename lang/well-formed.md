@@ -84,13 +84,26 @@ impl PlaceType {
 
 ```rust
 impl Value {
+    /// Assumes that `type` has already been checked.
     fn check(self, type: Type) -> Option<()> {
-        // For now, we only support integer and boolean literals.
+        // For now, we only support integer and boolean literals, and arrays/tuples.
         match (self, type) {
             (Value::Int(i), Type::Int(int_type)) => {
                 if !i.in_bounds(int_type.signed, int_type.size) { yeet!(); }
             }
             (Value::Bool(_), Type::Bool) => (),
+            (Value::Tuple(values), Type::Tuple { fields }) => {
+                if values.len() != fields.len() { yeet!(); }
+                for (val, (_offset, type)) in values.iter().zip(fields.iter()) {
+                    val.check(type)?;
+                }
+            }
+            (Value::Tuple(values), Type::Array { elem, count }) => {
+                if values.len() != count { yeet!(); }
+                for val in values {
+                    val.check(elem)?;
+                }
+            }
             _ => yeet!(),
         }
     }
