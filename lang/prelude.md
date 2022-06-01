@@ -18,4 +18,14 @@ trait Endianess {
     fn encode<N: usize>(self, signed: Signedness, int: BigInt) -> Option<[u8; N]>;
 }
 const ENDIANESS: impl Endianess;
+
+// Everything there is to say about how an argument is passed to a function,
+// and how the return value is passed back.
+// For example, for stack passing this should say whether and how the
+// stack is aligned before passing the argument; for register passing
+// it should say which register to use and whether to do adjustments
+// like sign extension.
+// The only thing that the general `Call` implementation ensures is that
+// caller and callee agree on the size of the argument/return value.
+type ArgAbi: PartialEq;
 ```

@@ -322,16 +322,12 @@ A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
-- TODO: Right now, the *caller* allocates the return place. That makes `Return` very elegant, but is it truly what we want?
-  In particular this means the callee cannot even tread this allocation as entirely private.
-  (Aliasing will get us *some* exclusivity but not all of it.)
-- TODO: This should do some kind of ABI compatibility check. Not all types with the same layout are okay to be type-punned across a call.
 
 ```rust
 impl Machine {
     fn eval_terminator(
         &mut self,
-        Call { callee, arguments, return_place, next_block }: Terminator
+        Call { callee, arguments, ret, next_block }: Terminator
     ) -> Result {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
@@ -342,12 +338,15 @@ impl Machine {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         let mut locals: Map<LocalName, Place> =
-            func.args.iter().zip(arguments.iter()).map(|local, arg| {
+            func.args.iter().zip(arguments.iter()).map(|(local, callee_abi), (arg, caller_abi)| {
                 let val = self.eval_value(arg)?;
                 let caller_ty = arg.check(func.locals).unwrap();
                 let callee_layout = func.locals[local].layout();
                 if caller_ty.size() != callee_layout.size {
                     throw_ub!("call ABI violation: argument size does not agree");
+                }
+                if caller_abi != callee_abi {
+                    throw_ub!("call ABI violation: argument ABI does not agree");
                 }
                 // Allocate place with callee layout (a lot like `StorageLive`).
                 let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
@@ -359,13 +358,18 @@ impl Machine {
             }
             .collect()?;
         // Create place for return local.
-        let callee_ret_layout = func.locals[func.ret].layout();
-        locals.insert(func.ret, self.mem.allocate(ret_layout.size, ret_layout.align)?);
+        let (ret_local, callee_ret_abi) = func.ret;
+        let callee_ret_layout = func.locals[ret_local].layout();
+        locals.insert(ret_local, self.mem.allocate(ret_layout.size, ret_layout.align)?);
         // Remember the return place (will be relevant during `Return`).
-        let caller_ret_place = self.eval_place(return_place)?;
+        let (caller_ret_place, caller_ret_abi) = ret;
+        let caller_ret_place = self.eval_place(caller_ret_place)?;
         let caller_ret_layout = return_place.check(func.locals).unwrap().layout();
         if caller_ret_layout.size != callee_ret_layout.size {
             throw_ub!("call ABI violation: return size does not agree");
+        }
+        if caller_ret_abi != callee_ret_abi {
+            throw_ub!("call ABI violation: return ABI does not agree");
         }
         // Advance the PC for this stack frame.
         self.cur_frame_mut().next = (next_block, 0);

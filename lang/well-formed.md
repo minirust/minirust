@@ -245,12 +245,13 @@ impl Terminator {
                 if !matches!(type, Type::Bool) { yeet!(); }
                 list![then_block, else_block]
             }
-            Call { callee: _, arguments, return_place, next_block } => {
+            Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
-                for arg in arguments {
+                for (arg, _abi) in arguments {
                     arg.check(live_locals)?;
                 }
-                return_place.check(live_locals)?;
+                let (ret_place, _ret_abi) = ret;
+                ret_place.check(live_locals)?;
                 list![next_block]
             }
             Return => {

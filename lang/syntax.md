@@ -25,9 +25,11 @@ struct Function {
     /// The locals of this function, and their type.
     locals: Map<LocalName, PlaceType>,
     /// A list of locals that are initially filled with the function arguments.
-    args: List<LocalName>,
+    /// Also stores the call ABI for each argument.
+    args: List<(LocalName, ArgAbi)>,
     /// The name of a local that holds the return value when the function returns
-    ret: LocalName,
+    /// Also stores the return ABI.
+    ret: (LocalName, ArgAbi),
 
     /// Associate each basic block name with the associated block.
     blocks: Map<BbName, BasicBlock>,
@@ -74,10 +76,10 @@ enum Terminator {
     /// Call the given function with the given arguments.
     Call {
         callee: FnName,
-        /// The arguments to pass.
-        arguments: List<ValueExpr>,
-        /// The place to put the return value into.
-        return_place: PlaceExpr,
+        /// The arguments to pass, and which ABIs to use for that.
+        arguments: List<(ValueExpr, ArgABi)>,
+        /// The place to put the return value into, and which ABI to use for that.
+        ret: (PlaceExpr, ArgAbi),
         /// The block to jump to when this call returns.
         next_block: BbName,
     }
