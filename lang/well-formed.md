@@ -17,8 +17,11 @@ impl IntType {
 
 impl Layout(self) {
     fn check(self) -> Option<()> {
-        // Size must be a multiple of alignment.
-        if self.size.bytes() % self.align.bytes() != 0 { yeet!(); }
+        // Nothing to check here.
+        // In particular, we do *not* require that size is a multiple of align!
+        // To represent e.g. the PlaceType of an `i32` at offset 0 in a
+        // type that is `align(16)`, we have to be able to talk about types
+        // with size 4 and alignment 16.
     }
 }
 
@@ -29,8 +32,8 @@ impl Type {
             Int(int_type) => {
                 int_type.check()?;
             }
-            Bool | RawPtr { .. } => (),
-            Ref { pointee, .. } | Box { pointee } => {
+            Bool | RawPtr { mutbl: _ } => (),
+            Ref { pointee, mutbl: _ } | Box { pointee } => {
                 pointee.check()?;
             }
             Tuple { fields, size, align } => {
@@ -59,7 +62,7 @@ impl Type {
                     if size < offset.checked_add(type.size())? { yeet!(); }
                 }
             }
-            Enum { variants, size, .. } => {
+            Enum { variants, size, tag_encoding: _ } => {
                 for variant in variants {
                     variant.check()?;
                     if size < variant.size() { yeet!(); }
@@ -161,8 +164,6 @@ impl PlaceExpr {
                     Union { fields, .. } => fields.get(field)?,
                     _ => yeet!(),
                 };
-                // TODO: I am not sure that that this is a valid PlaceType
-                // (specifically, that size is a multiple of align).
                 PlaceType {
                     align: root.align.restrict_for_offset(offset),
                     type: field_ty,
@@ -179,8 +180,6 @@ impl PlaceExpr {
                 // We might be adding a multiple of `field_ty.size`, so we have to
                 // lower the alignment compared to `root`. `restrict_for_offset`
                 // is good for any multiple of that offset as well.
-                // TODO: I am not sure that that this is a valid PlaceType
-                // (specifically, that size is a multiple of align).
                 PlaceType {
                     align: root.align.restrict_for_offset(field_ty.size()),
                     type: field_ty,
