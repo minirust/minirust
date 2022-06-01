@@ -60,15 +60,17 @@ impl Machine {
 
 This loads a value from a place (often called "place-to-value coercion").
 
-- TODO: Actually implement the "destructive" part of this.
-  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/188).
-
 ```rust
 impl Machine {
     fn eval_value(&mut self, Load { destructive, source }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(source)?;
         let ptype = source.check(self.cur_frame().func.locals).unwrap();
-        self.mem.typed_load(p, ptype)?
+        let v = self.mem.typed_load(p, ptype)?;
+        if destructive {
+            // Overwrite the source with `Uninit`.
+            self.mem.store(p, list![AbstractByte::Uninit; ptype.size()], ptype.align)?;
+        }
+        v
     }
 }
 ```
