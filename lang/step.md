@@ -228,9 +228,10 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, Assign { destination, ptype, source }: Statement) -> Result {
+    fn eval_statement(&mut self, Assign { destination, source }: Statement) -> Result {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
+        let ptype = place.check(self.cur_frame().func.locals).unwrap();
         self.mem.typed_store(place, val, ptype)?;
     }
 }
@@ -248,9 +249,10 @@ This is equivalent to the assignment `_ = place`.
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, Finalize { place, type }: Statement) -> Result {
+    fn eval_statement(&mut self, Finalize { place }: Statement) -> Result {
         let p = self.eval_place(place)?;
-        let _val = self.mem.typed_load(p, type)?;
+        let ptype = place.check(self.cur_frame().func.locals).unwrap();
+        let _val = self.mem.typed_load(p, ptype)?;
     }
 }
 ```

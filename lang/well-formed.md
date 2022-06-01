@@ -77,7 +77,7 @@ impl PlaceType {
 }
 ```
 
-## Well-formed expressions, functions, and programs
+## Well-formed expressions
 
 ```rust
 impl Value {
@@ -147,7 +147,7 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check(self, locals: Map<Local, PlaceType) -> Option<PlaceType> {
+    fn check(self, locals: Map<Local, PlaceType>) -> Option<PlaceType> {
         match self {
             Local(name) => locals.get(name),
             Deref { operand, align } => {
@@ -191,4 +191,61 @@ impl PlaceExpr {
 }
 ```
 
-- TODO: define `check` for statements, terminators, functions, programs
+## Well-formed functions and programs
+
+When checking functions, we track for each program point the set of live locals (and their type) at that point.
+To handle cyclic CFGs, we track the set of live locals at the beginning of each basic block.
+When we first encounter a block, we add the locals that are live on the "in" edge; when we encounter a block the second time, we require the set to be the same.
+
+```rust
+impl Statement {
+    /// This returns the adjusted live local mapping after the statement.
+    fn check(
+        self,
+        mut live_locals: Map<Local, PlaceType>,
+        func: Function
+    ) -> Option<Map<Local, PlaceType>> {
+        match self {
+            Assign { destination, source } => {
+                let left = destination.check(live_locals)?;
+                let right = source.check(live_locals)?;
+                if left.type != right { return None; }
+                Some(locals)
+            }
+            Finalize { place } => {
+                place.check(live_locals)?;
+                Some(locals)
+            }
+            StorageLive(local) => {
+                // Look up the type in the function, and add it to the live locals.
+                // Fail if it already is live.
+                locals.try_insert(local, func.locals.get(local)?)?;
+                Some(locals)
+            }
+            StorageDead(local) => {
+                locals.remove(local)?;
+                Some(locals)
+            }
+        }
+    }
+}
+
+impl Terminator {
+    /// Returns the successor basic blocks that need to be checked next.
+    fn check(self, live_locals: Map<Local, PlaceType>) -> Option<List<BbName>> {
+        match self {
+            Goto(block_name) => {
+                Some(list![block_name])
+            }
+            If { condition, then_block, else_block } => {
+                let type = condition.check(live_locals)?;
+                if !matches!(type, Type::Bool) { return None; }
+                Some(list![then_block, else_block])
+            }
+            // TODO: Call, Return
+        }
+    }
+}
+```
+
+- TODO: define `check` for functions, programs

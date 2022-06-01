@@ -50,13 +50,11 @@ enum Statement {
     /// Copy value from `source` to `target`.
     Assign {
         destination: PlaceExpr,
-        ptype: PlaceType,
         source: ValueExpr,
     },
-    /// Ensure that `place` contains a valid value of type `type` (else UB).
+    /// Ensure that `place` contains a valid value of its type (else UB).
     Finalize {
         place: PlaceExpr,
-        type: Type,
     },
     /// Allocate the backing store for this local.
     StorageLive(LocalName),
