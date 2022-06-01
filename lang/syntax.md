@@ -147,6 +147,11 @@ enum BinOpInt {
     Add,
     /// Subtract two integer values.
     Sub,
+    /// Multiply two integer values.
+    Mul,
+    /// Divide two integer values.
+    /// Division by zero is UB.
+    Div,
 }
 enum BinOp {
     /// An operation on integers, with the given output type.

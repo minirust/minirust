@@ -48,8 +48,15 @@ impl Machine {
     fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> Result<BigInt> {
         use BinOpInt::*;
         Ok(match op {
-            Add => left+right,
-            Sub => left-right,
+            Add => left + right,
+            Sub => left - right,
+            Mul => left * right,
+            Div => {
+                if right == 0 {
+                    throw_ub!("division by zero");
+                }
+                left.checked_div(right).unwrap()
+            }
         })
     }
     fn eval_bin_op(&mut self, Int(op, int_type): BinOp, left: Value, right: Value) -> Result<Value> {
