@@ -80,10 +80,26 @@ impl PlaceType {
 ## Well-formed expressions, functions, and programs
 
 ```rust
+impl Value {
+    fn check(self, type: Type) -> Option<()> {
+        // For now, we only support integer and boolean literals.
+        match (self, type) {
+            (Value::Int(i), Type::Int(int_type)) => {
+                if !i.in_bounds(int_type.signed, int_type.size) { return None; }
+            }
+            (Value::Bool(_), Type::Bool) => (),
+            _ => return None,
+        }
+    }
+}
+
 impl ValueExpr {
     fn check(self, locals: Map<Local, PlaceType>) -> Option<Type> {
         match self {
-            Constant(_value, type) => Some(type), // FIXME this accepts all values at all types!
+            Constant(value, type) => {
+                value.check(type)?;
+                Some(type)
+            }
             Load { source, destructive: _ } => {
                 let ptype = source.check(locals)?;
                 Some(ptype.type)
