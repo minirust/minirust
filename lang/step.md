@@ -330,31 +330,9 @@ impl Machine {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
         };
-        // Evaluate all arguments and put them into fresh places,
-        // to initialize the local variable assignment.
-        if func.args.len() != arguments.len() {
-            throw_ub!("call ABI violation: number of arguments does not agree");
-        }
-        let mut locals: Map<LocalName, Place> =
-            func.args.iter().zip(arguments.iter()).map(|(local, callee_abi), (arg, caller_abi)| {
-                let val = self.eval_value(arg)?;
-                let caller_ty = arg.check(func.locals).unwrap();
-                let callee_layout = func.locals[local].layout();
-                if caller_ty.size() != callee_layout.size {
-                    throw_ub!("call ABI violation: argument size does not agree");
-                }
-                if caller_abi != callee_abi {
-                    throw_ub!("call ABI violation: argument ABI does not agree");
-                }
-                // Allocate place with callee layout (a lot like `StorageLive`).
-                let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
-                // Store value with caller type (otherwise we could get panics).
-                // The size check above should ensure that this does not go OOB,
-                // and it is a fresh pointer so there should be no other reason this can fail.
-                self.mem.typed_store(p, val, PlaceType::new(caller_ty, Align::ONE)).unwrap();
-                (local, p)
-            }
-            .collect()?;
+        let mut locals: Map<LocalName, Place> = default();
+
+        // First evaluate the return place. (Left-to-right!)
         // Create place for return local.
         let (ret_local, callee_ret_abi) = func.ret;
         let callee_ret_layout = func.locals[ret_local].layout();
@@ -369,6 +347,31 @@ impl Machine {
         if caller_ret_abi != callee_ret_abi {
             throw_ub!("call ABI violation: return ABI does not agree");
         }
+
+        // Evaluate all arguments and put them into fresh places,
+        // to initialize the local variable assignment.
+        if func.args.len() != arguments.len() {
+            throw_ub!("call ABI violation: number of arguments does not agree");
+        }
+        for ((local, callee_abi), (arg, caller_abi)) in func.args.iter().zip(arguments.iter()) {
+            let val = self.eval_value(arg)?;
+            let caller_ty = arg.check(func.locals).unwrap();
+            let callee_layout = func.locals[local].layout();
+            if caller_ty.size() != callee_layout.size {
+                throw_ub!("call ABI violation: argument size does not agree");
+            }
+            if caller_abi != callee_abi {
+                throw_ub!("call ABI violation: argument ABI does not agree");
+            }
+            // Allocate place with callee layout (a lot like `StorageLive`).
+            let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
+            // Store value with caller type (otherwise we could get panics).
+            // The size check above should ensure that this does not go OOB,
+            // and it is a fresh pointer so there should be no other reason this can fail.
+            self.mem.typed_store(p, val, PlaceType::new(caller_ty, callee_layout.align)).unwrap();
+            locals.insert(local, p);
+        }
+
         // Advance the PC for this stack frame.
         self.cur_frame_mut().next = (next_block, 0);
         // Push new stack frame, so it is executed next.
