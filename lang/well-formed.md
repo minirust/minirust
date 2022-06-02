@@ -32,7 +32,7 @@ impl Type {
             Int(int_type) => {
                 int_type.check()?;
             }
-            Bool | RawPtr { mutbl: _ } => (),
+            Bool | RawPtr => (),
             Ref { pointee, mutbl: _ } | Box { pointee } => {
                 pointee.check()?;
             }
@@ -129,9 +129,9 @@ impl ValueExpr {
                 let pointee = Layout { align, ..ptype.layout() };
                 Ref { mutbl, pointee }
             }
-            AddrOf { target, mutbl } => {
-                let ptype = target.check(locals)?;
-                RawPtr { mutbl }
+            AddrOf { target } => {
+                target.check(locals)?;
+                RawPtr
             }
             UnOp { operator, operand } => {
                 let operand = operand.check(locals)?;
@@ -152,7 +152,7 @@ impl ValueExpr {
                         Int(int_ty)
                     }
                     PtrOffset { inbounds: _ } => {
-                        if !matches!(left, Ref { .. } | RawPtr { .. }) { yeet!(); }
+                        if !matches!(left, Ref { .. } | RawPtr) { yeet!(); }
                         if !matches!(right, Int(_)) { yeet!(); }
                         left
                     }

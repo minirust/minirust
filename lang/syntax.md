@@ -115,8 +115,6 @@ enum ValueExpr {
     AddrOf {
         /// The place to create a raw pointer to.
         target: PlaceExpr,
-        /// Mutability of the raw pointer.
-        mutbl: Mutability,
     },
     /// Unary operators.
     UnOp {

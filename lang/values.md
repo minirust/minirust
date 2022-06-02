@@ -145,10 +145,10 @@ fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
 }
 
 impl Type {
-    fn decode(RawPtr { .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
         Value::Ptr(decode_ptr(bytes)?)
     }
-    fn encode(RawPtr { .. }: Self, val: Value) -> List<AbstractByte> {
+    fn encode(RawPtr: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }

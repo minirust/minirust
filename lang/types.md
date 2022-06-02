@@ -40,9 +40,7 @@ enum Type {
     Box {
         pointee: Layout,
     },
-    RawPtr {
-        mutbl: Mutability,
-    },
+    RawPtr,
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.

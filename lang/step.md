@@ -81,7 +81,7 @@ The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, AddrOf { target, .. }: ValueExpr) -> Result<Value> {
+    fn eval_value(&mut self, AddrOf { target }: ValueExpr) -> Result<Value> {
         let p = self.eval_place(target)?;
         Value::Ptr(p)
     }
