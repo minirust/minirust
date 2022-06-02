@@ -385,9 +385,8 @@ impl Machine {
 }
 ```
 
-Note that the arguments and return place are entirely controlled by the caller.
-The callee should probably start with a bunch of `Finalize` statements to ensure that all these arguments match the type the callee thinks they should have, and the return place is big enough.
-(The latter can be done by `Finalize` with a type like `MaybeUninit<T>`.)
+Note that the content of the arguments is entirely controlled by the caller.
+The callee should probably start with a bunch of `Finalize` statements to ensure that all these arguments match the type the callee thinks they should have.
 
 ### Return
 
