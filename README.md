@@ -82,6 +82,7 @@ There are some [differences between Miri and MiniRust](https://github.com/rust-l
 * MiniRust memory
   * [Memory interface](mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
   * [Basic memory model](mem/basic.md): an implementation of the memory interface that ignores aliasing concerns
+  * [Integer-pointer cast model](mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts
 * MiniRust language
   * [Prelude](lang/prelude.md): common definitions and parameters of the language
   * [Types](lang/types.md): the set of MiniRust types

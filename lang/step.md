@@ -225,7 +225,11 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
 - TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust.
-  Is that a good idea? Note that if we ignore destructive loads and if we assume that reads in the memory model can be reordered, then evaluation order *does not matter*. That seems nice to have.
+  Is that a good idea? Maybe we should impose some syntactic restrictions to ensure that the evaluation order does not matter, such as:
+  - If there is a destructive load in either expression, then there must be no other load.
+  - If there is a ptr2int cast, then there must be no int2ptr cast.
+
+    Or maybe we should change the grammar to make these cases impossible (like, make ptr2int casts proper statements). Also we have to assume that reads in the memory model can be reordered.
 
 ```rust
 impl Machine {

@@ -140,6 +140,14 @@ impl ValueExpr {
                         if !matches!(operand, Int(_)) { yeet!(); }
                         Int(int_ty)
                     }
+                    Ptr2Int => {
+                        if !matches!(operand, RawPtr) { yeet!(); }
+                        Int(IntType { signed: Unsigned, size: PTR_SIZE })
+                    }
+                    Int2Ptr => {
+                        if !matches!(operand, Int(IntType { signed: Unsigned, size: PTR_SIZE })) { yeet!(); }
+                        RawPtr
+                    }
                 }
             }
             BinOp { operator, left, right } => {

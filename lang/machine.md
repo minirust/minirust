@@ -15,6 +15,9 @@ struct Machine {
     /// The state of memory.
     mem: Memory,
 
+    /// The state of the integer-pointer cast subsystem.
+    intptrcast: IntPtrCast<Provenance>,
+
     /// The stack.
     stack: List<StackFrame>,
 }

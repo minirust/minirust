@@ -120,13 +120,13 @@ enum ValueExpr {
     UnOp {
         operator: UnOp,
         operand: ValueExpr,
-    }
+    },
     /// Binary operators.
     BinOp {
         operator: BinOp,
         left: ValueExpr,
         right: ValueExpr,
-    }
+    },
 }
 
 enum UnOpInt {
@@ -138,6 +138,10 @@ enum UnOpInt {
 enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
+    /// Pointer-to-integer cast
+    Ptr2Int,
+    /// Integer-to-pointer cast
+    Int2Ptr,
 }
 
 enum BinOpInt {

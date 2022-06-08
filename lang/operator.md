@@ -16,10 +16,10 @@ impl Machine {
 impl Machine {
     fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> Result<BigInt> {
         use UnOpInt::*;
-        Ok(match op {
+        match op {
             Neg => -operand,
             Cast => operand,
-        })
+        }
     }
     fn eval_un_op(&mut self, Int(op, int_type): UnOp, operand: Value) -> Result<Value> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
@@ -28,7 +28,24 @@ impl Machine {
         let result = self.eval_un_op_int(op, operand);
         // Put the result into the right range (in case of overflow).
         let result = result.modulo(int_type.signed, int_type.size);
-        Ok(Value::Int(result))
+        Value::Int(result)
+    }
+}
+```
+
+### Pointer-integer casts
+
+```rust
+impl Machine {
+    fn eval_un_op(&mut self, Ptr2Int: UnOp, operand: Value) -> Result<Value> {
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
+        let result = self.intptrcast.ptr2int(ptr)?;
+        Value::Int(result)
+    }
+    fn eval_un_op(&mut self, Int2Ptr: UnOp, operand: Value) -> Result<Value> {
+        let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
+        let result = self.intptrcast.int2ptr(addr)?;
+        Value::Ptr(result)
     }
 }
 ```
@@ -47,7 +64,7 @@ impl Machine {
 impl Machine {
     fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> Result<BigInt> {
         use BinOpInt::*;
-        Ok(match op {
+        match op {
             Add => left + right,
             Sub => left - right,
             Mul => left * right,
@@ -57,7 +74,7 @@ impl Machine {
                 }
                 left.checked_div(right).unwrap()
             }
-        })
+        }
     }
     fn eval_bin_op(&mut self, Int(op, int_type): BinOp, left: Value, right: Value) -> Result<Value> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
@@ -67,7 +84,7 @@ impl Machine {
         let result = self.eval_bin_op_int(op, left, right);
         // Put the result into the right range (in case of overflow).
         let result = result.modulo(int_type.signed, int_type.size);
-        Ok(Value::Int(result))
+        Value::Int(result)
     }
 }
 ```
@@ -107,7 +124,7 @@ impl Machine {
         // a valid offset?
         self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()).unwrap(), Align::ONE)?;
         // If this check passed, we are good.
-        Ok(new_ptr)
+        new_ptr
     }
 
     fn eval_bin_op(&mut self, PtrOffset { inbounds }: BinOp, left: Value, right: Value) -> Result<Value> {
@@ -119,7 +136,7 @@ impl Machine {
         } else {
             self.ptr_offset_wrapping(left, right)
         };
-        Ok(Value::Ptr(result))
+        Value::Ptr(result)
     }
 }
 ```
