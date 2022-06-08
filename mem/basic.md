@@ -74,7 +74,7 @@ impl MemoryInterface for BasicMemory {
         // meaning the program has to cope with every possible choice.
         // FIXME: This makes OOM (when there is no possible choice) into "no behavior",
         // which is not what we want.
-        let addr = pick(|addr| {
+        let addr = pick(|addr: BigInt| {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
@@ -106,11 +106,19 @@ impl MemoryInterface for BasicMemory {
         };
         // This lookup will definitely work, since AllocId cannot be faked.
         let allocation = &mut self.allocations[id.0];
+
+        // Check a bunch of things.
         if !allocation.live {
             throw_ub!("double-free");
         }
         if ptr.addr != allocation.addr {
             throw_ub!("deallocating with pointer not to the beginning of its allocation");
+        }
+        if size != allocation.size() {
+            throw_ub!("deallocating with incorrect size information");
+        }
+        if align != allocation.align {
+            throw_ub!("deallocating with incorrect alignment information");
         }
 
         // Mark it as dead. That's it.
