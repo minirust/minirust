@@ -23,7 +23,7 @@ As far as the interface is concerned, this is some opaque extra data that we car
 [pointers-complicated-2]: https://www.ralfj.de/blog/2020/12/14/provenance.html
 [pointers-complicated-3]: https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html
 [provenance]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#pointer-provenance
-[Stacked Borrows]: stacked-borrows.md
+[Stacked Borrows]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md
 
 ## Abstract Bytes
 

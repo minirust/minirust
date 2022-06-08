@@ -225,7 +225,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
 - TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust.
-  Is that a good idea? Can we make the order not matter for UB-free executions by adding more aliasing UB?
+  Is that a good idea? Note that if we ignore destructive loads and if we assume that reads in the memory model can be reordered, then evaluation order *does not matter*. That seems nice to have.
 
 ```rust
 impl Machine {
