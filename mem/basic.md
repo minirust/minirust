@@ -10,10 +10,15 @@ The full MiniRust memory model will likely be this basic model plus some [extra 
 ## Data structures
 
 The provenance tracked by this memory model is just an ID that identifies which allocation the pointer points to.
+(We will pretend we can split the `impl ... for` block into multiple smaller blocks.)
 
 ```rust
 #[derive(PartialEq, Eq)]
 struct AllocId(BigInt);
+
+impl MemoryInterface for BasicMemory {
+    type Provenance = AllocId;
+}
 ```
 
 The data tracked by the memory is fairly simple: for each allocation, we track its contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
@@ -21,7 +26,7 @@ The data tracked by the memory is fairly simple: for each allocation, we track i
 ```rust
 struct Allocation {
     /// The data stored in this allocation.
-    contents: List<AbstractByte<Provenance>>,
+    contents: List<AbstractByte<AllocId>>,
     /// The address where this allocation starts.
     /// This is never 0, and `addr + contents.len()` fits into a `usize`.
     addr: BigInt,
@@ -63,13 +68,14 @@ impl Allocation {
 ```
 
 Then we implement creating and removing allocations.
-(We will just pretend we can split the `impl ... for` block into multiple smaller blocks.)
 
 ```rust
 impl MemoryInterface for BasicMemory {
-    type Provenance = AllocId;
-
     fn allocate(&mut self, size: Size, align: Align) -> Result<Pointer<AllocId>> {
+        // Reject too large allocations. Size must fit in `isize`.
+        if !size.in_bounds(Signed, PTR_SIZE) {
+            throw_ub!("asking for a too large allocation");
+        }
         // Pick a base address. We use daemonic non-deterministic choice,
         // meaning the program has to cope with every possible choice.
         // FIXME: This makes OOM (when there is no possible choice) into "no behavior",
@@ -125,6 +131,69 @@ impl MemoryInterface for BasicMemory {
 
         // Mark it as dead. That's it.
         allocation.live = false.
+    }
+}
+```
+
+The key operations of a memory model are of course handling loads and stores.
+The helper function `check_ptr` we define for them is also used to implement the final part of the memory API, `dereferenceable`.
+
+```rust
+impl BasicMemory {
+    /// Check if the given pointer is dereferenceable for an access of the given
+    /// length and alignment. For dereferenceable, return the allocation ID and
+    /// offset; this can be missing for invalid pointers and accesses of size 0.
+    fn check_ptr(&self, ptr: Self::Pointer, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
+        // Basic address sanity checks.
+        if ptr.addr == 0 {
+            throw_ub!("dereferencing null pointer");
+        }
+        if ptr.addr % align != 0 {
+            throw_ub!("pointer is insufficiently aligned");
+        }
+        // Now try to access the allocation information.
+        let Some(id) = ptr.provenance else {
+            // An invalid pointer.
+            if size != 0 {
+                throw_ub!("non-zero-sized access with invalid pointer");
+            }
+            // Zero-sized accesses are fine.
+            return None;
+        }
+        let allocation = &self.allocations[id.0];
+        // Compute relative offset, and ensure we are in-bounds.
+        let offset_in_alloc = ptr.addr - allocation.addr;
+        if offset_in_alloc < 0 || offset_in_alloc+len > allocation.size() {
+            throw_ub!("out-of-bounds memory access");
+        }
+        // All is good!
+        Some((id, Size::from_bytes(offset_in_alloc).unwrap()))
+    }
+}
+
+impl MemoryInterface for BasicMemory {
+    fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
+        let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
+            return list![];
+        }
+        let allocation = &self.allocations[id.0];
+
+        // Slice into the contents, and copy them to a new list.
+        allocation.contents[offset..][..len].iter().collect()
+    }
+
+    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result {
+        let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
+            return list![];
+        }
+        let allocation = &mut self.allocations[id.0];
+
+        // Slice into the contents, and put the new bytes there.
+        allocation.contents[offset..][..len].copy_from_slice(bytes);
+    }
+
+    fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result {
+        self.check_ptr(ptr, size, align)?;
     }
 }
 ```
