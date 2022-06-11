@@ -5,13 +5,19 @@ The idea is that for well-formed programs, the `step` function will never panic.
 Those requirements are defined in this file.
 
 Note that `check` functions for testing well-formedness return `Option<()>` rather than `bool` so that we can use `?`.
+We use the following helper function to convert Boolean checks into this form.
+
+```rust
+fn ensure(b: bool) -> Option<()> {
+    if !b { yeet!(); }
+}
 
 ## Well-formed layouts and types
 
 ```rust
 impl IntType {
     fn check(self) -> Option<()> {
-        if !self.size.bytes().is_power_of_two() { yeet!(); }
+        ensure(self.size.bytes().is_power_of_two())?;
     }
 }
 
@@ -45,11 +51,11 @@ impl Type {
                     // Recursively check the field type.
                     type.check()?;
                     // And ensure it fits after the one we previously checked.
-                    if offset < last_end { yeet!(); }
+                    ensure(offset >= last_end)?;
                     last_end = offset.checked_add(type.size())?;
                 }
                 // And they must all fit into the size.
-                if size < last_end { yeet!(); }
+                ensure(size >= last_end)?;
             }
             Array { elem, count } => {
                 elem.check()?;
@@ -59,13 +65,13 @@ impl Type {
                 // These may overlap, but they must all fit the size.
                 for (offset, type) in fields {
                     type.check()?;
-                    if size < offset.checked_add(type.size())? { yeet!(); }
+                    ensure(size >= offset.checked_add(type.size())?)?;
                 }
             }
             Enum { variants, size, tag_encoding: _ } => {
                 for variant in variants {
                     variant.check()?;
-                    if size < variant.size() { yeet!(); }
+                    ensure(size >= variant.size())?;
                 }
             }
         }
@@ -89,17 +95,17 @@ impl Value {
         // For now, we only support integer and boolean literals, and arrays/tuples.
         match (self, type) {
             (Value::Int(i), Type::Int(int_type)) => {
-                if !i.in_bounds(int_type.signed, int_type.size) { yeet!(); }
+                ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
             (Value::Bool(_), Type::Bool) => (),
             (Value::Tuple(values), Type::Tuple { fields }) => {
-                if values.len() != fields.len() { yeet!(); }
+                ensure(values.len() == fields.len())?;
                 for (val, (_offset, type)) in values.iter().zip(fields.iter()) {
                     val.check(type)?;
                 }
             }
             (Value::Tuple(values), Type::Array { elem, count }) => {
-                if values.len() != count { yeet!(); }
+                ensure(values.len() == count)?;
                 for val in values {
                     val.check(elem)?;
                 }
@@ -126,7 +132,7 @@ impl ValueExpr {
                 // since the reference promises more alignment than what the place
                 // guarantees. That is exactly what happens for references
                 // to packed fields.
-                if align > ptype.align { yeet!(); }
+                ensure(align <= ptype.align)?;
                 let pointee = Layout { align, ..ptype.layout() };
                 Ref { mutbl, pointee }
             }
@@ -138,15 +144,15 @@ impl ValueExpr {
                 let operand = operand.check(locals)?;
                 match operator {
                     Int(_int_op, int_ty) => {
-                        if !matches!(operand, Int(_)) { yeet!(); }
+                        ensure(matches!(operand, Int(_)))?;
                         Int(int_ty)
                     }
                     Ptr2Int => {
-                        if !matches!(operand, RawPtr) { yeet!(); }
+                        ensure(matches!(operand, RawPtr))?;
                         Int(IntType { signed: Unsigned, size: PTR_SIZE })
                     }
                     Int2Ptr => {
-                        if !matches!(operand, Int(IntType { signed: Unsigned, size: PTR_SIZE })) { yeet!(); }
+                        ensure(matches!(operand, Int(IntType { signed: Unsigned, size: PTR_SIZE })))?;
                         RawPtr
                     }
                 }
@@ -156,13 +162,13 @@ impl ValueExpr {
                 let right = right.check(locals)?;
                 match operator {
                     Int(_int_op, int_ty) => {
-                        if !matches!(left, Int(_)) { yeet!(); }
-                        if !matches!(right, Int(_)) { yeet!(); }
+                        ensure(matches!(left, Int(_)))?;
+                        ensure(matches!(right, Int(_))?;
                         Int(int_ty)
                     }
                     PtrOffset { inbounds: _ } => {
-                        if !matches!(left, Ref { .. } | RawPtr) { yeet!(); }
-                        if !matches!(right, Int(_)) { yeet!(); }
+                        ensure(matches!(left, Ref { .. } | RawPtr))?;
+                        ensure(matches!(right, Int(_)))?;
                         left
                     }
                 }
@@ -194,7 +200,7 @@ impl PlaceExpr {
             Index { root, index } => {
                 let root = root.check(locals)?;
                 let index = index.check(locals)?;
-                if !matches!(index, Int(_)) { yeet!(); }
+                ensure(matches!(index, Int(_)))?;
                 let field_ty = match root.type {
                     Array { elem, .. } => elem,
                     _ => yeet!(),
@@ -230,7 +236,7 @@ impl Statement {
             Assign { destination, source } => {
                 let left = destination.check(live_locals)?;
                 let right = source.check(live_locals)?;
-                if left.type != right { yeet!(); }
+                ensure(left.type == right)?;
                 locals
             }
             Finalize { place } => {
@@ -267,7 +273,7 @@ impl Terminator {
             }
             If { condition, then_block, else_block } => {
                 let type = condition.check(live_locals)?;
-                if !matches!(type, Type::Bool) { yeet!(); }
+                ensure(matches!(type, Type::Bool))?;
                 list![then_block, else_block]
             }
             Call { callee: _, arguments, ret, next_block } => {
@@ -315,7 +321,7 @@ impl Function {
                 if let Some(precondition) = bb_live_at_entry.get(block_name) {
                     // A block we already visited (or already have in the worklist).
                     // Make sure the set of initially live locals is consistent!
-                    if precondition != live_locals { yeet!(); }
+                    ensure(precondition == live_locals)?;
                 } else {
                     // A new block.
                     bb_live_at_entry.insert(block_name, live_locals);
@@ -326,7 +332,7 @@ impl Function {
 
         // Ensure there are no dead blocks that we failed to reach.
         for block_name in self.blocks.keys() {
-            if !bb_live_at_entry.contains(block_name) { yeet!(); }
+            ensure(bb_live_at_entry.contains(block_name))?;
         }
     }
 }
