@@ -122,10 +122,11 @@ impl ValueExpr {
             }
             Ref { target, align, mutbl } => {
                 let ptype = target.check(locals)?;
-                // If `align > ptype.align`, then this operation is "unsafe"
+                // If `align > ptype.align`, then this operation would be "unsafe"
                 // since the reference promises more alignment than what the place
                 // guarantees. That is exactly what happens for references
                 // to packed fields.
+                if align > ptype.align { yeet!(); }
                 let pointee = Layout { align, ..ptype.layout() };
                 Ref { mutbl, pointee }
             }
