@@ -56,26 +56,6 @@ But we also need to ensure the entire document stays coherent, and I already hav
 - TODO: establish global variable name conventions. Do we use `v: Value`, `val: Value`, `value: Value`?
   What do we use for `ValueExpr`? Similar questions exist around `Place`/`PlaceExpr` and `ty: Type`/`type: Type`.
 
-## What about a-mir-formality?
-
-You might wonder how this project compares to Niko's [a-mir-formality](https://github.com/nikomatsakis/a-mir-formality/).
-The obvious answer is that Niko is much better at picking names. ;)
-
-On a more serious note, these projects have very different scope: MiniRust is *only* about the operational semantics.
-a-mir-formality is a lot more ambitious; as the [inaugurate blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
-a-mir-formality is machine-readable and written in PLT redex; MiniRust uses pseudo-code that is not currently machine-readable (but I have ideas :).
-The primary goals of MiniRust are to be precise and human-readable; I would argue that while PLT redex is more precise than the style I use, it does lack in readability when compared with Rust-style pseudo-code.
-I am willing to sacrifice some precision for the significant gain in readability, in particular since I think we can recover this precision with some amount of work.
-And finally, the "operational semantics" layer in a-mir-formality is "not even sketched out yet", so as of now, the projects are actually disjoint.
-If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just translated into PLT redex.
-(Niko writes this layer of a-mir-formality is "basically equivalent to Miri"; MiniRust is basically an idealized Miri, so I think this would work well.)
-
-## What about Miri?
-
-MiniRust is in, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
-You can think of it as "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and didn't care about performance nor diagnostics, then it would be implemented like this specification.
-There are some [differences between Miri and MiniRust](https://github.com/rust-lang/miri/issues/2159); these are generally Miri bugs and I intend to slowly chip away at the remaining (tricky) ones.
-
 ## Table of Contents
 
 * [Prelude](prelude.md): common definitions and parameters shared by everything
@@ -92,3 +72,36 @@ There are some [differences between Miri and MiniRust](https://github.com/rust-l
   * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine
   * [Semantics](lang/step.md): the operational semantics ("`step` function") of the Abstract Machine
     * [Operator semantics](lang/operator.md): the operational semantics of unary and binary operators
+
+## Relation to other efforts
+
+### What about a-mir-formality?
+
+You might wonder how this project compares to Niko's [a-mir-formality](https://github.com/nikomatsakis/a-mir-formality/).
+The obvious answer is that Niko is much better at picking names. ;)
+
+On a more serious note, these projects have very different scope: MiniRust is *only* about the operational semantics.
+a-mir-formality is a lot more ambitious; as the [inaugurate blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
+a-mir-formality is machine-readable and written in PLT redex; MiniRust uses pseudo-code that is not currently machine-readable (but I have ideas :).
+The primary goals of MiniRust are to be precise and human-readable; I would argue that while PLT redex is more precise than the style I use, it does lack in readability when compared with Rust-style pseudo-code.
+I am willing to sacrifice some precision for the significant gain in readability, in particular since I think we can recover this precision with some amount of work.
+And finally, the "operational semantics" layer in a-mir-formality is "not even sketched out yet", so as of now, the projects are actually disjoint.
+If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just translated into PLT redex.
+(Niko writes this layer of a-mir-formality is "basically equivalent to Miri"; MiniRust is basically an idealized Miri, so I think this would work well.)
+
+### What about Miri?
+
+MiniRust is in, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
+You can think of it as "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and didn't care about performance nor diagnostics, then it would be implemented like this specification.
+There are some [differences between Miri and MiniRust](https://github.com/rust-lang/miri/issues/2159); these are generally Miri bugs and I intend to slowly chip away at the remaining (tricky) ones.
+
+### How does this relate to the reference?
+
+The Rust Reference contains a [list of Undefined Behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html).
+The intention is that MiniRust has no more UB than that, but it *does* have less UB in some situations:
+
+- It is *not* always UB to create a references or `Box` to an invalid value, or one that is dangling.
+  However, it *is* UB to create a reference or `Box` to an *uninhabited type*, or one that is null or unaligned.
+  Moreover, when evaluating an `&[mut]` value expression, dangling references are UB.
+  (Dangling references nested in fields will likely also become UB when the aliasing model is added.)
+
