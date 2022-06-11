@@ -100,8 +100,12 @@ There are some [differences between Miri and MiniRust](https://github.com/rust-l
 The Rust Reference contains a [list of Undefined Behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html).
 The intention is that MiniRust has no more UB than that, but it *does* have less UB in some situations:
 
+- It is *not* UB to dereference a null, unaligned, or dangling raw pointer. In other words, `addr_of!(*ptr)` is always defined.
+  However, if the `*ptr` place expression is being offset, that still needs to happen in-bounds, and actual loads/stores need to be sufficiently aligned.
 - It is *not* always UB to create a references or `Box` to an invalid value, or one that is dangling.
   However, it *is* UB to create a reference or `Box` to an *uninhabited type*, or one that is null or unaligned.
   Moreover, when evaluating an `&[mut]` value expression, dangling references are UB.
   (Dangling references nested in fields will likely also become UB when the aliasing model is added.)
 
+To my knowledge, rustc does not currently exploit those cases of UB, so changing the reference to match MiniRust would be a specification-only change.
+Miri matches MiniRust on the second point, but enforces the stricter rules of the reference for the first point.

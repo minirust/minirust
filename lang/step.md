@@ -150,18 +150,15 @@ impl Machine {
 The `*` operator turns a value of pointer type into a place.
 It also ensures that the pointer is dereferenceable.
 
-- TODO: Should we truly ensure that `eval_place` always creates a dereferenceable pointer?
+- TODO: Should we ensure that `eval_place` always creates a dereferenceable place?
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, expr @ Deref { operand, align }: PlaceExpr) -> Result<Place> {
+    fn eval_place(&mut self, expr @ Deref { operand, .. }: PlaceExpr) -> Result<Place> {
         let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
-        let ptype = expr.check(self.cur_frame().func.locals).unwrap();
-        // In case this is a raw pointer, make sure we know the place we create is dereferenceable.
-        self.mem.layout_dereferenceable(p, ptype.layout())?;
         p
     }
 }
@@ -180,9 +177,7 @@ impl Machine {
             _ => panic!("field projection on non-projectable type"),
         };
         assert!(offset < type.size());
-        // Note that the "inbounds" test here can never fail, since we ensure that
-        // all places are dereferenceable. That's why we can `unwrap()`.
-        self.ptr_offset_inbounds(root, offset.bytes()).unwrap()
+        self.ptr_offset_inbounds(root, offset.bytes())?
     }
 
     fn eval_place(&mut self, Index { root, index }: PlaceExpr) -> Result<Place> {
@@ -202,9 +197,7 @@ impl Machine {
             _ => panic!("index projection on non-indexable type"),
         };
         assert!(offset < type.size());
-        // Note that the "inbounds" test here can never fail, since we ensure that
-        // all places are dereferenceable. That's why we can `unwrap()`.
-        self.ptr_offset_inbounds(root, offset.bytes()).unwrap()
+        self.ptr_offset_inbounds(root, offset.bytes())?
     }
 }
 ```
