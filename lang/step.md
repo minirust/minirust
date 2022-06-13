@@ -151,6 +151,7 @@ The `*` operator turns a value of pointer type into a place.
 It also ensures that the pointer is dereferenceable.
 
 - TODO: Should we ensure that `eval_place` always creates a dereferenceable place?
+  Then we could do the alignment check here, and wouldn't even have to track alignment in `PlaceType`.
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
 
 ```rust
