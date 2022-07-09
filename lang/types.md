@@ -122,7 +122,7 @@ impl Type {
             Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => fields.iter().any(|type| type.inhabited()),
+            Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
         }
     }
 }
