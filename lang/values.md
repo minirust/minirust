@@ -28,8 +28,8 @@ enum Value {
         idx: BigInt,
         data: Value,
     },
-    /// A "bag of bytes", used for unions.
-    Bytes(List<AbstractByte>),
+    /// Unions are represented as "lists of chunks", where each chunk is just a raw list of bytes.
+    Union(List<List<AbstractByte>>),
 }
 ```
 
@@ -192,19 +192,19 @@ For simplicity, we only define pairs for now.
 impl Type {
     fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { yeet!(); }
-        let (size1, type1) = field1;
-        let val1 = type1.decode(bytes[size1..][..type1.size()]);
-        let (size2, type2) = field2;
-        let val2 = type1.decode(bytes[size2..][..type2.size()]);
+        let (offset1, type1) = field1;
+        let val1 = type1.decode(bytes[offset1..][..type1.size()]);
+        let (offset2, type2) = field2;
+        let val2 = type1.decode(bytes[offset2..][..type2.size()]);
         Value::Tuple([val1, val2])
     }
     fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple([val1, val2]) = val else { panic!() };
         let mut bytes = [AbstractByte::Uninit; size];
-        let (size1, type1) = field1;
-        bytes[size1..][..type1.size()] = type1.encode(val1);
-        let (size2, type2) = field2;
-        bytes[size2..][..type2.size()] = type2.encode(val2);
+        let (offset1, type1) = field1;
+        bytes[offset1..][..type1.size()] = type1.encode(val1);
+        let (offset2, type2) = field2;
+        bytes[offset2..][..type2.size()] = type2.encode(val2);
         bytes
     }
 }
@@ -224,12 +224,24 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 
 ```rust
 impl Type {
-    fn decode(Union { size, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { yeet!(); }
-        Value::Bytes(bytes)
+        let mut chunk_data = list![];
+        // Store the data from each chunk.
+        for (offset, size) in chunks {
+            chunk_data.push(bytes[offset..][..size]);
+        }
+        Value::Union(chunk_data)
     }
-    fn encode(Union { size, .. }: Self, value: Value) -> List<AbstractByte> {
-        let Value::Bytes(bytes) = val else { panic!() };
+    fn encode(Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
+        let Value::Union(chunk_data) = val else { panic!() };
+        assert_eq!(chunk_data.len(), chunks.len());
+        let mut bytes = [AbstractByte::Uninit; size];
+        // Restore the data from each chunk.
+        for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
+            assert_eq!(data.len(), size);
+            bytes[offset..][..size] = data;
+        }
         bytes
     }
 }

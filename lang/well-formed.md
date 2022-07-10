@@ -61,12 +61,20 @@ impl Type {
                 elem.check()?;
                 elem.size().checked_mul(count)?;
             }
-            Union { fields, size } => {
-                // These may overlap, but they must all fit the size.
+            Union { fields, size, chunks } => {
+                // The fields may overlap, but they must all fit the size.
                 for (offset, type) in fields {
                     type.check()?;
                     ensure(size >= offset.checked_add(type.size())?)?;
                 }
+                // The chunks must be disjoint.
+                let mut last_end = Size::ZERO;
+                for (offset, size) in chunks {
+                    ensure(offset >= last_end)?;
+                    last_end = offset.checked_add(size)?;
+                }
+                // And they must all fit into the size.
+                ensure(size >= last_end)?;
             }
             Enum { variants, size, tag_encoding: _ } => {
                 for variant in variants {
