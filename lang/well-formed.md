@@ -11,6 +11,7 @@ We use the following helper function to convert Boolean checks into this form.
 fn ensure(b: bool) -> Option<()> {
     if !b { yeet!(); }
 }
+```
 
 ## Well-formed layouts and types
 
