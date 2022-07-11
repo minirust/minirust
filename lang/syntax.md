@@ -174,8 +174,8 @@ enum PlaceExpr {
     /// Dereference a value (of pointer/reference type).
     Deref {
         operand: ValueExpr,
-        // The alignment guarantee of the newly created place.
-        align: Align,
+        // The type of the newly created place.
+        ptype: PlaceType,
     },
     /// Project to a field.
     Field {

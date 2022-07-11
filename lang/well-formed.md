@@ -190,9 +190,10 @@ impl PlaceExpr {
     fn check(self, locals: Map<Local, PlaceType>) -> Option<PlaceType> {
         match self {
             Local(name) => locals.get(name),
-            Deref { operand, align } => {
+            Deref { operand, ptype } => {
                 let type = operand.check(locals)?;
-                PlaceType { type, align }
+                ensure(matches!(type, Ref { .. } | RawPtr))?;
+                ptype
             }
             Field { root, field } => {
                 let root = root.check(locals)?;
