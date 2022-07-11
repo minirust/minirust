@@ -9,7 +9,7 @@ We use the following helper function to convert Boolean checks into this form.
 
 ```rust
 fn ensure(b: bool) -> Option<()> {
-    if !b { yeet!(); }
+    if !b { throw!(); }
 }
 ```
 
@@ -119,7 +119,7 @@ impl Value {
                     val.check(elem)?;
                 }
             }
-            _ => yeet!(),
+            _ => throw!(),
         }
     }
 }
@@ -200,7 +200,7 @@ impl PlaceExpr {
                 let (offset, field_ty) = match root.type {
                     Tuple { fields, .. } => fields.get(field)?,
                     Union { fields, .. } => fields.get(field)?,
-                    _ => yeet!(),
+                    _ => throw!(),
                 };
                 PlaceType {
                     align: root.align.restrict_for_offset(offset),
@@ -213,7 +213,7 @@ impl PlaceExpr {
                 ensure(matches!(index, Int(_)))?;
                 let field_ty = match root.type {
                     Array { elem, .. } => elem,
-                    _ => yeet!(),
+                    _ => throw!(),
                 };
                 // We might be adding a multiple of `field_ty.size`, so we have to
                 // lower the alignment compared to `root`. `restrict_for_offset`
@@ -262,7 +262,7 @@ impl Statement {
             StorageDead(local) => {
                 if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi) arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
-                    yeet!();
+                    throw!();
                 }
                 locals.remove(local)?;
                 locals

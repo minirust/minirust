@@ -77,7 +77,7 @@ impl Type {
         match *bytes {
             [AbstractByte::Init(0, _)] => Value::Bool(false),
             [AbstractByte::Init(1, _)] => Value::Bool(true),
-            _ => yeet!(),
+            _ => throw!(),
         }
     }
     fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
@@ -96,7 +96,7 @@ For now we only define `u16` and `i16`.
 ```rust
 impl Type {
     fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
-        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { yeet!() };
+        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { throw!() };
         Value::Int(ENDIANESS.decode(signed, [b0, b1]))
     }
     fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
@@ -121,7 +121,7 @@ Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 
 ```rust
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
-    if bytes.len() != PTR_SIZE { yeet!(); }
+    if bytes.len() != PTR_SIZE { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
     let addr = ENDIANESS.decode(Unsigned, &bytes_data);
@@ -169,7 +169,7 @@ fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
 impl Type {
     fn decode(Ref { pointee, .. } | Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let ptr = decode_ptr(bytes)?;
-        if !check_safe_ptr(ptr, pointee) { yeet!(); }
+        if !check_safe_ptr(ptr, pointee) { throw!(); }
         Value::Ptr(ptr)
     }
     fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
@@ -192,7 +192,7 @@ For simplicity, we only define pairs for now.
 ```rust
 impl Type {
     fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { yeet!(); }
+        if bytes.len() != size { throw!(); }
         let (offset1, type1) = field1;
         let val1 = type1.decode(bytes[offset1..][..type1.size()]);
         let (offset2, type2) = field2;
@@ -226,7 +226,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 ```rust
 impl Type {
     fn decode(Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { yeet!(); }
+        if bytes.len() != size { throw!(); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
