@@ -73,6 +73,8 @@ enum Terminator {
         then_block: BbName,
         else_block: BbName,
     },
+    /// If this is ever executed, we have UB.
+    Unreachable,
     /// Call the given function with the given arguments.
     Call {
         callee: FnName,

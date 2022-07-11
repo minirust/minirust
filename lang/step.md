@@ -192,7 +192,7 @@ impl Machine {
                 if index < count {
                     index * elem.size()
                 } else {
-                    throw_ub!("out-of-bounds array access")
+                    throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
@@ -308,6 +308,16 @@ impl Machine {
         };
         let next = if b { then_block } else { else_block };
         self.cur_frame_mut().next = (next, 0);
+    }
+}
+```
+
+### Unreachable
+
+```rust
+impl Machine {
+    fn eval_terminator(&mut self, Unreachable: Terminator) -> Result {
+        throw_ub!("reached unreachable code");
     }
 }
 ```

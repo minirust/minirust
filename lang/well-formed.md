@@ -285,6 +285,9 @@ impl Terminator {
                 ensure(matches!(type, Type::Bool))?;
                 list![then_block, else_block]
             }
+            Unreachable => {
+                list![]
+            }
             Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
