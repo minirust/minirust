@@ -112,6 +112,8 @@ impl Machine {
             throw_ub!("overflowing inbounds pointer arithmetic");
         }
         let new_ptr = Pointer { addr, ..ptr };
+        // TODO: Do we even want this 'dereferenceable' restriction?
+        // See <https://github.com/rust-lang/unsafe-code-guidelines/issues/350>.
         // We check that the range between the two pointers is dereferenceable.
         // For this, we figure out which pointer is the smaller one.
         let min_ptr = if ptr.addr <= new_ptr.addr {
