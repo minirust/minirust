@@ -56,13 +56,8 @@ enum Type {
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
         /// they are irrelevant for the representation relation.
-        fields: Fields,
-        /// A union can be split into multiple "chunks", where only the data inside those chunks is
-        /// preserved, and data between chunks is lost (like padding in a struct).
-        /// This is necessary to model the behavior of some `repr(C)` unions, see
-        /// <https://github.com/rust-lang/unsafe-code-guidelines/issues/156> for details.
-        chunks: List<(Size, Size)>, // (offset, length) for each chunk.
-        /// The total size of the union, can indicate padding after the last chunk.
+        fields: Fields
+        /// The total size of the union, can indicate padding after all fields.
         size: Size,
     },
     Enum {
@@ -126,7 +121,7 @@ impl Type {
             Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
             Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
-            Union { .. } => true,
+            Union { .. } => fields.iter().any(|type| type.inhabited()),
             Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
         }
     }

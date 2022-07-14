@@ -28,8 +28,8 @@ enum Value {
         idx: BigInt,
         data: Value,
     },
-    /// Unions are represented as "lists of chunks", where each chunk is just a raw list of bytes.
-    Union(List<List<AbstractByte>>),
+    /// A union value contains values for one or more of its fields.
+    Union(List<Option<Value>>),
 }
 ```
 
@@ -187,26 +187,37 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
 
 ### Tuples (and arrays, structs, ...)
 
-For simplicity, we only define pairs for now.
 
 ```rust
+fn decode_field(offset: Size, type: Type, bytes: List<AbstractByte>) -> Option<Value> {
+    if bytes.len() <= size + type.size() { panic!() }
+    type.decode(bytes[offset..][..type.size()]
+}
+fn decode_fields(fields: Fields, bytes: List<AbstractByte>) -> List<Option<Value>> {
+    fields.map(|(offset, type)| decode_field(offset, type, bytes)).collect()
+}
+s
+fn encode_field(size: Size, offset: Size, type: Type, val: Value, bytes: &mut List<AbstractByte>) {
+    if size <= offset + type.size() { panic!() }
+    let mut bytes: [AbstractByte::Uninit; size];
+    bytes[offset..][..type.size()] = type.encode(val)?;
+}
+fn encode_fields(fields: Fields, size: Size, vals: Iterator<Item = Option<Value>>) {
+    let encoded_fields = fields.iter().zip(vals).filter_map(|((offset, type), val)| {
+        encode_field(size, offset, type, val?)
+    }).collect::<Option<List<_>>>?;
+    encoded_fields.iter().fold([AbstractByte::Uninit; size], <_ as Join>::join)
+}
+
 impl Type {
-    fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { throw!(); }
-        let (offset1, type1) = field1;
-        let val1 = type1.decode(bytes[offset1..][..type1.size()]);
-        let (offset2, type2) = field2;
-        let val2 = type1.decode(bytes[offset2..][..type2.size()]);
-        Value::Tuple([val1, val2])
+    fn decode(Tuple { fields, size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != size { throw!() }
+        Value::Tuple(decode_fields(fields, bytes).collect::<Option<List<Value>>>?)
     }
-    fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
-        let Value::Tuple([val1, val2]) = val else { panic!() };
-        let mut bytes = [AbstractByte::Uninit; size];
-        let (offset1, type1) = field1;
-        bytes[offset1..][..type1.size()] = type1.encode(val1);
-        let (offset2, type2) = field2;
-        bytes[offset2..][..type2.size()] = type2.encode(val2);
-        bytes
+    fn encode(Tuple { fields, size }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Tuple(vals) = val else { panic!() };
+        if vals.len() != fields.len() { panic!() };
+        encode_fields(fields, size, vals.iter().map(Option::Some).unwrap()
     }
 }
 ```
@@ -217,33 +228,25 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 
 ### Unions
 
-A union simply stores the bytes directly, no high-level interpretation of data happens.
-
-- TODO: Some real unions actually do not preserve all bytes, they [can have padding](https://github.com/rust-lang/unsafe-code-guidelines/issues/156).
-  So we have to model that there can be "gaps" between the parts of the byte list that are preserved perfectly.
-- TODO: Should we require *some* kind of validity? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/73).
+A union value has values for one or more fields, thus to encode it we must select a representation which is a valid representation for each of the present values.
+If we just picked an arbitrary such representation, however, we would fix
+padding bits common to all of those value.
+So we must pick the least defined, using the definedness relation defined below.
+If there is none, then there is no representation which satisfies the requirements.
 
 ```rust
 impl Type {
-    fn decode(Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != size { throw!(); }
-        let mut chunk_data = list![];
-        // Store the data from each chunk.
-        for (offset, size) in chunks {
-            chunk_data.push(bytes[offset..][..size]);
-        }
-        Value::Union(chunk_data)
+    fn decode(Union { size, fields }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != size { throw!() }
+        let vals = decode_fields(fields, bytes);
+        if vals.all(Option::is_none) { throw!() }
+        Value::Union(vals)
     }
-    fn encode(Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
-        let Value::Union(chunk_data) = val else { panic!() };
-        assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = [AbstractByte::Uninit; size];
-        // Restore the data from each chunk.
-        for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
-            assert_eq!(data.len(), size);
-            bytes[offset..][..size] = data;
-        }
-        bytes
+    fn encode(Union { size, fields }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Union(vals) = val else { panic!() }
+        if vals.len() != fields.len() { panic!() }
+        if !vals.any(Option::is_some) { panic!() }
+        encode_fields(fields, size, vals.iter()).unwrap()
     }
 }
 ```
@@ -260,6 +263,15 @@ To make this precise, we first have to define an order in values and byte lists 
 Note that none of the definitions in this section are needed to define the semantics of a Rust program, or to make MiniRust into a runnable interpreter.
 They only serve as internal consistency requirements of the semantics.
 It would be a specification bug if the representation relations defined above violated these properties.
+
+We also need a way to get the least upper bound of a representation, so we
+define a trait for that.
+
+```rust
+trait Join: PartialOrd {
+    fn join(self, other: Self) -> Option<Self>;<
+}
+```
 
 Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 ```rust
@@ -280,6 +292,23 @@ impl PartialOrd for AbstractByte {
         }
     }
 }
+impl Join for AbstractByte {
+    fn join(self, other: Self) -> Option<Self> {
+        match (self, other) {
+            // Uninit values are less defined than anything else.
+            (Uninit, _) => Some(other),
+            (_, Uninit) => Some(self),
+            // If provenances are both present and unequal, there is no join.
+            (Init(_, Some(provenance1), Init(_, Some(provenance2)))
+                 if provenance1 != provenance2 => None,
+            (Init(data1, provenance1), Init(data2, provenance2)) =>
+                // The data must be equal for there to be a join.
+                // If there is, we must pick whichever provenance is set.
+                (data1 == data2).then_some(Init(data1, provenance1.or(provenance2)))
+        }
+    }
+}
+
 ```
 Note that with `eq` already being defined (all our types that we want to compare derive `PartialEq` and `Eq`), defining `le` is sufficient to also define all the other parts of `PartialOrd`.
 
@@ -306,9 +335,14 @@ impl<T: PartialOrd> PartialOrd for List<T> {
             self.iter().zip(other.iter()).all(|(l, r)| l <= r)
     }
 }
+impl<T: Join> PartialOrd for List<T> {
+    fn join(self, other: Self) -> Option<Self> {
+        self.iter().zip(other.iter()).map(|l, r| l.join(r)).collect()
+    }
+}
 ```
 
-For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise require equality:
+For `Value`, we lift the order on composites to relate their elements, requiring equality on scalar primitives.
 ```rust
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
@@ -324,6 +358,7 @@ impl PartialOrd for Value {
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
                 idx == idx1 && data1 <= data2
             (Bytes(bytes1), Bytes(bytes2)) => bytes1 <= bytes2,
+            (Union(fields1), Union(fields2)) => fields1 <= fields2,
             _ => false
         }
     }
@@ -351,8 +386,9 @@ First of all, `encode` and `decode` must both be "monotone":
 - If `bytes1 <= bytes2`, then `ty.decode(val1) <= ty.decode(val2)`.
 
 More interesting are the round-trip properties:
-- If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
-  In other words, encoding a value and then decoding it again is lossless.
+- If `val` is valid for `ty`, then `Some(val) <= ty.decode(ty.encode(val))`.
+  In other words, encoding a value and then decoding it again is
+  lossless—although it may bring extra information back with it.
 - If `ty.decode(bytes) == Some(val)`, then `ty.encode(val) <= bytes`.
   In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
   (some bytes might have become `Uninit`, but otherwise it is the same).
@@ -370,6 +406,9 @@ The second round-trip property ensures that `bytes2 <= bytes1`.
 If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
+
+The first round-trip property is not a strict equality because encoding a union will fix a particular byte representation, and decoding it will return a possible value for every field. 
+So there may be more values in the decoding result than there were originally, although the original ones will all be preserved.
 
 ## Typed memory accesses
 
