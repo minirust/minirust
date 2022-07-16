@@ -172,7 +172,7 @@ impl ValueExpr {
                 match operator {
                     Int(_int_op, int_ty) => {
                         ensure(matches!(left, Int(_)))?;
-                        ensure(matches!(right, Int(_))?;
+                        ensure(matches!(right, Int(_)))?;
                         Int(int_ty)
                     }
                     PtrOffset { inbounds: _ } => {

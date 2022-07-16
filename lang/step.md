@@ -170,8 +170,8 @@ impl Machine {
 ```rust
 impl Machine {
     fn eval_place(&mut self, Field { root, field }: PlaceExpr) -> Result<Place> {
-        let root = self.eval_place(root)?;
         let type = root.check(self.cur_frame().func.locals).unwrap().type;
+        let root = self.eval_place(root)?;
         let offset = match type {
             Tuple { fields, .. } => fields[field].0,
             Union { fields, .. } => fields[field].0,
@@ -182,8 +182,8 @@ impl Machine {
     }
 
     fn eval_place(&mut self, Index { root, index }: PlaceExpr) -> Result<Place> {
-        let root = self.eval_place(root)?;
         let type = root.check(self.cur_frame().func.locals).unwrap().type;
+        let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
@@ -264,15 +264,15 @@ These operations (de)allocate the memory backing a local.
 impl Machine {
     fn eval_statement(&mut self, StorageLive(local): Statement) -> Result {
         // Here we make it a spec bug to ever mark an already live local as live.
-        let p = self.mem.allocate(layout.size, layout.align)?;
         let layout = self.cur_frame().func.locals[local].layout();
+        let p = self.mem.allocate(layout.size, layout.align)?;
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
     fn eval_statement(&mut self, StorageDead(local): Statement) -> Result {
         // Here we make it a spec bug to ever mark an already dead local as dead.
-        let p = self.cur_frame_mut().locals.remove(local).unwrap();
         let layout = self.cur_frame().func.locals[local].layout();
+        let p = self.cur_frame_mut().locals.remove(local).unwrap();
         self.mem.deallocate(p, layout.size, layout.align)?;
     }
 }
@@ -344,11 +344,11 @@ impl Machine {
         // Create place for return local.
         let (ret_local, callee_ret_abi) = func.ret;
         let callee_ret_layout = func.locals[ret_local].layout();
-        locals.insert(ret_local, self.mem.allocate(ret_layout.size, ret_layout.align)?);
+        locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
         // Remember the return place (will be relevant during `Return`).
         let (caller_ret_place, caller_ret_abi) = ret;
+        let caller_ret_layout = caller_ret_place.check(func.locals).unwrap().layout();
         let caller_ret_place = self.eval_place(caller_ret_place)?;
-        let caller_ret_layout = return_place.check(func.locals).unwrap().layout();
         if caller_ret_layout.size != callee_ret_layout.size {
             throw_ub!("call ABI violation: return size does not agree");
         }
