@@ -322,8 +322,8 @@ impl PartialOrd for Value {
             (Tuple(vals1), Tuple(vals2)) =>
                 vals1 <= vals2,
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
-                idx == idx1 && data1 <= data2
-            (Bytes(bytes1), Bytes(bytes2)) => bytes1 <= bytes2,
+                idx == idx1 && data1 <= data2,
+            (Union(chunk_data1), Union(chunk_data2)) => chunk_data1 <= chunk_data2,
             _ => false
         }
     }
