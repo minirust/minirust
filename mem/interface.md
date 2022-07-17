@@ -41,7 +41,7 @@ enum AbstractByte<Provenance> {
     Init(u8, Option<Provenance>),
 }
 
-impl AbstractByte<P> {
+impl AbstractByte<Provenance> {
     fn data(self) -> Option<u8> {
         match self {
             Uninit => None,

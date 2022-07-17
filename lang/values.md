@@ -196,7 +196,7 @@ impl Type {
         let (offset1, type1) = field1;
         let val1 = type1.decode(bytes[offset1..][..type1.size()]);
         let (offset2, type2) = field2;
-        let val2 = type1.decode(bytes[offset2..][..type2.size()]);
+        let val2 = type2.decode(bytes[offset2..][..type2.size()]);
         Value::Tuple([val1, val2])
     }
     fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
@@ -273,7 +273,7 @@ impl PartialOrd for AbstractByte {
             (Init(data1, None), Init(data2, _)) =>
                 data1 == data2,
             /// If both bytes have provenance, everything must be equal.
-            (Init(data1, Some(provenance1)), Init(data2, Some(provenance2)) =>
+            (Init(data1, Some(provenance1)), Init(data2, Some(provenance2))) =>
                 data1 == data2 && provenance1 == provenance2,
             /// Nothing else is related.
             _ => false,

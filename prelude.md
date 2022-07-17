@@ -50,7 +50,7 @@ impl BigInt {
     fn modulo(self, signed: Signedess, size: Size) -> BigInt;
 
     /// Tests whether an integer is in-bounds of a finite integer type.
-    fn in_bounds(self, signed: Signedess, size: Size) -> BigInt {
+    fn in_bounds(self, signed: Signedess, size: Size) -> bool {
         self == self.modulo(signed, size)
     }
 }

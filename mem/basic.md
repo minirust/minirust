@@ -184,7 +184,7 @@ impl MemoryInterface for BasicMemory {
 
     fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result {
         let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
-            return list![];
+            return;
         }
         let allocation = &mut self.allocations[id.0];
 
