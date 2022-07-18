@@ -323,7 +323,7 @@ impl PartialOrd for Value {
                 vals1 <= vals2,
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
                 idx == idx1 && data1 <= data2,
-            (Union(chunk_data1), Union(chunk_data2)) => chunk_data1 <= chunk_data2,
+            (Union(chunks1), Union(chunks2)) => chunks1 <= chunks2,
             _ => false
         }
     }
