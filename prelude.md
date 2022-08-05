@@ -13,7 +13,7 @@ enum TerminationInfo {
   MachineStop(String),
 }
 
-/// Some macros for convenient yeeting.
+/// Some macros for convenient yeeting (yes this is valid syntax on nightly Rust).
 macro_rules! throw {
     ($($tt:tt)*) => { do yeet None };
 }
