@@ -27,22 +27,34 @@ imagine Rust without all the restrictions about sizendess and pointer indirectio
 We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
 Also, all types except for mutable references are `Copy` (let's just imagine we implicitly `Clone` where needed), and we use `fn(T) -> U` notation even for closures that can capture arbitrarily.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
+We use `panic!` (and `unwrap` and slice indexing similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
+
+Our functions are generally pure; they can write to mutable reference but we can consider this to be implemented via explicit state passing.
+When we do need other effects, we make them explicit in the return type.
+The next sections describe the effects used in MiniRust.
+
+### Fallible operations
 
 We use `Result` to make operations fallible (where failure indicates UB or machine termination).
 The bodies of `Result` and `Option`-returning functions behave like `try` blocks (implicit `Ok`/`Some` wrapping, and `throw!()` to return an error value (`Err`/`None`), like the experimental `yeet`).
 We use a `throw_ub!` macro to make the current function return a UB error value, and `throw_machine_stop!` to indicate that and how the machine has stopped.
 See [the prelude](prelude.md) for details.
 
-We use `panic!` (and `unwrap` and slice indexing similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
+### Non-determinism
 
-We also need one language feature that Rust does not have direct support for: functions returning `Result` can exhibit non-determinism.
-(If you are a monad kind of person, think of `Result` as also containing the non-determinism monad, not just the error monad.)
-This is only used in the memory model; the expression language is perfectly deterministic.
-The function `pick<T>(fn(T) -> bool) -> Result<T>` will return a value of type `T` such that the given closure returns `true` for this value.
+We also need one language feature that Rust does not have direct support for: non-determinism.
+The return type `Nondet<T>` indicates that this function picks the returned `T` (and also its effect on `&mut` it has access to) *non-deterministically*
+This is only used in the memory model; the expression language is perfectly deterministic (but of course it has to propagate the memory model non-determinism).
+In a function returning `Nondet`, we use `?` for monadic bind (this is more general than its usual role for short-circuiting), and the return value is implicitly wrapped in monadic return.
+
+The function `pick<T>(fn(T) -> bool) -> Nondet<T>` will return a value of type `T` such that the given closure returns `true` for this value.
 This non-determinism is interpreted *daemonically*, which means that the program has to be correct for every possible choice.
 In particular, if the closure is `|_| false` or `T` is uninhabited, then this corresponds to "no behavior" (which is basically the perfect opposite of Undefined Behavior, and also very confusing).
-Similarly, the function `predict<T>(fn(T) -> bool) -> Result<T>` also returns a `T` satisfying the closure, but this non-determinism is interpreted *angelically*, which means there has to *exist* a possible choice that makes the program behave as intended.
+Similarly, the function `predict<T>(fn(T) -> bool) -> Nondet<T>` also returns a `T` satisfying the closure, but this non-determinism is interpreted *angelically*, which means there has to *exist* a possible choice that makes the program behave as intended.
 In particular, if the closure is `|_| false` or `T` is uninhabited, then this operation is exactly the same as `hint::unreachable_unchecked()`: no possible choice exists, and hence ever reaching this operation is Undefined Behavior.
+
+The combined monad `Nondet<Result<T>>` is abbreviated `NdResult<T>`, and in such a function `?` can also be used on computations that only need one of the monads, applying suitable lifting:
+`Result<U> -> NdResult<U>` is trivial (just use monadic return of `Nondet`); `Nondet<U>` -> `NdResult<U>` simply maps `Ok` over the inner computation.
 
 ## Status
 

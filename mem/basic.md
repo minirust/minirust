@@ -71,7 +71,7 @@ Then we implement creating and removing allocations.
 
 ```rust
 impl MemoryInterface for BasicMemory {
-    fn allocate(&mut self, size: Size, align: Align) -> Result<Pointer<AllocId>> {
+    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
         if !size.in_bounds(Signed, PTR_SIZE) {
             throw_ub!("asking for a too large allocation");

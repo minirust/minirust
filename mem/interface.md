@@ -93,7 +93,7 @@ trait MemoryInterface {
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
-    fn allocate(&mut self, size: Size, align: Align) -> Result<Self::Pointer>;
+    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Self::Pointer>;
 
     /// Remove an allocation.
     fn deallocate(&mut self, ptr: Self::Pointer, size: Size, align: Align) -> Result;

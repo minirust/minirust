@@ -24,6 +24,10 @@ macro_rules! throw_machine_stop {
     ($($tt:tt)*) => { do yeet TerminationInfo::MachineStop(format!($($tt)*)) };
 }
 
+/// We leave the encoding of the non-determinism monad opaque.
+type Nondet<T=()>;
+type NdResult<T=()> = Nondet<Result<T>>;
+
 /// Basically copies of the `Size` and `Align` types in the Rust compiler.
 /// See <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Size.html>
 /// and <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html>.

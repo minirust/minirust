@@ -6,7 +6,7 @@ Here we define the part of the [`step` function](step.md) that is concerned with
 
 ```rust
 impl Machine {
-    fn eval_un_op(&mut self, operator: UnOp, operand: Value) -> Result<Value>;
+    fn eval_un_op(&mut self, operator: UnOp, operand: Value) -> NdResult<Value>;
 }
 ```
 
@@ -14,14 +14,14 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> Result<BigInt> {
+    fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> NdResult<BigInt> {
         use UnOpInt::*;
         match op {
             Neg => -operand,
             Cast => operand,
         }
     }
-    fn eval_un_op(&mut self, Int(op, int_type): UnOp, operand: Value) -> Result<Value> {
+    fn eval_un_op(&mut self, Int(op, int_type): UnOp, operand: Value) -> NdResult<Value> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
@@ -37,12 +37,12 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_un_op(&mut self, Ptr2Int: UnOp, operand: Value) -> Result<Value> {
+    fn eval_un_op(&mut self, Ptr2Int: UnOp, operand: Value) -> NdResult<Value> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
         let result = self.intptrcast.ptr2int(ptr)?;
         Value::Int(result)
     }
-    fn eval_un_op(&mut self, Int2Ptr: UnOp, operand: Value) -> Result<Value> {
+    fn eval_un_op(&mut self, Int2Ptr: UnOp, operand: Value) -> NdResult<Value> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;
         Value::Ptr(result)
@@ -54,7 +54,7 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_bin_op(&mut self, operator: BinOp, left: Value, right: Value) -> Result<Value>;
+    fn eval_bin_op(&mut self, operator: BinOp, left: Value, right: Value) -> NdResult<Value>;
 }
 ```
 
@@ -62,7 +62,7 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> Result<BigInt> {
+    fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> NdResult<BigInt> {
         use BinOpInt::*;
         match op {
             Add => left + right,
@@ -76,7 +76,7 @@ impl Machine {
             }
         }
     }
-    fn eval_bin_op(&mut self, Int(op, int_type): BinOp, left: Value, right: Value) -> Result<Value> {
+    fn eval_bin_op(&mut self, Int(op, int_type): BinOp, left: Value, right: Value) -> NdResult<Value> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
@@ -103,7 +103,7 @@ impl Machine {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> Result<Pointer> {
+    fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> NdResult<Pointer> {
         if !offset.in_bounds(Signed, PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`"):
         }
@@ -129,7 +129,7 @@ impl Machine {
         new_ptr
     }
 
-    fn eval_bin_op(&mut self, PtrOffset { inbounds }: BinOp, left: Value, right: Value) -> Result<Value> {
+    fn eval_bin_op(&mut self, PtrOffset { inbounds }: BinOp, left: Value, right: Value) -> NdResult<Value> {
         let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
         let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
 
