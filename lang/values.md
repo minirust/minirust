@@ -432,4 +432,22 @@ This means we do not even need a special clause in our specification for the val
 
 Justifying the `dereferenceable` LLVM attribute is, in this case, left to the aliasing model (e.g. [Stacked Borrows]), just like the `noalias` attribute.
 
+## Transmutation
+
+The representation relation also says everything there is to say about "transmutation".
+By this I mean not just the `std::mem::transmute` function, but any operation that "re-interprets data from one type at another type"
+(essentially a `reinterpret_cast` in C++ terms).
+Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*.
+More precisely:
+
+```rust
+/// Transmutes `val` from `type1` to `type2`.
+fn transmute(val: Value, type1: Type, type2: Type) -> Option<Value> {
+    let bytes = type1.encode(val);
+    type2.decode(bytes)
+}
+```
+
+This operation can, of course, fail, which means that `val` is not valid at `type2`.
+
 [Stacked Borrows]: stacked-borrows.md
