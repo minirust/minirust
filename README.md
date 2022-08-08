@@ -22,7 +22,7 @@ Well-formedness of a MiniRust program ensures that expressions and statements sa
 
 The most precise way to write down the MiniRust spec would be with mathematical notation.
 However, without LaTeX this is a pain, and it also involves a lot of jargon which hurts accessibility of the spec.
-Moreover, the style I chose for the MiniRust spec makes it an *interpreter*, so the spec itself is code.
+That's why I decided to write the MiniRust spec as an *interpreter*, so the spec itself is code.
 That begs the question, which language do we write that code in?
 I decided to use a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
 imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
