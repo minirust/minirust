@@ -18,11 +18,13 @@ Values form a high-level, structural view of data (e.g. mathematical integers); 
 Types are essentially just parameters attached to certain operations to define the (de)serialization format.
 Well-formedness of a MiniRust program ensures that expressions and statements satisfy some basic typing discipline, but MiniRust is by design *not* type-safe.
 
-## How to read MiniRust
+## Pseudo Rust: the language used to define MiniRust
 
 The most precise way to write down the MiniRust spec would be with mathematical notation.
 However, without LaTeX this is a pain, and it also involves a lot of jargon which hurts accessibility of the spec.
-Therefore, the spec is written in a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
+Moreover, the style I chose for the MiniRust spec makes it an *interpreter*, so the spec itself is code.
+That begs the question, which language do we write that code in?
+I decided to use a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
 imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
 We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
@@ -57,6 +59,19 @@ In particular, if the closure is `|_| false` or `T` is uninhabited, then this op
 
 The combined monad `Nondet<Result<T>>` is abbreviated `NdResult<T>`, and in such a function `?` can also be used on computations that only need one of the monads, applying suitable lifting:
 `Result<U> -> NdResult<U>` is trivial (just use monadic return of `Nondet`); `Nondet<U>` -> `NdResult<U>` simply maps `Ok` over the inner computation.
+
+### MiniRust vs Pseudo Rust
+
+So just to be clear, there are *two* Rust dialects at play here:
+
+- *MiniRust* is the "Rust core language", the main subject of this project.
+  In logician's terms, this is the "object language".
+  It has all the nasty features of unsafe Rust and describes what exactly happens when a program is executed, but it would be awful to program in as it lacks any convenience.
+  It doesn't even have concrete syntax; all we really care about is the abstract syntax (the data structure that represents a MiniRust program: statements, expressions, ...).
+- *Pseudo Rust* is the programming language that the MiniRust interpreter it itself written in.
+  In logician's terms, this is the "meta language".
+  It is a fully safe Rust-style language, and the intention is that the meaning of a Pseudo Rust program is "obvious" to any Rust programmer.
+  In the future, we'll hopefully have tools that can execute Pseudo Rust, so that we can run the MiniRust interpreter, but right now this is a language without an implementation.
 
 ## Status
 
