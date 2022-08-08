@@ -116,12 +116,16 @@ Furthermore it is written in English, in an axiomatic style, somewhat akin to th
 English is notoriously ambiguous, but they are working with the folks from AdaCore, so they have a lot of experience in "how to write a precise spec".
 And I have to say, their document is quite impressive!
 In terms of consistent use of terminology and ease of navigation, MiniRust has a lot of catching up to do.
-Still, from my experience doing research in formal methods and programming languages, there's a big gap between even a well-made English-language specification and an unambiguous formal specification in the mathematical sense.
-Furthermore, the style of specification used by C/C++ and also Ferrocene is *axiomatic*, meaning it states a whole bunch of rules that all should be true for program execution.
+Still, from my experience doing research in formal methods and programming languages, there's a big gap between even a well-made English-language specification like theirs and an unambiguous formal specification in the mathematical sense.
+Furthermore, the style of specification used by C/C++ and also Ferrocene is *axiomatic*, meaning it states a whole bunch of rules that all should be true about each program execution.
+It's basically a long wishlist.
 The big problem with that style is that it is very easy to specify rules that contradict each other, to forget to specify some rules, or to introduce effects in your semantics that you don't even realize are there.
+(Wishes gone wrong is a fantasy trope for a reason...)
 For example, C/C++ have a notion of "pointer provenance", but the specification does not even mention this crucial fact, and completely fails to say how pointer provenance interacts with many other features of the language.
-That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a step-by-step process.
+Yet, without pointer provenance, one simply [cannot explain](https://www.ralfj.de/blog/2020/12/14/provenance.html) some aspects of these languages.
+That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a [step-by-step process](lang/step.md).
 Operational semantics *have to* make things like pointer provenance explicit, they cannot cheat and entirely omit crucial parts of what is needed to describe program behavior.
+One of the biggest things missing from the C/C++ specification, in my opinion, is the equivalent of the [MiniRust Machine declaration](lang/machine.md): an exhaustive list that makes up everything needed to describe the state of the Abstract Machine.
 
 But of course, it is perfectly possible to have *both* an operational and an axiomatic specification.
 And ideally they will say the same thing. :)
