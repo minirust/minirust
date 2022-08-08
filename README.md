@@ -105,6 +105,28 @@ And finally, the "operational semantics" layer in a-mir-formality is "not even s
 If and when a-mir-formality obtains an operational semantics, my hope is that it will be basically the same as MiniRust, just translated into PLT redex.
 (Niko writes this layer of a-mir-formality is "basically equivalent to Miri"; MiniRust is basically an idealized Miri, so I think this would work well.)
 
+### What about the Ferrocene Language Specification?
+
+Recently, Ferrocene announced a first draft of their [Ferrocene Language Specification](https://github.com/ferrocene/specification).
+Aiming to make Rust viable in safety-critical domains, their specification is intended as a document to validate an implementation against.
+
+It is very different in style and scope from MiniRust:
+it aims at describing the *surface language* Rust, not just a core language, and also covers things like syntax and borrow checking; all of these are out of scope for MiniRust.
+Furthermore it is written in English, in an axiomatic style, somewhat akin to the C/C++ specifications.
+English is notoriously ambiguous, but they are working with the folks from AdaCore, so they have a lot of experience in "how to write a precise spec".
+And I have to say, their document is quite impressive!
+In terms of consistent use of terminology and ease of navigation, MiniRust has a lot of catching up to do.
+Still, from my experience doing research in formal methods and programming languages, there's a big gap between even a well-made English-language specification and an unambiguous formal specification in the mathematical sense.
+Furthermore, the style of specification used by C/C++ and also Ferrocene is *axiomatic*, meaning it states a whole bunch of rules that all should be true for program execution.
+The big problem with that style is that it is very easy to specify rules that contradict each other, to forget to specify some rules, or to introduce effects in your semantics that you don't even realize are there.
+For example, C/C++ have a notion of "pointer provenance", but the specification does not even mention this crucial fact, and completely fails to say how pointer provenance interacts with many other features of the language.
+That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a step-by-step process.
+Operational semantics *have to* make things like pointer provenance explicit, they cannot cheat and entirely omit crucial parts of what is needed to describe program behavior.
+
+But of course, it is perfectly possible to have *both* an operational and an axiomatic specification.
+And ideally they will say the same thing. :)
+Right now, to my knowledge the Ferrocene Spec does not go into a lot of detail on the questions MiniRust is most interested in exploring (the interplay of places and values, value representations, padding and uninitialized memory, pointer provenance); once they start exploring that, I am curious what they will propose and how it relates to the answers MiniRust is giving to these questions.
+
 ### What about Miri?
 
 MiniRust is in, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
