@@ -66,9 +66,9 @@ So just to be clear, there are *two* Rust dialects at play here:
 
 - *MiniRust* is the "Rust core language", the main subject of this project.
   In logician's terms, this is the "object language".
-  It has all the nasty features of unsafe Rust and describes what exactly happens when a program is executed, but it would be awful to program in as it lacks any convenience.
+  It has all the nasty features of unsafe Rust and comes with an interpreter that describes what exactly happens when a program is executed, but it would be awful to program in as it lacks any convenience.
   It doesn't even have concrete syntax; all we really care about is the abstract syntax (the data structure that represents a MiniRust program: statements, expressions, ...).
-- *Pseudo Rust* is the programming language that the MiniRust interpreter it itself written in.
+- *Pseudo Rust* is the programming language that the MiniRust interpreter itself is written in.
   In logician's terms, this is the "meta language".
   It is a fully safe Rust-style language, and the intention is that the meaning of a Pseudo Rust program is "obvious" to any Rust programmer.
   In the future, we'll hopefully have tools that can execute Pseudo Rust, so that we can run the MiniRust interpreter, but right now this is a language without an implementation.
