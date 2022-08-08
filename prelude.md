@@ -7,7 +7,7 @@ Across all files in this repository, we assume some definitions to always be in 
 /// means the program caused UB or put the machine to a halt.
 type Result<T=()> = std::result::Result<T, TerminationInfo>;
 
-#[non_exhaustive}
+#[non_exhaustive]
 enum TerminationInfo {
   Ub(String),
   MachineStop(String),
@@ -68,10 +68,10 @@ impl BigInt {
     /// else it is in the interval `-2^(size.bits()-1) .. 2^(size.bits()-1)`.
     ///
     /// `size` must not be zero.
-    fn modulo(self, signed: Signedess, size: Size) -> BigInt;
+    fn modulo(self, signed: Signedness, size: Size) -> BigInt;
 
     /// Tests whether an integer is in-bounds of a finite integer type.
-    fn in_bounds(self, signed: Signedess, size: Size) -> bool {
+    fn in_bounds(self, signed: Signedness, size: Size) -> bool {
         self == self.modulo(signed, size)
     }
 }
