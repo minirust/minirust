@@ -35,7 +35,7 @@ We use `panic!` (and `unwrap` and slice indexing and similar standard Rust opera
 
 Our functions are generally pure; they can write to mutable reference but we can consider this to be implemented via explicit state passing.
 When we do need other effects, we make them explicit in the return type.
-The next sections describe the effects used in MiniRust.
+The next sections describe the effects used in the MiniRust interpreter.
 
 ### Fallible operations
 
