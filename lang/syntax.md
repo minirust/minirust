@@ -79,7 +79,7 @@ enum Terminator {
     Call {
         callee: FnName,
         /// The arguments to pass, and which ABIs to use for that.
-        arguments: List<(ValueExpr, ArgABi)>,
+        arguments: List<(ValueExpr, ArgAbi)>,
         /// The place to put the return value into, and which ABI to use for that.
         ret: (PlaceExpr, ArgAbi),
         /// The block to jump to when this call returns.
