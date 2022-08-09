@@ -5,7 +5,7 @@ Note that MiniRust types play a somewhat different role than Rust types:
 every Rust type corresponds to a MiniRust type, but MiniRust types are merely annotated at various operations to define how [values](values.md) are represented in memory.
 Basically, they only define a (de)serialization format -- the **representation relation**, define by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
 In particular, MiniRust is by design *not type-safe*.
-However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists if (abstract) bytes and [values](values.md).
+However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and [values](values.md).
 For pointer types (references and raw pointers), we types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
 (We might want to organize this differently in the future, and remove mutability from types.)
 

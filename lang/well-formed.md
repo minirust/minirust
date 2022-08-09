@@ -260,7 +260,7 @@ impl Statement {
                 locals
             }
             StorageDead(local) => {
-                if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi) arg_name == local) {
+                if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
@@ -353,7 +353,7 @@ impl Function {
 impl Program {
     fn check(self) -> Option<()> {
         // Ensure the start function exists, and takes no arguments.
-        let func = self.functions.get(start)?;
+        let func = self.functions.get(self.start)?;
         if func.args.len() > 0 { return None; }
         // Check all the functions.
         for function in self.functions.values() {

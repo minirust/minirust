@@ -156,7 +156,7 @@ It also ensures that the pointer is dereferenceable.
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, expr @ Deref { operand, .. }: PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, Deref { operand, .. }: PlaceExpr) -> NdResult<Place> {
         let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
