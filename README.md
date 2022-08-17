@@ -33,7 +33,7 @@ All types except for mutable references are `Copy` (let's just imagine we implic
 
 We use `panic!` (and `unwrap` and slice indexing and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
 
-Our functions are generally pure; they can write to mutable reference but we can consider this to be implemented via explicit state passing.
+Our functions are generally pure; they can write to mutable references but we can consider this to be implemented via explicit state passing.
 When we do need other effects, we make them explicit in the return type.
 The next sections describe the effects used in the MiniRust interpreter.
 
@@ -48,7 +48,7 @@ See [the prelude](prelude.md) for details.
 
 We also need one language feature that Rust does not have direct support for: non-determinism.
 The return type `Nondet<T>` indicates that this function picks the returned `T` (and also its effect on `&mut` it has access to) *non-deterministically*
-This is only used in the memory model; the expression language is perfectly deterministic (but of course it has to propagate the memory model non-determinism).
+This is only used in the memory model; the expression language is perfectly deterministic (but of course it has to propagate the memory model's non-determinism).
 In a function returning `Nondet`, we use `?` for monadic bind (this is more general than its usual role for short-circuiting), and the return value is implicitly wrapped in monadic return.
 
 The function `pick<T>(fn(T) -> bool) -> Nondet<T>` will return a value of type `T` such that the given closure returns `true` for this value.
@@ -148,8 +148,8 @@ Right now, to my knowledge the Ferrocene Spec does not go into a lot of detail o
 
 ### What about Miri?
 
-MiniRust is in, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
-You can think of it as "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and didn't care about performance nor diagnostics, then it would be implemented like this specification.
+MiniRust is, at least conceptually, very similar to [Miri](https://github.com/rust-lang/miri).
+You can think of it as an "idealized Miri": if Miri didn't have to care about working with all the rustc data structures that represent MIR and types, and cared about neither performance nor diagnostics, then it would be implemented like this specification.
 There are some [differences between Miri and MiniRust](https://github.com/rust-lang/miri/issues/2159); these are generally Miri bugs and I intend to slowly chip away at the remaining (tricky) ones.
 
 ### How does this relate to the reference?
@@ -159,7 +159,7 @@ The intention is that MiniRust has no more UB than that, but it *does* have less
 
 - It is *not* UB to dereference a null, unaligned, or dangling raw pointer. In other words, `addr_of!(*ptr)` is always defined.
   However, if the `*ptr` place expression is being offset, that still needs to happen in-bounds, and actual loads/stores need to be sufficiently aligned.
-- It is *not* always UB to create a references or `Box` to an invalid value, or one that is dangling.
+- It is *not* always UB to create a reference or `Box` to an invalid value, or one that is dangling.
   However, it *is* UB to create a reference or `Box` to an *uninhabited type*, or one that is null or unaligned.
   Moreover, when evaluating an `&[mut]` value expression, dangling references are UB.
   (Dangling references nested in fields will likely also become UB when the aliasing model is added.)
