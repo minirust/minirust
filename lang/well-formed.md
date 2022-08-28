@@ -22,7 +22,7 @@ impl IntType {
     }
 }
 
-impl Layout(self) {
+impl Layout {
     fn check(self) -> Option<()> {
         // Nothing to check here.
         // In particular, we do *not* require that size is a multiple of align!
@@ -132,7 +132,7 @@ impl Value {
 }
 
 impl ValueExpr {
-    fn check(self, locals: Map<Local, PlaceType>) -> Option<Type> {
+    fn check(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
         match self {
             Constant(value, type) => {
                 value.check(type)?;
@@ -194,7 +194,7 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check(self, locals: Map<Local, PlaceType>) -> Option<PlaceType> {
+    fn check(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
         match self {
             Local(name) => locals.get(name),
             Deref { operand, ptype } => {
@@ -246,33 +246,33 @@ impl Statement {
     /// This returns the adjusted live local mapping after the statement.
     fn check(
         self,
-        mut live_locals: Map<Local, PlaceType>,
+        mut live_locals: Map<LocalName, PlaceType>,
         func: Function
-    ) -> Option<Map<Local, PlaceType>> {
+    ) -> Option<Map<LocalName, PlaceType>> {
         match self {
             Assign { destination, source } => {
                 let left = destination.check(live_locals)?;
                 let right = source.check(live_locals)?;
                 ensure(left.type == right)?;
-                locals
+                live_locals
             }
             Finalize { place } => {
                 place.check(live_locals)?;
-                locals
+                live_locals
             }
             StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.
-                locals.try_insert(local, func.locals.get(local)?)?;
-                locals
+                live_locals.try_insert(local, func.locals.get(local)?)?;
+                live_locals
             }
             StorageDead(local) => {
                 if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
-                locals.remove(local)?;
-                locals
+                live_locals.remove(local)?;
+                live_locals
             }
         }
     }
@@ -282,7 +282,7 @@ impl Terminator {
     /// Returns the successor basic blocks that need to be checked next.
     fn check(
         self,
-        live_locals: Map<Local, PlaceType>,
+        live_locals: Map<LocalName, PlaceType>,
     ) -> Option<List<BbName>> {
         match self {
             Goto(block_name) => {
@@ -316,7 +316,7 @@ impl Function {
     fn check(self) -> Option<()> {
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
-        let mut start_live: Map<Local, PlaceType> = default();
+        let mut start_live: Map<LocalName, PlaceType> = default();
         for (arg, _abi) in self.args {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?)?;
@@ -326,7 +326,7 @@ impl Function {
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
         // which blocks we still have to check. We also track the live locals
         // they start out with.
-        let mut bb_live_at_entry: Map<BbName, Map<Local, PlaceType>> = default();
+        let mut bb_live_at_entry: Map<BbName, Map<LocalName, PlaceType>> = default();
         bb_live_at_entry.insert(self.start, start_live);
         let mut todo = list![self.start];
         while let Some(block_name) = todo.pop_front() {

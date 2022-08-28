@@ -63,7 +63,7 @@ impl Type {
     /// Note that it is a spec bug if `v` is not valid according to `ty`!
     ///
     /// See below for the general properties relation `encode` and `decode`.
-    fn encode(self, v: Value) -> List<AbstractByte>;
+    fn encode(self, val: Value) -> List<AbstractByte>;
 }
 ```
 
@@ -256,10 +256,10 @@ impl Type {
         }
         Value::Union(chunk_data)
     }
-    fn encode(Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
+    fn encode(Type::Union { size, chunks, .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = [AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size];
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(data.len(), size);
@@ -344,7 +344,7 @@ impl PartialOrd for Value {
             (Tuple(vals1), Tuple(vals2)) =>
                 vals1 <= vals2,
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
-                idx == idx1 && data1 <= data2,
+                idx1 == idx2 && data1 <= data2,
             (Union(chunks1), Union(chunks2)) => chunks1 <= chunks2,
             _ => false
         }
@@ -399,7 +399,7 @@ One key use of the value representation is to define a "typed" interface to memo
 This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
 
 ```rust
-trait TypedMemory: Memory {
+trait TypedMemory: MemoryInterface {
     /// Write a value of the given type to memory.
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
     fn typed_store(&mut self, ptr: Self::Pointer, val: Value, pty: PlaceType) -> Result {
@@ -412,7 +412,7 @@ trait TypedMemory: Memory {
         let bytes = self.load(ptr, pty.type.size(), pty.align)?;
         match pty.type.decode(bytes) {
             Some(val) => val,
-            None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
+            None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
         }
     }
 
@@ -436,7 +436,7 @@ We could decide that this is an "if and only if", i.e., that the validity invari
 ```rust
 fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
     if ty.decode(bytes).is_none() {
-        throw_ub!("data violates validity invariant of type {ty}"),
+        throw_ub!("data violates validity invariant of type {ty}");
     }
 }
 ```
