@@ -99,7 +99,7 @@ impl MemoryInterface for BasicMemory {
             align,
             live: true,
             contents: list![AbstractByte::Uninit; size],
-        }
+        };
 
         // Insert it into list, and remember where.
         let id = AllocId(self.allocations.len());
@@ -130,7 +130,7 @@ impl MemoryInterface for BasicMemory {
         }
 
         // Mark it as dead. That's it.
-        allocation.live = false.
+        allocation.live = false;
     }
 }
 ```
@@ -159,7 +159,7 @@ impl BasicMemory {
             }
             // Zero-sized accesses are fine.
             return None;
-        }
+        };
         let allocation = &self.allocations[id.0];
         // Compute relative offset, and ensure we are in-bounds.
         let offset_in_alloc = ptr.addr - allocation.addr;
@@ -175,7 +175,7 @@ impl MemoryInterface for BasicMemory {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
             return list![];
-        }
+        };
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
@@ -185,7 +185,7 @@ impl MemoryInterface for BasicMemory {
     fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result {
         let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
             return;
-        }
+        };
         let allocation = &mut self.allocations[id.0];
 
         // Slice into the contents, and put the new bytes there.

@@ -84,7 +84,7 @@ enum Terminator {
         ret: (PlaceExpr, ArgAbi),
         /// The block to jump to when this call returns.
         next_block: BbName,
-    }
+    },
     /// Return from the current function.
     Return,
 }

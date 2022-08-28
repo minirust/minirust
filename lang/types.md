@@ -52,7 +52,7 @@ enum Type {
     Array {
         elem: Type,
         count: BigInt,
-    }
+    },
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
         /// they are irrelevant for the representation relation.

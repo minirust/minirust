@@ -414,7 +414,7 @@ We could decide that this is an "if and only if", i.e., that the validity invari
 ```rust
 fn bytes_valid_for_type(ty: Type, bytes: List<AbstractByte>) -> Result {
     if ty.decode(bytes).is_none() {
-        throw_ub!("data violates validity invariant of type {ty}"),
+        throw_ub!("data violates validity invariant of type {ty}");
     }
 }
 ```
