@@ -201,7 +201,7 @@ impl Type {
     }
     fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple([val1, val2]) = val else { panic!() };
-        let mut bytes = [AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size];
         let (offset1, type1) = field1;
         bytes[offset1..][..type1.size()] = type1.encode(val1);
         let (offset2, type2) = field2;
