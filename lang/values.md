@@ -237,7 +237,7 @@ impl Type {
     fn encode(Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = [AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size];
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(data.len(), size);
