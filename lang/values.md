@@ -322,7 +322,7 @@ impl PartialOrd for Value {
             (Value::Tuple(vals1), Value::Tuple(vals2)) =>
                 vals1 <= vals2,
             (Value::Variant { idx: idx1, data: data1 }, Value::Variant { idx: idx2, data: data2 }) =>
-                idx == idx1 && data1 <= data2,
+                idx1 == idx2 && data1 <= data2,
             (Value::Union(chunks1), Value::Union(chunks2)) => chunks1 <= chunks2,
             _ => false
         }
