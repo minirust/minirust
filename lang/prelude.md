@@ -7,9 +7,9 @@ For the files in this folder, we assume some definitions and parameters to alway
 use crate::mem::interface::*;
 type Memory: MemoryInterface;
 
-type Provenance = <Memory as MemoryInterface>::Provenance;
-type Pointer = <Memory as MemoryInterface>::Pointer;
-type AbstractByte = <Memory as MemoryInterface>::AbstractByte;
+type Provenance = Memory::Provenance;
+type Pointer = Memory::Pointer;
+type AbstractByte = Memory::AbstractByte;
 
 // The endianess, which defines how integers are encoded and decoded.
 trait Endianess {
