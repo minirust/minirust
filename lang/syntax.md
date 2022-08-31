@@ -65,7 +65,7 @@ enum Statement {
 
 enum Terminator {
     /// Just jump to the next block.
-    Goto(BasicBlock),
+    Goto(BbName),
     /// `condition` must evaluate to a `Value::Bool`.
     /// If it is `true`, jump to `then_block`; else jump to `else_block`.
     If {
