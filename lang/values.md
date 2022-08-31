@@ -73,14 +73,14 @@ impl Type {
 
 ```rust
 impl Type {
-    fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
         match *bytes {
             [AbstractByte::Init(0, _)] => Value::Bool(false),
             [AbstractByte::Init(1, _)] => Value::Bool(true),
             _ => throw!(),
         }
     }
-    fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Bool: Self, val: Value) -> List<AbstractByte> {
         let Value::Bool(b) = val else { panic!() };
         [AbstractByte::Init(if b { 1 } else { 0 }, None)]
     }
@@ -95,11 +95,11 @@ For now we only define `u16` and `i16`.
 
 ```rust
 impl Type {
-    fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
         let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { throw!() };
         Value::Int(ENDIANESS.decode(signed, [b0, b1]))
     }
-    fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
         let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
         [AbstractByte::Init(b0, None), AbstractByte::Init(b1, None)]
@@ -143,10 +143,10 @@ fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
 }
 
 impl Type {
-    fn decode(RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
         Value::Ptr(decode_ptr(bytes)?)
     }
-    fn encode(RawPtr: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::RawPtr: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
@@ -167,12 +167,12 @@ fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
 }
 
 impl Type {
-    fn decode(Ref { pointee, .. } | Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Ref { pointee, .. } | Type::Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let ptr = decode_ptr(bytes)?;
         if !check_safe_ptr(ptr, pointee) { throw!(); }
         Value::Ptr(ptr)
     }
-    fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Ref { .. } | Type::Box { .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
@@ -189,7 +189,7 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
 
 ```rust
 impl Type {
-    fn decode(Tuple { fields, size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
@@ -197,7 +197,7 @@ impl Type {
             }).collect()?,
         )
     }
-    fn encode(Tuple { fields, size }: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Tuple { fields, size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size];
@@ -247,7 +247,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 
 ```rust
 impl Type {
-    fn decode(Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { throw!(); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
@@ -287,6 +287,7 @@ Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-def
 ```rust
 impl PartialOrd for AbstractByte {
     fn le(self, other: Self) -> bool {
+        use AbstractByte::*;
         match (self, other) {
             /// `Uninit <= _`: initializing something makes it "more defined".
             (Uninit, _) =>
@@ -334,6 +335,7 @@ For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise r
 ```rust
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
+        use Value::*;
         match (self, other) {
             (Int(i1), Int(i2)) =>
                 i1 == i2,
