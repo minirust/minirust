@@ -377,7 +377,7 @@ One key use of the value representation is to define a "typed" interface to memo
 This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
 
 ```rust
-trait TypedMemory: Memory {
+trait TypedMemory: MemoryInterface {
     /// Write a value of the given type to memory.
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
     fn typed_store(&mut self, ptr: Self::Pointer, val: Value, pty: PlaceType) -> Result {
