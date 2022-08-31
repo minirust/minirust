@@ -247,25 +247,25 @@ impl Statement {
                 let left = destination.check(live_locals)?;
                 let right = source.check(live_locals)?;
                 ensure(left.type == right)?;
-                locals
+                live_locals
             }
             Statement::Finalize { place } => {
                 place.check(live_locals)?;
-                locals
+                live_locals
             }
             Statement::StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.
-                locals.try_insert(local, func.locals.get(local)?)?;
-                locals
+                live_locals.try_insert(local, func.locals.get(local)?)?;
+                live_locals
             }
             Statement::StorageDead(local) => {
                 if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
-                locals.remove(local)?;
-                locals
+                live_locals.remove(local)?;
+                live_locals
             }
         }
     }
