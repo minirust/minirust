@@ -154,7 +154,7 @@ impl BasicMemory {
         // Now try to access the allocation information.
         let Some(id) = ptr.provenance else {
             // An invalid pointer.
-            if size != 0 {
+            if len != 0 {
                 throw_ub!("non-zero-sized access with invalid pointer");
             }
             // Zero-sized accesses are fine.
@@ -189,7 +189,7 @@ impl MemoryInterface for BasicMemory {
         let allocation = &mut self.allocations[id.0];
 
         // Slice into the contents, and put the new bytes there.
-        allocation.contents[offset..][..len].copy_from_slice(bytes);
+        allocation.contents[offset..][..bytes.len()].copy_from_slice(bytes);
     }
 
     fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result {
