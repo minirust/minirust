@@ -63,7 +63,7 @@ impl Type {
     /// Note that it is a spec bug if `v` is not valid according to `ty`!
     ///
     /// See below for the general properties relation `encode` and `decode`.
-    fn encode(self, v: Value) -> List<AbstractByte>;
+    fn encode(self, val: Value) -> List<AbstractByte>;
 }
 ```
 
@@ -234,7 +234,7 @@ impl Type {
         }
         Value::Union(chunk_data)
     }
-    fn encode(Type::Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
+    fn encode(Type::Union { size, chunks, .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size];
@@ -390,7 +390,7 @@ trait TypedMemory: MemoryInterface {
         let bytes = self.load(ptr, pty.type.size(), pty.align)?;
         match pty.type.decode(bytes) {
             Some(val) => val,
-            None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
+            None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
         }
     }
 
