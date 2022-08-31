@@ -112,22 +112,22 @@ Here we define how to compute the size and other layout properties of a type.
 impl Type {
     fn size(self) -> Size {
         match self {
-            Int(int_type) => int_type.size,
-            Bool => Size::from_bytes(1).unwrap(),
-            Ref { .. } | Box { .. } | RawPtr { .. } => PTR_SIZE,
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
-            Array { elem, count } => elem.size() * count,
+            Type::Int(int_type) => int_type.size,
+            Type::Bool => Size::from_bytes(1).unwrap(),
+            Type::Ref { .. } | Type::Box { .. } | Type::RawPtr { .. } => PTR_SIZE,
+            Type::Tuple { size, .. } | Type::Union { size, .. } | Type::Enum { size, .. } => size,
+            Type::Array { elem, count } => elem.size() * count,
         }
     }
 
     fn inhabited(self) -> bool {
         match self {
-            Int(..) | Bool | RawPtr { .. } => true,
-            Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
-            Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
-            Array { elem, count } => count == 0 || elem.inhabited(),
-            Union { .. } => true,
-            Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
+            Type::Int(..) | Type::Bool | Type::RawPtr { .. } => true,
+            Type::Ref { pointee, .. } | Type::Box { pointee } => pointee.inhabited,
+            Type::Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
+            Type::Array { elem, count } => count == 0 || elem.inhabited(),
+            Type::Union { .. } => true,
+            Type::Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
         }
     }
 }

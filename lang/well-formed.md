@@ -127,15 +127,15 @@ impl Value {
 impl ValueExpr {
     fn check(self, locals: Map<Local, PlaceType>) -> Option<Type> {
         match self {
-            Constant(value, type) => {
+            ValueExpr::Constant(value, type) => {
                 value.check(type)?;
                 type
             }
-            Load { source, destructive: _ } => {
+            ValueExpr::Load { source, destructive: _ } => {
                 let ptype = source.check(locals)?;
                 ptype.type
             }
-            Ref { target, align, mutbl } => {
+            ValueExpr::Ref { target, align, mutbl } => {
                 let ptype = target.check(locals)?;
                 // If `align > ptype.align`, then this operation would be "unsafe"
                 // since the reference promises more alignment than what the place
@@ -143,41 +143,41 @@ impl ValueExpr {
                 // to packed fields.
                 ensure(align <= ptype.align)?;
                 let pointee = Layout { align, ..ptype.layout() };
-                Ref { mutbl, pointee }
+                Type::Ref { mutbl, pointee }
             }
-            AddrOf { target } => {
+            ValueExpr::AddrOf { target } => {
                 target.check(locals)?;
-                RawPtr
+                Type::RawPtr
             }
-            UnOp { operator, operand } => {
+            ValueExpr::UnOp { operator, operand } => {
                 let operand = operand.check(locals)?;
                 match operator {
-                    Int(_int_op, int_ty) => {
-                        ensure(matches!(operand, Int(_)))?;
-                        Int(int_ty)
+                    UnOp::Int(_int_op, int_ty) => {
+                        ensure(matches!(operand, Type::Int(_)))?;
+                        Type::Int(int_ty)
                     }
-                    Ptr2Int => {
-                        ensure(matches!(operand, RawPtr))?;
-                        Int(IntType { signed: Unsigned, size: PTR_SIZE })
+                    UnOp::Ptr2Int => {
+                        ensure(matches!(operand, Type::RawPtr))?;
+                        Type::Int(IntType { signed: Unsigned, size: PTR_SIZE })
                     }
-                    Int2Ptr => {
-                        ensure(matches!(operand, Int(IntType { signed: Unsigned, size: PTR_SIZE })))?;
-                        RawPtr
+                    UnOp::Int2Ptr => {
+                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: PTR_SIZE })))?;
+                        Type::RawPtr
                     }
                 }
             }
-            BinOp { operator, left, right } => {
+            ValueExpr::BinOp { operator, left, right } => {
                 let left = left.check(locals)?;
                 let right = right.check(locals)?;
                 match operator {
-                    Int(_int_op, int_ty) => {
-                        ensure(matches!(left, Int(_)))?;
-                        ensure(matches!(right, Int(_)))?;
-                        Int(int_ty)
+                    BinOp::Int(_int_op, int_ty) => {
+                        ensure(matches!(left, Type::Int(_)))?;
+                        ensure(matches!(right, Type::Int(_)))?;
+                        Type::Int(int_ty)
                     }
-                    PtrOffset { inbounds: _ } => {
-                        ensure(matches!(left, Ref { .. } | RawPtr))?;
-                        ensure(matches!(right, Int(_)))?;
+                    BinOp::PtrOffset { inbounds: _ } => {
+                        ensure(matches!(left, Type::Ref { .. } | Type::RawPtr))?;
+                        ensure(matches!(right, Type::Int(_)))?;
                         left
                     }
                 }
@@ -189,17 +189,17 @@ impl ValueExpr {
 impl PlaceExpr {
     fn check(self, locals: Map<Local, PlaceType>) -> Option<PlaceType> {
         match self {
-            Local(name) => locals.get(name),
-            Deref { operand, ptype } => {
+            PlaceExpr::Local(name) => locals.get(name),
+            PlaceExpr::Deref { operand, ptype } => {
                 let type = operand.check(locals)?;
-                ensure(matches!(type, Ref { .. } | RawPtr))?;
+                ensure(matches!(type, Type::Ref { .. } | Type::RawPtr))?;
                 ptype
             }
-            Field { root, field } => {
+            PlaceExpr::Field { root, field } => {
                 let root = root.check(locals)?;
                 let (offset, field_ty) = match root.type {
-                    Tuple { fields, .. } => fields.get(field)?,
-                    Union { fields, .. } => fields.get(field)?,
+                    Type::Tuple { fields, .. } => fields.get(field)?,
+                    Type::Union { fields, .. } => fields.get(field)?,
                     _ => throw!(),
                 };
                 PlaceType {
@@ -207,12 +207,12 @@ impl PlaceExpr {
                     type: field_ty,
                 }
             }
-            Index { root, index } => {
+            PlaceExpr::Index { root, index } => {
                 let root = root.check(locals)?;
                 let index = index.check(locals)?;
-                ensure(matches!(index, Int(_)))?;
+                ensure(matches!(index, Type::Int(_)))?;
                 let field_ty = match root.type {
-                    Array { elem, .. } => elem,
+                    Type::Array { elem, .. } => elem,
                     _ => throw!(),
                 };
                 // We might be adding a multiple of `field_ty.size`, so we have to
@@ -243,23 +243,23 @@ impl Statement {
         func: Function
     ) -> Option<Map<Local, PlaceType>> {
         match self {
-            Assign { destination, source } => {
+            Statement::Assign { destination, source } => {
                 let left = destination.check(live_locals)?;
                 let right = source.check(live_locals)?;
                 ensure(left.type == right)?;
                 locals
             }
-            Finalize { place } => {
+            Statement::Finalize { place } => {
                 place.check(live_locals)?;
                 locals
             }
-            StorageLive(local) => {
+            Statement::StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.
                 locals.try_insert(local, func.locals.get(local)?)?;
                 locals
             }
-            StorageDead(local) => {
+            Statement::StorageDead(local) => {
                 if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
@@ -278,18 +278,18 @@ impl Terminator {
         live_locals: Map<Local, PlaceType>,
     ) -> Option<List<BbName>> {
         match self {
-            Goto(block_name) => {
+            Terminator::Goto(block_name) => {
                 list![block_name]
             }
-            If { condition, then_block, else_block } => {
+            Terminator::If { condition, then_block, else_block } => {
                 let type = condition.check(live_locals)?;
                 ensure(matches!(type, Type::Bool))?;
                 list![then_block, else_block]
             }
-            Unreachable => {
+            Terminator::Unreachable => {
                 list![]
             }
-            Call { callee: _, arguments, ret, next_block } => {
+            Terminator::Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
                     arg.check(live_locals)?;
@@ -298,7 +298,7 @@ impl Terminator {
                 ret_place.check(live_locals)?;
                 list![next_block]
             }
-            Return => {
+            Terminator::Return => {
                 list![]
             }
         }

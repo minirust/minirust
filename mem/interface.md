@@ -44,15 +44,15 @@ enum AbstractByte<Provenance> {
 impl AbstractByte<Provenance> {
     fn data(self) -> Option<u8> {
         match self {
-            Uninit => None,
-            Init(data, _) => Some(data),
+            AbstractByte::Uninit => None,
+            AbstractByte::Init(data, _) => Some(data),
         }
     }
 
     fn provenance(self) -> Option<Provenance> {
         match self {
-            Uninit => None,
-            Init(_, provenance) => provenance,
+            AbstractByte::Uninit => None,
+            AbstractByte::Init(_, provenance) => provenance,
         }
     }
 }

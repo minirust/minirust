@@ -50,7 +50,7 @@ Constants are trivial, as one would hope.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, Constant(value, _type): ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::Constant(value, _type): ValueExpr) -> NdResult<Value> {
         value
     }
 }
@@ -62,7 +62,7 @@ This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, Load { destructive, source }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(source)?;
         let ptype = source.check(self.cur_frame().func.locals).unwrap();
         let v = self.mem.typed_load(p, ptype)?;
@@ -81,12 +81,12 @@ The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, AddrOf { target }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::AddrOf { target }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(target)?;
         Value::Ptr(p)
     }
 
-    fn eval_value(&mut self, Ref { target, align, .. }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::Ref { target, align, .. }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(target)?;
         let ptype = target.check(self.cur_frame().func.locals).unwrap();
         // We need a check here, to ensure that encoding this value at the given type is valid.
@@ -106,11 +106,11 @@ The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](op
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, UnOp { operator, operand }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value> {
         let operand = self.eval_value(operand)?;
         self.eval_un_op(operator, operand)?
     }
-    fn eval_value(&mut self, BinOp { operator, left, right }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<Value> {
         let left = self.eval_value(left)?;
         let right = self.eval_value(right)?;
         self.eval_bin_op(operator, left, right)?
@@ -138,7 +138,7 @@ The place for a local is directly given by the stack frame.
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Local(name): PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<Place> {
         // This implicitly asserts that the local is live!
         self.cur_frame().locals[name]
     }
@@ -156,7 +156,7 @@ It also ensures that the pointer is dereferenceable.
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Deref { operand, .. }: PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, PlaceExpr::Deref { operand, .. }: PlaceExpr) -> NdResult<Place> {
         let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
@@ -169,26 +169,26 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_place(&mut self, Field { root, field }: PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place> {
         let type = root.check(self.cur_frame().func.locals).unwrap().type;
         let root = self.eval_place(root)?;
         let offset = match type {
-            Tuple { fields, .. } => fields[field].0,
-            Union { fields, .. } => fields[field].0,
+            Type::Tuple { fields, .. } => fields[field].0,
+            Type::Union { fields, .. } => fields[field].0,
             _ => panic!("field projection on non-projectable type"),
         };
         assert!(offset < type.size());
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 
-    fn eval_place(&mut self, Index { root, index }: PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place> {
         let type = root.check(self.cur_frame().func.locals).unwrap().type;
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
         let offset = match type {
-            Array { elem, count } => {
+            Type::Array { elem, count } => {
                 if index < count {
                     index * elem.size()
                 } else {
@@ -227,7 +227,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, Assign { destination, source }: Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
         let ptype = place.check(self.cur_frame().func.locals).unwrap();
@@ -248,7 +248,7 @@ This is equivalent to the assignment `_ = place`.
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, Finalize { place }: Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::Finalize { place }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
         let ptype = place.check(self.cur_frame().func.locals).unwrap();
         let _val = self.mem.typed_load(p, ptype)?;
@@ -262,14 +262,14 @@ These operations (de)allocate the memory backing a local.
 
 ```rust
 impl Machine {
-    fn eval_statement(&mut self, StorageLive(local): Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already live local as live.
         let layout = self.cur_frame().func.locals[local].layout();
         let p = self.mem.allocate(layout.size, layout.align)?;
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
-    fn eval_statement(&mut self, StorageDead(local): Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let layout = self.cur_frame().func.locals[local].layout();
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
@@ -292,7 +292,7 @@ The simplest terminator: jump to the (beginning of the) given block.
 
 ```rust
 impl Machine {
-    fn eval_terminator(&mut self, Goto(block_name): Terminator) -> NdResult {
+    fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
         self.cur_frame_mut().next = (block_name, 0);
     }
 }
@@ -302,7 +302,7 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_terminator(&mut self, If { condition, then_block, else_block }: Terminator) -> NdResult {
+    fn eval_terminator(&mut self, Terminator::If { condition, then_block, else_block }: Terminator) -> NdResult {
         let Value::Bool(b) = self.eval_value(condition)? else {
             panic!("if on a non-boolean")
         };
@@ -316,7 +316,7 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_terminator(&mut self, Unreachable: Terminator) -> NdResult {
+    fn eval_terminator(&mut self, Terminator::Unreachable: Terminator) -> NdResult {
         throw_ub!("reached unreachable code");
     }
 }
@@ -333,7 +333,7 @@ In particular, we have to initialize the new stack frame.
 impl Machine {
     fn eval_terminator(
         &mut self,
-        Call { callee, arguments, ret, next_block }: Terminator
+        Terminator::Call { callee, arguments, ret, next_block }: Terminator
     ) -> NdResult {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
@@ -400,7 +400,7 @@ The callee should probably start with a bunch of `Finalize` statements to ensure
 
 ```rust
 impl Machine {
-    fn eval_terminator(&mut self, Return: Terminator) -> NdResult {
+    fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
         // Copy return value to where the caller wants it.

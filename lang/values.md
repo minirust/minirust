@@ -73,14 +73,14 @@ impl Type {
 
 ```rust
 impl Type {
-    fn decode(Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Bool: Self, bytes: List<AbstractByte>) -> Option<Value> {
         match *bytes {
             [AbstractByte::Init(0, _)] => Value::Bool(false),
             [AbstractByte::Init(1, _)] => Value::Bool(true),
             _ => throw!(),
         }
     }
-    fn encode(Bool: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Bool: Self, val: Value) -> List<AbstractByte> {
         let Value::Bool(b) = val else { panic!() };
         [AbstractByte::Init(if b { 1 } else { 0 }, None)]
     }
@@ -95,11 +95,11 @@ For now we only define `u16` and `i16`.
 
 ```rust
 impl Type {
-    fn decode(Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
         let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { throw!() };
         Value::Int(ENDIANESS.decode(signed, [b0, b1]))
     }
-    fn encode(Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
         let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
         [AbstractByte::Init(b0, None), AbstractByte::Init(b1, None)]
@@ -143,10 +143,10 @@ fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
 }
 
 impl Type {
-    fn decode(RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
         Value::Ptr(decode_ptr(bytes)?)
     }
-    fn encode(RawPtr: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::RawPtr: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
@@ -167,12 +167,12 @@ fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
 }
 
 impl Type {
-    fn decode(Ref { pointee, .. } | Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Ref { pointee, .. } | Type::Box { pointee }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         let ptr = decode_ptr(bytes)?;
         if !check_safe_ptr(ptr, pointee) { throw!(); }
         Value::Ptr(ptr)
     }
-    fn encode(Ref { .. } | Box { .. }: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Ref { .. } | Type::Box { .. }: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr(ptr)
     }
@@ -191,7 +191,7 @@ For simplicity, we only define pairs for now.
 
 ```rust
 impl Type {
-    fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { throw!(); }
         let (offset1, type1) = field1;
         let val1 = type1.decode(bytes[offset1..][..type1.size()]);
@@ -199,7 +199,7 @@ impl Type {
         let val2 = type2.decode(bytes[offset2..][..type2.size()]);
         Value::Tuple([val1, val2])
     }
-    fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple([val1, val2]) = val else { panic!() };
         let mut bytes = list![AbstractByte::Uninit; size];
         let (offset1, type1) = field1;
@@ -225,7 +225,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 
 ```rust
 impl Type {
-    fn decode(Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { throw!(); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
@@ -234,7 +234,7 @@ impl Type {
         }
         Value::Union(chunk_data)
     }
-    fn encode(Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
+    fn encode(Type::Union { size, chunks, .. }: Self, value: Value) -> List<AbstractByte> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size];
@@ -267,13 +267,13 @@ impl PartialOrd for AbstractByte {
     fn le(self, other: Self) -> bool {
         match (self, other) {
             /// `Uninit <= _`: initializing something makes it "more defined".
-            (Uninit, _) =>
+            (AbstractByte::Uninit, _) =>
                 true,
             /// Among initialized bytes, adding provenance makes it "more defined".
-            (Init(data1, None), Init(data2, _)) =>
+            (AbstractByte::Init(data1, None), AbstractByte::Init(data2, _)) =>
                 data1 == data2,
             /// If both bytes have provenance, everything must be equal.
-            (Init(data1, Some(provenance1)), Init(data2, Some(provenance2))) =>
+            (AbstractByte::Init(data1, Some(provenance1)), AbstractByte::Init(data2, Some(provenance2))) =>
                 data1 == data2 && provenance1 == provenance2,
             /// Nothing else is related.
             _ => false,
@@ -313,17 +313,17 @@ For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise r
 impl PartialOrd for Value {
     fn le(self, other: Self) -> bool {
         match (self, other) {
-            (Int(i1), Int(i2)) =>
+            (Value::Int(i1), Value::Int(i2)) =>
                 i1 == i2,
-            (Bool(b1), Bool(b2)) =>
+            (Value::Bool(b1), Value::Bool(b2)) =>
                 b1 == b2,
-            (Ptr(p1), Ptr(p2)) =>
+            (Value::Ptr(p1), Value::Ptr(p2)) =>
                 p1 <= p2,
-            (Tuple(vals1), Tuple(vals2)) =>
+            (Value::Tuple(vals1), Value::Tuple(vals2)) =>
                 vals1 <= vals2,
-            (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
+            (Value::Variant { idx: idx1, data: data1 }, Value::Variant { idx: idx2, data: data2 }) =>
                 idx == idx1 && data1 <= data2,
-            (Union(chunks1), Union(chunks2)) => chunks1 <= chunks2,
+            (Value::Union(chunks1), Value::Union(chunks2)) => chunks1 <= chunks2,
             _ => false
         }
     }
