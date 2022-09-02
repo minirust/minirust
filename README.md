@@ -33,7 +33,7 @@ All types except for mutable references are `Copy` (let's just imagine we implic
 
 We use `panic!` (and `unwrap` and slice indexing and similar standard Rust operations) to indicate conditions that should always hold; if execution ever panics, that is a bug in the specification.
 
-Our functions are generally pure; they can write to mutable references but we can consider this to be implemented via explicit state passing.
+Our functions are generally pure; they can write to mutable references, but we can consider this to be implemented via explicit state passing.
 When we do need other effects, we make them explicit in the return type.
 The next sections describe the effects used in the MiniRust interpreter.
 
@@ -111,8 +111,8 @@ But we also need to ensure the entire document stays coherent, and I already hav
 You might wonder how this project compares to Niko's [a-mir-formality](https://github.com/nikomatsakis/a-mir-formality/).
 The obvious answer is that Niko is much better at picking names. ;)
 
-On a more serious note, these projects have very different scope: MiniRust is *only* about the operational semantics.
-a-mir-formality is a lot more ambitious; as the [inaugurate blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
+On a more serious note, these projects have very a different scope: MiniRust is *only* about the operational semantics.
+a-mir-formality is a lot more ambitious; as the [inaugural blog post](https://nikomatsakis.github.io/a-mir-formality/blog/2022/05/12/) explains, it aims to also formalize traits, type checking, and borrow checking -- all of which I consider out-of-scope for MiniRust.
 a-mir-formality is machine-readable and written in PLT redex; MiniRust uses pseudo-code that is not currently machine-readable (but I have ideas :).
 The primary goals of MiniRust are to be precise and human-readable; I would argue that while PLT redex is more precise than the style I use, it does lack in readability when compared with Rust-style pseudo-code.
 I am willing to sacrifice some precision for the significant gain in readability, in particular since I think we can recover this precision with some amount of work.
