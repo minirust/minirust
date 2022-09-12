@@ -67,8 +67,14 @@ impl Type {
                 for (offset, type) in fields {
                     type.check()?;
                     ensure(size >= offset.checked_add(type.size())?)?;
+
+                    // And it must fit into one of the chunks.
+                    ensure(chunks.into_iter().any(|(chunk_offset, chunk_size)| {
+                        chunk_offset <= offset
+                            && offset + type.size() <= chunk_offset + chunk_size
+                    }))?;
                 }
-                // The chunks must be disjoint.
+                // The chunks must be sorted in their offsets and disjoint.
                 let mut last_end = Size::ZERO;
                 for (offset, size) in chunks {
                     ensure(offset >= last_end)?;
