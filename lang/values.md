@@ -185,27 +185,25 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
   (The latter would not even be possible with the current structure of MiniRust.)
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).
 
-### Tuples (and arrays, structs, ...)
-
-For simplicity, we only define pairs for now.
+### Tuples (and structs, ...)
 
 ```rust
 impl Type {
-    fn decode(Tuple { fields: [field1, field2], size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+    fn decode(Tuple { fields, size }: Self, bytes: List<AbstractByte>) -> Option<Value> {
         if bytes.len() != size { throw!(); }
-        let (offset1, type1) = field1;
-        let val1 = type1.decode(bytes[offset1..][..type1.size()]);
-        let (offset2, type2) = field2;
-        let val2 = type2.decode(bytes[offset2..][..type2.size()]);
-        Value::Tuple([val1, val2])
+        Value::Tuple(
+            fields.iter().map(|(offset, ty)| {
+                ty.decode(bytes[offset..][..ty.size()])
+            }).collect()?,
+        )
     }
-    fn encode(Tuple { fields: [field1, field2], size }: Self, val: Value) -> List<AbstractByte> {
-        let Value::Tuple([val1, val2]) = val else { panic!() };
-        let mut bytes = [AbstractByte::Uninit; size];
-        let (offset1, type1) = field1;
-        bytes[offset1..][..type1.size()] = type1.encode(val1);
-        let (offset2, type2) = field2;
-        bytes[offset2..][..type2.size()] = type2.encode(val2);
+    fn encode(Tuple { fields, size }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Tuple(values) = val else { panic!() };
+        assert_eq!(chunk_data.len(), chunks.len());
+        let mut bytes = list![AbstractByte::Uninit; size];
+        for ((offset, ty), value) in fields.iter().zip(values) {
+            bytes[offset..][..ty.size()].copy_from_slice(ty.encode(value));
+        }
         bytes
     }
 }
@@ -214,6 +212,30 @@ impl Type {
 Note in particular that `decode` ignores the bytes which are before, between, or after the fields (usually called "padding").
 `encode` in turn always and deterministically makes those bytes `Uninit`.
 (The [generic properties](#generic-properties) defined below make this the only possible choice for `encode`.)
+
+### Arrays
+
+```rust
+impl Type {
+    fn decode(Array { elem, count }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != elem.size() * count { throw!(); }
+        Value::Tuple(
+            bytes.chunks(elem.size())
+                .map(|elem_bytes| elem.decode(elem_bytes))
+                .collect()?,
+        )
+    }
+    fn encode(Array { elem, count }: Self, val: Value) -> List<AbstractByte> {
+        let Value::Tuple(values) = val else { panic!() };
+        assert_eq!(values.len(), count);
+        values.iter().flat_map(|value| {
+            let bytes = elem.encode(value);
+            assert_eq!(bytes.len(), elem.size());
+            bytes
+        }).collect()
+    }
+}
+```
 
 ### Unions
 
