@@ -50,6 +50,20 @@ impl Machine {
 }
 ```
 
+### Pointer unsize cast
+
+```rust
+impl Machine {
+    fn eval_un_op(&mut self, PtrUnsize(pointee): UnOp, operand: Value) -> NdResult<Value> {
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr-unsize cast") };
+        assert!(ptr.meta.is_none(), "fat-pointer input to ptr-unsize cast") };
+        let Type::Array { elem, count } = pointee else { panic!("non-array pointee type to ptr-unsize cast") };
+
+        Value::Ptr(PointerRepr { meta: Some(count), ..ptr })
+    }
+}
+```
+
 ## Binary operators
 
 ```rust

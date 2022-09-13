@@ -132,6 +132,8 @@ enum ValueExpr {
         left: ValueExpr,
         right: ValueExpr,
     },
+    /// Get the length of the place
+    Len(PlaceExpr),
 }
 
 enum UnOpInt {
@@ -147,6 +149,8 @@ enum UnOp {
     Ptr2Int,
     /// Integer-to-pointer cast
     Int2Ptr,
+    /// Cast a thin pointer to a fat pointer.
+    PtrUnsize(Type),
 }
 
 enum BinOpInt {

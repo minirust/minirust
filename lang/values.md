@@ -13,14 +13,23 @@ it defines, for a given value and list of bytes, whether that value is represent
 The MiniRust value domain is described by the following type definition.
 
 ```rust
+/// A helper struct containing a pointer with an optional pointer-sized metadata.
+/// - For sized types, `meta` is be `None`.
+/// - For slice types, `meta` is the length of the slice.
+#[derive(PartialEq, Eq)]
+struct PointerRepr {
+    ptr: Pointer,
+    addr: Option<BigInt>,
+}
+
 #[derive(PartialEq, Eq)]
 enum Value {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
     /// A Boolean value, used for `bool`.
     Bool(bool),
-    /// A pointer value, used for (thin) references and raw pointers.
-    Ptr(Pointer),
+    /// A pointer value, with an optional metadata, used for references and raw pointers.
+    Ptr(PointerRepr),
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<Value>),
     /// A variant of a sum type, used for enums.
@@ -120,31 +129,38 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 
 ```rust
-fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
-    if bytes.len() != PTR_SIZE { throw!(); }
+fn decode_ptr(bytes: List<AbstractByte>, is_unsized: bool) -> Option<PointerRepr> {
+    match (bytes.len(), is_unsized) {
+        (PTR_SIZE, false) => {}
+        (2 * PTR_SIZE, true) => {}
+        _ => throw!(),
+    }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
     let addr = ENDIANESS.decode(Unsigned, &bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<Provenance> = bytes[0].provenance();
-    for b in bytes {
+    for b in bytes[..PTR_SIZE] {
         if b.provenance() != provenance {
             provenance = None;
         }
     }
-    Pointer { addr, provenance }
+    let ptr = Pointer { addr, provenance };
+    let meta = is_unsized.then(|| ENDIANESS.decode(Unsigned, bytes[PTR_SIZE..]));
+    PointerRepr { ptr, meta }
 }
 
-fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
+fn encode_ptr(PointerRepr { ptr, meta }: PointerRepr) -> List<AbstractByte> {
     let bytes_data: [u8; PTR_SIZE] = ENDIANESS.encode(Unsigned, ptr.addr).unwrap();
     bytes_data
         .map(|b| AbstractByte::Init(b, ptr.provenance))
+        .chain(meta.map_or(list![], |meta| ENDIANESS.encode(Unsigned, meta))
         .collect()
 }
 
 impl Type {
     fn decode(RawPtr: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        Value::Ptr(decode_ptr(bytes)?)
+        Value::Ptr(decode_ptr(bytes, false)?)
     }
     fn encode(RawPtr: Self, val: Value) -> List<AbstractByte> {
         let Value::Ptr(ptr) = val else { panic!() };
@@ -155,12 +171,13 @@ impl Type {
 
 - TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
   Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
+- TODO: Unsized raw pointers are not supported yet.
 
 ### References and `Box`
 
 ```rust
 /// Check if the given pointer is valid for safe pointer types (`Ref`, `Box`).
-fn check_safe_ptr(ptr: Pointer, pointee: Layout) -> bool {
+fn check_safe_ptr(PointerRepr { ptr, .. }: PointerRepr, pointee: Layout) -> bool {
     // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
     // (Think: uninhabited types have impossible alignment.)
     ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited
@@ -212,31 +229,54 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 `encode` in turn always and deterministically makes those bytes `Uninit`.
 (The [generic properties](#generic-properties) defined below make this the only possible choice for `encode`.)
 
-### Arrays
+### Arrays and slices
 
 ```rust
-impl Type {
-    fn decode(Array { elem, count }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != elem.size() * count { throw!(); }
-        Value::Tuple(
-            bytes.chunks(elem.size())
-                .map(|elem_bytes| elem.decode(elem_bytes))
-                .try_collect()?,
-        )
+fn decode_slice(elem_ty: Type, len: Option<Size>, bytes: List<AbstractByte>) -> Option<Value> {
+    match len {
+        Some(len) if bytes.len() != elem_ty.size() * len => throw!(),
+        // TODO: handle zero-sized types correctly.
+        None if bytes.len() % elem_ty.size() => throw!(),
+        _ => {}
     }
+    Value::Tuple(
+        bytes.chunks(elem_ty.size())
+            .map(|elem_bytes| elem.decode(elem_bytes))
+            .try_collect()?,
+    )
+}
+
+fn encode_slice(elem_ty: Type, len: Option<Size>, values: List<Value>) -> List<AbstractByte> {
+    if let Some(len) = len {
+        assert_eq!(values.len(), len);
+    }
+    values.into_iter().flat_map(|value| {
+        let bytes = elem_ty.encode(value);
+        assert_eq!(bytes.len(), elem_ty.size());
+        bytes
+    }).collect()
+}
+
+impl Type {
+    fn decodeArray { elem, count }: Self, bytes: List<AbstractByte>) -> Option<Value> {
+        decode_slice(elem, Some(count), bytes)
+    }
+    fn decode(Slice(elem): Self, bytes: List<AbstractByte>) -> Option<Value> {
+        decode_slice(elem, None, bytes)
+    }
+
     fn encode(Array { elem, count }: Self, val: Value) -> List<AbstractByte> {
         let Value::Tuple(values) = val else { panic!() };
-        assert_eq!(values.len(), count);
-        values.into_iter().flat_map(|value| {
-            let bytes = elem.encode(value);
-            assert_eq!(bytes.len(), elem.size());
-            bytes
-        }).collect()
+        encode_slice(elem, Some(count), values)
+    }
+    fn encode(Slice(elem): Self, val: Value) -> List<AbstractByte> {
+        let Value::Tuple(values) = val else { panic!() };
+        encode_slice(elem, None, values)
     }
 }
 ```
 
-- TODO: Should we consider paddings between two adjacent elements in arrays?
+- TODO: Should we consider paddings between two adjacent elements in arrays (or slices)?
 
 ### Unions
 
@@ -316,6 +356,15 @@ impl PartialOrd for Pointer {
                 (Some(prov1), Some(prov2)) => prov1 == prov2,
                 _ => false,
             }
+    }
+}
+```
+
+For `PointerRepr`, we say one is more defined than the other iff they have the same metadata, and one's pointer is more defined.
+```rust
+impl PartialOrd for PointerRepr {
+    fn le(self, other: Self) -> bool {
+        self.ptr <= other.ptr && self.meta == other.meta
     }
 }
 ```
@@ -410,7 +459,7 @@ trait TypedMemory: Memory {
 
     /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Self::Pointer, pty: PlaceType) -> Result<Value> {
-        let bytes = self.load(ptr, pty.type.size(), pty.align)?;
+        let bytes = self.load(ptr, pty.type.size()?, pty.align)?;
         match pty.type.decode(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {ty} but the data in memory violates the validity invariant"),
@@ -423,7 +472,7 @@ trait TypedMemory: Memory {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");
         }
-        self.dereferenceable(ptr, layout.size, layout.align)?;
+        self.dereferenceable(ptr, layout.size?, layout.align)?;
     }
 }
 ```

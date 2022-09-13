@@ -22,7 +22,7 @@ In the future, we might want to separate a type from its layout, and consider th
 ```rust
 /// A "layout" describes the shape of data in memory.
 struct Layout {
-    size: Size,
+    size: Option<Size>,
     align: Align,
     inhabited: bool,
 }
@@ -53,6 +53,7 @@ enum Type {
         elem: Type,
         count: BigInt,
     }
+    Slice(Type),
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
         /// they are irrelevant for the representation relation.
@@ -110,13 +111,18 @@ Here we define how to compute the size and other layout properties of a type.
 
 ```rust
 impl Type {
-    fn size(self) -> Size {
+    fn size(self) -> Option<Size> {
+        if let Type::Slice(..) = self {
+            throw!();
+        }
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1).unwrap(),
             Ref { .. } | Box { .. } | RawPtr { .. } => PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size() * count,
+            // Already processed above the `match` expression.
+            Slice(..) => panic!(),
         }
     }
 
@@ -128,6 +134,20 @@ impl Type {
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
+            Slice(elem) => elem.inhabited(),
+        }
+    }
+
+    fn unsize(self) -> Option<Type> {
+        match self {
+            Ref { pointee, mutbl } => Ref {
+                pointee: Layout { size: None, ..pointee },
+                ..pointee
+            },
+            Box { pointee } => Box {
+                pointee: Layout { size: None, ..pointee },
+            },
+            _ => throw!(),
         }
     }
 }
@@ -143,6 +163,10 @@ impl PlaceType {
             align: self.align,
             inhabited: self.type.inhabited(),
         }
+    }
+
+    fn is_unsized(self) -> bool {
+        self.size.is_none()
     }
 }
 ```

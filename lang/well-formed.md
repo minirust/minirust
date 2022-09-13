@@ -62,6 +62,7 @@ impl Type {
                 elem.check()?;
                 elem.size().checked_mul(count)?;
             }
+            Slice(elem) => elem.check()?,
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, type) in fields {
@@ -119,6 +120,11 @@ impl Value {
                     val.check(elem)?;
                 }
             }
+            (Value::Tuple(values), Type::Slice(elem)) => {
+                for val in values {
+                    val.check(elem)?;
+                }
+            }
             _ => throw!(),
         }
     }
@@ -164,6 +170,16 @@ impl ValueExpr {
                         ensure(matches!(operand, Int(IntType { signed: Unsigned, size: PTR_SIZE })))?;
                         RawPtr
                     }
+                    PtrUnsize(ty) => {
+                        match ty {
+                            Type::Box { pointee } | Type::Ref { pointee, .. } => {
+                                // The pointee must be a sized type, i.e., the pointer to cast must be a thin pointer.
+                                ensure(pointee.size().is_some())?;
+                            }
+                            _ => throw!(),
+                        }
+                        ty.unsize()
+                    }
                 }
             }
             BinOp { operator, left, right } => {
@@ -181,6 +197,17 @@ impl ValueExpr {
                         left
                     }
                 }
+            }
+            Len(target) => {
+                let ptype = target.check(locals)?;
+                match ptype {
+                    Type::Array { .. } => {},
+                    Type::Ref { pointee, .. } | Type::Box { pointee } => {
+                        // Only pointers to slice are allowed.
+                        ensure(pointee.is_unsized())?;
+                    }
+                }
+                Int(IntType { signed: Unsigned, size: PTR_SIZE })
             }
         }
     }
@@ -213,6 +240,7 @@ impl PlaceExpr {
                 ensure(matches!(index, Int(_)))?;
                 let field_ty = match root.type {
                     Array { elem, .. } => elem,
+                    Slice(elem) => elem,
                     _ => throw!(),
                 };
                 // We might be adding a multiple of `field_ty.size`, so we have to

@@ -94,7 +94,7 @@ impl Machine {
         if !check_safe_ptr(p, Layout { align, ..ptype.layout() }) {
             throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
         }
-        Value::Ptr(p)
+        Value::Ptr(PointerRepr { ptr: Pointer(p, None), meta: None })
     }
 
 }
@@ -121,11 +121,14 @@ impl Machine {
 ## Place Expressions
 
 Place expressions evaluate to places.
-For now, that is just a pointer (but this might have to change).
+It is a pointer of its address, and an optional meta of pointer size.
+For the slice type, the meta must be present and contains the length of it.
+It may be extended to support other unsized types (such as trait objects) in the future.
+
 Place evaluation ensures that this pointer is always dereferenceable (for the type of the place expression).
 
 ```rust
-type Place = Pointer;
+type Place = PointerRepr;
 
 impl Machine {
     fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place>;
@@ -195,9 +198,17 @@ impl Machine {
                     throw_ub!("out-of-bounds array access");
                 }
             }
+            Slice(elem) => {
+                if index < root.meta? {
+                    index * elem.size()
+                } else {
+                    throw_ub!("out-of-bounds slice access");
+                }
+            }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset < type.size());
+        let size = type.size().unwrap_or(root.meta? * elem.size());
+        assert!(offset < size);
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 }
