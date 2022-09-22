@@ -75,6 +75,7 @@ impl Type {
                     }))?;
                 }
                 // The chunks must be sorted in their offsets and disjoint.
+                // FIXME: should we relax this and allow arbitrary chunk order?
                 let mut last_end = Size::ZERO;
                 for (offset, size) in chunks {
                     ensure(offset >= last_end)?;
