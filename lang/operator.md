@@ -105,7 +105,7 @@ impl Machine {
     /// and the offset must stay in bounds of a single allocation.
     fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> NdResult<Pointer> {
         if !offset.in_bounds(Signed, PTR_SIZE) {
-            throw_ub!("inbounds offset does not fit into `isize`"):
+            throw_ub!("inbounds offset does not fit into `isize`");
         }
         let addr = ptr.addr + offset;
         if !addr.in_bounds(Unsigned, PTR_SIZE) {
