@@ -14,11 +14,11 @@ type AbstractByte = Memory::AbstractByte;
 // The endianess, which defines how integers are encoded and decoded.
 trait Endianess {
     /// If `signed == Signed`, the data is interpreted as two's complement.
-    fn decode<const N: usize>(self, signed: Signedness, bytes: [u8; N]) -> BigInt;
+    fn decode(self, signed: Signedness, bytes: List<u8>) -> BigInt;
 
-    /// This can fail (return `None`) if the `int` does not fit into `N` bytes,
+    /// This can fail (return `None`) if the `int` does not fit into `size` bytes,
     /// or if it is negative and `signed == Unsigned`.
-    fn encode<const N: usize>(self, signed: Signedness, int: BigInt) -> Option<[u8; N]>;
+    fn encode(self, signed: Signedness, size: Size, int: BigInt) -> Option<List<u8>>;
 }
 const ENDIANESS: impl Endianess;
 
