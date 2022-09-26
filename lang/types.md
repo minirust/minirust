@@ -111,6 +111,7 @@ Here we define how to compute the size and other layout properties of a type.
 ```rust
 impl Type {
     fn size(self) -> Size {
+        use Type::*;
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1).unwrap(),
@@ -121,6 +122,7 @@ impl Type {
     }
 
     fn inhabited(self) -> bool {
+        use Type::*;
         match self {
             Int(..) | Bool | RawPtr { .. } => true,
             Ref { pointee, .. } | Box { pointee } => pointee.inhabited,

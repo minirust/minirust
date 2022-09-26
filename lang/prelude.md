@@ -4,9 +4,12 @@ For the files in this folder, we assume some definitions and parameters to alway
 
 ```rust
 // An instance of the memory interface.
-use mem::interface::*;
+use crate::mem::interface::*;
 type Memory: MemoryInterface;
-use Memory::{Provenance, Pointer, AbstractByte};
+
+type Provenance = Memory::Provenance;
+type Pointer = Memory::Pointer;
+type AbstractByte = Memory::AbstractByte;
 
 // The endianess, which defines how integers are encoded and decoded.
 trait Endianess {
