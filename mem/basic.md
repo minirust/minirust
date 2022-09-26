@@ -151,14 +151,16 @@ impl BasicMemory {
         if ptr.addr % align != 0 {
             throw_ub!("pointer is insufficiently aligned");
         }
+        // For zero-sized accesses, this is enough.
+        // (Provenance monotonicity says that if we allow zero-sized accesses
+        // for `None` provenance we have to allow it for all provenance.)
+        if size == 0 {
+            return None;
+        }
         // Now try to access the allocation information.
         let Some(id) = ptr.provenance else {
             // An invalid pointer.
-            if len != 0 {
-                throw_ub!("non-zero-sized access with invalid pointer");
-            }
-            // Zero-sized accesses are fine.
-            return None;
+            throw_ub!("non-zero-sized access with invalid pointer")
         };
         let allocation = &self.allocations[id.0];
         // Compute relative offset, and ensure we are in-bounds.
