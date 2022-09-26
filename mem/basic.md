@@ -154,6 +154,9 @@ impl BasicMemory {
         // For zero-sized accesses, this is enough.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
+        // FIXME: This is *not* what rustc does, since from this it follows that
+        // `offset(0)` is allowed on all non-null pointers which does not match
+        // the LLVM IR rustc generates.
         if size == 0 {
             return None;
         }
