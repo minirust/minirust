@@ -91,18 +91,23 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 
 ### Integers
 
-For now we only define `u16` and `i16`.
-
 ```rust
 impl Type {
-    fn decode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, bytes: List<AbstractByte>) -> Option<Value> {
-        let [AbstractByte::Init(b0, _), AbstractByte::Init(b1, _)] = *bytes else { throw!() };
-        Value::Int(ENDIANESS.decode(signed, [b0, b1]))
+    fn decode(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte>) -> Option<Value> {
+        if bytes.len() != size.bytes() {
+            throw!();
+        }
+        // Fails if any byte is `Uninit`.
+        let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+        Value::Int(ENDIANESS.decode(signed, bytes_data))
     }
-    fn encode(Type::Int(IntType { signed, size: Size::from_bits(16) }): Self, val: Value) -> List<AbstractByte> {
+    fn encode(Type::Int(IntType { signed, size }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
-        let [b0, b1] = ENDIANESS.encode(signed, i).unwrap();
-        [AbstractByte::Init(b0, None), AbstractByte::Init(b1, None)]
+        // `Endianess::encode` will do the integer's bound check.
+        let bytes_data = ENDIANESS.encode(signed, size, i).unwrap();
+        bytes_data.iter()
+            .map(|b| AbstractByte::Init(b, None))
+            .collect()
     }
 }
 ```
@@ -123,8 +128,8 @@ Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
     if bytes.len() != PTR_SIZE { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data: [u8; PTR_SIZE] = bytes.map(|b| b.data()).collect()?;
-    let addr = ENDIANESS.decode(Unsigned, &bytes_data);
+    let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+    let addr = ENDIANESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
@@ -136,8 +141,8 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
 }
 
 fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
-    let bytes_data: [u8; PTR_SIZE] = ENDIANESS.encode(Unsigned, ptr.addr).unwrap();
-    bytes_data
+    let bytes_data = ENDIANESS.encode(Unsigned, PTR_SIZE, ptr.addr).unwrap();
+    bytes_data.iter()
         .map(|b| AbstractByte::Init(b, ptr.provenance))
         .collect()
 }
