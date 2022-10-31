@@ -96,7 +96,7 @@ enum TagEncoding { /* ... */ }
 
 /// "Place" types are laid out in memory and thus also have an alignment requirement.
 struct PlaceType {
-    type: Type,
+    ty: Type,
     align: Align,
 }
 ```
@@ -126,24 +126,24 @@ impl Type {
         match self {
             Int(..) | Bool | RawPtr { .. } => true,
             Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
-            Tuple { fields, .. } => fields.iter().all(|type| type.inhabited()),
+            Tuple { fields, .. } => fields.iter().all(|ty| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => variants.iter().any(|type| type.inhabited()),
+            Enum { variants, .. } => variants.iter().any(|ty| ty.inhabited()),
         }
     }
 }
 
 impl PlaceType {
-    fn new(type: Type, align: Align) -> Self {
-        PlaceType { type, align }
+    fn new(ty: Type, align: Align) -> Self {
+        PlaceType { ty, align }
     }
 
     fn layout(self) -> Layout {
         Layout {
-            size: self.type.size(),
+            size: self.ty.size(),
             align: self.align,
-            inhabited: self.type.inhabited(),
+            inhabited: self.ty.inhabited(),
         }
     }
 }

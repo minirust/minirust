@@ -50,7 +50,7 @@ Constants are trivial, as one would hope.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::Constant(value, _type): ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::Constant(value, _ty): ValueExpr) -> NdResult<Value> {
         value
     }
 }
@@ -170,24 +170,24 @@ impl Machine {
 ```rust
 impl Machine {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place> {
-        let type = root.check(self.cur_frame().func.locals).unwrap().type;
+        let ty = root.check(self.cur_frame().func.locals).unwrap().ty;
         let root = self.eval_place(root)?;
-        let offset = match type {
+        let offset = match ty {
             Type::Tuple { fields, .. } => fields[field].0,
             Type::Union { fields, .. } => fields[field].0,
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset < type.size());
+        assert!(offset < ty.size());
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place> {
-        let type = root.check(self.cur_frame().func.locals).unwrap().type;
+        let ty = root.check(self.cur_frame().func.locals).unwrap().ty;
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
-        let offset = match type {
+        let offset = match ty {
             Type::Array { elem, count } => {
                 if index < count {
                     index * elem.size()
@@ -197,7 +197,7 @@ impl Machine {
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset < type.size());
+        assert!(offset < ty.size());
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 }
