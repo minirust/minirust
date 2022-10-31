@@ -46,14 +46,14 @@ impl Type {
             Tuple { fields, size, align } => {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
-                fields.sort_by_key(|(offset, type)| offset);
+                fields.sort_by_key(|(offset, _ty)| offset);
                 let mut last_end = Size::ZERO;
-                for (offset, type) in fields {
+                for (offset, ty) in fields {
                     // Recursively check the field type.
-                    type.check()?;
+                    ty.check()?;
                     // And ensure it fits after the one we previously checked.
                     ensure(offset >= last_end)?;
-                    last_end = offset.checked_add(type.size())?;
+                    last_end = offset.checked_add(ty.size())?;
                 }
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
@@ -64,14 +64,14 @@ impl Type {
             }
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
-                for (offset, type) in fields {
-                    type.check()?;
-                    ensure(size >= offset.checked_add(type.size())?)?;
+                for (offset, ty) in fields {
+                    ty.check()?;
+                    ensure(size >= offset.checked_add(ty.size())?)?;
 
                     // And it must fit into one of the chunks.
                     ensure(chunks.into_iter().any(|(chunk_offset, chunk_size)| {
                         chunk_offset <= offset
-                            && offset + type.size() <= chunk_offset + chunk_size
+                            && offset + ty.size() <= chunk_offset + chunk_size
                     }))?;
                 }
                 // The chunks must be sorted in their offsets and disjoint.
@@ -96,7 +96,7 @@ impl Type {
 
 impl PlaceType {
     fn check(self) -> Option<()> {
-        self.type.check()?;
+        self.ty.check()?;
         self.layout().check()?;
     }
 }
@@ -106,18 +106,18 @@ impl PlaceType {
 
 ```rust
 impl Value {
-    /// Assumes that `type` has already been checked.
-    fn check(self, type: Type) -> Option<()> {
+    /// Assumes that `ty` has already been checked.
+    fn check(self, ty: Type) -> Option<()> {
         // For now, we only support integer and boolean literals, and arrays/tuples.
-        match (self, type) {
+        match (self, ty) {
             (Value::Int(i), Type::Int(int_type)) => {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
             (Value::Bool(_), Type::Bool) => (),
             (Value::Tuple(values), Type::Tuple { fields }) => {
                 ensure(values.len() == fields.len())?;
-                for (val, (_offset, type)) in values.iter().zip(fields.iter()) {
-                    val.check(type)?;
+                for (val, (_offset, ty)) in values.iter().zip(fields.iter()) {
+                    val.check(ty)?;
                 }
             }
             (Value::Tuple(values), Type::Array { elem, count }) => {
@@ -135,13 +135,13 @@ impl ValueExpr {
     fn check(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
         use ValueExpr::*;
         match self {
-            Constant(value, type) => {
-                value.check(type)?;
-                type
+            Constant(value, ty) => {
+                value.check(ty)?;
+                ty
             }
             Load { source, destructive: _ } => {
                 let ptype = source.check(locals)?;
-                ptype.type
+                ptype.ty
             }
             Ref { target, align, mutbl } => {
                 let ptype = target.check(locals)?;
@@ -200,27 +200,27 @@ impl PlaceExpr {
         match self {
             Local(name) => locals.get(name),
             Deref { operand, ptype } => {
-                let type = operand.check(locals)?;
-                ensure(matches!(type, Type::Ref { .. } | Type::RawPtr))?;
+                let ty = operand.check(locals)?;
+                ensure(matches!(ty, Type::Ref { .. } | Type::RawPtr))?;
                 ptype
             }
             Field { root, field } => {
                 let root = root.check(locals)?;
-                let (offset, field_ty) = match root.type {
+                let (offset, field_ty) = match root.ty {
                     Type::Tuple { fields, .. } => fields.get(field)?,
                     Type::Union { fields, .. } => fields.get(field)?,
                     _ => throw!(),
                 };
                 PlaceType {
                     align: root.align.restrict_for_offset(offset),
-                    type: field_ty,
+                    ty: field_ty,
                 }
             }
             Index { root, index } => {
                 let root = root.check(locals)?;
                 let index = index.check(locals)?;
                 ensure(matches!(index, Type::Int(_)))?;
-                let field_ty = match root.type {
+                let field_ty = match root.ty {
                     Type::Array { elem, .. } => elem,
                     _ => throw!(),
                 };
@@ -229,7 +229,7 @@ impl PlaceExpr {
                 // is good for any multiple of that offset as well.
                 PlaceType {
                     align: root.align.restrict_for_offset(field_ty.size()),
-                    type: field_ty,
+                    ty: field_ty,
                 }
             }
         }
@@ -256,7 +256,7 @@ impl Statement {
             Assign { destination, source } => {
                 let left = destination.check(live_locals)?;
                 let right = source.check(live_locals)?;
-                ensure(left.type == right)?;
+                ensure(left.ty == right)?;
                 live_locals
             }
             Finalize { place } => {
@@ -293,8 +293,8 @@ impl Terminator {
                 list![block_name]
             }
             If { condition, then_block, else_block } => {
-                let type = condition.check(live_locals)?;
-                ensure(matches!(type, Type::Bool))?;
+                let ty = condition.check(live_locals)?;
+                ensure(matches!(ty, Type::Bool))?;
                 list![then_block, else_block]
             }
             Unreachable => {

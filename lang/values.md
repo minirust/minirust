@@ -53,7 +53,7 @@ impl Type {
     /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
     /// `decode` must satisfy the following property:
     /// ```
-    /// type.decode(bytes) = Some(_) -> bytes.len() == type.size() && type.inhabited()`
+    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size() && ty.inhabited()`
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
@@ -410,14 +410,14 @@ trait TypedMemory: MemoryInterface {
     /// Write a value of the given type to memory.
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
     fn typed_store(&mut self, ptr: Self::Pointer, val: Value, pty: PlaceType) -> Result {
-        let bytes = pty.type.encode(val);
+        let bytes = pty.ty.encode(val);
         self.store(ptr, bytes, pty.align)?;
     }
 
     /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Self::Pointer, pty: PlaceType) -> Result<Value> {
-        let bytes = self.load(ptr, pty.type.size(), pty.align)?;
-        match pty.type.decode(bytes) {
+        let bytes = self.load(ptr, pty.ty.size(), pty.align)?;
+        match pty.ty.decode(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
         }
