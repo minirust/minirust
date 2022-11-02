@@ -40,18 +40,34 @@ This section defines the following function:
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, val: ValueExpr) -> NdResult<Value>;
+    fn eval_value(&mut self, val: ValueExpr) -> NdResult<Value<Memory>>;
 }
 ```
 
 ### Constants
 
-Constants are trivial, as one would hope.
-
 ```rust
+fn eval_constant<Memory: MemoryInterface>(constant: Constant) -> NdResult<Value<Memory>> {
+    match constant {
+        Constant::Int(i) => Value::Int(i),
+        Constant::Bool(b) => Value::Bool(b),
+        Constant::Tuple(args) => {
+            let args = args.into_iter()
+                .map(|arg| eval_constant::<Memory>(arg))
+                .collect();
+            Value::Tuple(args)
+        },
+        Constant::Variant { idx, data } => {
+            let data = eval_constant::<Memory>(data);
+            Value::Variant { idx, data }
+        },
+        Constant::Ptr(..) | Constant::Union(..) => panic!("invalid constant encountered!"),
+    }
+}
+
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::Constant(value, _ty): ValueExpr) -> NdResult<Value> {
-        value
+    fn eval_value(&mut self, ValueExpr::Constant(value, _ty): ValueExpr) -> NdResult<Value<Memory>> {
+        eval_constant::<Memory>(value)
     }
 }
 ```
@@ -62,7 +78,7 @@ This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value<Memory>> {
         let p = self.eval_place(source)?;
         let ptype = source.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
         let v = self.mem.typed_load(p, ptype)?;
@@ -81,7 +97,7 @@ The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value<Memory>> {
         let p = self.eval_place(target)?;
         Value::Ptr(p)
     }
@@ -94,11 +110,11 @@ The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](op
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value<Memory>> {
         let operand = self.eval_value(operand)?;
         self.eval_un_op(operator, operand)?
     }
-    fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<Value<Memory>> {
         let left = self.eval_value(left)?;
         let right = self.eval_value(right)?;
         self.eval_bin_op(operator, left, right)?

@@ -93,10 +93,13 @@ enum Terminator {
 And finally, the syntax of expressions:
 
 ```rust
+/// Constants are Values, but are not allowed to be Value::Ptr | Value::Union.
+type Constant = Value<!>;
+
 /// A "value expression" evaluates to a `Value`.
 enum ValueExpr {
-    /// Just return a constant.
-    Constant(Value, Type),
+    /// Just return a constant value.
+    Constant(Constant, Type),
     /// Load a value from memory.
     Load {
         /// Whether this load de-initializes the source it is loaded from ("move").

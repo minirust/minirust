@@ -6,7 +6,7 @@ Here we define the part of the [`step` function](step.md) that is concerned with
 
 ```rust
 impl Machine {
-    fn eval_un_op(&mut self, operator: UnOp, operand: Value) -> NdResult<Value>;
+    fn eval_un_op(&mut self, operator: UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>>;
 }
 ```
 
@@ -21,7 +21,7 @@ impl Machine {
             Cast => operand,
         }
     }
-    fn eval_un_op(&mut self, UnOp::Int(op, int_type): UnOp, operand: Value) -> NdResult<Value> {
+    fn eval_un_op(&mut self, UnOp::Int(op, int_type): UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
@@ -37,12 +37,12 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, operand: Value) -> NdResult<Value> {
+    fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
         let result = self.intptrcast.ptr2int(ptr)?;
         Value::Int(result)
     }
-    fn eval_un_op(&mut self, UnOp::Int2Ptr: UnOp, operand: Value) -> NdResult<Value> {
+    fn eval_un_op(&mut self, UnOp::Int2Ptr: UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;
         Value::Ptr(result)
@@ -54,7 +54,7 @@ impl Machine {
 
 ```rust
 impl Machine {
-    fn eval_bin_op(&mut self, operator: BinOp, left: Value, right: Value) -> NdResult<Value>;
+    fn eval_bin_op(&mut self, operator: BinOp, left: Value<Memory>, right: Value<Memory>) -> NdResult<Value<Memory>>;
 }
 ```
 
@@ -76,7 +76,7 @@ impl Machine {
             }
         }
     }
-    fn eval_bin_op(&mut self, BinOp::Int(op, int_type): BinOp, left: Value, right: Value) -> NdResult<Value> {
+    fn eval_bin_op(&mut self, BinOp::Int(op, int_type): BinOp, left: Value<Memory>, right: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
@@ -129,7 +129,7 @@ impl Machine {
         new_ptr
     }
 
-    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, left: Value, right: Value) -> NdResult<Value> {
+    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, left: Value<Memory>, right: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
         let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
 

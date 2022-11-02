@@ -52,7 +52,7 @@ impl Type {
             }
             Bool => (),
             Pointer(ptr_type) {
-                int_type.check()?;
+                ptr_type.check()?;
             }
             Tuple { fields, size, align } => {
                 // The fields must not overlap.
@@ -116,7 +116,7 @@ impl PlaceType {
 ## Well-formed expressions
 
 ```rust
-impl Value {
+impl<Memory: MemoryInterface> Value<Memory> {
     /// Check that the value has the expected type.
     /// Assumes that `ty` has already been checked.
     fn check(self, ty: Type) -> Option<()> {
