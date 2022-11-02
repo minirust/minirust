@@ -64,7 +64,7 @@ This loads a value from a place (often called "place-to-value coercion").
 impl Machine {
     fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(source)?;
-        let ptype = source.check(self.cur_frame().func.locals).unwrap();
+        let ptype = source.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
@@ -88,7 +88,7 @@ impl Machine {
 
     fn eval_value(&mut self, ValueExpr::Ref { target, align, .. }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(target)?;
-        let ptype = target.check(self.cur_frame().func.locals).unwrap();
+        let ptype = target.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `target`
         // We need a check here, to ensure that encoding this value at the given type is valid.
         // (For example, if this is a packed struct, it might be insufficiently aligned.)
         if !check_safe_ptr(p, Layout { align, ..ptype.layout() }) {
@@ -132,6 +132,9 @@ impl Machine {
 }
 ```
 
+TODO: In almost all cases, callers also need to compute the type of this place, so maybe it should be returned from `eval_place`?
+It is a bit annoying to keep in sync with `check`, but for Coq it would be much better to avoid recursing over the `PlaceExpr` twice.
+
 ### Locals
 
 The place for a local is directly given by the stack frame.
@@ -170,7 +173,7 @@ impl Machine {
 ```rust
 impl Machine {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place> {
-        let ty = root.check(self.cur_frame().func.locals).unwrap().ty;
+        let ty = root.check(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let offset = match ty {
             Type::Tuple { fields, .. } => fields[field].0,
@@ -182,7 +185,7 @@ impl Machine {
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place> {
-        let ty = root.check(self.cur_frame().func.locals).unwrap().ty;
+        let ty = root.check(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
@@ -230,7 +233,7 @@ impl Machine {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
-        let ptype = place.check(self.cur_frame().func.locals).unwrap();
+        let ptype = destination.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `destination`
         self.mem.typed_store(place, val, ptype)?;
     }
 }
@@ -250,7 +253,7 @@ This is equivalent to the assignment `_ = place`.
 impl Machine {
     fn eval_statement(&mut self, Statement::Finalize { place }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
-        let ptype = place.check(self.cur_frame().func.locals).unwrap();
+        let ptype = place.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
         let _val = self.mem.typed_load(p, ptype)?;
     }
 }
@@ -347,7 +350,7 @@ impl Machine {
         locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
         // Remember the return place (will be relevant during `Return`).
         let (caller_ret_place, caller_ret_abi) = ret;
-        let caller_ret_layout = caller_ret_place.check(func.locals).unwrap().layout();
+        let caller_ret_layout = caller_ret_place.check(func.locals).unwrap().layout(); // FIXME avoid a second traversal of `caller_ret_place`
         let caller_ret_place = self.eval_place(caller_ret_place)?;
         if caller_ret_layout.size != callee_ret_layout.size {
             throw_ub!("call ABI violation: return size does not agree");
@@ -363,7 +366,7 @@ impl Machine {
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.iter().zip(arguments.iter()) {
             let val = self.eval_value(arg)?;
-            let caller_ty = arg.check(func.locals).unwrap();
+            let caller_ty = arg.check(func.locals).unwrap(); // FIXME avoid a second traversal of `arg`
             let callee_layout = func.locals[local].layout();
             if caller_ty.size() != callee_layout.size {
                 throw_ub!("call ABI violation: argument size does not agree");
