@@ -5,21 +5,6 @@ For the files in this folder, we assume some definitions and parameters to alway
 ```rust
 use crate::mem::{MemoryInterface, AbstractByte, Pointer};
 
-// The endianness, which defines how integers are encoded and decoded.
-enum Endianness {
-    LittleEndian,
-    BigEndian,
-}
-
-impl Endianness {
-    /// If `signed == Signed`, the data is interpreted as two's complement.
-    fn decode(self, signed: Signedness, bytes: List<u8>) -> BigInt;
-
-    /// This can fail (return `None`) if the `int` does not fit into `size` bytes,
-    /// or if it is negative and `signed == Unsigned`.
-    fn encode(self, signed: Signedness, size: Size, int: BigInt) -> Option<List<u8>>;
-}
-
 // Everything there is to say about how an argument is passed to a function,
 // and how the return value is passed back.
 // For example, for stack passing this should say whether and how the

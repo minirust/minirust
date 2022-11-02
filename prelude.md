@@ -54,6 +54,20 @@ enum Mutability {
 }
 pub use Mutability::*;
 
+// The endianness, which defines how integers are encoded and decoded.
+enum Endianness {
+    LittleEndian,
+    BigEndian,
+}
+
+impl Endianness {
+    /// If `signed == Signed`, the data is interpreted as two's complement.
+    fn decode(self, signed: Signedness, bytes: List<u8>) -> BigInt;
+
+    /// This can fail (return `None`) if the `int` does not fit into `size` bytes,
+    /// or if it is negative and `signed == Unsigned`.
+    fn encode(self, signed: Signedness, size: Size, int: BigInt) -> Option<List<u8>>;
+}
 
 /// The type of mathematical integers.
 /// We assume all the usual arithmetic operations to be defined.
