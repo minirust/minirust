@@ -81,22 +81,10 @@ The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl Machine {
-    fn eval_value(&mut self, ValueExpr::AddrOf { target }: ValueExpr) -> NdResult<Value> {
+    fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(target)?;
         Value::Ptr(p)
     }
-
-    fn eval_value(&mut self, ValueExpr::Ref { target, align, .. }: ValueExpr) -> NdResult<Value> {
-        let p = self.eval_place(target)?;
-        let ptype = target.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `target`
-        // We need a check here, to ensure that encoding this value at the given type is valid.
-        // (For example, if this is a packed struct, it might be insufficiently aligned.)
-        if !check_safe_ptr(p, Layout { align, ..ptype.layout() }) {
-            throw_ub!("creating reference to invalid (null/unaligned/uninhabited) place");
-        }
-        Value::Ptr(p)
-    }
-
 }
 ```
 

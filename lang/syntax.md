@@ -104,22 +104,12 @@ enum ValueExpr {
         /// The place to load from.
         source: PlaceExpr,
     },
-    /// Create a reference to a place.
-    Ref {
-        /// The place to create a reference to.
-        target: PlaceExpr,
-        /// The desired alignment of the pointee.
-        /// This can be weaker than the alignment given by the pointee place type.
-        /// (For example, a `u8` field at offset 4 in a 4-aligned struct will
-        /// be 4-aligned -- even if `u8` just requires alignment 1.)
-        align: Align,
-        /// Mutability of the reference.
-        mutbl: Mutability,
-    },
-    /// Create a raw pointer to a place.
+    /// Create a pointer to a place.
     AddrOf {
-        /// The place to create a raw pointer to.
+        /// The place to create a pointer to.
         target: PlaceExpr,
+        /// The type of the created pointer.
+        ptr_ty: ptr_type;
     },
     /// Unary operators.
     UnOp {

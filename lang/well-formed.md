@@ -32,6 +32,17 @@ impl Layout {
     }
 }
 
+impl PtrType {
+    fn check(self) -> Option<()> {
+        match self {
+            PtrType::Raw => (),
+            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
+                pointee.check()?;
+            }
+        }
+    }
+}
+
 impl Type {
     fn check(self) -> Option<()> {
         use Type::*;
@@ -39,9 +50,9 @@ impl Type {
             Int(int_type) => {
                 int_type.check()?;
             }
-            Bool | RawPtr => (),
-            Ref { pointee, mutbl: _ } | Box { pointee } => {
-                pointee.check()?;
+            Bool => (),
+            Pointer(ptr_type) {
+                int_type.check()?;
             }
             Tuple { fields, size, align } => {
                 // The fields must not overlap.
@@ -106,6 +117,7 @@ impl PlaceType {
 
 ```rust
 impl Value {
+    /// Check that the value has the expected type.
     /// Assumes that `ty` has already been checked.
     fn check(self, ty: Type) -> Option<()> {
         // For now, we only support integer and boolean literals, and arrays/tuples.
@@ -144,19 +156,14 @@ impl ValueExpr {
                 let ptype = source.check(locals)?;
                 ptype.ty
             }
-            Ref { target, align, mutbl } => {
+            AddrOf { target, ptr_ty } => {
                 let ptype = target.check(locals)?;
-                // If `align > ptype.align`, then this operation would be "unsafe"
-                // since the reference promises more alignment than what the place
-                // guarantees. That is exactly what happens for references
-                // to packed fields.
-                ensure(align <= ptype.align)?;
-                let pointee = Layout { align, ..ptype.layout() };
-                Type::Ref { mutbl, pointee }
-            }
-            AddrOf { target } => {
-                target.check(locals)?;
-                Type::RawPtr
+                if let PtrType::Box { layout } | PtrType::Ref { layout, .. } = ptr_ty {
+                    // Make sure the size fits and the alignment is weakened, not strengthened.
+                    ensure(layout.size == ptype.size())?;
+                    ensure(layout.align <= ptype.align)?;
+                }
+                Type::Pointer(ptr_ty)
             }
             UnOp { operator, operand } => {
                 let operand = operand.check(locals)?;

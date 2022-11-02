@@ -31,16 +31,7 @@ struct Layout {
 enum Type {
     Int(IntType),
     Bool,
-    Ref {
-        mutbl: Mutability,
-        /// We only need to know the layout of the pointee.
-        /// (This also means we have a finite representation even when the Rust type is recursive.)
-        pointee: Layout,
-    },
-    Box {
-        pointee: Layout,
-    },
-    RawPtr,
+    Pointer(PtrType),
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
@@ -82,6 +73,19 @@ enum Type {
     },
 }
 
+enum PtrType {
+    Ref {
+        mutbl: Mutability,
+        /// We only need to know the layout of the pointee.
+        /// (This also means we have a finite representation even when the Rust type is recursive.)
+        pointee: Layout,
+    },
+    Box {
+        pointee: Layout,
+    },
+    Raw,
+}
+
 struct IntType {
     signed: Signedness,
     size: Size,
@@ -115,7 +119,7 @@ impl Type {
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1).unwrap(),
-            Ref { .. } | Box { .. } | RawPtr { .. } => PTR_SIZE,
+            Pointer(_) => PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size() * count,
         }
@@ -124,8 +128,8 @@ impl Type {
     fn inhabited(self) -> bool {
         use Type::*;
         match self {
-            Int(..) | Bool | RawPtr { .. } => true,
-            Ref { pointee, .. } | Box { pointee } => pointee.inhabited,
+            Int(..) | Bool | Pointer(PtrType::Raw) => true,
+            Pointer(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.iter().all(|ty| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,

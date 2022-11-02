@@ -84,7 +84,7 @@ struct Pointer<Provenance> {
 /// change the current state in concurrent memory models and in Stacked Borrows).
 trait MemoryInterface {
     /// The type of pointer provenance.
-    type Provenance : Eq;
+    type Provenance: Eq;
 
     /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
     /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.
