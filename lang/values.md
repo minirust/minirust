@@ -99,12 +99,12 @@ impl Type {
         }
         // Fails if any byte is `Uninit`.
         let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
-        Value::Int(ENDIANESS.decode(signed, bytes_data))
+        Value::Int(Memory::ENDIANNESS.decode(signed, bytes_data))
     }
     fn encode(Type::Int(IntType { signed, size }): Self, val: Value) -> List<AbstractByte> {
         let Value::Int(i) = val else { panic!() };
-        // `Endianess::encode` will do the integer's bound check.
-        let bytes_data = ENDIANESS.encode(signed, size, i).unwrap();
+        // `Endianness::encode` will do the integer's bound check.
+        let bytes_data = Memory::ENDIANNESS.encode(signed, size, i).unwrap();
         bytes_data.iter()
             .map(|b| AbstractByte::Init(b, None))
             .collect()
@@ -122,14 +122,14 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ### Raw pointers
 
-Decoding pointers is a bit inconvenient since we do not know `PTR_SIZE`.
+Decoding pointers is a bit inconvenient since we do not know `Memory::PTR_SIZE`.
 
 ```rust
 fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
-    if bytes.len() != PTR_SIZE { throw!(); }
+    if bytes.len() != Memory::PTR_SIZE { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
-    let addr = ENDIANESS.decode(Unsigned, bytes_data);
+    let addr = Memory::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<Provenance> = bytes[0].provenance();
     for b in bytes {
@@ -141,7 +141,7 @@ fn decode_ptr(bytes: List<AbstractByte>) -> Option<Pointer> {
 }
 
 fn encode_ptr(ptr: Pointer) -> List<AbstractByte> {
-    let bytes_data = ENDIANESS.encode(Unsigned, PTR_SIZE, ptr.addr).unwrap();
+    let bytes_data = Memory::ENDIANNESS.encode(Unsigned, Memory::PTR_SIZE, ptr.addr).unwrap();
     bytes_data.iter()
         .map(|b| AbstractByte::Init(b, ptr.provenance))
         .collect()

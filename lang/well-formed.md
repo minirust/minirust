@@ -174,10 +174,10 @@ impl ValueExpr {
                     }
                     UnOp::Ptr2Int => {
                         ensure(matches!(operand, Type::RawPtr))?;
-                        Type::Int(IntType { signed: Unsigned, size: PTR_SIZE })
+                        Type::Int(IntType { signed: Unsigned, size: Memory::PTR_SIZE })
                     }
                     UnOp::Int2Ptr => {
-                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: PTR_SIZE })))?;
+                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: Memory::PTR_SIZE })))?;
                         Type::RawPtr
                     }
                 }

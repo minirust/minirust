@@ -11,8 +11,13 @@ type Provenance = Memory::Provenance;
 type Pointer = Memory::Pointer;
 type AbstractByte = Memory::AbstractByte;
 
-// The endianess, which defines how integers are encoded and decoded.
-trait Endianess {
+// The endianness, which defines how integers are encoded and decoded.
+enum Endianness {
+    LittleEndian,
+    BigEndian,
+}
+
+impl Endianness {
     /// If `signed == Signed`, the data is interpreted as two's complement.
     fn decode(self, signed: Signedness, bytes: List<u8>) -> BigInt;
 
@@ -20,7 +25,6 @@ trait Endianess {
     /// or if it is negative and `signed == Unsigned`.
     fn encode(self, signed: Signedness, size: Size, int: BigInt) -> Option<List<u8>>;
 }
-const ENDIANESS: impl Endianess;
 
 // Everything there is to say about how an argument is passed to a function,
 // and how the return value is passed back.

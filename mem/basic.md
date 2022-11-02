@@ -21,6 +21,14 @@ impl MemoryInterface for BasicMemory {
 }
 ```
 
+- TODO: Give `BasicMemory::{PTR_SIZE, ENDIANNESS}` actual values. Or add generic parameters for them:
+```rust
+impl MemoryInfo for BasicMemory {
+    const PTR_SIZE: Size;
+    const ENDIANNESS: Endianness;
+}
+```
+
 The data tracked by the memory is fairly simple: for each allocation, we track its contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
 
 ```rust
@@ -73,7 +81,7 @@ Then we implement creating and removing allocations.
 impl MemoryInterface for BasicMemory {
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
-        if !size.in_bounds(Signed, PTR_SIZE) {
+        if !size.in_bounds(Signed, Self::PTR_SIZE) {
             throw_ub!("asking for a too large allocation");
         }
         // Pick a base address. We use daemonic non-deterministic choice,
@@ -86,7 +94,7 @@ impl MemoryInterface for BasicMemory {
             // ... that is suitably aligned...
             if addr % align != 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
-            if !(addr+size).in_bounds(Unsigned, PTR_SIZE) { return false; }
+            if !(addr+size).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
             if self.allocations.values().any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!

@@ -95,20 +95,20 @@ impl Machine {
 impl Machine {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
     fn ptr_offset_wrapping(&self, ptr: Pointer, offset: BigInt) -> Pointer {
-        let offset = offset.modulo(Signed, PTR_SIZE);
+        let offset = offset.modulo(Signed, Memory::PTR_SIZE);
         let addr = ptr.addr + offset;
-        let addr = addr.modulo(Unsigned, PTR_SIZE);
+        let addr = addr.modulo(Unsigned, Memory::PTR_SIZE);
         Pointer { addr, ..ptr }
     }
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
     fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> NdResult<Pointer> {
-        if !offset.in_bounds(Signed, PTR_SIZE) {
+        if !offset.in_bounds(Signed, Memory::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }
         let addr = ptr.addr + offset;
-        if !addr.in_bounds(Unsigned, PTR_SIZE) {
+        if !addr.in_bounds(Unsigned, Memory::PTR_SIZE) {
             throw_ub!("overflowing inbounds pointer arithmetic");
         }
         let new_ptr = Pointer { addr, ..ptr };

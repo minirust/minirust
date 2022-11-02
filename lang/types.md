@@ -119,7 +119,7 @@ impl Type {
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1).unwrap(),
-            Pointer(_) => PTR_SIZE,
+            Pointer(_) => Memory::PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size() * count,
         }
