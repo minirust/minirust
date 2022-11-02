@@ -64,11 +64,11 @@ This loads a value from a place (often called "place-to-value coercion").
 impl Machine {
     fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value> {
         let p = self.eval_place(source)?;
-        let ptype = source.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
+        let ptype = source.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![AbstractByte::Uninit; ptype.size()], ptype.align)?;
+            self.mem.store(p, list![AbstractByte::Uninit; ptype.size::<Memory>()], ptype.align)?;
         }
         v
     }
@@ -161,19 +161,19 @@ impl Machine {
 ```rust
 impl Machine {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place> {
-        let ty = root.check(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
+        let ty = root.check::<Memory>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let offset = match ty {
             Type::Tuple { fields, .. } => fields[field].0,
             Type::Union { fields, .. } => fields[field].0,
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset < ty.size());
+        assert!(offset < ty.size::<Memory>());
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place> {
-        let ty = root.check(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
+        let ty = root.check::<Memory>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
@@ -181,14 +181,14 @@ impl Machine {
         let offset = match ty {
             Type::Array { elem, count } => {
                 if index < count {
-                    index * elem.size()
+                    index * elem.size::<Memory>()
                 } else {
                     throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset < ty.size());
+        assert!(offset < ty.size::<Memory>());
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 }
@@ -221,7 +221,7 @@ impl Machine {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
-        let ptype = destination.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `destination`
+        let ptype = destination.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `destination`
         self.mem.typed_store(place, val, ptype)?;
     }
 }
@@ -241,7 +241,7 @@ This is equivalent to the assignment `_ = place`.
 impl Machine {
     fn eval_statement(&mut self, Statement::Finalize { place }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
-        let ptype = place.check(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
+        let ptype = place.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
         let _val = self.mem.typed_load(p, ptype)?;
     }
 }
@@ -255,14 +255,14 @@ These operations (de)allocate the memory backing a local.
 impl Machine {
     fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already live local as live.
-        let layout = self.cur_frame().func.locals[local].layout();
+        let layout = self.cur_frame().func.locals[local].layout::<Memory>();
         let p = self.mem.allocate(layout.size, layout.align)?;
         self.cur_frame_mut().locals.try_insert(local, p).unwrap();
     }
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
-        let layout = self.cur_frame().func.locals[local].layout();
+        let layout = self.cur_frame().func.locals[local].layout::<Memory>();
         let p = self.cur_frame_mut().locals.remove(local).unwrap();
         self.mem.deallocate(p, layout.size, layout.align)?;
     }
@@ -334,7 +334,7 @@ impl Machine {
         // First evaluate the return place. (Left-to-right!)
         // Create place for return local.
         let (ret_local, callee_ret_abi) = func.ret;
-        let callee_ret_layout = func.locals[ret_local].layout();
+        let callee_ret_layout = func.locals[ret_local].layout::<Memory>();
         locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
         // Remember the return place (will be relevant during `Return`).
         let (caller_ret_place, caller_ret_abi) = ret;
@@ -350,8 +350,8 @@ impl Machine {
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.iter().zip(arguments.iter()) {
             let val = self.eval_value(arg)?;
-            let caller_ty = arg.check(func.locals).unwrap(); // FIXME avoid a second traversal of `arg`
-            let callee_layout = func.locals[local].layout();
+            let caller_ty = arg.check::<Memory>(func.locals).unwrap(); // FIXME avoid a second traversal of `arg`
+            let callee_layout = func.locals[local].layout::<Memory>();
             if caller_abi != callee_abi {
                 throw_ub!("call ABI violation: argument ABI does not agree");
             }
@@ -396,7 +396,7 @@ impl Machine {
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
-            let layout = func.locals[local].layout();
+            let layout = func.locals[local].layout::<Memory>();
             self.mem.deallocate(place, layout.size, layout.align)?;
         }
     }

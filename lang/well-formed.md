@@ -44,7 +44,7 @@ impl PtrType {
 }
 
 impl Type {
-    fn check(self) -> Option<()> {
+    fn check<Info: MemoryInfo>(self) -> Option<()> {
         use Type::*;
         match self {
             Int(int_type) => {
@@ -61,28 +61,28 @@ impl Type {
                 let mut last_end = Size::ZERO;
                 for (offset, ty) in fields {
                     // Recursively check the field type.
-                    ty.check()?;
+                    ty.check::<Info>()?;
                     // And ensure it fits after the one we previously checked.
                     ensure(offset >= last_end)?;
-                    last_end = offset.checked_add(ty.size())?;
+                    last_end = offset.checked_add(ty.size::<Info>())?;
                 }
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
             }
             Array { elem, count } => {
-                elem.check()?;
-                elem.size().checked_mul(count)?;
+                elem.check::<Info>()?;
+                elem.size::<Info>().checked_mul(count)?;
             }
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
-                    ty.check()?;
-                    ensure(size >= offset.checked_add(ty.size())?)?;
+                    ty.check::<Info>()?;
+                    ensure(size >= offset.checked_add(ty.size::<Info>())?)?;
 
                     // And it must fit into one of the chunks.
                     ensure(chunks.into_iter().any(|(chunk_offset, chunk_size)| {
                         chunk_offset <= offset
-                            && offset + ty.size() <= chunk_offset + chunk_size
+                            && offset + ty.size::<Info>() <= chunk_offset + chunk_size
                     }))?;
                 }
                 // The chunks must be sorted in their offsets and disjoint.
@@ -97,8 +97,8 @@ impl Type {
             }
             Enum { variants, size, tag_encoding: _ } => {
                 for variant in variants {
-                    variant.check()?;
-                    ensure(size >= variant.size())?;
+                    variant.check::<Info>()?;
+                    ensure(size >= variant.size::<Info>())?;
                 }
             }
         }
@@ -106,9 +106,9 @@ impl Type {
 }
 
 impl PlaceType {
-    fn check(self) -> Option<()> {
-        self.ty.check()?;
-        self.layout().check()?;
+    fn check<Info: MemoryInfo>(self) -> Option<()> {
+        self.ty.check::<Info>()?;
+        self.layout::<Info>().check()?;
     }
 }
 ```
@@ -145,7 +145,7 @@ impl Value {
 }
 
 impl ValueExpr {
-    fn check(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
+    fn check<Info: MemoryInfo>(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
         use ValueExpr::*;
         match self {
             Constant(value, ty) => {
@@ -153,20 +153,20 @@ impl ValueExpr {
                 ty
             }
             Load { source, destructive: _ } => {
-                let ptype = source.check(locals)?;
+                let ptype = source.check::<Info>(locals)?;
                 ptype.ty
             }
             AddrOf { target, ptr_ty } => {
-                let ptype = target.check(locals)?;
+                let ptype = target.check::<Info>(locals)?;
                 if let PtrType::Box { layout } | PtrType::Ref { layout, .. } = ptr_ty {
                     // Make sure the size fits and the alignment is weakened, not strengthened.
-                    ensure(layout.size == ptype.size())?;
+                    ensure(layout.size == ptype.size::<Info>())?;
                     ensure(layout.align <= ptype.align)?;
                 }
                 Type::Pointer(ptr_ty)
             }
             UnOp { operator, operand } => {
-                let operand = operand.check(locals)?;
+                let operand = operand.check::<Info>(locals)?;
                 match operator {
                     UnOp::Int(_int_op, int_ty) => {
                         ensure(matches!(operand, Type::Int(_)))?;
@@ -174,17 +174,17 @@ impl ValueExpr {
                     }
                     UnOp::Ptr2Int => {
                         ensure(matches!(operand, Type::RawPtr))?;
-                        Type::Int(IntType { signed: Unsigned, size: Memory::PTR_SIZE })
+                        Type::Int(IntType { signed: Unsigned, size: Info::PTR_SIZE })
                     }
                     UnOp::Int2Ptr => {
-                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: Memory::PTR_SIZE })))?;
+                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: Info::PTR_SIZE })))?;
                         Type::RawPtr
                     }
                 }
             }
             BinOp { operator, left, right } => {
-                let left = left.check(locals)?;
-                let right = right.check(locals)?;
+                let left = left.check::<Info>(locals)?;
+                let right = right.check::<Info>(locals)?;
                 match operator {
                     BinOp::Int(_int_op, int_ty) => {
                         ensure(matches!(left, Type::Int(_)))?;
@@ -203,17 +203,17 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
+    fn check<Info: MemoryInfo>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
         use PlaceExpr::*;
         match self {
             Local(name) => locals.get(name),
             Deref { operand, ptype } => {
-                let ty = operand.check(locals)?;
+                let ty = operand.check::<Info>(locals)?;
                 ensure(matches!(ty, Type::Ref { .. } | Type::RawPtr))?;
                 ptype
             }
             Field { root, field } => {
-                let root = root.check(locals)?;
+                let root = root.check::<Info>(locals)?;
                 let (offset, field_ty) = match root.ty {
                     Type::Tuple { fields, .. } => fields.get(field)?,
                     Type::Union { fields, .. } => fields.get(field)?,
@@ -225,8 +225,8 @@ impl PlaceExpr {
                 }
             }
             Index { root, index } => {
-                let root = root.check(locals)?;
-                let index = index.check(locals)?;
+                let root = root.check::<Info>(locals)?;
+                let index = index.check::<Info>(locals)?;
                 ensure(matches!(index, Type::Int(_)))?;
                 let field_ty = match root.ty {
                     Type::Array { elem, .. } => elem,
@@ -236,7 +236,7 @@ impl PlaceExpr {
                 // lower the alignment compared to `root`. `restrict_for_offset`
                 // is good for any multiple of that offset as well.
                 PlaceType {
-                    align: root.align.restrict_for_offset(field_ty.size()),
+                    align: root.align.restrict_for_offset(field_ty.size::<Info>()),
                     ty: field_ty,
                 }
             }
@@ -254,7 +254,7 @@ When we first encounter a block, we add the locals that are live on the "in" edg
 ```rust
 impl Statement {
     /// This returns the adjusted live local mapping after the statement.
-    fn check(
+    fn check<Info: MemoryInfo>(
         self,
         mut live_locals: Map<LocalName, PlaceType>,
         func: Function
@@ -262,13 +262,13 @@ impl Statement {
         use Statement::*;
         match self {
             Assign { destination, source } => {
-                let left = destination.check(live_locals)?;
-                let right = source.check(live_locals)?;
+                let left = destination.check::<Info>(live_locals)?;
+                let right = source.check::<Info>(live_locals)?;
                 ensure(left.ty == right)?;
                 live_locals
             }
             Finalize { place } => {
-                place.check(live_locals)?;
+                place.check::<Info>(live_locals)?;
                 live_locals
             }
             StorageLive(local) => {
@@ -291,7 +291,7 @@ impl Statement {
 
 impl Terminator {
     /// Returns the successor basic blocks that need to be checked next.
-    fn check(
+    fn check<Info: MemoryInfo>(
         self,
         live_locals: Map<LocalName, PlaceType>,
     ) -> Option<List<BbName>> {
@@ -301,7 +301,7 @@ impl Terminator {
                 list![block_name]
             }
             If { condition, then_block, else_block } => {
-                let ty = condition.check(live_locals)?;
+                let ty = condition.check::<Info>(live_locals)?;
                 ensure(matches!(ty, Type::Bool))?;
                 list![then_block, else_block]
             }
@@ -311,10 +311,10 @@ impl Terminator {
             Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
-                    arg.check(live_locals)?;
+                    arg.check::<Info>(live_locals)?;
                 }
                 let (ret_place, _ret_abi) = ret;
-                ret_place.check(live_locals)?;
+                ret_place.check::<Info>(live_locals)?;
                 list![next_block]
             }
             Return => {
@@ -325,7 +325,7 @@ impl Terminator {
 }
 
 impl Function {
-    fn check(self) -> Option<()> {
+    fn check<Info: MemoryInfo>(self) -> Option<()> {
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
         let mut start_live: Map<LocalName, PlaceType> = default();
@@ -346,9 +346,9 @@ impl Function {
             let mut live_locals = bb_live_at_entry[block_name];
             // Check this block, updating the live locals along the way.
             for statement in block.statements {
-                live_locals = statement.check(live_locals, self)?;
+                live_locals = statement.check::<Info>(live_locals, self)?;
             }
-            let successors = block.terminator.check(live_locals)?;
+            let successors = block.terminator.check::<Info>(live_locals)?;
             for block_name in successors {
                 if let Some(precondition) = bb_live_at_entry.get(block_name) {
                     // A block we already visited (or already have in the worklist).
@@ -370,13 +370,13 @@ impl Function {
 }
 
 impl Program {
-    fn check(self) -> Option<()> {
+    fn check<Info: MemoryInfo>(self) -> Option<()> {
         // Ensure the start function exists, and takes no arguments.
         let func = self.functions.get(self.start)?;
         if func.args.len() > 0 { return None; }
         // Check all the functions.
         for function in self.functions.values() {
-            function.check()?;
+            function.check::<Info>()?;
         }
     }
 }

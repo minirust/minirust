@@ -53,7 +53,7 @@ impl Type {
     /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
     /// `decode` must satisfy the following property:
     /// ```
-    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size() && ty.inhabited()`
+    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size::<Memory>() && ty.inhabited()`
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
@@ -198,7 +198,7 @@ impl Type {
         if bytes.len() != size { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
-                ty.decode(bytes[offset..][..ty.size()])
+                ty.decode(bytes[offset..][..ty.size::<Memory>()])
             }).collect()?,
         )
     }
@@ -207,7 +207,7 @@ impl Type {
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size];
         for ((offset, ty), value) in fields.iter().zip(values) {
-            bytes[offset..][..ty.size()].copy_from_slice(ty.encode(value));
+            bytes[offset..][..ty.size::<Memory>()].copy_from_slice(ty.encode(value));
         }
         bytes
     }
@@ -223,9 +223,9 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode(Array { elem, count }: Self, bytes: List<AbstractByte>) -> Option<Value> {
-        if bytes.len() != elem.size() * count { throw!(); }
+        if bytes.len() != elem.size::<Memory>() * count { throw!(); }
         Value::Tuple(
-            bytes.chunks(elem.size())
+            bytes.chunks(elem.size::<Memory>())
                 .map(|elem_bytes| elem.decode(elem_bytes))
                 .collect()?,
         )
@@ -235,7 +235,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.iter().flat_map(|value| {
             let bytes = elem.encode(value);
-            assert_eq!(bytes.len(), elem.size());
+            assert_eq!(bytes.len(), elem.size::<Memory>());
             bytes
         }).collect()
     }
@@ -416,7 +416,7 @@ trait TypedMemory: MemoryInterface {
 
     /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Self::Pointer, pty: PlaceType) -> Result<Value> {
-        let bytes = self.load(ptr, pty.ty.size(), pty.align)?;
+        let bytes = self.load(ptr, pty.ty.size::<Memory>(), pty.align)?;
         match pty.ty.decode(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
