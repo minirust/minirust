@@ -33,7 +33,7 @@ type NdResult<T=()> = Nondet<Result<T>>;
 /// and <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html>.
 ///
 /// `Size` is essentially a `BigInt` newtype that is always in-bounds for both
-/// signed and unsigned `Memory::PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
+/// signed and unsigned `M::PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
 /// `Size::from_bytes` and the checked arithmetic operations return `None`
 /// when the result would be out-of-bounds.
 /// `Align` is additionally always a power of two.

@@ -16,7 +16,7 @@ The provenance tracked by this memory model is just an ID that identifies which 
 #[derive(PartialEq, Eq)]
 struct AllocId(BigInt);
 
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     type Provenance = AllocId;
 }
 ```
@@ -78,7 +78,7 @@ impl Allocation {
 Then we implement creating and removing allocations.
 
 ```rust
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
         if !size.in_bounds(Signed, Self::PTR_SIZE) {
@@ -184,7 +184,7 @@ impl BasicMemory {
     }
 }
 
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
             return list![];

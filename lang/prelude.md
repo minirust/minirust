@@ -3,7 +3,7 @@
 For the files in this folder, we assume some definitions and parameters to always be in scope.
 
 ```rust
-use crate::mem::{MemoryInterface, AbstractByte, Pointer};
+use crate::mem::{Memory, AbstractByte, Pointer};
 
 // Everything there is to say about how an argument is passed to a function,
 // and how the return value is passed back.

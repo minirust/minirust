@@ -116,7 +116,7 @@ impl PlaceType {
 ## Well-formed expressions
 
 ```rust
-impl<Memory: MemoryInterface> Value<Memory> {
+impl<M: Memory> Value<M> {
     /// Check that the value has the expected type.
     /// Assumes that `ty` has already been checked.
     fn check(self, ty: Type) -> Option<()> {

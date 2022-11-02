@@ -8,30 +8,30 @@ This key data structure says a lot about how the Abstract Machine is structured.
 ```rust
 /// This type contains everything that needs to be tracked during the execution
 /// of a MiniRust program.
-struct Machine<Memory: MemoryInterface> {
+struct Machine<M: Memory> {
     /// The program we are executing.
     prog: Program,
 
     /// The state of memory.
-    mem: Memory,
+    mem: M,
 
     /// The state of the integer-pointer cast subsystem.
-    intptrcast: IntPtrCast<Memory::Provenance>,
+    intptrcast: IntPtrCast<M::Provenance>,
 
     /// The stack.
-    stack: List<StackFrame<Memory>>,
+    stack: List<StackFrame<M>>,
 }
 
 /// The data that makes up a stack frame.
-struct StackFrame<Memory: MemoryInterface> {
+struct StackFrame<M: Memory> {
     /// The function this stack frame belongs to.
     func: Function,
 
     /// For each live local, the place in memory where its value is stored.
-    locals: Map<LocalName, Place<Memory>>,
+    locals: Map<LocalName, Place<M>>,
 
     /// The place where the caller wants to see the return value.
-    caller_ret_place: Place<Memory>,
+    caller_ret_place: Place<M>,
 
     /// The next statement/terminator to execute (the "program counter").
     /// The first component identifies the basic block,
@@ -44,12 +44,12 @@ struct StackFrame<Memory: MemoryInterface> {
 We also define some helper functions that will be useful later.
 
 ```rust
-impl<Memory: MemoryInterface> Machine<Memory> {
-    fn cur_frame(&self) -> &StackFrame<Memory> {
+impl<M: Memory> Machine<M> {
+    fn cur_frame(&self) -> &StackFrame<M> {
         self.stack.last().unwrap()
     }
 
-    fn cur_frame_mut(&mut self) -> &mut StackFrame<Memory> {
+    fn cur_frame_mut(&mut self) -> &mut StackFrame<M> {
         self.stack.last_mut().unwrap()
     }
 }

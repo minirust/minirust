@@ -30,7 +30,7 @@ As far as the interface is concerned, this is some opaque extra data that we car
 The unit of communication between the memory model and the rest of the program is a *byte*.
 To distinguish our MiniRust bytes from `u8`, we will call them "abstract bytes".
 Abstract bytes differ from `u8` to support representing uninitialized Memory and to support maintaining pointer provenance when pointers are stored in memory.
-We define the `AbstractByte` type as follows, where `Provenance` will later be instantiated with the `Memory::Provenance` associated type.
+We define the `AbstractByte` type as follows, where `Provenance` will later be instantiated with the `M::Provenance` associated type.
 
 ```rust
 #[derive(PartialEq, Eq)]
@@ -87,7 +87,7 @@ trait MemoryInfo {
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-trait MemoryInterface: MemoryInfo {
+trait Memory: MemoryInfo {
     /// The type of pointer provenance.
     type Provenance: Eq;
 
