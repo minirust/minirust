@@ -5,7 +5,7 @@ Here we define the part of the [`step` function](step.md) that is concerned with
 ## Unary operators
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_un_op(&mut self, operator: UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>>;
 }
 ```
@@ -13,7 +13,7 @@ impl Machine {
 ### Integer operations
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> NdResult<BigInt> {
         use UnOpInt::*;
         match op {
@@ -36,7 +36,7 @@ impl Machine {
 ### Pointer-integer casts
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, operand: Value<Memory>) -> NdResult<Value<Memory>> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
         let result = self.intptrcast.ptr2int(ptr)?;
@@ -53,7 +53,7 @@ impl Machine {
 ## Binary operators
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_bin_op(&mut self, operator: BinOp, left: Value<Memory>, right: Value<Memory>) -> NdResult<Value<Memory>>;
 }
 ```
@@ -61,7 +61,7 @@ impl Machine {
 ### Integer operations
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> NdResult<BigInt> {
         use BinOpInt::*;
         match op {
@@ -92,9 +92,9 @@ impl Machine {
 ### Pointer arithmetic
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
-    fn ptr_offset_wrapping(&self, ptr: Pointer, offset: BigInt) -> Pointer {
+    fn ptr_offset_wrapping(&self, ptr: Memory::Pointer, offset: BigInt) -> Memory::Pointer {
         let offset = offset.modulo(Signed, Memory::PTR_SIZE);
         let addr = ptr.addr + offset;
         let addr = addr.modulo(Unsigned, Memory::PTR_SIZE);
@@ -103,7 +103,7 @@ impl Machine {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: Pointer, offset: BigInt) -> NdResult<Pointer> {
+    fn ptr_offset_inbounds(&self, ptr: Memory::Pointer, offset: BigInt) -> NdResult<Memory::Pointer> {
         if !offset.in_bounds(Signed, Memory::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }

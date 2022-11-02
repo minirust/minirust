@@ -3,13 +3,7 @@
 For the files in this folder, we assume some definitions and parameters to always be in scope.
 
 ```rust
-// An instance of the memory interface.
-use crate::mem::interface::*;
-type Memory: MemoryInterface;
-
-type Provenance = Memory::Provenance;
-type Pointer = Memory::Pointer;
-type AbstractByte = Memory::AbstractByte;
+use crate::mem::{MemoryInterface, AbstractByte, Pointer};
 
 // The endianness, which defines how integers are encoded and decoded.
 enum Endianness {

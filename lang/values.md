@@ -106,7 +106,7 @@ impl Type {
         // `Endianness::encode` will do the integer's bound check.
         let bytes_data = Memory::ENDIANNESS.encode(signed, size, i).unwrap();
         bytes_data.iter()
-            .map(|b| AbstractByte::Init(b, None))
+            .map(|b| Memory::AbstractByte::Init(b, None))
             .collect()
     }
 }

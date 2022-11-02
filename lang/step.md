@@ -15,7 +15,7 @@ For statements it also advances the program counter.
 (Terminators are themselves responsible for doing that.)
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     fn step(&mut self) -> NdResult {
         let frame = self.cur_frame_mut();
@@ -39,7 +39,7 @@ impl Machine {
 This section defines the following function:
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_value(&mut self, val: ValueExpr) -> NdResult<Value<Memory>>;
 }
 ```
@@ -47,27 +47,27 @@ impl Machine {
 ### Constants
 
 ```rust
-fn eval_constant<Memory: MemoryInterface>(constant: Constant) -> NdResult<Value<Memory>> {
-    match constant {
-        Constant::Int(i) => Value::Int(i),
-        Constant::Bool(b) => Value::Bool(b),
-        Constant::Tuple(args) => {
-            let args = args.into_iter()
-                .map(|arg| eval_constant::<Memory>(arg))
-                .collect();
-            Value::Tuple(args)
-        },
-        Constant::Variant { idx, data } => {
-            let data = eval_constant::<Memory>(data);
-            Value::Variant { idx, data }
-        },
-        Constant::Ptr(..) | Constant::Union(..) => panic!("invalid constant encountered!"),
+impl<Memory: MemoryInterface> Machine<Memory> {
+    fn eval_constant(&mut self, constant: Constant) -> NdResult<Value<Memory>> {
+        match constant {
+            Constant::Int(i) => Value::Int(i),
+            Constant::Bool(b) => Value::Bool(b),
+            Constant::Tuple(args) => {
+                let args = args.into_iter()
+                    .map(|arg| eval_constant::<Memory>(arg))
+                    .collect();
+                Value::Tuple(args)
+            },
+            Constant::Variant { idx, data } => {
+                let data = eval_constant::<Memory>(data);
+                Value::Variant { idx, data }
+            },
+            Constant::Ptr(..) | Constant::Union(..) => panic!("invalid constant encountered!"),
+        }
     }
-}
 
-impl Machine {
     fn eval_value(&mut self, ValueExpr::Constant(value, _ty): ValueExpr) -> NdResult<Value<Memory>> {
-        eval_constant::<Memory>(value)
+        self.eval_constant(value)
     }
 }
 ```
@@ -77,14 +77,14 @@ impl Machine {
 This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value<Memory>> {
         let p = self.eval_place(source)?;
         let ptype = source.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![AbstractByte::Uninit; ptype.size::<Memory>()], ptype.align)?;
+            self.mem.store(p, list![Memory::AbstractByte::Uninit; ptype.size::<Memory>()], ptype.align)?;
         }
         v
     }
@@ -96,7 +96,7 @@ impl Machine {
 The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value<Memory>> {
         let p = self.eval_place(target)?;
         Value::Ptr(p)
@@ -109,7 +109,7 @@ impl Machine {
 The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](operator.md).
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value<Memory>> {
         let operand = self.eval_value(operand)?;
         self.eval_un_op(operator, operand)?
@@ -129,10 +129,10 @@ For now, that is just a pointer (but this might have to change).
 Place evaluation ensures that this pointer is always dereferenceable (for the type of the place expression).
 
 ```rust
-type Place = Pointer;
+type Place<Memory: MemoryInterface> = Memory::Pointer;
 
-impl Machine {
-    fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place>;
+impl<Memory: MemoryInterface> Machine<Memory> {
+    fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place<Memory>>;
 }
 ```
 
@@ -144,8 +144,8 @@ It is a bit annoying to keep in sync with `check`, but for Coq it would be much 
 The place for a local is directly given by the stack frame.
 
 ```rust
-impl Machine {
-    fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<Place> {
+impl<Memory: MemoryInterface> Machine<Memory> {
+    fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<Place<Memory>> {
         // This implicitly asserts that the local is live!
         self.cur_frame().locals[name]
     }
@@ -162,8 +162,8 @@ It also ensures that the pointer is dereferenceable.
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
 
 ```rust
-impl Machine {
-    fn eval_place(&mut self, PlaceExpr::Deref { operand, .. }: PlaceExpr) -> NdResult<Place> {
+impl<Memory: MemoryInterface> Machine<Memory> {
+    fn eval_place(&mut self, PlaceExpr::Deref { operand, .. }: PlaceExpr) -> NdResult<Place<Memory>> {
         let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
@@ -175,8 +175,8 @@ impl Machine {
 ### Place projections
 
 ```rust
-impl Machine {
-    fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place> {
+impl<Memory: MemoryInterface> Machine<Memory> {
+    fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place<Memory>> {
         let ty = root.check::<Memory>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let offset = match ty {
@@ -188,7 +188,7 @@ impl Machine {
         self.ptr_offset_inbounds(root, offset.bytes())?
     }
 
-    fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place> {
+    fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place<Memory>> {
         let ty = root.check::<Memory>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
@@ -215,7 +215,7 @@ impl Machine {
 Here we define how statements are evaluated.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_statement(&mut self, statement: Statement);
 }
 ```
@@ -233,7 +233,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
     Or maybe we should change the grammar to make these cases impossible (like, make ptr2int casts proper statements). Also we have to assume that reads in the memory model can be reordered.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
@@ -254,7 +254,7 @@ This is equivalent to the assignment `_ = place`.
 - TODO: Should this do the job of `Retag` as well? That seems quite elegant, but might sometimes be a bit redundant.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_statement(&mut self, Statement::Finalize { place }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
         let ptype = place.check::<Memory>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
@@ -268,7 +268,7 @@ impl Machine {
 These operations (de)allocate the memory backing a local.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already live local as live.
         let layout = self.cur_frame().func.locals[local].layout::<Memory>();
@@ -288,7 +288,7 @@ impl Machine {
 ## Terminators
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(&mut self, terminator: Terminator);
 }
 ```
@@ -298,7 +298,7 @@ impl Machine {
 The simplest terminator: jump to the (beginning of the) given block.
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
         self.cur_frame_mut().next = (block_name, 0);
     }
@@ -308,7 +308,7 @@ impl Machine {
 ### If
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(&mut self, Terminator::If { condition, then_block, else_block }: Terminator) -> NdResult {
         let Value::Bool(b) = self.eval_value(condition)? else {
             panic!("if on a non-boolean")
@@ -322,7 +322,7 @@ impl Machine {
 ### Unreachable
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(&mut self, Terminator::Unreachable: Terminator) -> NdResult {
         throw_ub!("reached unreachable code");
     }
@@ -337,7 +337,7 @@ In particular, we have to initialize the new stack frame.
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(
         &mut self,
         Terminator::Call { callee, arguments, ret, next_block }: Terminator
@@ -345,7 +345,7 @@ impl Machine {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
         };
-        let mut locals: Map<LocalName, Place> = default();
+        let mut locals: Map<LocalName, Place<Memory>> = default();
 
         // First evaluate the return place. (Left-to-right!)
         // Create place for return local.
@@ -399,7 +399,7 @@ The callee should probably start with a bunch of `Finalize` statements to ensure
 ### Return
 
 ```rust
-impl Machine {
+impl<Memory: MemoryInterface> Machine<Memory> {
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
