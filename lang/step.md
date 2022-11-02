@@ -350,11 +350,7 @@ impl Machine {
         locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
         // Remember the return place (will be relevant during `Return`).
         let (caller_ret_place, caller_ret_abi) = ret;
-        let caller_ret_layout = caller_ret_place.check(func.locals).unwrap().layout(); // FIXME avoid a second traversal of `caller_ret_place`
         let caller_ret_place = self.eval_place(caller_ret_place)?;
-        if caller_ret_layout.size != callee_ret_layout.size {
-            throw_ub!("call ABI violation: return size does not agree");
-        }
         if caller_ret_abi != callee_ret_abi {
             throw_ub!("call ABI violation: return ABI does not agree");
         }
@@ -368,9 +364,6 @@ impl Machine {
             let val = self.eval_value(arg)?;
             let caller_ty = arg.check(func.locals).unwrap(); // FIXME avoid a second traversal of `arg`
             let callee_layout = func.locals[local].layout();
-            if caller_ty.size() != callee_layout.size {
-                throw_ub!("call ABI violation: argument size does not agree");
-            }
             if caller_abi != callee_abi {
                 throw_ub!("call ABI violation: argument ABI does not agree");
             }
@@ -407,7 +400,7 @@ impl Machine {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
         // Copy return value to where the caller wants it.
-        // We use the type as given by `func` here as otherwise we
+        // We use the type as given by `func` here (callee type) as otherwise we
         // would never ensure that the value is valid at that type.
         let ret_pty = func.locals[func.ret.0];
         let ret_val = self.mem.typed_load(frame.locals[func.ret.0], ret_pty)?;

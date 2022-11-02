@@ -109,6 +109,7 @@ impl Value {
     /// Assumes that `ty` has already been checked.
     fn check(self, ty: Type) -> Option<()> {
         // For now, we only support integer and boolean literals, and arrays/tuples.
+        // TODO: add more.
         match (self, ty) {
             (Value::Int(i), Type::Int(int_type)) => {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
