@@ -78,18 +78,17 @@ struct Pointer<Provenance> {
     provenance: Option<Provenance>,
 }
 
-trait MemoryInfo {
-    const PTR_SIZE: Size;
-    const ENDIANNESS: Endianness;
-}
-
 /// *Note*: All memory operations can be non-deterministic, which means that
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-trait Memory: MemoryInfo {
+trait Memory {
     /// The type of pointer provenance.
     type Provenance: Eq;
+
+    /// The size of a pointer.
+    const PTR_SIZE: Size;
+    const ENDIANNESS: Endianness;
 
     /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
     /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.

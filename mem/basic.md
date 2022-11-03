@@ -23,7 +23,7 @@ impl Memory for BasicMemory {
 
 - TODO: Give `BasicMemory::{PTR_SIZE, ENDIANNESS}` actual values. Or add generic parameters for them:
 ```rust
-impl MemoryInfo for BasicMemory {
+impl Memory for BasicMemory {
     const PTR_SIZE: Size;
     const ENDIANNESS: Endianness;
 }

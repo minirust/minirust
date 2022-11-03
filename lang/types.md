@@ -114,14 +114,14 @@ Here we define how to compute the size and other layout properties of a type.
 
 ```rust
 impl Type {
-    fn size<Info: MemoryInfo>(self) -> Size {
+    fn size<M: Memory>(self) -> Size {
         use Type::*;
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1).unwrap(),
-            Pointer(_) => Info::PTR_SIZE,
+            Pointer(_) => M::PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
-            Array { elem, count } => elem.size::<Info>() * count,
+            Array { elem, count } => elem.size::<M>() * count,
         }
     }
 
@@ -143,9 +143,9 @@ impl PlaceType {
         PlaceType { ty, align }
     }
 
-    fn layout<Info: MemoryInfo>(self) -> Layout {
+    fn layout<M: Memory>(self) -> Layout {
         Layout {
-            size: self.ty.size::<Info>(),
+            size: self.ty.size::<M>(),
             align: self.align,
             inhabited: self.ty.inhabited(),
         }
