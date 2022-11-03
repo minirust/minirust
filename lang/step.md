@@ -48,6 +48,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
+    /// converts `Constant` to their `Value` counterpart.
     fn eval_constant(&mut self, constant: Constant) -> NdResult<Value<M>> {
         match constant {
             Constant::Int(i) => Value::Int(i),
@@ -58,16 +59,11 @@ impl<M: Memory> Machine<M> {
                     .collect();
                 Value::Tuple(args)
             },
-            Constant::Variant { idx, data } => {
-                let data = self.eval_constant(data);
-                Value::Variant { idx, data }
-            },
-            Constant::Ptr(..) | Constant::Union(..) => panic!("invalid constant encountered!"),
         }
     }
 
-    fn eval_value(&mut self, ValueExpr::Constant(value, _ty): ValueExpr) -> NdResult<Value<M>> {
-        self.eval_constant(value)
+    fn eval_value(&mut self, ValueExpr::Constant(constant, _ty): ValueExpr) -> NdResult<Value<M>> {
+        self.eval_constant(constant)
     }
 }
 ```

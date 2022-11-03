@@ -116,30 +116,29 @@ impl PlaceType {
 ## Well-formed expressions
 
 ```rust
-impl<M: Memory> Value<M> {
-    /// Check that the value has the expected type.
+impl Constant {
+    /// Check that the constant has the expected type.
     /// Assumes that `ty` has already been checked.
     fn check(self, ty: Type) -> Option<()> {
         // For now, we only support integer and boolean literals, and arrays/tuples.
         // TODO: add more.
         match (self, ty) {
-            (Value::Int(i), Type::Int(int_type)) => {
+            (Constant::Int(i), Type::Int(int_type)) => {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
-            (Value::Bool(_), Type::Bool) => (),
-            (Value::Tuple(values), Type::Tuple { fields }) => {
-                ensure(values.len() == fields.len())?;
-                for (val, (_offset, ty)) in values.iter().zip(fields.iter()) {
-                    val.check(ty)?;
+            (Constant::Bool(_), Type::Bool) => (),
+            (Constant::Tuple(constants), Type::Tuple { fields }) => {
+                ensure(constants.len() == fields.len())?;
+                for (c, (_offset, ty)) in constants.iter().zip(fields.iter()) {
+                    c.check(ty)?;
                 }
             }
-            (Value::Tuple(values), Type::Array { elem, count }) => {
-                ensure(values.len() == count)?;
-                for val in values {
-                    val.check(elem)?;
+            (Constant::Tuple(constants), Type::Array { elem, count }) => {
+                ensure(constants.len() == count)?;
+                for c in constants {
+                    c.check(elem)?;
                 }
             }
-            _ => throw!(),
         }
     }
 }

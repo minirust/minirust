@@ -122,8 +122,6 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ### Raw pointers
 
-Decoding pointers is a bit inconvenient since we do not know `M::PTR_SIZE`.
-
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<M::AbstractByte>) -> Option<M::Pointer> {
     if bytes.len() != M::PTR_SIZE { throw!(); }
@@ -148,6 +146,7 @@ fn encode_ptr<M: Memory>(ptr: M::Pointer) -> List<M::AbstractByte> {
 }
 
 impl Type {
+    // FIXME: this is not yet updated to the unified pointer type.
     fn decode<M: Memory>(Type::RawPtr: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }

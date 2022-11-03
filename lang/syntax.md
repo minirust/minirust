@@ -90,12 +90,24 @@ enum Terminator {
 }
 ```
 
+In order to define expressions, we first need to define constants.
+
+```rust
+/// Constants are Values, but cannot have provenance.
+/// Currently we do not support Ptr, Union and Variant constants.
+enum Constant {
+    /// A mathematical integer, used for `i*`/`u*` types.
+    Int(BigInt),
+    /// A Boolean value, used for `bool`.
+    Bool(bool),
+    /// An n-tuple, used for arrays, structs, tuples (including unit).
+    Tuple(List<Constant>),
+}
+```
+
 And finally, the syntax of expressions:
 
 ```rust
-/// Constants are Values, but are not allowed to be Value::Ptr | Value::Union.
-type Constant = Value<!>;
-
 /// A "value expression" evaluates to a `Value`.
 enum ValueExpr {
     /// Just return a constant value.
