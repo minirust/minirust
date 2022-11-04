@@ -387,6 +387,7 @@ For example, if the original program later did a successful decode at an integer
 
 One key use of the value representation is to define a "typed" interface to memory.
 This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
+We also use this to lift retagging from pointers to compound values.
 
 ```rust
 trait TypedMemory: Memory {
@@ -413,6 +414,24 @@ trait TypedMemory: Memory {
             throw_ub!("uninhabited types are not dereferenceable");
         }
         self.dereferenceable(ptr, layout.size, layout.align)?;
+    }
+
+    /// Retag all pointers inside this value.
+    fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>> {
+        match (val, ty) {
+            // no (identifiable) pointers
+            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
+            // base case
+            (Value::Pointer(ptr), Type::Pointer(ptr_type) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
+            // recurse into tuples/arrays/enums
+            (Value::Tuple(vals), Type::Tuple(tys)) =>
+                Value::Tuple(vals.zip(tys).map(|val, ty| self.retag_val(val, ty, fn_entry)).collect()?),
+            (Value::Tuple(vals), Type::Array { elem: ty, .. })) =>
+                Value::Tuple(vals.map(|val| self.retag_val(val, ty, fn_entry)).collect()?),
+            (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
+                Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
+            _ => panic!("this value does not have that type"),
+        }
     }
 }
 ```

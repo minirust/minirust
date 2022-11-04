@@ -35,8 +35,7 @@ impl Layout {
 impl PtrType {
     fn check_wf(self) -> Option<()> {
         match self {
-            PtrType::Raw => (),
-            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
+            PtrType::Raw { pointee } | PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 pointee.check_wf()?;
             }
         }
@@ -176,12 +175,12 @@ impl ValueExpr {
                         Type::Int(int_ty)
                     }
                     UnOp::Ptr2Int => {
-                        ensure(matches!(operand, Type::RawPtr))?;
+                        ensure(matches!(operand, Type::Pointer(_)))?;
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
                     }
-                    UnOp::Int2Ptr => {
+                    UnOp::Int2Ptr(ptr_ty) => {
                         ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })))?;
-                        Type::RawPtr
+                        Type::Pointer(ptr_ty)
                     }
                 }
             }
@@ -270,7 +269,7 @@ impl Statement {
                 ensure(left.ty == right)?;
                 live_locals
             }
-            Finalize { place } => {
+            Finalize { place, fn_entry: _ } => {
                 place.check_wf::<M>(live_locals)?;
                 live_locals
             }
@@ -329,6 +328,11 @@ impl Terminator {
 
 impl Function {
     fn check_wf<M: Memory>(self) -> Option<()> {
+        // Ensure all locals have a valid type.
+        for ty in self.locals {
+            ty.check_wf::<M>()?;
+        }
+
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
         let mut start_live: Map<LocalName, PlaceType> = default();

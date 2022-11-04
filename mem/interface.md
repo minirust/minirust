@@ -115,6 +115,15 @@ trait Memory {
     /// Note that a successful read/write/deallocate implies that the pointer
     /// was dereferenceable before that operation (but not vice versa).
     fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
+
+    /// Retag the given pointer, which has the given type.
+    /// `fn_entry` indicates whether this is one of the special retags that happen
+    /// right at the top of each function.
+    /// FIXME: Referencing `PtrType` here feels like a layering violation, but OTOH
+    /// also seems better than just outright duplicating that type.
+    ///
+    /// Return the retagged pointer.
+    fn retag_ptr(&mut self, ptr: Self::Pointer, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Self::Pointer>;
 }
 ```
 

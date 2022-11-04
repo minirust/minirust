@@ -210,3 +210,19 @@ impl Memory for BasicMemory {
     }
 }
 ```
+
+We don't have aliasing requirements in this model, so we only check dereferencability for retagging.
+
+```rust
+impl Memory for BasicMemory {
+    fn retag_ptr(&mut self, ptr: Self::Pointer, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Self::Pointer> {
+        let layout = match ptr_type {
+            lang::PtrType::Ref { layout, .. } => layout,
+            lang::PtrType::Box { layout } => layout,
+            lang::PtrType::Raw { layout } => layout,
+        };
+        self.check_ptr(ptr, layout.size, layout.align)?;
+        ptr
+    }
+}
+```

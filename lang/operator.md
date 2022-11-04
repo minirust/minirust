@@ -42,7 +42,7 @@ impl<M: Memory> Machine<M> {
         let result = self.intptrcast.ptr2int(ptr)?;
         Value::Int(result)
     }
-    fn eval_un_op(&mut self, UnOp::Int2Ptr: UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+    fn eval_un_op(&mut self, UnOp::Int2Ptr(_): UnOp, operand: Value<M>) -> NdResult<Value<M>> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;
         Value::Ptr(result)

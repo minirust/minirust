@@ -7,6 +7,7 @@ and having a collection of declarations with non-overlapping patterns for the sa
 One design decision I made here is that `eval_value` and `eval_place` just return a `Value`/`Place`, but not its type.
 Separately, [well-formedness](well-formed.md) defines `check_wf` functions that return a `Type`/`PlaceType`.
 This adds some redundancy, but makes also enforces structurally that the type information is determined entirely statically.
+(In the future, when we translate this to Coq, we might want to make `eval_value`/`eval_place` additionally return the type, to avoid doing two recursive traversals of the expression.)
 
 ## Top-level step function
 
@@ -245,20 +246,18 @@ impl<M: Memory> Machine<M> {
 
 ### Finalizing a value
 
-This statement asserts that a value satisfies its validity invariant.
-This is equivalent to the assignment `_ = place`.
+This statement asserts that a value satisfies its validity invariant, and performs retagging for the aliasing model.
 
-- TODO: Should we even have it, if it is equivalent?
-- TODO: Should this also store back the value? That would reset padding.
-  It might also make this not equivalent to an assignment if assignment has aliasing constraints.
-- TODO: Should this do the job of `Retag` as well? That seems quite elegant, but might sometimes be a bit redundant.
+- TODO: Should `Retag` be a separate operation instead?
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_statement(&mut self, Statement::Finalize { place }: Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::Finalize { place, fn_entry }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
         let ptype = place.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
-        let _val = self.mem.typed_load(p, ptype)?;
+        let val = self.mem.typed_load(p, ptype)?;
+        let val = self.mem.retag_val(val, ptype.type, fn_entry)?;
+        self.mem.typed_store(p, val, ptype)?;
     }
 }
 ```

@@ -54,8 +54,12 @@ enum Statement {
         source: ValueExpr,
     },
     /// Ensure that `place` contains a valid value of its type (else UB).
+    /// Also perform retagging.
     Finalize {
         place: PlaceExpr,
+        /// Indicates whether this operation occurs as part of the prelude
+        /// that we have at the top of each function (which affects retagging).
+        fn_entry: bool,
     },
     /// Allocate the backing store for this local.
     StorageLive(LocalName),
@@ -156,7 +160,7 @@ enum UnOp {
     /// Pointer-to-integer cast
     Ptr2Int,
     /// Integer-to-pointer cast
-    Int2Ptr,
+    Int2Ptr(PtrType),
 }
 
 enum BinOpInt {

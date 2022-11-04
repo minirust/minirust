@@ -75,6 +75,8 @@ enum Type {
 
 enum PtrType {
     Ref {
+        /// Indicates a shared vs mutable reference.
+        /// FIXME: also indicate presence of `UnsafeCell`.
         mutbl: Mutability,
         /// We only need to know the layout of the pointee.
         /// (This also means we have a finite representation even when the Rust type is recursive.)
@@ -83,7 +85,11 @@ enum PtrType {
     Box {
         pointee: Layout,
     },
-    Raw,
+    Raw {
+        /// Raw pointer layout is relevant for Stacked Borrows retagging.
+        /// TODO: I hope we can remove this in the future.
+        pointee: Layout,
+    },
 }
 
 struct IntType {
@@ -128,7 +134,7 @@ impl Type {
     fn inhabited(self) -> bool {
         use Type::*;
         match self {
-            Int(..) | Bool | Pointer(PtrType::Raw) => true,
+            Int(..) | Bool | Pointer(PtrType::Raw { .. }) => true,
             Pointer(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.iter().all(|ty| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
