@@ -90,7 +90,7 @@ enum Terminator {
 }
 ```
 
-In order to define expressions, we first need to define constants.
+We also need to define constants (a strict subset of `Value`).
 
 ```rust
 /// Constants are Values, but cannot have provenance.

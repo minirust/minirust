@@ -88,6 +88,8 @@ trait Memory {
 
     /// The size of a pointer.
     const PTR_SIZE: Size;
+
+    /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
 
     /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
