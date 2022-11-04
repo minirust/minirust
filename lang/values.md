@@ -146,8 +146,16 @@ fn encode_ptr<M: Memory>(ptr: M::Pointer) -> List<M::AbstractByte> {
 }
 
 impl Type {
-    // FIXME: this is not yet updated to the unified pointer type.
-    fn decode<M: Memory>(Type::RawPtr: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+        let ptr = decode_ptr::<M>(bytes)?;
+        match ptr_type {
+            PtrType::Raw => {}, // nothing to check
+            PtrType::Ref { pointee, layout: _ } | PtrType::Box { pointee } => {
+                // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
+                // (Think: uninhabited types have impossible alignment.)
+                ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited
+            }
+        }
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }
     fn encode<M: Memory>(Type::RawPtr: Self, val: Value<M>) -> List<M::AbstractByte> {
@@ -157,34 +165,10 @@ impl Type {
 }
 ```
 
-- TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
-  Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
-
-### References and `Box`
-
-```rust
-/// Check if the given pointer is valid for safe pointer types (`Ref`, `Box`).
-fn check_safe_ptr<M: Memory>(ptr: M::Pointer, pointee: Layout) -> bool {
-    // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
-    // (Think: uninhabited types have impossible alignment.)
-    ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited
-}
-
-impl Type {
-    fn decode<M: Memory>(Type::Ref { pointee, .. } | Type::Box { pointee }: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
-        let ptr = decode_ptr::<M>(bytes)?;
-        if !check_safe_ptr::<M>(ptr, pointee) { throw!(); }
-        Value::Ptr(ptr)
-    }
-    fn encode<M: Memory>(Type::Ref { .. } | Type::Box { .. }: Self, val: Value<M>) -> List<M::AbstractByte> {
-        let Value::Ptr(ptr) = val else { panic!() };
-        encode_ptr::<M>(ptr)
-    }
-}
-```
-
 Note that types like `&!` have no valid value: when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
 
+- TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
+  Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
 - TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
   (The latter would not even be possible with the current structure of MiniRust.)
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).

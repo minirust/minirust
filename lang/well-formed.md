@@ -191,7 +191,7 @@ impl ValueExpr {
                         Type::Int(int_ty)
                     }
                     BinOp::PtrOffset { inbounds: _ } => {
-                        ensure(matches!(left, Type::Ref { .. } | Type::RawPtr))?;
+                        ensure(matches!(left, Type::Pointer(_)))?;
                         ensure(matches!(right, Type::Int(_)))?;
                         left
                     }
@@ -208,7 +208,7 @@ impl PlaceExpr {
             Local(name) => locals.get(name),
             Deref { operand, ptype } => {
                 let ty = operand.check::<M>(locals)?;
-                ensure(matches!(ty, Type::Ref { .. } | Type::RawPtr))?;
+                ensure(matches!(ty, Type::Pointer(_)))?;
                 ptype
             }
             Field { root, field } => {
