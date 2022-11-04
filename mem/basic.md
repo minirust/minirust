@@ -21,14 +21,6 @@ impl Memory for BasicMemory {
 }
 ```
 
-- TODO: Give `BasicMemory::{PTR_SIZE, ENDIANNESS}` actual values. Or add generic parameters for them:
-```rust
-impl Memory for BasicMemory {
-    const PTR_SIZE: Size;
-    const ENDIANNESS: Endianness;
-}
-```
-
 The data tracked by the memory is fairly simple: for each allocation, we track its contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
 
 ```rust
@@ -51,6 +43,15 @@ Memory then consists of a map tracking the allocation for each ID, stored as a l
 ```rust
 struct BasicMemory {
     allocations: List<Allocation>,
+}
+```
+
+The model represents a 64-bit little-endian machine.
+
+```rust
+impl Memory for BasicMemory {
+    const PTR_SIZE: Size = Size::from_bytes(8).unwrap();
+    const ENDIANNESS: Endianness = LittleEndian;
 }
 ```
 
