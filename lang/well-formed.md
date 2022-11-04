@@ -139,6 +139,10 @@ impl Constant {
                     c.check_wf(elem)?;
                 }
             }
+            (Constant::Variant { idx, data }, Type::Enum { variants, .. }) => {
+                let ty = variants.get(idx)?;
+                data.check_wf(ty)?;
+            }
         }
     }
 }
