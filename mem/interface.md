@@ -82,9 +82,15 @@ struct Pointer<Provenance> {
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-trait MemoryInterface {
+trait Memory {
     /// The type of pointer provenance.
     type Provenance: Eq;
+
+    /// The size of a pointer.
+    const PTR_SIZE: Size;
+
+    /// The endianess used for encoding multi-byte integer values (and pointers).
+    const ENDIANNESS: Endianness;
 
     /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
     /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.

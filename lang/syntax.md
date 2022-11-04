@@ -90,13 +90,28 @@ enum Terminator {
 }
 ```
 
+We also need to define constants (a strict subset of `Value`).
+
+```rust
+/// Constants are Values, but cannot have provenance.
+/// Currently we do not support Ptr, Union and Variant constants.
+enum Constant {
+    /// A mathematical integer, used for `i*`/`u*` types.
+    Int(BigInt),
+    /// A Boolean value, used for `bool`.
+    Bool(bool),
+    /// An n-tuple, used for arrays, structs, tuples (including unit).
+    Tuple(List<Constant>),
+}
+```
+
 And finally, the syntax of expressions:
 
 ```rust
 /// A "value expression" evaluates to a `Value`.
 enum ValueExpr {
-    /// Just return a constant.
-    Constant(Value, Type),
+    /// Just return a constant value.
+    Constant(Constant, Type),
     /// Load a value from memory.
     Load {
         /// Whether this load de-initializes the source it is loaded from ("move").

@@ -33,15 +33,12 @@ type NdResult<T=()> = Nondet<Result<T>>;
 /// and <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html>.
 ///
 /// `Size` is essentially a `BigInt` newtype that is always in-bounds for both
-/// signed and unsigned `PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
+/// signed and unsigned `Memory::PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
 /// `Size::from_bytes` and the checked arithmetic operations return `None`
 /// when the result would be out-of-bounds.
 /// `Align` is additionally always a power of two.
 type Size;
 type Align;
-
-/// The size of a pointer.
-const PTR_SIZE: Size;
 
 /// Whether an integer value is signed or unsigned.
 enum Signedness {
@@ -57,6 +54,20 @@ enum Mutability {
 }
 pub use Mutability::*;
 
+/// The endianness, which defines how integers and pointers are encoded and decoded.
+enum Endianness {
+    LittleEndian,
+    BigEndian,
+}
+
+impl Endianness {
+    /// If `signed == Signed`, the data is interpreted as two's complement.
+    fn decode(self, signed: Signedness, bytes: List<u8>) -> BigInt;
+
+    /// This can fail (return `None`) if the `int` does not fit into `size` bytes,
+    /// or if it is negative and `signed == Unsigned`.
+    fn encode(self, signed: Signedness, size: Size, int: BigInt) -> Option<List<u8>>;
+}
 
 /// The type of mathematical integers.
 /// We assume all the usual arithmetic operations to be defined.

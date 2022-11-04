@@ -16,8 +16,16 @@ The provenance tracked by this memory model is just an ID that identifies which 
 #[derive(PartialEq, Eq)]
 struct AllocId(BigInt);
 
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     type Provenance = AllocId;
+}
+```
+
+- TODO: Give `BasicMemory::{PTR_SIZE, ENDIANNESS}` actual values. Or add generic parameters for them:
+```rust
+impl Memory for BasicMemory {
+    const PTR_SIZE: Size;
+    const ENDIANNESS: Endianness;
 }
 ```
 
@@ -70,10 +78,10 @@ impl Allocation {
 Then we implement creating and removing allocations.
 
 ```rust
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
-        if !size.in_bounds(Signed, PTR_SIZE) {
+        if !size.in_bounds(Signed, Self::PTR_SIZE) {
             throw_ub!("asking for a too large allocation");
         }
         // Pick a base address. We use daemonic non-deterministic choice,
@@ -86,7 +94,7 @@ impl MemoryInterface for BasicMemory {
             // ... that is suitably aligned...
             if addr % align != 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
-            if !(addr+size).in_bounds(Unsigned, PTR_SIZE) { return false; }
+            if !(addr+size).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
             if self.allocations.values().any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
@@ -176,7 +184,7 @@ impl BasicMemory {
     }
 }
 
-impl MemoryInterface for BasicMemory {
+impl Memory for BasicMemory {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
             return list![];
