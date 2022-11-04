@@ -4,7 +4,7 @@ The various syntactic constructs of MiniRust (types, functions, ...) come with w
 The idea is that for well-formed programs, the `step` function will never panic.
 Those requirements are defined in this file.
 
-Note that `check` functions for testing well-formedness return `Option<()>` rather than `bool` so that we can use `?`.
+Note that `check_wf` functions for testing well-formedness return `Option<()>` rather than `bool` so that we can use `?`.
 We use the following helper function to convert Boolean checks into this form.
 
 ```rust
@@ -17,13 +17,13 @@ fn ensure(b: bool) -> Option<()> {
 
 ```rust
 impl IntType {
-    fn check(self) -> Option<()> {
+    fn check_wf(self) -> Option<()> {
         ensure(self.size.bytes().is_power_of_two())?;
     }
 }
 
 impl Layout {
-    fn check(self) -> Option<()> {
+    fn check_wf(self) -> Option<()> {
         // Nothing to check here.
         // In particular, we do *not* require that size is a multiple of align!
         // To represent e.g. the PlaceType of an `i32` at offset 0 in a
@@ -33,26 +33,26 @@ impl Layout {
 }
 
 impl PtrType {
-    fn check(self) -> Option<()> {
+    fn check_wf(self) -> Option<()> {
         match self {
             PtrType::Raw => (),
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
-                pointee.check()?;
+                pointee.check_wf()?;
             }
         }
     }
 }
 
 impl Type {
-    fn check<M: Memory>(self) -> Option<()> {
+    fn check_wf<M: Memory>(self) -> Option<()> {
         use Type::*;
         match self {
             Int(int_type) => {
-                int_type.check()?;
+                int_type.check_wf()?;
             }
             Bool => (),
             Pointer(ptr_type) {
-                ptr_type.check()?;
+                ptr_type.check_wf()?;
             }
             Tuple { fields, size, align } => {
                 // The fields must not overlap.
@@ -61,7 +61,7 @@ impl Type {
                 let mut last_end = Size::ZERO;
                 for (offset, ty) in fields {
                     // Recursively check the field type.
-                    ty.check::<M>()?;
+                    ty.check_wf::<M>()?;
                     // And ensure it fits after the one we previously checked.
                     ensure(offset >= last_end)?;
                     last_end = offset.checked_add(ty.size::<M>())?;
@@ -70,13 +70,13 @@ impl Type {
                 ensure(size >= last_end)?;
             }
             Array { elem, count } => {
-                elem.check::<M>()?;
+                elem.check_wf::<M>()?;
                 elem.size::<M>().checked_mul(count)?;
             }
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
-                    ty.check::<M>()?;
+                    ty.check_wf::<M>()?;
                     ensure(size >= offset.checked_add(ty.size::<M>())?)?;
 
                     // And it must fit into one of the chunks.
@@ -97,7 +97,7 @@ impl Type {
             }
             Enum { variants, size, tag_encoding: _ } => {
                 for variant in variants {
-                    variant.check::<M>()?;
+                    variant.check_wf::<M>()?;
                     ensure(size >= variant.size::<M>())?;
                 }
             }
@@ -106,9 +106,9 @@ impl Type {
 }
 
 impl PlaceType {
-    fn check<M: Memory>(self) -> Option<()> {
-        self.ty.check::<M>()?;
-        self.layout::<M>().check()?;
+    fn check_wf<M: Memory>(self) -> Option<()> {
+        self.ty.check_wf::<M>()?;
+        self.layout::<M>().check_wf()?;
     }
 }
 ```
@@ -119,7 +119,7 @@ impl PlaceType {
 impl Constant {
     /// Check that the constant has the expected type.
     /// Assumes that `ty` has already been checked.
-    fn check(self, ty: Type) -> Option<()> {
+    fn check_wf(self, ty: Type) -> Option<()> {
         // For now, we only support integer and boolean literals, and arrays/tuples.
         // TODO: add more.
         match (self, ty) {
@@ -130,13 +130,13 @@ impl Constant {
             (Constant::Tuple(constants), Type::Tuple { fields }) => {
                 ensure(constants.len() == fields.len())?;
                 for (c, (_offset, ty)) in constants.iter().zip(fields.iter()) {
-                    c.check(ty)?;
+                    c.check_wf(ty)?;
                 }
             }
             (Constant::Tuple(constants), Type::Array { elem, count }) => {
                 ensure(constants.len() == count)?;
                 for c in constants {
-                    c.check(elem)?;
+                    c.check_wf(elem)?;
                 }
             }
         }
@@ -144,19 +144,19 @@ impl Constant {
 }
 
 impl ValueExpr {
-    fn check<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
+    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
         use ValueExpr::*;
         match self {
             Constant(value, ty) => {
-                value.check(ty)?;
+                value.check_wf(ty)?;
                 ty
             }
             Load { source, destructive: _ } => {
-                let ptype = source.check::<M>(locals)?;
+                let ptype = source.check_wf::<M>(locals)?;
                 ptype.ty
             }
             AddrOf { target, ptr_ty } => {
-                let ptype = target.check::<M>(locals)?;
+                let ptype = target.check_wf::<M>(locals)?;
                 if let PtrType::Box { layout } | PtrType::Ref { layout, .. } = ptr_ty {
                     // Make sure the size fits and the alignment is weakened, not strengthened.
                     ensure(layout.size == ptype.size::<M>())?;
@@ -165,7 +165,7 @@ impl ValueExpr {
                 Type::Pointer(ptr_ty)
             }
             UnOp { operator, operand } => {
-                let operand = operand.check::<M>(locals)?;
+                let operand = operand.check_wf::<M>(locals)?;
                 match operator {
                     UnOp::Int(_int_op, int_ty) => {
                         ensure(matches!(operand, Type::Int(_)))?;
@@ -182,8 +182,8 @@ impl ValueExpr {
                 }
             }
             BinOp { operator, left, right } => {
-                let left = left.check::<M>(locals)?;
-                let right = right.check::<M>(locals)?;
+                let left = left.check_wf::<M>(locals)?;
+                let right = right.check_wf::<M>(locals)?;
                 match operator {
                     BinOp::Int(_int_op, int_ty) => {
                         ensure(matches!(left, Type::Int(_)))?;
@@ -202,17 +202,17 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
+    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
         use PlaceExpr::*;
         match self {
             Local(name) => locals.get(name),
             Deref { operand, ptype } => {
-                let ty = operand.check::<M>(locals)?;
+                let ty = operand.check_wf::<M>(locals)?;
                 ensure(matches!(ty, Type::Pointer(_)))?;
                 ptype
             }
             Field { root, field } => {
-                let root = root.check::<M>(locals)?;
+                let root = root.check_wf::<M>(locals)?;
                 let (offset, field_ty) = match root.ty {
                     Type::Tuple { fields, .. } => fields.get(field)?,
                     Type::Union { fields, .. } => fields.get(field)?,
@@ -224,8 +224,8 @@ impl PlaceExpr {
                 }
             }
             Index { root, index } => {
-                let root = root.check::<M>(locals)?;
-                let index = index.check::<M>(locals)?;
+                let root = root.check_wf::<M>(locals)?;
+                let index = index.check_wf::<M>(locals)?;
                 ensure(matches!(index, Type::Int(_)))?;
                 let field_ty = match root.ty {
                     Type::Array { elem, .. } => elem,
@@ -253,7 +253,7 @@ When we first encounter a block, we add the locals that are live on the "in" edg
 ```rust
 impl Statement {
     /// This returns the adjusted live local mapping after the statement.
-    fn check<M: Memory>(
+    fn check_wf<M: Memory>(
         self,
         mut live_locals: Map<LocalName, PlaceType>,
         func: Function
@@ -261,13 +261,13 @@ impl Statement {
         use Statement::*;
         match self {
             Assign { destination, source } => {
-                let left = destination.check::<M>(live_locals)?;
-                let right = source.check::<M>(live_locals)?;
+                let left = destination.check_wf::<M>(live_locals)?;
+                let right = source.check_wf::<M>(live_locals)?;
                 ensure(left.ty == right)?;
                 live_locals
             }
             Finalize { place } => {
-                place.check::<M>(live_locals)?;
+                place.check_wf::<M>(live_locals)?;
                 live_locals
             }
             StorageLive(local) => {
@@ -290,7 +290,7 @@ impl Statement {
 
 impl Terminator {
     /// Returns the successor basic blocks that need to be checked next.
-    fn check<M: Memory>(
+    fn check_wf<M: Memory>(
         self,
         live_locals: Map<LocalName, PlaceType>,
     ) -> Option<List<BbName>> {
@@ -300,7 +300,7 @@ impl Terminator {
                 list![block_name]
             }
             If { condition, then_block, else_block } => {
-                let ty = condition.check::<M>(live_locals)?;
+                let ty = condition.check_wf::<M>(live_locals)?;
                 ensure(matches!(ty, Type::Bool))?;
                 list![then_block, else_block]
             }
@@ -310,10 +310,10 @@ impl Terminator {
             Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
-                    arg.check::<M>(live_locals)?;
+                    arg.check_wf::<M>(live_locals)?;
                 }
                 let (ret_place, _ret_abi) = ret;
-                ret_place.check::<M>(live_locals)?;
+                ret_place.check_wf::<M>(live_locals)?;
                 list![next_block]
             }
             Return => {
@@ -324,7 +324,7 @@ impl Terminator {
 }
 
 impl Function {
-    fn check<M: Memory>(self) -> Option<()> {
+    fn check_wf<M: Memory>(self) -> Option<()> {
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
         let mut start_live: Map<LocalName, PlaceType> = default();
@@ -345,9 +345,9 @@ impl Function {
             let mut live_locals = bb_live_at_entry[block_name];
             // Check this block, updating the live locals along the way.
             for statement in block.statements {
-                live_locals = statement.check::<M>(live_locals, self)?;
+                live_locals = statement.check_wf::<M>(live_locals, self)?;
             }
-            let successors = block.terminator.check::<M>(live_locals)?;
+            let successors = block.terminator.check_wf::<M>(live_locals)?;
             for block_name in successors {
                 if let Some(precondition) = bb_live_at_entry.get(block_name) {
                     // A block we already visited (or already have in the worklist).
@@ -369,13 +369,13 @@ impl Function {
 }
 
 impl Program {
-    fn check<M: Memory>(self) -> Option<()> {
+    fn check_wf<M: Memory>(self) -> Option<()> {
         // Ensure the start function exists, and takes no arguments.
         let func = self.functions.get(self.start)?;
         if func.args.len() > 0 { return None; }
         // Check all the functions.
         for function in self.functions.values() {
-            function.check::<M>()?;
+            function.check_wf::<M>()?;
         }
     }
 }
