@@ -59,6 +59,7 @@ enum Endianness {
     LittleEndian,
     BigEndian,
 }
+pub use Endianness::*;
 
 impl Endianness {
     /// If `signed == Signed`, the data is interpreted as two's complement.
