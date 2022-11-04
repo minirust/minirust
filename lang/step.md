@@ -59,6 +59,10 @@ impl<M: Memory> Machine<M> {
                     .collect();
                 Value::Tuple(args)
             },
+            Constant::Variant { idx, data } => {
+                let data = self.eval_constant(data);
+                Value::Variant { idx, data }
+            },
         }
     }
 
