@@ -256,7 +256,7 @@ impl<M: Memory> Machine<M> {
         let p = self.eval_place(place)?;
         let ptype = place.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
         let val = self.mem.typed_load(p, ptype)?;
-        let val = self.mem.retag_val(val, ptype.type, fn_entry)?;
+        let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
         self.mem.typed_store(p, val, ptype)?;
     }
 }
