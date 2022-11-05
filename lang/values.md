@@ -422,11 +422,11 @@ trait TypedMemory: Memory {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
             // base case
-            (Value::Pointer(ptr), Type::Pointer(ptr_type) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
+            (Value::Pointer(ptr), Type::Pointer(ptr_type)) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple(tys)) =>
                 Value::Tuple(vals.zip(tys).map(|val, ty| self.retag_val(val, ty, fn_entry)).collect()?),
-            (Value::Tuple(vals), Type::Array { elem: ty, .. })) =>
+            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.map(|val| self.retag_val(val, ty, fn_entry)).collect()?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
                 Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },

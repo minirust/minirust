@@ -133,7 +133,7 @@ enum ValueExpr {
         /// The place to create a pointer to.
         target: PlaceExpr,
         /// The type of the created pointer.
-        ptr_ty: ptr_type;
+        ptr_ty: PtrType,
     },
     /// Unary operators.
     UnOp {

@@ -50,7 +50,7 @@ impl Type {
                 int_type.check_wf()?;
             }
             Bool => (),
-            Pointer(ptr_type) {
+            Pointer(ptr_type) => {
                 ptr_type.check_wf()?;
             }
             Tuple { fields, size, align } => {
