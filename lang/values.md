@@ -393,12 +393,24 @@ We also use this to lift retagging from pointers to compound values.
 trait TypedMemory: Memory {
     /// Write a value of the given type to memory.
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
+    fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result;
+
+    /// Read a value of the given type.
+    fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>>;
+
+    /// Check that the given pointer is dereferenceable according to the given layout.
+    fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result;
+
+    /// Retag all pointers inside this value.
+    fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>>;
+}
+
+impl<M: Memory> TypedMemory for M {
     fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result {
         let bytes = pty.ty.encode::<Self>(val);
         self.store(ptr, bytes, pty.align)?;
     }
 
-    /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>> {
         let bytes = self.load(ptr, pty.ty.size::<Self>(), pty.align)?;
         match pty.ty.decode::<Self>(bytes) {
@@ -407,7 +419,6 @@ trait TypedMemory: Memory {
         }
     }
 
-    /// Check that the given pointer is dereferenceable according to the given layout.
     fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
         if !layout.inhabited() {
             // TODO: I don't think Miri does this check.
@@ -416,7 +427,6 @@ trait TypedMemory: Memory {
         self.dereferenceable(ptr, layout.size, layout.align)?;
     }
 
-    /// Retag all pointers inside this value.
     fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>> {
         match (val, ty) {
             // no (identifiable) pointers
