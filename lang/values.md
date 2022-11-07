@@ -149,7 +149,7 @@ impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
-            PtrType::Raw => {}, // nothing to check
+            PtrType::Raw { pointee: _ } => {}, // nothing to check
             PtrType::Ref { pointee, layout: _ } | PtrType::Box { pointee } => {
                 // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
                 // (Think: uninhabited types have impossible alignment.)
@@ -187,7 +187,7 @@ impl Type {
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
-        assert_eq!(chunk_data.len(), chunks.len());
+        assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size];
         for ((offset, ty), value) in fields.iter().zip(values) {
             bytes[offset..][..ty.size::<M>()].copy_from_slice(ty.encode::<M>(value));
@@ -205,7 +205,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != elem.size::<M>() * count { throw!(); }
         Value::Tuple(
             bytes.chunks(elem.size::<M>())
@@ -213,7 +213,7 @@ impl Type {
                 .collect()?,
         )
     }
-    fn encode<M: Memory>(Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), count);
         values.iter().flat_map(|value| {
@@ -400,7 +400,7 @@ trait TypedMemory: Memory {
 
     /// Read a value of the given type.
     fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>> {
-        let bytes = self.load(ptr, pty.ty.size::<M>(), pty.align)?;
+        let bytes = self.load(ptr, pty.ty.size::<Self>(), pty.align)?;
         match pty.ty.decode::<Self>(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
@@ -424,8 +424,8 @@ trait TypedMemory: Memory {
             // base case
             (Value::Pointer(ptr), Type::Pointer(ptr_type)) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
             // recurse into tuples/arrays/enums
-            (Value::Tuple(vals), Type::Tuple(tys)) =>
-                Value::Tuple(vals.zip(tys).map(|val, ty| self.retag_val(val, ty, fn_entry)).collect()?),
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
+                Value::Tuple(vals.zip(fields).map(|val, (_offset, ty)| self.retag_val(val, ty, fn_entry)).collect()?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.map(|val| self.retag_val(val, ty, fn_entry)).collect()?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>

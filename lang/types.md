@@ -73,7 +73,7 @@ enum Type {
     },
 }
 
-enum PtrType {
+pub enum PtrType {
     Ref {
         /// Indicates a shared vs mutable reference.
         /// FIXME: also indicate presence of `UnsafeCell`.

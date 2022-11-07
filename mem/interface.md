@@ -34,7 +34,7 @@ We define the `AbstractByte` type as follows, where `Provenance` will later be i
 
 ```rust
 #[derive(PartialEq, Eq)]
-enum AbstractByte<Provenance> {
+pub enum AbstractByte<Provenance> {
     /// An uninitialized byte.
     Uninit,
     /// An initialized byte, optionally with some provenance (if it is encoding a pointer).
@@ -73,7 +73,7 @@ type Address = BigInt;
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
 #[derive(PartialEq, Eq)]
-struct Pointer<Provenance> {
+pub struct Pointer<Provenance> {
     addr: Address,
     provenance: Option<Provenance>,
 }
@@ -82,7 +82,7 @@ struct Pointer<Provenance> {
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-trait Memory {
+pub trait Memory {
     /// The type of pointer provenance.
     type Provenance: Eq;
 

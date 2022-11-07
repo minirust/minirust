@@ -152,7 +152,7 @@ impl BasicMemory {
     /// Check if the given pointer is dereferenceable for an access of the given
     /// length and alignment. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
-    fn check_ptr(&self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
+    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
         // Basic address sanity checks.
         if ptr.addr == 0 {
             throw_ub!("dereferencing null pointer");
@@ -166,7 +166,7 @@ impl BasicMemory {
         // FIXME: This is *not* what rustc does, since from this it follows that
         // `offset(0)` is allowed on all non-null pointers which does not match
         // the LLVM IR rustc generates.
-        if size == 0 {
+        if len == 0 {
             return None;
         }
         // Now try to access the allocation information.

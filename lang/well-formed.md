@@ -168,32 +168,36 @@ impl ValueExpr {
                 Type::Pointer(ptr_ty)
             }
             UnOp { operator, operand } => {
+                use lang::UnOp::*;
+
                 let operand = operand.check_wf::<M>(locals)?;
                 match operator {
-                    UnOp::Int(_int_op, int_ty) => {
+                    Int(_int_op, int_ty) => {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
-                    UnOp::Ptr2Int => {
+                    Ptr2Int => {
                         ensure(matches!(operand, Type::Pointer(_)))?;
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
                     }
-                    UnOp::Int2Ptr(ptr_ty) => {
+                    Int2Ptr(ptr_ty) => {
                         ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })))?;
                         Type::Pointer(ptr_ty)
                     }
                 }
             }
             BinOp { operator, left, right } => {
+                use lang::BinOp::*;
+
                 let left = left.check_wf::<M>(locals)?;
                 let right = right.check_wf::<M>(locals)?;
                 match operator {
-                    BinOp::Int(_int_op, int_ty) => {
+                    Int(_int_op, int_ty) => {
                         ensure(matches!(left, Type::Int(_)))?;
                         ensure(matches!(right, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
-                    BinOp::PtrOffset { inbounds: _ } => {
+                    PtrOffset { inbounds: _ } => {
                         ensure(matches!(left, Type::Pointer(_)))?;
                         ensure(matches!(right, Type::Int(_)))?;
                         left
