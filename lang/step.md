@@ -85,7 +85,7 @@ impl<M: Memory> Machine<M> {
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![M::AbstractByte::Uninit; ptype.size::<M>()], ptype.align)?;
+            self.mem.store(p, list![AbstractByte::Uninit; ptype.size::<M>()], ptype.align)?;
         }
         v
     }
@@ -130,7 +130,7 @@ For now, that is just a pointer (but this might have to change).
 Place evaluation ensures that this pointer is always dereferenceable (for the type of the place expression).
 
 ```rust
-type Place<M: Memory> = M::Pointer;
+type Place<M: Memory> = Pointer<M::Provenance>;
 
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place<M>>;

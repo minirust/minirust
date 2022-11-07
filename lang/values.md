@@ -20,7 +20,7 @@ enum Value<M: Memory> {
     /// A Boolean value, used for `bool`.
     Bool(bool),
     /// A pointer value, used for (thin) references and raw pointers.
-    Ptr(M::Pointer),
+    Ptr(Pointer<M::Provenance>),
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<Value<M>>),
     /// A variant of a sum type, used for enums.
@@ -29,7 +29,7 @@ enum Value<M: Memory> {
         data: Value<M>,
     },
     /// Unions are represented as "lists of chunks", where each chunk is just a raw list of bytes.
-    Union(List<List<M::AbstractByte>>),
+    Union(List<List<AbstractByte<M::Provenance>>>),
 }
 ```
 
@@ -57,13 +57,13 @@ impl Type {
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
-    fn decode<M: Memory>(self, bytes: List<M::AbstractByte>) -> Option<Value<M>>;
+    fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>>;
 
     /// Encode `v` into a list of bytes according to the type `self`.
     /// Note that it is a spec bug if `v` is not valid according to `ty`!
     ///
     /// See below for the general properties relation `encode` and `decode`.
-    fn encode<M: Memory>(self, val: Value<M>) -> List<M::AbstractByte>;
+    fn encode<M: Memory>(self, val: Value<M>) -> List<AbstractByte<M::Provenance>>;
 }
 ```
 
@@ -73,16 +73,16 @@ impl Type {
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Bool: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Bool: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         match *bytes {
             [AbstractByte::Init(0, _)] => Value::Bool(false),
             [AbstractByte::Init(1, _)] => Value::Bool(true),
             _ => throw!(),
         }
     }
-    fn encode<M: Memory>(Type::Bool: Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Type::Bool: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Bool(b) = val else { panic!() };
-        [M::AbstractByte::Init(if b { 1 } else { 0 }, None)]
+        [AbstractByte::Init(if b { 1 } else { 0 }, None)]
     }
 }
 ```
@@ -93,7 +93,7 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() {
             throw!();
         }
@@ -101,12 +101,12 @@ impl Type {
         let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
         Value::Int(M::ENDIANNESS.decode(signed, bytes_data))
     }
-    fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Int(i) = val else { panic!() };
         // `Endianness::encode` will do the integer's bound check.
         let bytes_data = M::ENDIANNESS.encode(signed, size, i).unwrap();
         bytes_data.iter()
-            .map(|b| M::AbstractByte::Init(b, None))
+            .map(|b| AbstractByte::Init(b, None))
             .collect()
     }
 }
@@ -123,7 +123,7 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 ### Raw pointers
 
 ```rust
-fn decode_ptr<M: Memory>(bytes: List<M::AbstractByte>) -> Option<M::Pointer> {
+fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
     if bytes.len() != M::PTR_SIZE { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
@@ -135,18 +135,18 @@ fn decode_ptr<M: Memory>(bytes: List<M::AbstractByte>) -> Option<M::Pointer> {
             provenance = None;
         }
     }
-    M::Pointer { addr, provenance }
+    Pointer { addr, provenance }
 }
 
-fn encode_ptr<M: Memory>(ptr: M::Pointer) -> List<M::AbstractByte> {
+fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
     let bytes_data = M::ENDIANNESS.encode(Unsigned, M::PTR_SIZE, ptr.addr).unwrap();
     bytes_data.iter()
-        .map(|b| M::AbstractByte::Init(b, ptr.provenance))
+        .map(|b| AbstractByte::Init(b, ptr.provenance))
         .collect()
 }
 
 impl Type {
-    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
             PtrType::Raw => {}, // nothing to check
@@ -158,7 +158,7 @@ impl Type {
         }
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }
-    fn encode<M: Memory>(Type::RawPtr: Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Type::RawPtr: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr::<M>(ptr)
     }
@@ -177,7 +177,7 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
@@ -185,10 +185,10 @@ impl Type {
             }).collect()?,
         )
     }
-    fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = list![M::AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size];
         for ((offset, ty), value) in fields.iter().zip(values) {
             bytes[offset..][..ty.size::<M>()].copy_from_slice(ty.encode::<M>(value));
         }
@@ -205,7 +205,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Array { elem, count }: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != elem.size::<M>() * count { throw!(); }
         Value::Tuple(
             bytes.chunks(elem.size::<M>())
@@ -213,7 +213,7 @@ impl Type {
                 .collect()?,
         )
     }
-    fn encode<M: Memory>(Array { elem, count }: Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), count);
         values.iter().flat_map(|value| {
@@ -235,7 +235,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Union { size, chunks, .. }: Self, bytes: List<M::AbstractByte>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size { throw!(); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
@@ -244,10 +244,10 @@ impl Type {
         }
         Value::Union(chunk_data)
     }
-    fn encode<M: Memory>(Type::Union { size, chunks, .. }: Self, val: Value<M>) -> List<M::AbstractByte> {
+    fn encode<M: Memory>(Type::Union { size, chunks, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = list![M::AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size];
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(data.len(), size);
@@ -393,13 +393,13 @@ We also use this to lift retagging from pointers to compound values.
 trait TypedMemory: Memory {
     /// Write a value of the given type to memory.
     /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
-    fn typed_store(&mut self, ptr: Self::Pointer, val: Value<Self>, pty: PlaceType) -> Result {
+    fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result {
         let bytes = pty.ty.encode::<Self>(val);
         self.store(ptr, bytes, pty.align)?;
     }
 
     /// Read a value of the given type.
-    fn typed_load(&mut self, ptr: Self::Pointer, pty: PlaceType) -> Result<Value<Self>> {
+    fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>> {
         let bytes = self.load(ptr, pty.ty.size::<M>(), pty.align)?;
         match pty.ty.decode::<Self>(bytes) {
             Some(val) => val,
@@ -408,7 +408,7 @@ trait TypedMemory: Memory {
     }
 
     /// Check that the given pointer is dereferenceable according to the given layout.
-    fn layout_dereferenceable(&self, ptr: Self::Pointer, layout: Layout) -> Result {
+    fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
         if !layout.inhabited() {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");
@@ -443,7 +443,7 @@ Certainly, it is the case that if a list of bytes is not related to any value fo
 We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
 
 ```rust
-fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<M::AbstractByte>) -> Result {
+fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provenance>>) -> Result {
     if ty.decode::<M>(bytes).is_none() {
         throw_ub!("data violates validity invariant of type {ty}");
     }

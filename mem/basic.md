@@ -152,7 +152,7 @@ impl BasicMemory {
     /// Check if the given pointer is dereferenceable for an access of the given
     /// length and alignment. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
-    fn check_ptr(&self, ptr: Self::Pointer, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
+    fn check_ptr(&self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
         // Basic address sanity checks.
         if ptr.addr == 0 {
             throw_ub!("dereferencing null pointer");
@@ -196,7 +196,7 @@ impl Memory for BasicMemory {
         allocation.contents[offset..][..len].iter().collect()
     }
 
-    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result {
+    fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
             return;
         };
@@ -206,7 +206,7 @@ impl Memory for BasicMemory {
         allocation.contents[offset..][..bytes.len()].copy_from_slice(bytes);
     }
 
-    fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result {
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result {
         self.check_ptr(ptr, size, align)?;
     }
 }
@@ -216,7 +216,7 @@ We don't have aliasing requirements in this model, so we only check dereferencab
 
 ```rust
 impl Memory for BasicMemory {
-    fn retag_ptr(&mut self, ptr: Self::Pointer, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Self::Pointer> {
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         let layout = match ptr_type {
             lang::PtrType::Ref { layout, .. } => layout,
             lang::PtrType::Box { layout } => layout,
