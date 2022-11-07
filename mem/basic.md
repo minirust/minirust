@@ -64,8 +64,8 @@ impl Allocation {
     fn size(self) -> BigInt { self.contents.len() }
 
     fn overlaps(self, other_addr: BigInt, other_size: Size) -> bool {
-        let end_addr = self.addr + self.size();
-        let other_end_addr = other_addr + other_size;
+        let end_addr = self.addr + self.size().bytes();
+        let other_end_addr = other_addr + other_size.bytes();
         if end_addr <= other_addr || other_end_addr <= self.addr {
             // Our end is before their beginning, or vice versa -- we do not overlap.
             false
@@ -95,7 +95,7 @@ impl Memory for BasicMemory {
             // ... that is suitably aligned...
             if addr % align != 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
-            if !(addr+size).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
+            if !(addr+size.bytes()).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
             if self.allocations.values().any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
