@@ -5,10 +5,10 @@ Across all files in this repository, we assume some definitions to always be in 
 ```rust
 /// All operations are fallible, so they return `Result`.  If they fail, that
 /// means the program caused UB or put the machine to a halt.
-type Result<T=()> = std::result::Result<T, TerminationInfo>;
+pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
 
 #[non_exhaustive]
-enum TerminationInfo {
+pub enum TerminationInfo {
   Ub(String),
   MachineStop(String),
 }
@@ -25,8 +25,8 @@ macro_rules! throw_machine_stop {
 }
 
 /// We leave the encoding of the non-determinism monad opaque.
-type Nondet<T=()>;
-type NdResult<T=()> = Nondet<Result<T>>;
+pub type Nondet<T=()>;
+pub type NdResult<T=()> = Nondet<Result<T>>;
 
 /// Basically copies of the `Size` and `Align` types in the Rust compiler.
 /// See <https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Size.html>
@@ -37,25 +37,25 @@ type NdResult<T=()> = Nondet<Result<T>>;
 /// `Size::from_bytes` and the checked arithmetic operations return `None`
 /// when the result would be out-of-bounds.
 /// `Align` is additionally always a power of two.
-type Size;
-type Align;
+pub type Size;
+pub type Align;
 
 /// Whether an integer value is signed or unsigned.
-enum Signedness {
+pub enum Signedness {
     Unsigned,
     Signed,
 }
 pub use Signedness::*;
 
 /// Whether a pointer/reference/allocation is mutable or immutable.
-enum Mutability {
+pub enum Mutability {
     Mutable,
     Immutable,
 }
 pub use Mutability::*;
 
 /// The endianness, which defines how integers and pointers are encoded and decoded.
-enum Endianness {
+pub enum Endianness {
     LittleEndian,
     BigEndian,
 }
@@ -72,7 +72,7 @@ impl Endianness {
 
 /// The type of mathematical integers.
 /// We assume all the usual arithmetic operations to be defined.
-type BigInt;
+pub type BigInt;
 
 impl BigInt {
     /// Returns the unique value that is equal to `self` modulo `2^size.bits()`.

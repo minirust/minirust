@@ -10,7 +10,7 @@ Note that this is entirely independent of how the actual memory model works.
 We are just parameterized by its type of `Provenance`.
 
 ```rust
-struct IntPtrCast<Provenance: Eq> {
+pub struct IntPtrCast<Provenance: Eq> {
     /// The set of exposed provenance.
     exposed: Set<Provenance>,
 }
