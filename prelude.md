@@ -2,7 +2,7 @@
 
 Across all files in this repository, we assume some definitions to always be in scope.
 
-```rust
+```rust,ignore
 /// All operations are fallible, so they return `Result`.  If they fail, that
 /// means the program caused UB or put the machine to a halt.
 pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
