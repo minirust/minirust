@@ -92,29 +92,24 @@ trait Memory {
     /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
 
-    /// We use `Self::Pointer` as notation for `Pointer<Self::Provenance>`,
-    /// and `Self::AbstractByte` as notation for `AbstractByte<Self::Provenance>`.
-    type Pointer = Pointer<Self::Provenance>;
-    type AbstractByte = AbstractByte<Self::Provenance>;
-
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
-    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Self::Pointer>;
+    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
 
     /// Remove an allocation.
-    fn deallocate(&mut self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
+    fn deallocate(&mut self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
-    fn store(&mut self, ptr: Self::Pointer, bytes: List<Self::AbstractByte>, align: Align) -> Result;
+    fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result;
 
     /// Read some bytes from memory.
-    fn load(&mut self, ptr: Self::Pointer, len: Size, align: Align) -> Result<List<Self::AbstractByte>>;
+    fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
 
     /// Test whether the given pointer is dereferenceable for the given size and alignment.
     /// Raises UB if that is not the case.
     /// Note that a successful read/write/deallocate implies that the pointer
     /// was dereferenceable before that operation (but not vice versa).
-    fn dereferenceable(&self, ptr: Self::Pointer, size: Size, align: Align) -> Result;
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result;
 
     /// Retag the given pointer, which has the given type.
     /// `fn_entry` indicates whether this is one of the special retags that happen
@@ -123,7 +118,7 @@ trait Memory {
     /// also seems better than just outright duplicating that type.
     ///
     /// Return the retagged pointer.
-    fn retag_ptr(&mut self, ptr: Self::Pointer, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Self::Pointer>;
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
 }
 ```
 

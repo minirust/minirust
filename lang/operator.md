@@ -94,7 +94,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
-    fn ptr_offset_wrapping(&self, ptr: M::Pointer, offset: BigInt) -> M::Pointer {
+    fn ptr_offset_wrapping(&self, ptr: Pointer<M::Provenance>, offset: BigInt) -> Pointer<M::Provenance> {
         let offset = offset.modulo(Signed, M::PTR_SIZE);
         let addr = ptr.addr + offset;
         let addr = addr.modulo(Unsigned, M::PTR_SIZE);
@@ -103,7 +103,7 @@ impl<M: Memory> Machine<M> {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: M::Pointer, offset: BigInt) -> NdResult<M::Pointer> {
+    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: BigInt) -> NdResult<Pointer<M::Provenance>> {
         if !offset.in_bounds(Signed, M::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }
