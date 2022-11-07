@@ -14,6 +14,7 @@ The MiniRust value domain is described by the following type definition.
 
 ```rust
 #[derive(PartialEq, Eq)]
+#[specr::rc]
 enum Value<M: Memory> {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -57,12 +58,14 @@ impl Type {
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
+    #[specr::argmatch(self)]
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>>;
 
     /// Encode `v` into a list of bytes according to the type `self`.
     /// Note that it is a spec bug if `v` is not valid according to `ty`!
     ///
     /// See below for the general properties relation `encode` and `decode`.
+    #[specr::argmatch(self)]
     fn encode<M: Memory>(self, val: Value<M>) -> List<AbstractByte<M::Provenance>>;
 }
 ```

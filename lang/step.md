@@ -41,6 +41,7 @@ This section defines the following function:
 
 ```rust
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(val)]
     fn eval_value(&mut self, val: ValueExpr) -> NdResult<Value<M>>;
 }
 ```
@@ -133,6 +134,7 @@ Place evaluation ensures that this pointer is always dereferenceable (for the ty
 type Place<M: Memory> = Pointer<M::Provenance>;
 
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(place)]
     fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place<M>>;
 }
 ```
@@ -217,6 +219,7 @@ Here we define how statements are evaluated.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(statement)]
     fn eval_statement(&mut self, statement: Statement);
 }
 ```
@@ -288,6 +291,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(terminator)]
     fn eval_terminator(&mut self, terminator: Terminator);
 }
 ```

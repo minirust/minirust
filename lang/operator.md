@@ -6,6 +6,7 @@ Here we define the part of the [`step` function](step.md) that is concerned with
 
 ```rust
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(operator)]
     fn eval_un_op(&mut self, operator: UnOp, operand: Value<M>) -> NdResult<Value<M>>;
 }
 ```
@@ -54,6 +55,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
+    #[specr::argmatch(operator)]
     fn eval_bin_op(&mut self, operator: BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>>;
 }
 ```
