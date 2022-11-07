@@ -360,7 +360,7 @@ We say that a `v: Value<M>` is "valid" for a type if it is a possible return val
 Now we can state the laws that we require.
 First of all, `encode` and `decode` must both be "monotone":
 - If `val1 <= val2` (and if both values are valid for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
-- If `bytes1 <= bytes2`, then `ty.decode(val1) <= ty.decode(val2)`.
+- If `bytes1 <= bytes2`, then `ty.decode(bytes1) <= ty.decode(bytes2)`.
 
 More interesting are the round-trip properties:
 - If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
