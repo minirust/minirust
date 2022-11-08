@@ -125,7 +125,7 @@ impl Type {
         use Type::*;
         match self {
             Int(int_type) => int_type.size,
-            Bool => Size::from_bytes(1).unwrap(),
+            Bool => Size::from_bytes(1),
             Pointer(_) => M::PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size::<M>() * count,

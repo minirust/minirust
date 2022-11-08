@@ -50,7 +50,7 @@ The model represents a 64-bit little-endian machine.
 
 ```rust
 impl Memory for BasicMemory {
-    const PTR_SIZE: Size = Size::from_bits(64).unwrap();
+    const PTR_SIZE: Size = Size::from_bits(64);
     const ENDIANNESS: Endianness = LittleEndian;
 }
 ```
@@ -181,7 +181,7 @@ impl BasicMemory {
             throw_ub!("out-of-bounds memory access");
         }
         // All is good!
-        Some((id, Size::from_bytes(offset_in_alloc).unwrap()))
+        Some((id, Size::from_bytes(offset_in_alloc)))
     }
 }
 

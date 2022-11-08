@@ -1,10 +1,9 @@
 This is basically a copy of the `Size` type in the Rust compiler.
 See [Size](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Size.html).
 
-`Size` is essentially a `BigInt` newtype that is always in-bounds for both
-signed and unsigned `Memory::PTR_SIZE` (i.e., it is in the range `0..=isize::MAX`).
-`Size::from_bytes` and the checked arithmetic operations return `None`
-when the result would be out-of-bounds.
+Note that the `Size` type has no upper-bound.
+Users needs check whether a given `Size` is too large for their Machine themselves.
+
 ```rust
 /// `raw` stores the size in bytes.
 pub struct Size { raw: BigInt }
