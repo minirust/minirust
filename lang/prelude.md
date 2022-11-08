@@ -13,5 +13,11 @@ use crate::mem::{Memory, AbstractByte, Pointer, IntPtrCast};
 // to use and whether to do adjustments like sign extension.
 // `Call` does not even check that caller and callee agree on the size
 // (and indeed for register passing, mismatching size might be okay).
-type ArgAbi: PartialEq;
+// FIXME: This is incomplete.
+#[derive(PartialEq)]
+#[non_exhaustive]
+enum ArgAbi {
+    Register,
+    Stack(Size, Align),
+}
 ```
