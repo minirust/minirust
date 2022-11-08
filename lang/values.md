@@ -274,10 +274,18 @@ Note that none of the definitions in this section are needed to define the seman
 They only serve as internal consistency requirements of the semantics.
 It would be a specification bug if the representation relations defined above violated these properties.
 
-Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 ```rust
-impl<Provenance: Eq> PartialOrd for AbstractByte<Provenance> {
-    fn le(self, other: Self) -> bool {
+trait DefinedRelation {
+    /// returns whether `self` is less or as defined as `other`
+    fn le_defined(&self, other: &Self) -> bool;
+}
+```
+
+Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
+
+```rust
+impl<Provenance: Eq> DefinedRelation for AbstractByte<Provenance> {
+    fn le_defined(&self, other: &Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
             /// `Uninit <= _`: initializing something makes it "more defined".
@@ -295,12 +303,12 @@ impl<Provenance: Eq> PartialOrd for AbstractByte<Provenance> {
     }
 }
 ```
-Note that with `eq` already being defined (all our types that we want to compare derive `PartialEq` and `Eq`), defining `le` is sufficient to also define all the other parts of `PartialOrd`.
+// Note that with `eq` already being defined (all our types that we want to compare derive `PartialEq` and `Eq`), defining `le` is sufficient to also define all the other parts of `DefinedRelation`.
 
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
-impl<Provenance: Eq> PartialOrd for Pointer<Provenance> {
-    fn le(self, other: Self) -> bool {
+impl<Provenance: Eq> DefinedRelation for Pointer<Provenance> {
+    fn le_defined(&self, other: &Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {
                 (None, _) => true,
@@ -314,18 +322,18 @@ impl<Provenance: Eq> PartialOrd for Pointer<Provenance> {
 The order on `List<AbstractByte>` is assumed to be such that `bytes1 <= bytes2` if and only if they have the same length and are bytewise related by `<=`.
 In fact, we define this to be in general how lists are partially ordered (based on the order of their element type):
 ```rust
-impl<T: PartialOrd> PartialOrd for List<T> {
-    fn le(self, other: Self) -> bool {
+impl<T: DefinedRelation> DefinedRelation for List<T> {
+    fn le_defined(&self, other: &Self) -> bool {
         self.len() == other.len() &&
-            self.iter().zip(other.iter()).all(|(l, r)| l <= r)
+            self.iter().zip(other.iter()).all(|(l, r)| l.le_defined(r))
     }
 }
 ```
 
 For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise require equality:
 ```rust
-impl<M: Memory> PartialOrd for Value<M> {
-    fn le(self, other: Self) -> bool {
+impl<M: Memory> DefinedRelation for Value<M> {
+    fn le_defined(&self, other: &Self) -> bool {
         use Value::*;
         match (self, other) {
             (Int(i1), Int(i2)) =>
@@ -333,32 +341,32 @@ impl<M: Memory> PartialOrd for Value<M> {
             (Bool(b1), Bool(b2)) =>
                 b1 == b2,
             (Ptr(p1), Ptr(p2)) =>
-                p1 <= p2,
+                p1.le_defined(p2),
             (Tuple(vals1), Tuple(vals2)) =>
-                vals1 <= vals2,
+                vals1.le_defined(vals2),
             (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
-                idx1 == idx2 && data1 <= data2,
-            (Union(chunks1), Union(chunks2)) => chunks1 <= chunks2,
+                idx1 == idx2 && data1.le_defined(data2),
+            (Union(chunks1), Union(chunks2)) => chunks1.le_defined(chunks2),
             _ => false
         }
     }
 }
 ```
 
-Finally, on `Option<Value<M>>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only if `v1 <= v2`:
+Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only if `v1 <= v2`:
 ```rust
-impl<T: PartialOrd> PartialOrd for Option<T> {
-    fn le(self, other: Self) -> bool {
+impl<T: DefinedRelation> DefinedRelation for Option<T> {
+    fn le_defined(&self, other: &Self) -> bool {
         match (self, other) {
             (None, _) => true,
-            (Some(l), Some(r)) => l <= r,
+            (Some(l), Some(r)) => l.le_defined(r),
             _ => false
         }
     }
 }
 ```
 
-We say that a `v: Value<M>` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
+We say that a `v: Value` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
 
 Now we can state the laws that we require.
 First of all, `encode` and `decode` must both be "monotone":
