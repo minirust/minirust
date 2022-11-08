@@ -45,6 +45,10 @@ impl PtrType {
 impl Type {
     fn check_wf<M: Memory>(self) -> Option<()> {
         use Type::*;
+
+        let size = self.size::<M>();
+        ensure(M::valid_size(size))?;
+
         match self {
             Int(int_type) => {
                 int_type.check_wf()?;

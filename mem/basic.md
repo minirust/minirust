@@ -82,7 +82,7 @@ Then we implement creating and removing allocations.
 impl Memory for BasicMemory {
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
-        if !size.in_bounds(Signed, Self::PTR_SIZE) {
+        if !Self::valid_size(size) {
             throw_ub!("asking for a too large allocation");
         }
         // Pick a base address. We use daemonic non-deterministic choice,
@@ -224,6 +224,16 @@ impl Memory for BasicMemory {
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
         ptr
+    }
+}
+```
+
+A size is valid, whenever it is non-negative and in-bounds for signed `PTR_SIZE`.
+
+```rust
+impl Memory for BasicMemory {
+    fn valid_size(size: Size) -> bool {
+        size.in_bounds(Signed, Self::PTR_SIZE) && size >= 0
     }
 }
 ```
