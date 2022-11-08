@@ -56,13 +56,13 @@ impl<M: Memory> Machine<M> {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
             Constant::Tuple(args) => {
-                let args = args.into_iter()
-                    .map(|arg| self.eval_constant(arg))
-                    .collect();
-                Value::Tuple(args)
+                let vals = args.into_iter()
+                    .map(|c| self.eval_constant(c))
+                    .try_collect()?;
+                Value::Tuple(vals)
             },
             Constant::Variant { idx, data } => {
-                let data = self.eval_constant(data);
+                let data = self.eval_constant(data)?;
                 Value::Variant { idx, data }
             },
         }
@@ -220,7 +220,7 @@ Here we define how statements are evaluated.
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(statement)]
-    fn eval_statement(&mut self, statement: Statement);
+    fn eval_statement(&mut self, statement: Statement) -> NdResult;
 }
 ```
 
@@ -292,7 +292,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(terminator)]
-    fn eval_terminator(&mut self, terminator: Terminator);
+    fn eval_terminator(&mut self, terminator: Terminator) -> NdResult;
 }
 ```
 

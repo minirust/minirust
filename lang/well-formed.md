@@ -53,7 +53,7 @@ impl Type {
             Pointer(ptr_type) => {
                 ptr_type.check_wf()?;
             }
-            Tuple { fields, size, align } => {
+            Tuple { fields, size } => {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
                 fields.sort_by_key(|(offset, _ty)| offset);

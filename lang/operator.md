@@ -26,7 +26,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_un_op_int(op, operand);
+        let result = self.eval_un_op_int(op, operand)?;
         // Put the result into the right range (in case of overflow).
         let result = result.modulo(int_type.signed, int_type.size);
         Value::Int(result)
@@ -83,7 +83,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_bin_op_int(op, left, right);
+        let result = self.eval_bin_op_int(op, left, right)?;
         // Put the result into the right range (in case of overflow).
         let result = result.modulo(int_type.signed, int_type.size);
         Value::Int(result)
