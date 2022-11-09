@@ -6,7 +6,7 @@ First, the general structure of programs and functions:
 ```rust
 /// Some opaque type of function names.
 /// The details of this this is represented to not matter.
-type FnName;
+struct FnName(specr::Name);
 
 /// A closed MiniRust program.
 struct Program {
@@ -17,8 +17,8 @@ struct Program {
 }
 
 /// Opaque types of names for local variables and basic blocks.
-type LocalName;
-type BbName;
+struct LocalName(specr::Name);
+struct BbName(specr::Name);
 
 /// A MiniRust function.
 struct Function {
