@@ -127,7 +127,7 @@ impl Constant {
         // TODO: add more.
         match (self, ty) {
             (Constant::Int(i), Type::Int(int_type)) => {
-                ensure(i.in_bounds(int_type.signed, int_type.size))?;
+                ensure(in_bounds(i, int_type.signed, int_type.size))?;
             }
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::Tuple(constants), Type::Tuple { fields }) => {
