@@ -82,7 +82,7 @@ pub struct Pointer<Provenance> {
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-pub trait Memory {
+pub trait Memory: Sized {
     /// The type of pointer provenance.
     type Provenance: Eq;
 
