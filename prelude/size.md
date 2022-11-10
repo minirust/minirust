@@ -9,8 +9,6 @@ Users needs check whether a given `Size` is too large for their Machine themselv
 pub struct Size { raw: BigInt }
 
 impl Size {
-    pub const ZERO: Size = Size { raw: BigInt::from(0) };
-
     /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
     /// not a multiple of 8.
     pub fn from_bits(bits: impl Into<BigInt>) -> Size {
@@ -28,5 +26,42 @@ impl Size {
 
     pub fn bytes(self) -> BigInt { self.raw }
     pub fn bits(self) -> BigInt { self.raw * 8 }
+    pub fn is_zero(&self) -> bool { self.raw == 0 }
 }
+
+// We implement a few operators for size.
+use std::ops::*;
+use std::cmp::Ordering;
+
+impl Add for Size {
+    type Output = Size;
+
+    fn add(self, rhs: Size) -> Size {
+        let raw = self.raw + rhs.raw;
+        Size { raw }
+    }
+}
+
+impl Mul<BigInt> for Size {
+    type Output = Size;
+
+    fn mul(self, rhs: BigInt) -> Size {
+        let raw = self.raw * rhs;
+        Size { raw }
+    }
+}
+
+impl PartialEq for Size {
+    fn eq(&self, rhs: &Size) -> bool {
+        self.raw == rhs.raw
+    }
+}
+
+impl PartialOrd for Size {
+    fn partial_cmp(&self, rhs: &Size) -> Option<Ordering> {
+        self.raw.partial_cmp(&rhs.raw)
+    }
+}
+
+impl Ord for Size {}
 ```

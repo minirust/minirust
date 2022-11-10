@@ -137,7 +137,7 @@ impl Type {
         match self {
             Int(..) | Bool | Pointer(PtrType::Raw { .. }) => true,
             Pointer(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
-            Tuple { fields, .. } => fields.iter().all(|ty| ty.inhabited()),
+            Tuple { fields, .. } => fields.iter().all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => variants.iter().any(|ty| ty.inhabited()),
