@@ -284,7 +284,7 @@ trait DefinedRelation {
 Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 
 ```rust
-impl<Provenance: Eq> DefinedRelation for AbstractByte<Provenance> {
+impl<Provenance: Eq + Clone> DefinedRelation for AbstractByte<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
@@ -307,7 +307,7 @@ impl<Provenance: Eq> DefinedRelation for AbstractByte<Provenance> {
 
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
-impl<Provenance: Eq> DefinedRelation for Pointer<Provenance> {
+impl<Provenance: Eq + Clone> DefinedRelation for Pointer<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {

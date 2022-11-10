@@ -13,7 +13,7 @@ The provenance tracked by this memory model is just an ID that identifies which 
 (We will pretend we can split the `impl ... for` block into multiple smaller blocks.)
 
 ```rust
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Hash, Debug)]
 struct AllocId(BigInt);
 
 impl Memory for BasicMemory {
