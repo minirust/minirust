@@ -85,7 +85,7 @@ impl Type {
     }
     fn encode<M: Memory>(Type::Bool: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Bool(b) = val else { panic!() };
-        [AbstractByte::Init(if b { 1 } else { 0 }, None)]
+        list![AbstractByte::Init(if b { 1 } else { 0 }, None)]
     }
 }
 ```
@@ -149,19 +149,19 @@ fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Pr
 }
 
 impl Type {
-    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Pointer(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
             PtrType::Raw { pointee: _ } => {}, // nothing to check
-            PtrType::Ref { pointee, layout: _ } | PtrType::Box { pointee } => {
+            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
                 // (Think: uninhabited types have impossible alignment.)
-                ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited
+                ensure(ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited)?;
             }
         }
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }
-    fn encode<M: Memory>(Type::RawPtr: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Pointer(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr::<M>(ptr)
     }

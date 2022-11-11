@@ -61,26 +61,27 @@ impl Type {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
                 fields.sort_by_key(|(offset, _ty)| offset);
-                let mut last_end = Size::ZERO;
+                let mut last_end = Size::zero();
                 for (offset, ty) in fields {
                     // Recursively check the field type.
                     ty.check_wf::<M>()?;
                     // And ensure it fits after the one we previously checked.
                     ensure(offset >= last_end)?;
-                    last_end = offset.checked_add(ty.size::<M>())?;
+                    last_end = offset + ty.size::<M>();
                 }
                 // And they must all fit into the size.
+                // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
                 ensure(size >= last_end)?;
             }
             Array { elem, count } => {
                 elem.check_wf::<M>()?;
-                elem.size::<M>().checked_mul(count)?;
+                elem.size::<M>() * count;
             }
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
                     ty.check_wf::<M>()?;
-                    ensure(size >= offset.checked_add(ty.size::<M>())?)?;
+                    ensure(size >= offset + ty.size::<M>())?;
 
                     // And it must fit into one of the chunks.
                     ensure(chunks.into_iter().any(|(chunk_offset, chunk_size)| {
@@ -90,10 +91,10 @@ impl Type {
                 }
                 // The chunks must be sorted in their offsets and disjoint.
                 // FIXME: should we relax this and allow arbitrary chunk order?
-                let mut last_end = Size::ZERO;
+                let mut last_end = Size::zero();
                 for (offset, size) in chunks {
                     ensure(offset >= last_end)?;
-                    last_end = offset.checked_add(size)?;
+                    last_end = offset + size;
                 }
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
