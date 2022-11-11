@@ -25,7 +25,7 @@ impl BigInt {
     ///
     /// `size` must not be zero.
     pub fn modulo(self, signed: Signedness, size: Size) -> BigInt {
-        if size == 0 {
+        if size.is_zero() {
             panic!("BigInt::modulo received invalid size zero!");
         }
 

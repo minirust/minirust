@@ -107,7 +107,7 @@ impl Memory for BasicMemory {
             addr,
             align,
             live: true,
-            contents: list![AbstractByte::Uninit; size],
+            contents: list![AbstractByte::Uninit; size.bytes()],
         };
 
         // Insert it into list, and remember where.
@@ -166,7 +166,7 @@ impl BasicMemory {
         // FIXME: This is *not* what rustc does, since from this it follows that
         // `offset(0)` is allowed on all non-null pointers which does not match
         // the LLVM IR rustc generates.
-        if len == 0 {
+        if len.is_zero() {
             return None;
         }
         // Now try to access the allocation information.
@@ -177,7 +177,7 @@ impl BasicMemory {
         let allocation = &self.allocations[id.0];
         // Compute relative offset, and ensure we are in-bounds.
         let offset_in_alloc = ptr.addr - allocation.addr;
-        if offset_in_alloc < 0 || offset_in_alloc+len > allocation.size() {
+        if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
             throw_ub!("out-of-bounds memory access");
         }
         // All is good!

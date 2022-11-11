@@ -34,7 +34,7 @@ struct Function {
     /// Associate each basic block name with the associated block.
     blocks: Map<BbName, BasicBlock>,
     /// The basic block where execution starts.
-    start: BasicBlock,
+    start: BbName,
 }
 
 /// A basic block is a sequence of statements followed by a terminator.

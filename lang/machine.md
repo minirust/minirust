@@ -37,7 +37,7 @@ struct StackFrame<M: Memory> {
     /// The first component identifies the basic block,
     /// the second the statement inside that basic block.
     /// If the index is len+1, it refers to the terminator.
-    next: (BbName, u64),
+    next: (BbName, BigInt),
 }
 ```
 

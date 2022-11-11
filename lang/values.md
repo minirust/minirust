@@ -181,19 +181,19 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size { throw!(); }
+        if bytes.len() != size.bytes() { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
-                ty.decode::<M>(bytes[offset..][..ty.size::<M>()])
+                ty.decode::<M>(bytes[offset.bytes()..][..ty.size::<M>().bytes()])
             }).collect()?,
         )
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), fields.len());
-        let mut bytes = list![AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         for ((offset, ty), value) in fields.iter().zip(values) {
-            bytes[offset..][..ty.size::<M>()].copy_from_slice(ty.encode::<M>(value));
+            bytes[offset.bytes()..][..ty.size::<M>().bytes()].copy_from_slice(ty.encode::<M>(value));
         }
         bytes
     }
@@ -209,9 +209,10 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != elem.size::<M>() * count { throw!(); }
+        let full_size = elem.size::<M>() * count;
+        if bytes.len() != full_size.bytes() { throw!(); }
         Value::Tuple(
-            bytes.chunks(elem.size::<M>())
+            bytes.chunks(elem.size::<M>().bytes())
                 .map(|elem_bytes| elem.decode::<M>(elem_bytes))
                 .collect()?,
         )
@@ -221,7 +222,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.iter().flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M>());
+            assert_eq!(bytes.len(), elem.size::<M>().bytes());
             bytes
         }).collect()
     }
@@ -239,22 +240,22 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size { throw!(); }
+        if bytes.len() != size.bytes() { throw!(); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
-            chunk_data.push(bytes[offset..][..size]);
+            chunk_data.push(bytes[offset.bytes()..][..size.bytes()]);
         }
         Value::Union(chunk_data)
     }
     fn encode<M: Memory>(Type::Union { size, chunks, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Union(chunk_data) = val else { panic!() };
         assert_eq!(chunk_data.len(), chunks.len());
-        let mut bytes = list![AbstractByte::Uninit; size];
+        let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
-            assert_eq!(data.len(), size);
-            bytes[offset..][..size] = data;
+            assert_eq!(size.bytes(), data.len());
+            bytes[offset.bytes()..][..size.bytes()] = data;
         }
         bytes
     }
