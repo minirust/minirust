@@ -69,7 +69,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_value(&mut self, ValueExpr::Constant(constant, _ty): ValueExpr) -> NdResult<Value<M>> {
-        self.eval_constant(constant)
+        self.eval_constant(constant)?
     }
 }
 ```
@@ -86,7 +86,7 @@ impl<M: Memory> Machine<M> {
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![AbstractByte::Uninit; ptype.size::<M>()], ptype.align)?;
+            self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>()], ptype.align)?;
         }
         v
     }

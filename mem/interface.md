@@ -42,14 +42,14 @@ pub enum AbstractByte<Provenance> {
 }
 
 impl<Provenance> AbstractByte<Provenance> {
-    fn data(self) -> Option<u8> {
+    pub fn data(self) -> Option<u8> {
         match self {
             AbstractByte::Uninit => None,
             AbstractByte::Init(data, _) => Some(data),
         }
     }
 
-    fn provenance(self) -> Option<Provenance> {
+    pub fn provenance(self) -> Option<Provenance> {
         match self {
             AbstractByte::Uninit => None,
             AbstractByte::Init(_, provenance) => provenance,
@@ -74,8 +74,8 @@ type Address = BigInt;
 /// invalid for all non-zero-sized accesses.
 #[derive(PartialEq, Eq)]
 pub struct Pointer<Provenance> {
-    addr: Address,
-    provenance: Option<Provenance>,
+    pub addr: Address,
+    pub provenance: Option<Provenance>,
 }
 
 /// *Note*: All memory operations can be non-deterministic, which means that

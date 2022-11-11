@@ -17,17 +17,17 @@ pub enum TerminationInfo {
 /// `Option`/`Result`-returning function.
 macro_rules! throw {
     ($($tt:tt)*) => {
-        specr::yeet!(());
+        specr::yeet!(())
     };
 }
 macro_rules! throw_ub {
     ($($tt:tt)*) => {
-        specr::yeet!(TerminationInfo::Ub(format!($($tt)*)));
+        specr::yeet!(TerminationInfo::Ub(format!($($tt)*)))
     };
 }
 macro_rules! throw_machine_stop {
     ($($tt:tt)*) => {
-        specr::yeet!(TerminationInfo::MachineStop(format!($($tt)*)));
+        specr::yeet!(TerminationInfo::MachineStop(format!($($tt)*)))
     };
 }
 
