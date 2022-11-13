@@ -86,7 +86,7 @@ impl<M: Memory> Machine<M> {
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>()], ptype.align)?;
+            self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
         }
         v
     }
@@ -303,7 +303,7 @@ The simplest terminator: jump to the (beginning of the) given block.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
-        self.cur_frame_mut().next = (block_name, 0);
+        self.cur_frame_mut().next = (block_name, BigInt::zero());
     }
 }
 ```
@@ -317,7 +317,7 @@ impl<M: Memory> Machine<M> {
             panic!("if on a non-boolean")
         };
         let next = if b { then_block } else { else_block };
-        self.cur_frame_mut().next = (next, 0);
+        self.cur_frame_mut().next = (next, BigInt::zero());
     }
 }
 ```
@@ -384,13 +384,13 @@ impl<M: Memory> Machine<M> {
         }
 
         // Advance the PC for this stack frame.
-        self.cur_frame_mut().next = (next_block, 0);
+        self.cur_frame_mut().next = (next_block, BigInt::zero());
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
             func,
             locals,
             caller_ret_place,
-            next: (func.start, 0),
+            next: (func.start, BigInt::zero()),
         });
     }
 }

@@ -131,7 +131,7 @@ impl Constant {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
             (Constant::Bool(_), Type::Bool) => (),
-            (Constant::Tuple(constants), Type::Tuple { fields }) => {
+            (Constant::Tuple(constants), Type::Tuple { fields, size: _ }) => {
                 ensure(constants.len() == fields.len())?;
                 for (c, (_offset, ty)) in constants.iter().zip(fields.iter()) {
                     c.check_wf(ty)?;
