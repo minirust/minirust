@@ -41,7 +41,7 @@ pub enum AbstractByte<Provenance> {
     Init(u8, Option<Provenance>),
 }
 
-impl<Provenance> AbstractByte<Provenance> {
+impl<Provenance: Clone> AbstractByte<Provenance> {
     pub fn data(self) -> Option<u8> {
         match self {
             AbstractByte::Uninit => None,
@@ -72,7 +72,7 @@ type Address = BigInt;
 /// A "pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Pointer<Provenance> {
     pub addr: Address,
     pub provenance: Option<Provenance>,
@@ -84,7 +84,7 @@ pub struct Pointer<Provenance> {
 /// change the current state in concurrent memory models and in Stacked Borrows).
 pub trait Memory: Sized {
     /// The type of pointer provenance.
-    type Provenance: Eq;
+    type Provenance: Eq + Hash + Clone + Debug;
 
     /// The size of a pointer.
     const PTR_SIZE: Size;

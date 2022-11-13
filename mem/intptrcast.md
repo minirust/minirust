@@ -10,12 +10,12 @@ Note that this is entirely independent of how the actual memory model works.
 We are just parameterized by its type of `Provenance`.
 
 ```rust
-pub struct IntPtrCast<Provenance: Eq> {
+pub struct IntPtrCast<Provenance> {
     /// The set of exposed provenance.
     exposed: Set<Provenance>,
 }
 
-impl<Provenance: Eq> IntPtrCast<Provenance> {
+impl<Provenance: Eq + Hash + Clone> IntPtrCast<Provenance> {
     pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<BigInt> {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.
