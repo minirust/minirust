@@ -193,7 +193,7 @@ impl Memory for BasicMemory {
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
-        allocation.contents[offset..][..len].iter().collect()
+        allocation.contents.subslice_with_length(offset.bytes(), len.bytes())
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
@@ -203,7 +203,7 @@ impl Memory for BasicMemory {
         let allocation = &mut self.allocations[id.0];
 
         // Slice into the contents, and put the new bytes there.
-        allocation.contents[offset..][..bytes.len()].copy_from_slice(bytes);
+        allocation.contents.write_subslice_with_length(offset.bytes(), bytes.len(), bytes);
     }
 
     fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result {
