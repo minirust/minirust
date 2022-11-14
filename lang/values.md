@@ -184,7 +184,8 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
-                ty.decode::<M>(bytes[offset.bytes()..][..ty.size::<M>().bytes()])
+                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
+                ty.decode::<M>(subslice)
             }).collect()?,
         )
     }
@@ -193,7 +194,7 @@ impl Type {
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         for ((offset, ty), value) in fields.iter().zip(values) {
-            bytes[offset.bytes()..][..ty.size::<M>().bytes()].copy_from_slice(ty.encode::<M>(value));
+            bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes()).copy_from_slice(ty.encode::<M>(value));
         }
         bytes
     }
@@ -244,7 +245,7 @@ impl Type {
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
-            chunk_data.push(bytes[offset.bytes()..][..size.bytes()]);
+            chunk_data.push(bytes.subslice_with_length(offset.bytes(), size.bytes()));
         }
         Value::Union(chunk_data)
     }
@@ -255,7 +256,7 @@ impl Type {
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(size.bytes(), data.len());
-            bytes[offset.bytes()..][..size.bytes()] = data;
+            bytes.subslice_with_length(offset.bytes(), size.bytes()) = data;
         }
         bytes
     }
