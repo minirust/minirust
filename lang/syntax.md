@@ -102,7 +102,6 @@ We also need to define constants (a strict subset of `Value`).
 ```rust
 /// Constants are Values, but cannot have provenance.
 /// Currently we do not support Ptr and Union constants.
-#[specr::rc]
 enum Constant {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -113,6 +112,7 @@ enum Constant {
     /// A variant of a sum type, used for enums.
     Variant {
         idx: BigInt,
+        #[specr::indirection]
         data: Constant,
     },
 }
@@ -122,7 +122,6 @@ And finally, the syntax of expressions:
 
 ```rust
 /// A "value expression" evaluates to a `Value`.
-#[specr::rc]
 enum ValueExpr {
     /// Just return a constant value.
     Constant(Constant, Type),
@@ -131,11 +130,13 @@ enum ValueExpr {
         /// Whether this load de-initializes the source it is loaded from ("move").
         destructive: bool,
         /// The place to load from.
+        #[specr::indirection]
         source: PlaceExpr,
     },
     /// Create a pointer to a place.
     AddrOf {
         /// The place to create a pointer to.
+        #[specr::indirection]
         target: PlaceExpr,
         /// The type of the created pointer.
         ptr_ty: PtrType,
@@ -143,12 +144,15 @@ enum ValueExpr {
     /// Unary operators.
     UnOp {
         operator: UnOp,
+        #[specr::indirection]
         operand: ValueExpr,
     },
     /// Binary operators.
     BinOp {
         operator: BinOp,
+        #[specr::indirection]
         left: ValueExpr,
+        #[specr::indirection]
         right: ValueExpr,
     },
 }
@@ -187,12 +191,12 @@ enum BinOp {
 }
 
 /// A "place expression" evaluates to a `Place`.
-#[specr::rc]
 enum PlaceExpr {
     /// Denotes a local variable.
     Local(LocalName),
     /// Dereference a value (of pointer/reference type).
     Deref {
+        #[specr::indirection]
         operand: ValueExpr,
         // The type of the newly created place.
         ptype: PlaceType,
@@ -200,6 +204,7 @@ enum PlaceExpr {
     /// Project to a field.
     Field {
         /// The place to base the projection on.
+        #[specr::indirection]
         root: PlaceExpr,
         /// The field to project to.
         field: BigInt,
@@ -207,8 +212,10 @@ enum PlaceExpr {
     /// Index to an array element.
     Index {
         /// The array to index into.
+        #[specr::indirection]
         root: PlaceExpr,
         /// The index to project to.
+        #[specr::indirection]
         index: ValueExpr,
     },
 }
