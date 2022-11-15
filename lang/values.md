@@ -14,7 +14,6 @@ The MiniRust value domain is described by the following type definition.
 
 ```rust
 #[derive(PartialEq, Eq)]
-#[specr::rc]
 enum Value<M: Memory> {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -27,6 +26,7 @@ enum Value<M: Memory> {
     /// A variant of a sum type, used for enums.
     Variant {
         idx: BigInt,
+        #[specr::indirection]
         data: Value<M>,
     },
     /// Unions are represented as "lists of chunks", where each chunk is just a raw list of bytes.

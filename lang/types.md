@@ -28,7 +28,6 @@ struct Layout {
 }
 
 /// "Value" types -- these have a size, but not an alignment.
-#[specr::rc]
 enum Type {
     Int(IntType),
     Bool,
@@ -42,6 +41,7 @@ enum Type {
         size: Size,
     },
     Array {
+        #[specr::indirection]
         elem: Type,
         count: BigInt,
     },
