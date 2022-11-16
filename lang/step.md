@@ -19,16 +19,16 @@ For statements it also advances the program counter.
 impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     fn step(&mut self) -> NdResult {
-        let frame = self.cur_frame_mut();
-        let (next_block, next_stmt) = &mut frame.next;
+        let frame = self.cur_frame();
+        let (next_block, next_stmt) = frame.next;
         let block = &frame.func.blocks[next_block];
         if next_stmt == block.statements.len() {
-            // It is the terminator.
+            // It is the terminator. Evaluating it will update `frame.next`.
             self.eval_terminator(block.terminator)?;
         } else {
             // Bump up PC, evaluate this statement.
             let stmt = block.statements[next_stmt];
-            next_stmt += 1;
+            self.cur_frame_mut().next_stmt = next_stmt + 1;
             self.eval_statement(stmt)?;
         }
     }
