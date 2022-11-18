@@ -77,9 +77,12 @@ impl Type {
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Bool: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        match *bytes {
-            [AbstractByte::Init(0, _)] => Value::Bool(false),
-            [AbstractByte::Init(1, _)] => Value::Bool(true),
+        if bytes.len() != 1 {
+            throw!();
+        }
+        match bytes[0] {
+            AbstractByte::Init(0, _) => Value::Bool(false),
+            AbstractByte::Init(1, _) => Value::Bool(true),
             _ => throw!(),
         }
     }
