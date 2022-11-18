@@ -28,7 +28,9 @@ impl<M: Memory> Machine<M> {
         } else {
             // Bump up PC, evaluate this statement.
             let stmt = block.statements[next_stmt];
-            self.cur_frame_mut().next_stmt = next_stmt + 1;
+            self.mutate_cur_frame(|frame| {
+                frame.next.1 = next_stmt + 1;
+            });
             self.eval_statement(stmt)?;
         }
     }
@@ -275,13 +277,17 @@ impl<M: Memory> Machine<M> {
         // Here we make it a spec bug to ever mark an already live local as live.
         let layout = self.cur_frame().func.locals[local].layout::<M>();
         let p = self.mem.allocate(layout.size, layout.align)?;
-        self.cur_frame_mut().locals.try_insert(local, p).unwrap();
+        self.mutate_cur_frame(|frame| {
+            frame.locals.try_insert(local, p).unwrap();
+        });
     }
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let layout = self.cur_frame().func.locals[local].layout::<M>();
-        let p = self.cur_frame_mut().locals.remove(local).unwrap();
+        let p = self.mutate_cur_frame(|frame| {
+            frame.locals.remove(local).unwrap()
+        });
         self.mem.deallocate(p, layout.size, layout.align)?;
     }
 }
@@ -303,7 +309,9 @@ The simplest terminator: jump to the (beginning of the) given block.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
-        self.cur_frame_mut().next = (block_name, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.next = (block_name, BigInt::zero());
+        });
     }
 }
 ```
@@ -317,7 +325,9 @@ impl<M: Memory> Machine<M> {
             panic!("if on a non-boolean")
         };
         let next = if b { then_block } else { else_block };
-        self.cur_frame_mut().next = (next, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.next = (next, BigInt::zero());
+        });
     }
 }
 ```
@@ -384,7 +394,10 @@ impl<M: Memory> Machine<M> {
         }
 
         // Advance the PC for this stack frame.
-        self.cur_frame_mut().next = (next_block, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.next = (next_block, BigInt::zero());
+        });
+
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
             func,

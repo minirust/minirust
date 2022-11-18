@@ -45,12 +45,17 @@ We also define some helper functions that will be useful later.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn cur_frame(&self) -> &StackFrame<M> {
+    fn cur_frame(&self) -> StackFrame<M> {
         self.stack.last().unwrap()
     }
 
-    fn cur_frame_mut(&mut self) -> &mut StackFrame<M> {
-        self.stack.last_mut().unwrap()
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
+        if self.stack.is_empty() {
+            panic!("`mutate_cur_frame` called on empty stack!");
+        }
+
+        let last_idx = self.stack.len() - 1;
+        self.stack.mutate_at(last_idx, f)
     }
 }
 ```
