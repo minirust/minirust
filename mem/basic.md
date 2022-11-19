@@ -205,7 +205,7 @@ impl Memory for BasicMemory {
 
         // Slice into the contents, and put the new bytes there.
         self.allocations.mutate_at(id.0, |allocation| {
-            allocation.contents.write_subslice_with_length(offset.bytes(), bytes.len(), bytes);
+            allocation.contents.write_subslice_at_index(offset.bytes(), bytes);
         });
     }
 

@@ -197,7 +197,7 @@ impl Type {
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         for ((offset, ty), value) in fields.iter().zip(values) {
-            bytes.write_subslice_with_length(offset.bytes(), ty.size::<M>().bytes(), ty.encode::<M>(value));
+            bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
         bytes
     }
@@ -259,7 +259,7 @@ impl Type {
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(size.bytes(), data.len());
-            bytes.write_subslice_with_length(offset.bytes(), size.bytes(), data);
+            bytes.write_subslice_at_index(offset.bytes(), data);
         }
         bytes
     }
