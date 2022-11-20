@@ -33,11 +33,13 @@ struct StackFrame<M: Memory> {
     /// The place where the caller wants to see the return value.
     caller_ret_place: Place<M>,
 
-    /// The next statement/terminator to execute (the "program counter").
-    /// The first component identifies the basic block,
-    /// the second the statement inside that basic block.
-    /// If the index is len+1, it refers to the terminator.
-    next: (BbName, BigInt),
+    /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
+    /// `next_block` identifies the basic block,
+    next_block: BbName,
+
+    /// If `next_stmt` is equal to the number of statements in this block (an
+    /// out-of-bounds index in the statement list), it refers to the terminator.
+    next_stmt: BigInt,
 }
 ```
 
@@ -45,12 +47,25 @@ We also define some helper functions that will be useful later.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn cur_frame(&self) -> &StackFrame<M> {
+    fn cur_frame(&self) -> StackFrame<M> {
         self.stack.last().unwrap()
     }
 
-    fn cur_frame_mut(&mut self) -> &mut StackFrame<M> {
-        self.stack.last_mut().unwrap()
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
+        if self.stack.is_empty() {
+            panic!("`mutate_cur_frame` called on empty stack!");
+        }
+
+        let last_idx = self.stack.len() - 1;
+        self.stack.mutate_at(last_idx, f)
+    }
+}
+
+impl<M: Memory> StackFrame<M> {
+    /// jump to the beginning of the given block.
+    fn jump_to_block(&mut self, b: BbName) -> NdResult {
+        self.next_block = b;
+        self.next_stmt = BigInt::zero();
     }
 }
 ```

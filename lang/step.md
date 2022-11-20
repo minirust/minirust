@@ -20,15 +20,16 @@ impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     fn step(&mut self) -> NdResult {
         let frame = self.cur_frame();
-        let (next_block, next_stmt) = frame.next;
-        let block = &frame.func.blocks[next_block];
-        if next_stmt == block.statements.len() {
-            // It is the terminator. Evaluating it will update `frame.next`.
+        let block = &frame.func.blocks[frame.next_block];
+        if frame.next_stmt == block.statements.len() {
+            // It is the terminator. Evaluating it will update `frame.next_block` and `frame.next_stmt`.
             self.eval_terminator(block.terminator)?;
         } else {
             // Bump up PC, evaluate this statement.
-            let stmt = block.statements[next_stmt];
-            self.cur_frame_mut().next_stmt = next_stmt + 1;
+            let stmt = block.statements[frame.next_stmt];
+            self.mutate_cur_frame(|frame| {
+                frame.next_stmt += 1;
+            });
             self.eval_statement(stmt)?;
         }
     }
@@ -275,13 +276,17 @@ impl<M: Memory> Machine<M> {
         // Here we make it a spec bug to ever mark an already live local as live.
         let layout = self.cur_frame().func.locals[local].layout::<M>();
         let p = self.mem.allocate(layout.size, layout.align)?;
-        self.cur_frame_mut().locals.try_insert(local, p).unwrap();
+        self.mutate_cur_frame(|frame| {
+            frame.locals.try_insert(local, p).unwrap();
+        });
     }
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
         let layout = self.cur_frame().func.locals[local].layout::<M>();
-        let p = self.cur_frame_mut().locals.remove(local).unwrap();
+        let p = self.mutate_cur_frame(|frame| {
+            frame.locals.remove(local).unwrap()
+        });
         self.mem.deallocate(p, layout.size, layout.align)?;
     }
 }
@@ -303,7 +308,9 @@ The simplest terminator: jump to the (beginning of the) given block.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
-        self.cur_frame_mut().next = (block_name, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.jump_to_block(block_name);
+        });
     }
 }
 ```
@@ -317,7 +324,9 @@ impl<M: Memory> Machine<M> {
             panic!("if on a non-boolean")
         };
         let next = if b { then_block } else { else_block };
-        self.cur_frame_mut().next = (next, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.jump_to_block(next);
+        });
     }
 }
 ```
@@ -384,13 +393,17 @@ impl<M: Memory> Machine<M> {
         }
 
         // Advance the PC for this stack frame.
-        self.cur_frame_mut().next = (next_block, BigInt::zero());
+        self.mutate_cur_frame(|frame| {
+            frame.jump_to_block(next_block);
+        });
+
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
             func,
             locals,
             caller_ret_place,
-            next: (func.start, BigInt::zero()),
+            next_block: func.start,
+            next_stmt: BigInt::zero(),
         });
     }
 }

@@ -77,9 +77,12 @@ impl Type {
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Bool: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        match *bytes {
-            [AbstractByte::Init(0, _)] => Value::Bool(false),
-            [AbstractByte::Init(1, _)] => Value::Bool(true),
+        if bytes.len() != 1 {
+            throw!();
+        }
+        match bytes[0] {
+            AbstractByte::Init(0, _) => Value::Bool(false),
+            AbstractByte::Init(1, _) => Value::Bool(true),
             _ => throw!(),
         }
     }
@@ -184,7 +187,8 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         Value::Tuple(
             fields.iter().map(|(offset, ty)| {
-                ty.decode::<M>(bytes[offset.bytes()..][..ty.size::<M>().bytes()])
+                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
+                ty.decode::<M>(subslice)
             }).collect()?,
         )
     }
@@ -193,7 +197,7 @@ impl Type {
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         for ((offset, ty), value) in fields.iter().zip(values) {
-            bytes[offset.bytes()..][..ty.size::<M>().bytes()].copy_from_slice(ty.encode::<M>(value));
+            bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
         bytes
     }
@@ -244,7 +248,7 @@ impl Type {
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
-            chunk_data.push(bytes[offset.bytes()..][..size.bytes()]);
+            chunk_data.push(bytes.subslice_with_length(offset.bytes(), size.bytes()));
         }
         Value::Union(chunk_data)
     }
@@ -255,7 +259,7 @@ impl Type {
         // Restore the data from each chunk.
         for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
             assert_eq!(size.bytes(), data.len());
-            bytes[offset.bytes()..][..size.bytes()] = data;
+            bytes.write_subslice_at_index(offset.bytes(), data);
         }
         bytes
     }

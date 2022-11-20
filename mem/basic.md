@@ -122,7 +122,7 @@ impl Memory for BasicMemory {
             throw_ub!("deallocating invalid pointer")
         };
         // This lookup will definitely work, since AllocId cannot be faked.
-        let allocation = &mut self.allocations[id.0];
+        let allocation = &self.allocations[id.0];
 
         // Check a bunch of things.
         if !allocation.live {
@@ -139,7 +139,9 @@ impl Memory for BasicMemory {
         }
 
         // Mark it as dead. That's it.
-        allocation.live = false;
+        self.allocations.mutate_at(id.0, |allocation| {
+            allocation.live = false;
+        });
     }
 }
 ```
@@ -193,17 +195,18 @@ impl Memory for BasicMemory {
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
-        allocation.contents[offset..][..len].iter().collect()
+        allocation.contents.subslice_with_length(offset.bytes(), len.bytes())
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
             return;
         };
-        let allocation = &mut self.allocations[id.0];
 
         // Slice into the contents, and put the new bytes there.
-        allocation.contents[offset..][..bytes.len()].copy_from_slice(bytes);
+        self.allocations.mutate_at(id.0, |allocation| {
+            allocation.contents.write_subslice_at_index(offset.bytes(), bytes);
+        });
     }
 
     fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result {
