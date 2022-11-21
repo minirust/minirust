@@ -13,7 +13,6 @@ it defines, for a given value and list of bytes, whether that value is represent
 The MiniRust value domain is described by the following type definition.
 
 ```rust
-#[derive(PartialEq, Eq)]
 enum Value<M: Memory> {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -289,7 +288,7 @@ trait DefinedRelation {
 Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 
 ```rust
-impl<Provenance: Eq + Clone> DefinedRelation for AbstractByte<Provenance> {
+impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
@@ -312,7 +311,7 @@ impl<Provenance: Eq + Clone> DefinedRelation for AbstractByte<Provenance> {
 
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
-impl<Provenance: Eq + Clone> DefinedRelation for Pointer<Provenance> {
+impl<Provenance> DefinedRelation for Pointer<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {

@@ -8,7 +8,6 @@ Across all files in this repository, we assume some definitions to always be in 
 pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
 
 #[non_exhaustive]
-#[derive(Debug)]
 pub enum TerminationInfo {
   Ub(String),
   MachineStop(String),
