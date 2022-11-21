@@ -167,7 +167,7 @@ impl ValueExpr {
                 let ptype = target.check_wf::<M>(locals)?;
                 if let PtrType::Box { layout } | PtrType::Ref { layout, .. } = ptr_ty {
                     // Make sure the size fits and the alignment is weakened, not strengthened.
-                    ensure(layout.size == ptype.size::<M>())?;
+                    ensure(layout.size == ptype.ty.size::<M>())?;
                     ensure(layout.align <= ptype.align)?;
                 }
                 Type::Pointer(ptr_ty)
@@ -217,7 +217,7 @@ impl PlaceExpr {
     fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
         use PlaceExpr::*;
         match self {
-            Local(name) => locals.get(name),
+            Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
                 let ty = operand.check_wf::<M>(locals)?;
                 ensure(matches!(ty, Type::Pointer(_)))?;
@@ -285,7 +285,7 @@ impl Statement {
             StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.
-                live_locals.try_insert(local, func.locals.get(local)?)?;
+                live_locals.try_insert(local, func.locals.get(local)?).ok()?;
                 live_locals
             }
             StorageDead(local) => {
@@ -338,8 +338,8 @@ impl Terminator {
 impl Function {
     fn check_wf<M: Memory>(self) -> Option<()> {
         // Ensure all locals have a valid type.
-        for ty in self.locals {
-            ty.check_wf::<M>()?;
+        for pty in self.locals.values() {
+            pty.check_wf::<M>()?;
         }
 
         // Construct initially live locals.
@@ -347,9 +347,9 @@ impl Function {
         let mut start_live: Map<LocalName, PlaceType> = default();
         for (arg, _abi) in self.args {
             // Also ensures that no two arguments refer to the same local.
-            start_live.try_insert(arg, self.locals.get(arg)?)?;
+            start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
         }
-        start_live.try_insert(self.ret.0, self.locals.get(self.ret.0)?)?;
+        start_live.try_insert(self.ret.0, self.locals.get(self.ret.0)?).ok()?;
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
         // which blocks we still have to check. We also track the live locals
@@ -373,14 +373,14 @@ impl Function {
                 } else {
                     // A new block.
                     bb_live_at_entry.insert(block_name, live_locals);
-                    todo.push_back(block_name);
+                    todo.push(block_name);
                 }
             }
         }
 
         // Ensure there are no dead blocks that we failed to reach.
         for block_name in self.blocks.keys() {
-            ensure(bb_live_at_entry.contains(block_name))?;
+            ensure(bb_live_at_entry.contains_key(block_name))?;
         }
     }
 }

@@ -104,7 +104,7 @@ impl Type {
             throw!();
         }
         // Fails if any byte is `Uninit`.
-        let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+        let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
         Value::Int(M::ENDIANNESS.decode(signed, bytes_data))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -130,9 +130,9 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
-    if bytes.len() != M::PTR_SIZE { throw!(); }
+    if bytes.len() != M::PTR_SIZE.bytes() { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+    let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
     let addr = M::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<M::Provenance> = bytes[0].provenance();
@@ -189,7 +189,7 @@ impl Type {
             fields.iter().map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
                 ty.decode::<M>(subslice)
-            }).collect()?,
+            }).try_collect()?
         )
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -218,7 +218,7 @@ impl Type {
         Value::Tuple(
             bytes.chunks(elem.size::<M>().bytes())
                 .map(|elem_bytes| elem.decode::<M>(elem_bytes))
-                .collect()?,
+                .try_collect()?
         )
     }
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -436,7 +436,7 @@ impl<M: Memory> TypedMemory for M {
     }
 
     fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
-        if !layout.inhabited() {
+        if !layout.inhabited {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");
         }
@@ -448,7 +448,7 @@ impl<M: Memory> TypedMemory for M {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
             // base case
-            (Value::Pointer(ptr), Type::Pointer(ptr_type)) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
+            (Value::Ptr(ptr), Type::Pointer(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).map(|val, (_offset, ty)| self.retag_val(val, ty, fn_entry)).collect()?),
