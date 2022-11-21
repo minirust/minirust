@@ -31,7 +31,7 @@ struct Layout {
 enum Type {
     Int(IntType),
     Bool,
-    Pointer(PtrType),
+    Ptr(PtrType),
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
@@ -126,7 +126,7 @@ impl Type {
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes(1),
-            Pointer(_) => M::PTR_SIZE,
+            Ptr(_) => M::PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size::<M>() * count,
         }
@@ -135,8 +135,8 @@ impl Type {
     fn inhabited(self) -> bool {
         use Type::*;
         match self {
-            Int(..) | Bool | Pointer(PtrType::Raw { .. }) => true,
-            Pointer(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
+            Int(..) | Bool | Ptr(PtrType::Raw { .. }) => true,
+            Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.iter().all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,

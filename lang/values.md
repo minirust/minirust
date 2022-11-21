@@ -151,7 +151,7 @@ fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Pr
 }
 
 impl Type {
-    fn decode<M: Memory>(Type::Pointer(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
             PtrType::Raw { pointee: _ } => {}, // nothing to check
@@ -163,7 +163,7 @@ impl Type {
         }
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }
-    fn encode<M: Memory>(Type::Pointer(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr::<M>(ptr)
     }
@@ -447,7 +447,7 @@ impl<M: Memory> TypedMemory for M {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
             // base case
-            (Value::Ptr(ptr), Type::Pointer(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).map(|val, (_offset, ty)| self.retag_val(val, ty, fn_entry)).collect()?),

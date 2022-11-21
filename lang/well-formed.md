@@ -54,7 +54,7 @@ impl Type {
                 int_type.check_wf()?;
             }
             Bool => (),
-            Pointer(ptr_type) => {
+            Ptr(ptr_type) => {
                 ptr_type.check_wf()?;
             }
             Tuple { fields, size } => {
@@ -170,7 +170,7 @@ impl ValueExpr {
                     ensure(layout.size == ptype.ty.size::<M>())?;
                     ensure(layout.align <= ptype.align)?;
                 }
-                Type::Pointer(ptr_ty)
+                Type::Ptr(ptr_ty)
             }
             UnOp { operator, operand } => {
                 use lang::UnOp::*;
@@ -182,12 +182,12 @@ impl ValueExpr {
                         Type::Int(int_ty)
                     }
                     Ptr2Int => {
-                        ensure(matches!(operand, Type::Pointer(_)))?;
+                        ensure(matches!(operand, Type::Ptr(_)))?;
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
                     }
                     Int2Ptr(ptr_ty) => {
                         ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })))?;
-                        Type::Pointer(ptr_ty)
+                        Type::Ptr(ptr_ty)
                     }
                 }
             }
@@ -203,7 +203,7 @@ impl ValueExpr {
                         Type::Int(int_ty)
                     }
                     PtrOffset { inbounds: _ } => {
-                        ensure(matches!(left, Type::Pointer(_)))?;
+                        ensure(matches!(left, Type::Ptr(_)))?;
                         ensure(matches!(right, Type::Int(_)))?;
                         left
                     }
@@ -220,7 +220,7 @@ impl PlaceExpr {
             Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
                 let ty = operand.check_wf::<M>(locals)?;
-                ensure(matches!(ty, Type::Pointer(_)))?;
+                ensure(matches!(ty, Type::Ptr(_)))?;
                 ptype
             }
             Field { root, field } => {
