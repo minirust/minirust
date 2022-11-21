@@ -21,14 +21,14 @@ impl Memory for BasicMemory {
 }
 ```
 
-The data tracked by the memory is fairly simple: for each allocation, we track its contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
+The data tracked by the memory is fairly simple: for each allocation, we track its data contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
 
 ```rust
 struct Allocation {
     /// The data stored in this allocation.
-    contents: List<AbstractByte<AllocId>>,
+    data: List<AbstractByte<AllocId>>,
     /// The address where this allocation starts.
-    /// This is never 0, and `addr + contents.len()` fits into a `usize`.
+    /// This is never 0, and `addr + data.len()` fits into a `usize`.
     addr: BigInt,
     /// The alignment that was requested for this allocation.
     /// `addr` will be a multiple of this.
@@ -61,7 +61,7 @@ We start with some helper operations.
 
 ```rust
 impl Allocation {
-    fn size(self) -> BigInt { self.contents.len() }
+    fn size(self) -> BigInt { self.data.len() }
 
     fn overlaps(self, other_addr: BigInt, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
@@ -107,7 +107,7 @@ impl Memory for BasicMemory {
             addr,
             align,
             live: true,
-            contents: list![AbstractByte::Uninit; size.bytes()],
+            data: list![AbstractByte::Uninit; size.bytes()],
         };
 
         // Insert it into list, and remember where.
@@ -195,7 +195,7 @@ impl Memory for BasicMemory {
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
-        allocation.contents.subslice_with_length(offset.bytes(), len.bytes())
+        allocation.data.subslice_with_length(offset.bytes(), len.bytes())
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
@@ -205,7 +205,7 @@ impl Memory for BasicMemory {
 
         // Slice into the contents, and put the new bytes there.
         self.allocations.mutate_at(id.0, |allocation| {
-            allocation.contents.write_subslice_at_index(offset.bytes(), bytes);
+            allocation.data.write_subslice_at_index(offset.bytes(), bytes);
         });
     }
 
