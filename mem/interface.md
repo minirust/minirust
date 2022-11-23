@@ -33,7 +33,6 @@ Abstract bytes differ from `u8` to support representing uninitialized Memory and
 We define the `AbstractByte` type as follows, where `Provenance` will later be instantiated with the `Memory::Provenance` associated type.
 
 ```rust
-#[derive(PartialEq, Eq)]
 pub enum AbstractByte<Provenance> {
     /// An uninitialized byte.
     Uninit,
@@ -41,7 +40,7 @@ pub enum AbstractByte<Provenance> {
     Init(u8, Option<Provenance>),
 }
 
-impl<Provenance: Clone> AbstractByte<Provenance> {
+impl<Provenance> AbstractByte<Provenance> {
     pub fn data(self) -> Option<u8> {
         match self {
             AbstractByte::Uninit => None,
@@ -72,7 +71,6 @@ type Address = BigInt;
 /// A "pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
-#[derive(PartialEq, Eq, Debug)]
 pub struct Pointer<Provenance> {
     pub addr: Address,
     pub provenance: Option<Provenance>,
@@ -82,9 +80,9 @@ pub struct Pointer<Provenance> {
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
-pub trait Memory: Sized {
+pub trait Memory {
     /// The type of pointer provenance.
-    type Provenance: Eq + Hash + Clone + Debug;
+    type Provenance;
 
     /// The size of a pointer.
     const PTR_SIZE: Size;

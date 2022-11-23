@@ -13,7 +13,6 @@ it defines, for a given value and list of bytes, whether that value is represent
 The MiniRust value domain is described by the following type definition.
 
 ```rust
-#[derive(PartialEq, Eq)]
 enum Value<M: Memory> {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(BigInt),
@@ -104,7 +103,7 @@ impl Type {
             throw!();
         }
         // Fails if any byte is `Uninit`.
-        let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+        let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
         Value::Int(M::ENDIANNESS.decode(signed, bytes_data))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -130,9 +129,9 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
-    if bytes.len() != M::PTR_SIZE { throw!(); }
+    if bytes.len() != M::PTR_SIZE.bytes() { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data = bytes.iter().map(|b| b.data()).collect()?;
+    let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
     let addr = M::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<M::Provenance> = bytes[0].provenance();
@@ -152,7 +151,7 @@ fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Pr
 }
 
 impl Type {
-    fn decode<M: Memory>(Type::Pointer(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
             PtrType::Raw { pointee: _ } => {}, // nothing to check
@@ -164,7 +163,7 @@ impl Type {
         }
         Value::Ptr(decode_ptr::<M>(bytes)?)
     }
-    fn encode<M: Memory>(Type::Pointer(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
         encode_ptr::<M>(ptr)
     }
@@ -189,7 +188,7 @@ impl Type {
             fields.iter().map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
                 ty.decode::<M>(subslice)
-            }).collect()?,
+            }).try_collect()?
         )
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -218,7 +217,7 @@ impl Type {
         Value::Tuple(
             bytes.chunks(elem.size::<M>().bytes())
                 .map(|elem_bytes| elem.decode::<M>(elem_bytes))
-                .collect()?,
+                .try_collect()?
         )
     }
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -289,7 +288,7 @@ trait DefinedRelation {
 Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-defined as `b2`") as follows:
 
 ```rust
-impl<Provenance: Eq + Clone> DefinedRelation for AbstractByte<Provenance> {
+impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
@@ -312,7 +311,7 @@ impl<Provenance: Eq + Clone> DefinedRelation for AbstractByte<Provenance> {
 
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
-impl<Provenance: Eq + Clone> DefinedRelation for Pointer<Provenance> {
+impl<Provenance> DefinedRelation for Pointer<Provenance> {
     fn le_defined(&self, other: &Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {
@@ -436,7 +435,7 @@ impl<M: Memory> TypedMemory for M {
     }
 
     fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
-        if !layout.inhabited() {
+        if !layout.inhabited {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");
         }
@@ -448,7 +447,7 @@ impl<M: Memory> TypedMemory for M {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
             // base case
-            (Value::Pointer(ptr), Type::Pointer(ptr_type)) => self.retag_ptr(ptr, ptr_type, fn_entry)?,
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).map(|val, (_offset, ty)| self.retag_val(val, ty, fn_entry)).collect()?),

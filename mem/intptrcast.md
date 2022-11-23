@@ -15,7 +15,7 @@ pub struct IntPtrCast<Provenance> {
     exposed: Set<Provenance>,
 }
 
-impl<Provenance: Eq + Hash + Clone> IntPtrCast<Provenance> {
+impl<Provenance> IntPtrCast<Provenance> {
     pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<BigInt> {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.

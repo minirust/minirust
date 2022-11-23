@@ -6,7 +6,6 @@ First, the general structure of programs and functions:
 ```rust
 /// Some opaque type of function names.
 /// The details of this this is represented to not matter.
-#[derive(Hash, PartialEq, Eq, Debug)]
 struct FnName(specr::Name);
 
 /// A closed MiniRust program.
@@ -18,9 +17,7 @@ struct Program {
 }
 
 /// Opaque types of names for local variables and basic blocks.
-#[derive(Hash, PartialEq, Eq, Debug)]
 struct LocalName(specr::Name);
-#[derive(Hash, PartialEq, Eq, Debug)]
 struct BbName(specr::Name);
 
 /// A MiniRust function.
