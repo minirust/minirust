@@ -1,4 +1,5 @@
 The endianness defines how integers and pointers are encoded and decoded.
+This is defined by specr, we just repeat the signature here for reference.
 
 ```rust,ignore
 pub enum Endianness {
