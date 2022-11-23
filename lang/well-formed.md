@@ -165,10 +165,10 @@ impl ValueExpr {
             }
             AddrOf { target, ptr_ty } => {
                 let ptype = target.check_wf::<M>(locals)?;
-                if let PtrType::Box { layout } | PtrType::Ref { layout, .. } = ptr_ty {
+                if let PtrType::Box { pointee } | PtrType::Ref { pointee, .. } = ptr_ty {
                     // Make sure the size fits and the alignment is weakened, not strengthened.
-                    ensure(layout.size == ptype.ty.size::<M>())?;
-                    ensure(layout.align <= ptype.align)?;
+                    ensure(pointee.size == ptype.ty.size::<M>())?;
+                    ensure(pointee.align <= ptype.align)?;
                 }
                 Type::Ptr(ptr_ty)
             }

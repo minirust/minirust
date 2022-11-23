@@ -220,9 +220,9 @@ We don't have aliasing requirements in this model, so we only check dereferencab
 impl Memory for BasicMemory {
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         let layout = match ptr_type {
-            lang::PtrType::Ref { layout, .. } => layout,
-            lang::PtrType::Box { layout } => layout,
-            lang::PtrType::Raw { layout } => layout,
+            lang::PtrType::Ref { pointee, .. } => pointee,
+            lang::PtrType::Box { pointee } => pointee,
+            lang::PtrType::Raw { pointee } => pointee,
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
         ptr
