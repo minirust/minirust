@@ -281,7 +281,7 @@ It would be a specification bug if the representation relations defined above vi
 ```rust
 trait DefinedRelation {
     /// returns whether `self` is less or as defined as `other`
-    fn le_defined(&self, other: &Self) -> bool;
+    fn le_defined(self, other: Self) -> bool;
 }
 ```
 
@@ -289,7 +289,7 @@ Starting with `AbstractByte`, we define `b1 <= b2` ("`b1` is less-or-equally-def
 
 ```rust
 impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
-    fn le_defined(&self, other: &Self) -> bool {
+    fn le_defined(self, other: Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
             /// `Uninit <= _`: initializing something makes it "more defined".
@@ -312,7 +312,7 @@ impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
 impl<Provenance> DefinedRelation for Pointer<Provenance> {
-    fn le_defined(&self, other: &Self) -> bool {
+    fn le_defined(self, other: Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {
                 (None, _) => true,
@@ -327,7 +327,7 @@ The order on `List<AbstractByte>` is assumed to be such that `bytes1 <= bytes2` 
 In fact, we define this to be in general how lists are partially ordered (based on the order of their element type):
 ```rust
 impl<T: DefinedRelation> DefinedRelation for List<T> {
-    fn le_defined(&self, other: &Self) -> bool {
+    fn le_defined(self, other: Self) -> bool {
         self.len() == other.len() &&
             self.iter().zip(other.iter()).all(|(l, r)| l.le_defined(r))
     }
@@ -337,7 +337,7 @@ impl<T: DefinedRelation> DefinedRelation for List<T> {
 For `Value`, we lift the order on byte lists to relate `Bytes`s, and otherwise require equality:
 ```rust
 impl<M: Memory> DefinedRelation for Value<M> {
-    fn le_defined(&self, other: &Self) -> bool {
+    fn le_defined(self, other: Self) -> bool {
         use Value::*;
         match (self, other) {
             (Int(i1), Int(i2)) =>
@@ -360,7 +360,7 @@ impl<M: Memory> DefinedRelation for Value<M> {
 Finally, on `Option<Value>` we assume that `None <= _`, and `Some(v1) <= Some(v2)` if and only if `v1 <= v2`:
 ```rust
 impl<T: DefinedRelation> DefinedRelation for Option<T> {
-    fn le_defined(&self, other: &Self) -> bool {
+    fn le_defined(self, other: Self) -> bool {
         match (self, other) {
             (None, _) => true,
             (Some(l), Some(r)) => l.le_defined(r),
