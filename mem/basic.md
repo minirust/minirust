@@ -60,7 +60,7 @@ We start with some helper operations.
 
 ```rust
 impl Allocation {
-    fn size(self) -> BigInt { self.data.len() }
+    fn size(self) -> Size { Size::from_bytes(self.data.len()) }
 
     fn overlaps(self, other_addr: BigInt, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
@@ -92,11 +92,11 @@ impl Memory for BasicMemory {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... that is suitably aligned...
-            if addr % align != 0 { return false; }
+            if addr % align.bytes() != 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
             if !(addr+size.bytes()).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
-            if self.allocations.values().any(|a| a.live && a.overlaps(addr, size)) { return false; }
+            if self.allocations.iter().any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
             true
         })?;
@@ -158,7 +158,7 @@ impl BasicMemory {
         if ptr.addr == 0 {
             throw_ub!("dereferencing null pointer");
         }
-        if ptr.addr % align != 0 {
+        if ptr.addr % align.bytes() != 0 {
             throw_ub!("pointer is insufficiently aligned");
         }
         // For zero-sized accesses, this is enough.
@@ -198,7 +198,8 @@ impl Memory for BasicMemory {
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
-        let Some((id, offset)) = self.check_ptr(ptr, bytes.len(), align)? else {
+        let size = Size::from_bytes(bytes.len());
+        let Some((id, offset)) = self.check_ptr(ptr, size, align)? else {
             return;
         };
 
@@ -220,9 +221,9 @@ We don't have aliasing requirements in this model, so we only check dereferencab
 impl Memory for BasicMemory {
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         let layout = match ptr_type {
-            lang::PtrType::Ref { layout, .. } => layout,
-            lang::PtrType::Box { layout } => layout,
-            lang::PtrType::Raw { layout } => layout,
+            lang::PtrType::Ref { pointee, .. } => pointee,
+            lang::PtrType::Box { pointee } => pointee,
+            lang::PtrType::Raw { pointee } => pointee,
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
         ptr
@@ -235,7 +236,7 @@ A size is valid, whenever it is non-negative and in-bounds for signed `PTR_SIZE`
 ```rust
 impl Memory for BasicMemory {
     fn valid_size(size: Size) -> bool {
-        size.in_bounds(Signed, Self::PTR_SIZE) && size >= 0
+        size.bytes().in_bounds(Signed, Self::PTR_SIZE)
     }
 }
 ```
