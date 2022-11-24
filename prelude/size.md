@@ -17,7 +17,7 @@ impl Size {
 
     /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
     /// not a multiple of 8.
-    /// will panic if `bits` is negative.
+    /// Will panic if `bits` is negative.
     pub fn from_bits(bits: impl Into<BigInt>) -> Size {
         let bits = bits.into();
 
@@ -30,7 +30,7 @@ impl Size {
         Size { raw }
     }
 
-    /// will panic if `bytes` is negative.
+    /// Will panic if `bytes` is negative.
     pub fn from_bytes(bytes: impl Into<BigInt>) -> Size {
         let bytes = bytes.into();
 
