@@ -430,7 +430,7 @@ impl<M: Memory> TypedMemory for M {
         let bytes = self.load(ptr, pty.ty.size::<Self>(), pty.align)?;
         match pty.ty.decode::<Self>(bytes) {
             Some(val) => val,
-            None => throw_ub!("load at type {pty} but the data in memory violates the validity invariant"),
+            None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
         }
     }
 
@@ -450,9 +450,9 @@ impl<M: Memory> TypedMemory for M {
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).map(|val, (_offset, ty)| self.retag_val(val, ty, fn_entry)).collect()?),
+                Value::Tuple(vals.iter().zip(fields).map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry)).try_collect()?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.map(|val| self.retag_val(val, ty, fn_entry)).collect()?),
+                Value::Tuple(vals.iter().map(|val| self.retag_val(val, ty, fn_entry)).try_collect()?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
                 Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
             _ => panic!("this value does not have that type"),
@@ -470,7 +470,7 @@ We could decide that this is an "if and only if", i.e., that the validity invari
 ```rust
 fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provenance>>) -> Result {
     if ty.decode::<M>(bytes).is_none() {
-        throw_ub!("data violates validity invariant of type {ty}");
+        throw_ub!("data violates validity invariant of type {ty:?}"); // FIXME use Display instead of Debug for `ty`
     }
 }
 ```
