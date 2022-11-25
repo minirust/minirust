@@ -403,7 +403,7 @@ impl<M: Memory> Machine<M> {
             locals,
             caller_ret_place,
             next_block: func.start,
-            next_stmt: BigInt::ZERO,
+            next_stmt: Int::ZERO,
         });
     }
 }

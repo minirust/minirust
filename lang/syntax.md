@@ -101,14 +101,14 @@ We also need to define constants (a strict subset of `Value`).
 /// Currently we do not support Ptr and Union constants.
 enum Constant {
     /// A mathematical integer, used for `i*`/`u*` types.
-    Int(BigInt),
+    Int(Int),
     /// A Boolean value, used for `bool`.
     Bool(bool),
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<Constant>),
     /// A variant of a sum type, used for enums.
     Variant {
-        idx: BigInt,
+        idx: Int,
         #[specr::indirection]
         data: Constant,
     },
@@ -204,7 +204,7 @@ enum PlaceExpr {
         #[specr::indirection]
         root: PlaceExpr,
         /// The field to project to.
-        field: BigInt,
+        field: Int,
     },
     /// Index to an array element.
     Index {

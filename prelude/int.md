@@ -1,36 +1,36 @@
-BigInt is the type of mathematical integers.
+Int is the type of mathematical integers.
 
 We assume all the usual arithmetic operations to be defined.
-Additionally, BigInt provides a few utility functions.
+Additionally, Int provides a few utility functions.
 
 ```rust
-pub use specr::BigInt;
+pub use specr::Int;
 
-impl BigInt {
-    /// Converts any integer type to BigInt.
-    pub fn from(x: impl Into<BigInt>) -> BigInt;
+impl Int {
+    /// Converts any integer type to Int.
+    pub fn from(x: impl Into<Int>) -> Int;
 
     /// Returns the next-higher power of two.
-    pub fn next_power_of_two(&self) -> BigInt;
+    pub fn next_power_of_two(&self) -> Int;
 
     /// Checks whether `self` is a power of two.
     pub fn is_power_of_two(&self) -> bool;
 
     /// Computes `self / other`, returns None if `other` is zero.
-    pub fn checked_div(other: impl Into<BigInt>) -> Option<BigInt>;
+    pub fn checked_div(other: impl Into<Int>) -> Option<Int>;
 
     /// Returns the unique value that is equal to `self` modulo `2^size.bits()`.
     /// If `signed == Unsigned`, the result is in the interval `0..2^size.bits()`,
     /// else it is in the interval `-2^(size.bits()-1) .. 2^(size.bits()-1)`.
     ///
     /// `size` must not be zero.
-    pub fn modulo(self, signed: Signedness, size: Size) -> BigInt {
+    pub fn modulo(self, signed: Signedness, size: Size) -> Int {
         if size.is_zero() {
-            panic!("BigInt::modulo received invalid size zero!");
+            panic!("Int::modulo received invalid size zero!");
         }
 
         // the modulus.
-        let m = BigInt::from(2).pow(size.bits());
+        let m = Int::from(2).pow(size.bits());
 
         // n is in range `-(m-1)..m`.
         let n = self % m;

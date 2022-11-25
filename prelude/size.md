@@ -8,15 +8,15 @@ Users needs check whether a given `Size` is too large for their Machine themselv
 
 ```rust
 /// `raw` stores the size in bytes.
-pub struct Size { raw: BigInt }
+pub struct Size { raw: Int }
 
 impl Size {
-    pub const ZERO: Size = Size { raw: BigInt::ZERO };
+    pub const ZERO: Size = Size { raw: Int::ZERO };
 
     /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
     /// not a multiple of 8.
     /// Will panic if `bits` is negative.
-    pub fn from_bits(bits: impl Into<BigInt>) -> Size {
+    pub fn from_bits(bits: impl Into<Int>) -> Size {
         let bits = bits.into();
 
         if bits < 0 {
@@ -29,7 +29,7 @@ impl Size {
     }
 
     /// Will panic if `bytes` is negative.
-    pub fn from_bytes(bytes: impl Into<BigInt>) -> Size {
+    pub fn from_bytes(bytes: impl Into<Int>) -> Size {
         let bytes = bytes.into();
 
         if bytes < 0 {
@@ -39,7 +39,7 @@ impl Size {
         Size { raw: bytes }
     }
 
-    pub fn bytes(self) -> BigInt { self.raw }
-    pub fn bits(self) -> BigInt { self.raw * 8 }
+    pub fn bytes(self) -> Int { self.raw }
+    pub fn bits(self) -> Int { self.raw * 8 }
 }
 ```

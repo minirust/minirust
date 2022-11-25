@@ -15,7 +15,7 @@ The MiniRust value domain is described by the following type definition.
 ```rust
 enum Value<M: Memory> {
     /// A mathematical integer, used for `i*`/`u*` types.
-    Int(BigInt),
+    Int(Int),
     /// A Boolean value, used for `bool`.
     Bool(bool),
     /// A pointer value, used for (thin) references and raw pointers.
@@ -24,7 +24,7 @@ enum Value<M: Memory> {
     Tuple(List<Value<M>>),
     /// A variant of a sum type, used for enums.
     Variant {
-        idx: BigInt,
+        idx: Int,
         #[specr::indirection]
         data: Value<M>,
     },

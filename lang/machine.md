@@ -39,7 +39,7 @@ struct StackFrame<M: Memory> {
 
     /// If `next_stmt` is equal to the number of statements in this block (an
     /// out-of-bounds index in the statement list), it refers to the terminator.
-    next_stmt: BigInt,
+    next_stmt: Int,
 }
 ```
 
@@ -65,7 +65,7 @@ impl<M: Memory> StackFrame<M> {
     /// jump to the beginning of the given block.
     fn jump_to_block(&mut self, b: BbName) -> NdResult {
         self.next_block = b;
-        self.next_stmt = BigInt::ZERO;
+        self.next_stmt = Int::ZERO;
     }
 }
 ```
