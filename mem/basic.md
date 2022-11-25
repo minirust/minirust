@@ -49,7 +49,7 @@ The model represents a 64-bit little-endian machine.
 
 ```rust
 impl Memory for BasicMemory {
-    const PTR_SIZE: Size = Size::from_bits(64);
+    const PTR_SIZE: Size = Size::from_bits_const(64);
     const ENDIANNESS: Endianness = LittleEndian;
 }
 ```

@@ -28,6 +28,14 @@ impl Size {
         Size { raw }
     }
 
+    /// variation of `from_bits` for const contexts.
+    /// Cannot fail since the input is unsigned.
+    pub const fn from_bits_const(bits: u64) -> Size {
+        let bytes = bits / 8 + ((bits % 8) + 7) / 8;
+        let raw = Int::from(bytes);
+        Size { raw }
+    }
+
     /// Will panic if `bytes` is negative.
     pub fn from_bytes(bytes: impl Into<Int>) -> Size {
         let bytes = bytes.into();
@@ -37,6 +45,13 @@ impl Size {
         }
 
         Size { raw: bytes }
+    }
+
+    /// variation of `from_bytes` for const contexts.
+    /// Cannot fail since the input is unsigned.
+    pub const fn from_bytes_const(bytes: u64) -> Size {
+        let raw = Int::from(bytes);
+        Size { raw }
     }
 
     pub fn bytes(self) -> Int { self.raw }
