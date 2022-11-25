@@ -11,9 +11,7 @@ Users needs check whether a given `Size` is too large for their Machine themselv
 pub struct Size { raw: BigInt }
 
 impl Size {
-    pub fn zero() -> Size {
-        Size { raw: BigInt::from(0) }
-    }
+    pub const ZERO: Size = Size { raw: BigInt::ZERO };
 
     /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
     /// not a multiple of 8.

@@ -8,9 +8,7 @@ See [Align](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/str
 pub struct Align { raw: BigInt }
 
 impl Align {
-    pub fn one() -> Align {
-        Align { raw: BigInt::from(1) }
-    }
+    pub const ONE: Align = Align { raw: BigInt::ONE };
 
     /// align is rounded up to the next power of two.
     pub fn from_bytes(align: impl Into<BigInt>) -> Align {

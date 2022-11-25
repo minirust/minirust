@@ -65,7 +65,7 @@ impl<M: Memory> StackFrame<M> {
     /// jump to the beginning of the given block.
     fn jump_to_block(&mut self, b: BbName) -> NdResult {
         self.next_block = b;
-        self.next_stmt = BigInt::zero();
+        self.next_stmt = BigInt::ZERO;
     }
 }
 ```
