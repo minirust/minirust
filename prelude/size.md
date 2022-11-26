@@ -6,6 +6,8 @@ See [Size](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/stru
 Note that the `Size` type has no upper-bound.
 Users needs check whether a given `Size` is too large for their Machine themselves.
 
+For convenience, Size implements `Ord`, `Add`, and you can multiply `Size` with `Int`.
+
 ```rust
 /// `raw` stores the size in bytes.
 pub struct Size { raw: Int }
