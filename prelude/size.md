@@ -23,15 +23,14 @@ impl Size {
             panic!("attempting to create negative Size");
         }
 
-        // round up `bits / 8`
-        let raw = bits / 8 + ((bits % 8) + 7) / 8;
+        let raw = bits.div_ceil(8);
         Size { raw }
     }
 
     /// variation of `from_bits` for const contexts.
     /// Cannot fail since the input is unsigned.
     pub const fn from_bits_const(bits: u64) -> Size {
-        let bytes = bits / 8 + ((bits % 8) + 7) / 8;
+        let bytes = bits.div_ceil(8);
         let raw = Int::from(bytes);
         Size { raw }
     }
