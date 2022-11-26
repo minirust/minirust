@@ -43,7 +43,7 @@ enum Type {
     Array {
         #[specr::indirection]
         elem: Type,
-        count: BigInt,
+        count: Int,
     },
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,

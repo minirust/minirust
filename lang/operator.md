@@ -15,7 +15,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_int(&mut self, op: UnOpInt, operand: BigInt) -> NdResult<BigInt> {
+    fn eval_un_op_int(&mut self, op: UnOpInt, operand: Int) -> NdResult<Int> {
         use UnOpInt::*;
         match op {
             Neg => -operand,
@@ -64,7 +64,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_int(&mut self, op: BinOpInt, left: BigInt, right: BigInt) -> NdResult<BigInt> {
+    fn eval_bin_op_int(&mut self, op: BinOpInt, left: Int, right: Int) -> NdResult<Int> {
         use BinOpInt::*;
         match op {
             Add => left + right,
@@ -96,7 +96,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
-    fn ptr_offset_wrapping(&self, ptr: Pointer<M::Provenance>, offset: BigInt) -> Pointer<M::Provenance> {
+    fn ptr_offset_wrapping(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Pointer<M::Provenance> {
         let offset = offset.modulo(Signed, M::PTR_SIZE);
         let addr = ptr.addr + offset;
         let addr = addr.modulo(Unsigned, M::PTR_SIZE);
@@ -105,7 +105,7 @@ impl<M: Memory> Machine<M> {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: BigInt) -> NdResult<Pointer<M::Provenance>> {
+    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> NdResult<Pointer<M::Provenance>> {
         if !offset.in_bounds(Signed, M::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }
@@ -126,7 +126,7 @@ impl<M: Memory> Machine<M> {
         // `offset.abs()` will fit into a `Size` since we did the overflow check above.
         // FIXME: actually, it could be isize::MIN and then everything breaks? Is that
         // a valid offset?
-        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()), Align::one())?;
+        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()), Align::ONE)?;
         // If this check passed, we are good.
         new_ptr
     }

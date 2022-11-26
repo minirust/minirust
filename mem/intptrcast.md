@@ -16,7 +16,7 @@ pub struct IntPtrCast<Provenance> {
 }
 
 impl<Provenance> IntPtrCast<Provenance> {
-    pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<BigInt> {
+    pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<Int> {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.
             self.exposed.insert(provenance);
@@ -24,7 +24,7 @@ impl<Provenance> IntPtrCast<Provenance> {
         ptr.addr
     }
 
-    pub fn int2ptr(&mut self, addr: BigInt) -> NdResult<Pointer<Provenance>> {
+    pub fn int2ptr(&mut self, addr: Int) -> NdResult<Pointer<Provenance>> {
         // Predict a suitable provenance. It must be either `None` or already exposed.
         let provenance = predict(|prov: Option<Provenance>| {
             prov.map_or(

@@ -13,7 +13,7 @@ The provenance tracked by this memory model is just an ID that identifies which 
 (We will pretend we can split the `impl ... for` block into multiple smaller blocks.)
 
 ```rust
-struct AllocId(BigInt);
+struct AllocId(Int);
 
 impl Memory for BasicMemory {
     type Provenance = AllocId;
@@ -28,7 +28,7 @@ struct Allocation {
     data: List<AbstractByte<AllocId>>,
     /// The address where this allocation starts.
     /// This is never 0, and `addr + data.len()` fits into a `usize`.
-    addr: BigInt,
+    addr: Int,
     /// The alignment that was requested for this allocation.
     /// `addr` will be a multiple of this.
     align: Align,
@@ -49,7 +49,7 @@ The model represents a 64-bit little-endian machine.
 
 ```rust
 impl Memory for BasicMemory {
-    const PTR_SIZE: Size = Size::from_bits(64);
+    const PTR_SIZE: Size = Size::from_bits_const(64);
     const ENDIANNESS: Endianness = LittleEndian;
 }
 ```
@@ -62,7 +62,7 @@ We start with some helper operations.
 impl Allocation {
     fn size(self) -> Size { Size::from_bytes(self.data.len()) }
 
-    fn overlaps(self, other_addr: BigInt, other_size: Size) -> bool {
+    fn overlaps(self, other_addr: Int, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
         let other_end_addr = other_addr + other_size.bytes();
         if end_addr <= other_addr || other_end_addr <= self.addr {
@@ -88,7 +88,7 @@ impl Memory for BasicMemory {
         // meaning the program has to cope with every possible choice.
         // FIXME: This makes OOM (when there is no possible choice) into "no behavior",
         // which is not what we want.
-        let addr = pick(|addr: BigInt| {
+        let addr = pick(|addr: Int| {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... that is suitably aligned...

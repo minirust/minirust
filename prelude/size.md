@@ -8,17 +8,15 @@ Users needs check whether a given `Size` is too large for their Machine themselv
 
 ```rust
 /// `raw` stores the size in bytes.
-pub struct Size { raw: BigInt }
+pub struct Size { raw: Int }
 
 impl Size {
-    pub fn zero() -> Size {
-        Size { raw: BigInt::from(0) }
-    }
+    pub const ZERO: Size = Size { raw: Int::ZERO };
 
     /// Rounds `bits` up to the next-higher byte boundary, if `bits` is
     /// not a multiple of 8.
     /// Will panic if `bits` is negative.
-    pub fn from_bits(bits: impl Into<BigInt>) -> Size {
+    pub fn from_bits(bits: impl Into<Int>) -> Size {
         let bits = bits.into();
 
         if bits < 0 {
@@ -30,8 +28,16 @@ impl Size {
         Size { raw }
     }
 
+    /// variation of `from_bits` for const contexts.
+    /// Cannot fail since the input is unsigned.
+    pub const fn from_bits_const(bits: u64) -> Size {
+        let bytes = bits / 8 + ((bits % 8) + 7) / 8;
+        let raw = Int::from(bytes);
+        Size { raw }
+    }
+
     /// Will panic if `bytes` is negative.
-    pub fn from_bytes(bytes: impl Into<BigInt>) -> Size {
+    pub fn from_bytes(bytes: impl Into<Int>) -> Size {
         let bytes = bytes.into();
 
         if bytes < 0 {
@@ -41,7 +47,14 @@ impl Size {
         Size { raw: bytes }
     }
 
-    pub fn bytes(self) -> BigInt { self.raw }
-    pub fn bits(self) -> BigInt { self.raw * 8 }
+    /// variation of `from_bytes` for const contexts.
+    /// Cannot fail since the input is unsigned.
+    pub const fn from_bytes_const(bytes: u64) -> Size {
+        let raw = Int::from(bytes);
+        Size { raw }
+    }
+
+    pub fn bytes(self) -> Int { self.raw }
+    pub fn bits(self) -> Int { self.raw * 8 }
 }
 ```

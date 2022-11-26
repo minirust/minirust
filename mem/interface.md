@@ -66,7 +66,7 @@ The MiniRust memory interface is described by the following (not-yet-complete) t
 /// location in the real program.
 /// We make it a mathematical integer, but of course it is bounded by the size
 /// of the address space.
-type Address = BigInt;
+type Address = Int;
 
 /// A "pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are

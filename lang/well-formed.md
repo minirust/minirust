@@ -61,7 +61,7 @@ impl Type {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
                 fields.sort_by_key(|(offset, _ty)| offset);
-                let mut last_end = Size::zero();
+                let mut last_end = Size::ZERO;
                 for (offset, ty) in fields {
                     // Recursively check the field type.
                     ty.check_wf::<M>()?;
@@ -91,7 +91,7 @@ impl Type {
                 }
                 // The chunks must be sorted in their offsets and disjoint.
                 // FIXME: should we relax this and allow arbitrary chunk order?
-                let mut last_end = Size::zero();
+                let mut last_end = Size::ZERO;
                 for (offset, size) in chunks {
                     ensure(offset >= last_end)?;
                     last_end = offset + size;
