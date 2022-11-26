@@ -49,5 +49,8 @@ impl Int {
     pub fn in_bounds(self, signed: Signedness, size: Size) -> bool {
         self == self.modulo(signed, size)
     }
+
+    /// Rounded up division.
+    pub fn div_ceil(other: impl Into<Int>) -> Int;
 }
 ```
