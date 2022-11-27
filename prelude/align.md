@@ -3,10 +3,9 @@ See [Align](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/str
 
 `Align` is always a power of two.
 
-For convenience, Align implements `Ord`.
-
 ```rust
 /// `raw` stores the align in bytes.
+#[derive(PartialOrd, Ord)]
 pub struct Align { raw: Int }
 
 impl Align {
