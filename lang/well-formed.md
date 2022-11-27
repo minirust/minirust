@@ -57,7 +57,7 @@ impl Type {
             Ptr(ptr_type) => {
                 ptr_type.check_wf()?;
             }
-            Tuple { fields, size } => {
+            Tuple { mut fields, size } => {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
                 fields.sort_by_key(|(offset, _ty)| offset);
@@ -147,6 +147,7 @@ impl Constant {
                 let ty = variants.get(idx)?;
                 data.check_wf(ty)?;
             }
+            _ => throw!(),
         }
     }
 }
@@ -186,7 +187,7 @@ impl ValueExpr {
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
                     }
                     Int2Ptr(ptr_ty) => {
-                        ensure(matches!(operand, Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })))?;
+                        ensure(operand == Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)
                     }
                 }
