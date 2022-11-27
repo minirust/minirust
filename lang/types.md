@@ -21,7 +21,7 @@ In the future, we might want to separate a type from its layout, and consider th
 
 ```rust
 /// A "layout" describes the shape of data in memory.
-struct Layout {
+pub struct Layout {
     pub size: Size,
     pub align: Align,
     pub inhabited: bool,

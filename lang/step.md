@@ -132,7 +132,7 @@ For now, that is just a pointer (but this might have to change).
 Place evaluation ensures that this pointer is always dereferenceable (for the type of the place expression).
 
 ```rust
-type Place<M: Memory> = Pointer<M::Provenance>;
+type Place<M> = Pointer<<M as Memory>::Provenance>;
 
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(place)]

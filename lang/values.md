@@ -265,6 +265,22 @@ impl Type {
 }
 ```
 
+### Enums
+
+// TODO implement Enum decoding & encoding.
+
+```rust
+impl Type {
+    fn decode<M: Memory>(Type::Enum { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        todo!()
+    }
+
+    fn encode<M: Memory>(Type::Enum { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        todo!()
+    }
+}
+```
+
 ### Generic properties
 
 There are some generic properties that `encode` and `decode` must satisfy.
