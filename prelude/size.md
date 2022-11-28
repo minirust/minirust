@@ -6,7 +6,7 @@ See [Size](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/stru
 Note that the `Size` type has no upper-bound.
 Users needs check whether a given `Size` is too large for their Machine themselves.
 
-For convenience, we assume that `Size + Size` and `Size * Int` are implemented implicitly.
+The type is defined by specr, we just repeat the important part of its API here.
 
 ```rust,ignore
 pub use specr::Size;

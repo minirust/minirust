@@ -2,6 +2,7 @@ This is basically a copy of the `Align` type in the Rust compiler.
 See [Align](https://doc.rust-lang.org/nightly/nightly-rustc/rustc_target/abi/struct.Align.html).
 
 `Align` is always a power of two.
+The type is defined by specr, we just repeat the important part of its API here.
 
 ```rust,ignore
 pub use specr::Align;

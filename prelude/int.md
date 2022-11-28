@@ -1,7 +1,8 @@
-Int is the type of mathematical integers.
+`Int` is the type of mathematical integers.
 
 We assume all the usual arithmetic operations to be defined.
-Additionally, Int provides a few utility functions.
+Additionally, `Int` provides a few utility functions.
+The type is defined by specr, we just repeat the important part of its API here.
 
 ```rust,ignore
 pub use specr::Int;
