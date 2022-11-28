@@ -6,48 +6,48 @@ First, the general structure of programs and functions:
 ```rust
 /// Some opaque type of function names.
 /// The details of this this is represented to not matter.
-struct FnName(specr::Name);
+pub struct FnName(pub specr::Name);
 
 /// A closed MiniRust program.
-struct Program {
+pub struct Program {
     /// Associate a function with each declared function name.
-    functions: Map<FnName, Function>,
+    pub functions: Map<FnName, Function>,
     /// The function where execution starts.
-    start: FnName,
+    pub start: FnName,
 }
 
 /// Opaque types of names for local variables and basic blocks.
-struct LocalName(specr::Name);
-struct BbName(specr::Name);
+pub struct LocalName(pub specr::Name);
+pub struct BbName(pub specr::Name);
 
 /// A MiniRust function.
-struct Function {
+pub struct Function {
     /// The locals of this function, and their type.
-    locals: Map<LocalName, PlaceType>,
+    pub locals: Map<LocalName, PlaceType>,
     /// A list of locals that are initially filled with the function arguments.
     /// Also determines the call ABI for each argument.
-    args: List<(LocalName, ArgAbi)>,
+    pub args: List<(LocalName, ArgAbi)>,
     /// The name of a local that holds the return value when the function returns
     /// Also determines the return ABI.
-    ret: (LocalName, ArgAbi),
+    pub ret: (LocalName, ArgAbi),
 
     /// Associate each basic block name with the associated block.
-    blocks: Map<BbName, BasicBlock>,
+    pub blocks: Map<BbName, BasicBlock>,
     /// The basic block where execution starts.
-    start: BbName,
+    pub start: BbName,
 }
 
 /// A basic block is a sequence of statements followed by a terminator.
-struct BasicBlock {
-    statements: List<Statement>,
-    terminator: Terminator,
+pub struct BasicBlock {
+    pub statements: List<Statement>,
+    pub terminator: Terminator,
 }
 ```
 
 Next, the statements and terminators that MiniRust programs consist of:
 
 ```rust
-enum Statement {
+pub enum Statement {
     /// Copy value from `source` to `target`.
     Assign {
         destination: PlaceExpr,
@@ -67,7 +67,7 @@ enum Statement {
     StorageDead(LocalName),
 }
 
-enum Terminator {
+pub enum Terminator {
     /// Just jump to the next block.
     Goto(BbName),
     /// `condition` must evaluate to a `Value::Bool`.
@@ -99,7 +99,7 @@ We also need to define constants (a strict subset of `Value`).
 ```rust
 /// Constants are Values, but cannot have provenance.
 /// Currently we do not support Ptr and Union constants.
-enum Constant {
+pub enum Constant {
     /// A mathematical integer, used for `i*`/`u*` types.
     Int(Int),
     /// A Boolean value, used for `bool`.
@@ -119,7 +119,7 @@ And finally, the syntax of expressions:
 
 ```rust
 /// A "value expression" evaluates to a `Value`.
-enum ValueExpr {
+pub enum ValueExpr {
     /// Just return a constant value.
     Constant(Constant, Type),
     /// Load a value from memory.
@@ -154,13 +154,13 @@ enum ValueExpr {
     },
 }
 
-enum UnOpInt {
+pub enum UnOpInt {
     /// Negate an integer value.
     Neg,
     /// Cast an integer to another.
     Cast,
 }
-enum UnOp {
+pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
     /// Pointer-to-integer cast
@@ -169,7 +169,7 @@ enum UnOp {
     Int2Ptr(PtrType),
 }
 
-enum BinOpInt {
+pub enum BinOpInt {
     /// Add two integer values.
     Add,
     /// Subtract two integer values.
@@ -180,7 +180,7 @@ enum BinOpInt {
     /// Division by zero is UB.
     Div,
 }
-enum BinOp {
+pub enum BinOp {
     /// An operation on integers, with the given output type.
     Int(BinOpInt, IntType),
     /// Pointer arithmetic (with or without inbounds requirement).
@@ -188,7 +188,7 @@ enum BinOp {
 }
 
 /// A "place expression" evaluates to a `Place`.
-enum PlaceExpr {
+pub enum PlaceExpr {
     /// Denotes a local variable.
     Local(LocalName),
     /// Dereference a value (of pointer/reference type).

@@ -13,7 +13,7 @@ The provenance tracked by this memory model is just an ID that identifies which 
 (We will pretend we can split the `impl ... for` block into multiple smaller blocks.)
 
 ```rust
-struct AllocId(Int);
+pub struct AllocId(Int);
 
 impl Memory for BasicMemory {
     type Provenance = AllocId;
@@ -40,7 +40,7 @@ struct Allocation {
 Memory then consists of a map tracking the allocation for each ID, stored as a list (since we assign IDs consecutively).
 
 ```rust
-struct BasicMemory {
+pub struct BasicMemory {
     allocations: List<Allocation>,
 }
 ```

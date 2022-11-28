@@ -28,7 +28,7 @@ pub struct Layout {
 }
 
 /// "Value" types -- these have a size, but not an alignment.
-enum Type {
+pub enum Type {
     Int(IntType),
     Bool,
     Ptr(PtrType),
@@ -93,22 +93,22 @@ pub enum PtrType {
     },
 }
 
-struct IntType {
-    signed: Signedness,
-    size: Size,
+pub struct IntType {
+    pub signed: Signedness,
+    pub size: Size,
 }
 
-type Fields = List<(Size, Type)>; // (offset, type) pair for each field
+pub type Fields = List<(Size, Type)>; // (offset, type) pair for each field
 
 /// We leave the details of enum tags to the future.
 /// (We might want to extend the "variants" field of `Enum` to also have a
 /// discriminant for each variant. We will see.)
-enum TagEncoding { /* ... */ }
+pub enum TagEncoding { /* ... */ }
 
 /// "Place" types are laid out in memory and thus also have an alignment requirement.
-struct PlaceType {
-    ty: Type,
-    align: Align,
+pub struct PlaceType {
+    pub ty: Type,
+    pub align: Align,
 }
 ```
 
