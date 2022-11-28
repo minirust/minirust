@@ -3,12 +3,12 @@ Int is the type of mathematical integers.
 We assume all the usual arithmetic operations to be defined.
 Additionally, Int provides a few utility functions.
 
-```rust
+```rust,ignore
 pub use specr::Int;
 
 impl Int {
-    pub const ZERO: Int = Int::from(0);
-    pub const ONE: Int = Int::from(1);
+    pub const ZERO: Int;
+    pub const ONE: Int;
 
     /// Converts any integer type to Int.
     pub fn from(x: impl Into<Int>) -> Int;
@@ -33,31 +33,10 @@ impl Int {
     /// else it is in the interval `-2^(size.bits()-1) .. 2^(size.bits()-1)`.
     ///
     /// `size` must not be zero.
-    pub fn modulo(self, signed: Signedness, size: Size) -> Int {
-        if size.is_zero() {
-            panic!("Int::modulo received invalid size zero!");
-        }
-
-        // the modulus.
-        let m = Int::from(2).pow(size.bits());
-
-        // n is in range `-(m-1)..m`.
-        let n = self % m;
-
-        match signed {
-            // if `Unsigned`, output needs to be in range `0..m`:
-            Unsigned if n < 0 => n + m,
-            // if `Signed`, output needs to be in range `-m/2 .. m/2`:
-            Signed if n >= m/2 => n - m,
-            Signed if n < -m/2 => n + m,
-            _ => n,
-        }
-    }
+    pub fn modulo(self, signed: Signedness, size: Size) -> Int;
 
     /// Tests whether an integer is in-bounds of a finite integer type.
-    pub fn in_bounds(self, signed: Signedness, size: Size) -> bool {
-        self == self.modulo(signed, size)
-    }
+    pub fn in_bounds(self, signed: Signedness, size: Size) -> bool;
 
     /// Rounded up division.
     pub fn div_ceil(other: impl Into<Int>) -> Int;

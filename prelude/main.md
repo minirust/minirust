@@ -35,12 +35,9 @@ macro_rules! throw_machine_stop {
 pub use specr::Nondet;
 pub type NdResult<T=()> = Nondet<Result<T>>;
 
-/// Whether an integer value is signed or unsigned.
-pub enum Signedness {
-    Unsigned,
-    Signed,
-}
-pub use Signedness::*;
+/// The enum `Signedness` expresses whether an integer value is signed or unsigned.
+pub use specr::Signedness;
+pub use Signedness::{Signed, Unsigned};
 
 /// Whether a pointer/reference/allocation is mutable or immutable.
 pub enum Mutability {
