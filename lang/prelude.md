@@ -15,7 +15,7 @@ use crate::mem::{Memory, AbstractByte, Pointer, IntPtrCast};
 // (and indeed for register passing, mismatching size might be okay).
 // FIXME: This is incomplete.
 #[non_exhaustive]
-enum ArgAbi {
+pub enum ArgAbi {
     Register,
     Stack(Size, Align),
 }
