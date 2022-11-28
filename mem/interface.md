@@ -125,9 +125,7 @@ pub trait Memory {
 
 This is a very basic memory interface that is incomplete in at least the following ways:
 
-* We need to add support for [casting pointers to integers](https://doc.rust-lang.org/nightly/std/primitive.pointer.html#method.expose_addr) and [back](https://doc.rust-lang.org/nightly/std/ptr/fn.from_exposed_addr.html).
 * To represent concurrency, many operations need to take a "thread ID" and `load` and `store` need to take an [`Option<Ordering>`] (with `None` indicating non-atomic accesses).
-* To represent [Stacked Borrows], there needs to be a "retag" operation, and that one might have to be "lightly typed" (to care about `UnsafeCell`).
-* Maybe we want operations that can compare pointers without casting them to integers.
+* Maybe we want operations that can compare pointers without casting them to integers. Or else we decide only the address can matter for comparison.
 
 [`Ordering`]: https://doc.rust-lang.org/nightly/core/sync/atomic/enum.Ordering.html
