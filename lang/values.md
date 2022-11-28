@@ -125,7 +125,7 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 - TODO: Is that the right semantics for ptr-to-int transmutation? See [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286).
 - TODO: This does not allow uninitialized integers. I think that is fairly clearly what we want, also considering LLVM is moving towards using `noundef` heavily to avoid many of the current issues in their `undef` handling. But this is also still [being discussed](https://github.com/rust-lang/unsafe-code-guidelines/issues/71).
 
-### Raw pointers
+### Pointers
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
