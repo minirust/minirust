@@ -43,6 +43,52 @@ struct StackFrame<M: Memory> {
 }
 ```
 
+Next, we define the functions necessary to create and run a machine.
+
+```rust
+impl<M: Memory> Machine<M> {
+    pub fn new(prog: Program) -> NdResult<Machine<M>> {
+        let start_fn = prog.functions[prog.start];
+
+        let null_ptr = Pointer {
+            addr: Int::ZERO,
+            provenance: None
+        };
+
+        let mut mem = M::new();
+        let mut locals = Map::new();
+
+        // allocate memory for start_fn.ret
+        let (ret_local, callee_ret_abi) = start_fn.ret;
+        let callee_ret_layout = start_fn.locals[ret_local].layout::<M>();
+        locals.insert(ret_local, mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+
+        // setup the initial stack frame.
+        let init_frame = StackFrame {
+            func: start_fn,
+            locals,
+            // The initial function has no caller and hence no `caller_ret_place`.
+            caller_ret_place: null_ptr,
+            next_block: start_fn.start,
+            next_stmt: Int::ZERO,
+        };
+
+        Machine {
+            prog,
+            mem,
+            intptrcast: IntPtrCast::new(),
+            stack: list![init_frame],
+        }
+    }
+
+    pub fn run(&mut self) -> NdResult<!> {
+        loop {
+            self.step()?;
+        }
+    }
+}
+```
+
 We also define some helper functions that will be useful later.
 
 ```rust
