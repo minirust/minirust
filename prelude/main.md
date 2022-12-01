@@ -33,7 +33,7 @@ macro_rules! throw_machine_stop {
 
 /// We leave the encoding of the non-determinism monad opaque.
 pub use specr::Nondet;
-pub type NdResult<T=()> = Nondet<Result<T>>;
+pub type NdResult<T=()> = specr::NdResult<T, TerminationInfo>;
 
 /// The enum `Signedness` expresses whether an integer value is signed or unsigned.
 pub use specr::Signedness;
