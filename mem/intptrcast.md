@@ -16,6 +16,10 @@ pub struct IntPtrCast<Provenance> {
 }
 
 impl<Provenance> IntPtrCast<Provenance> {
+    pub fn new() -> Self {
+        Self { exposed: Set::new() }
+    }
+
     pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<Int> {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.

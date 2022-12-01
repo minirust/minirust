@@ -54,6 +54,14 @@ impl Memory for BasicMemory {
 }
 ```
 
+```rust
+impl Memory for BasicMemory {
+    fn new() -> Self {
+        Self { allocations: List::new() }
+    }
+}
+```
+
 ## Operations
 
 We start with some helper operations.

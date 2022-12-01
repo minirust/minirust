@@ -90,6 +90,8 @@ pub trait Memory {
     /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
 
+    fn new() -> Self;
+
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
