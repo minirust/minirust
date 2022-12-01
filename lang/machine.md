@@ -47,7 +47,7 @@ Next, we define the functions necessary to create and run a machine.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    pub fn new(prog: Program) -> NdResult<Machine<M>> {
+    pub fn new(prog: Program) -> Machine<M> {
         let start_fn = prog.functions[prog.start];
 
         let null_ptr = Pointer {
@@ -55,19 +55,12 @@ impl<M: Memory> Machine<M> {
             provenance: None
         };
 
-        let mut mem = M::new();
-        let mut locals = Map::new();
-
-        // allocate memory for start_fn.ret
-        let (ret_local, callee_ret_abi) = start_fn.ret;
-        let callee_ret_layout = start_fn.locals[ret_local].layout::<M>();
-        locals.insert(ret_local, mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
-
-        // setup the initial stack frame.
+        // Setup the initial stack frame.
+        // Well-formedness ensures that this has neither arguments nor a return local.
         let init_frame = StackFrame {
             func: start_fn,
-            locals,
-            // The initial function has no caller and hence no `caller_ret_place`.
+            locals: Map::new(),
+            // Without a return local, `caller_ret_place` does not matter.
             caller_ret_place: null_ptr,
             next_block: start_fn.start,
             next_stmt: Int::ZERO,
@@ -75,7 +68,7 @@ impl<M: Memory> Machine<M> {
 
         Machine {
             prog,
-            mem,
+            mem: M::new(),
             intptrcast: IntPtrCast::new(),
             stack: list![init_frame],
         }

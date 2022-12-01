@@ -29,7 +29,7 @@ pub struct Function {
     pub args: List<(LocalName, ArgAbi)>,
     /// The name of a local that holds the return value when the function returns
     /// Also determines the return ABI.
-    pub ret: (LocalName, ArgAbi),
+    pub ret: Option<(LocalName, ArgAbi)>,
 
     /// Associate each basic block name with the associated block.
     pub blocks: Map<BbName, BasicBlock>,

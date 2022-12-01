@@ -359,16 +359,18 @@ impl<M: Memory> Machine<M> {
         };
         let mut locals: Map<LocalName, Place<M>> = default();
 
-        // First evaluate the return place. (Left-to-right!)
-        // Create place for return local.
-        let (ret_local, callee_ret_abi) = func.ret;
-        let callee_ret_layout = func.locals[ret_local].layout::<M>();
-        locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
-        // Remember the return place (will be relevant during `Return`).
+        // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let (caller_ret_place, caller_ret_abi) = ret;
         let caller_ret_place = self.eval_place(caller_ret_place)?;
-        if caller_ret_abi != callee_ret_abi {
-            throw_ub!("call ABI violation: return ABI does not agree");
+        // Create place for return local, if needed.
+        if let Some((ret_local, callee_ret_abi)) = func.ret {
+            let callee_ret_layout = func.locals[ret_local].layout::<M>();
+            locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+            if caller_ret_abi != callee_ret_abi {
+                throw_ub!("call ABI violation: return ABI does not agree");
+            }
+        } else {
+            // FIXME: Can we truly accept any caller ABI if the callee does not return anything?
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -419,12 +421,14 @@ impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
-        // Copy return value to where the caller wants it.
-        // We use the type as given by `func` here (callee type) as otherwise we
-        // would never ensure that the value is valid at that type.
-        let ret_pty = func.locals[func.ret.0];
-        let ret_val = self.mem.typed_load(frame.locals[func.ret.0], ret_pty)?;
-        self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        if let Some((ret_local, _)) = func.ret {
+            // Copy return value, if any, to where the caller wants it.
+            // We use the type as given by `func` here (callee type) as otherwise we
+            // would never ensure that the value is valid at that type.
+            let ret_pty = func.locals[ret];
+            let ret_val = self.mem.typed_load(frame.locals[ret], ret_pty)?;
+            self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        }
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.

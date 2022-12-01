@@ -350,7 +350,9 @@ impl Function {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
         }
-        start_live.try_insert(self.ret.0, self.locals.get(self.ret.0)?).ok()?;
+        if let Some((ret, _abi)) = self.ret {
+            start_live.try_insert(self.ret.0, self.locals.get(ret)?).ok()?;
+        }
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
         // which blocks we still have to check. We also track the live locals
@@ -390,7 +392,8 @@ impl Program {
     fn check_wf<M: Memory>(self) -> Option<()> {
         // Ensure the start function exists, and takes no arguments.
         let func = self.functions.get(self.start)?;
-        if func.args.len() > 0 { return None; }
+        ensure(func.args.is_empty())?;
+        ensure(func.ret.is_none())?;
         // Check all the functions.
         for function in self.functions.values() {
             function.check_wf::<M>()?;
