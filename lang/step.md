@@ -425,8 +425,8 @@ impl<M: Memory> Machine<M> {
             // Copy return value, if any, to where the caller wants it.
             // We use the type as given by `func` here (callee type) as otherwise we
             // would never ensure that the value is valid at that type.
-            let ret_pty = func.locals[ret];
-            let ret_val = self.mem.typed_load(frame.locals[ret], ret_pty)?;
+            let ret_pty = func.locals[ret_local];
+            let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
             self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
         }
         // Deallocate everything.

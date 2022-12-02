@@ -290,7 +290,7 @@ impl Statement {
                 live_locals
             }
             StorageDead(local) => {
-                if func.ret.0 == local || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
+                if func.ret.is_some_and(|(l, _)| l == local) || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
@@ -351,7 +351,7 @@ impl Function {
             start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
         }
         if let Some((ret, _abi)) = self.ret {
-            start_live.try_insert(self.ret.0, self.locals.get(ret)?).ok()?;
+            start_live.try_insert(ret, self.locals.get(ret)?).ok()?;
         }
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
