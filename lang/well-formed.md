@@ -321,13 +321,16 @@ impl Terminator {
                 list![]
             }
             Call { callee: _, arguments, ret, next_block } => {
+                ensure(ret.is_some() == next_block.is_some())?;
+
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
                     arg.check_wf::<M>(live_locals)?;
                 }
-                let (ret_place, _ret_abi) = ret;
-                ret_place.check_wf::<M>(live_locals)?;
-                list![next_block]
+                if let Some((ret_place, _ret_abi)) = ret {
+                    ret_place.check_wf::<M>(live_locals)?;
+                    list![next_block.unwrap()] // NOTE: this unwrap() is safe, as we ensured `ret.is_some() == next_block.is_some()` before.
+                } else { list![] }
             }
             Return => {
                 list![]

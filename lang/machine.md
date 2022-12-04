@@ -31,7 +31,8 @@ struct StackFrame<M: Memory> {
     locals: Map<LocalName, Place<M>>,
 
     /// The place where the caller wants to see the return value.
-    caller_ret_place: Place<M>,
+    /// Is `None`, if `func` never returns (eg. `fn() -> !`).
+    caller_ret_place: Option<Place<M>>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
@@ -50,18 +51,12 @@ impl<M: Memory> Machine<M> {
     pub fn new(prog: Program) -> Machine<M> {
         let start_fn = prog.functions[prog.start];
 
-        let null_ptr = Pointer {
-            addr: Int::ZERO,
-            provenance: None
-        };
-
         // Setup the initial stack frame.
         // Well-formedness ensures that this has neither arguments nor a return local.
         let init_frame = StackFrame {
             func: start_fn,
             locals: Map::new(),
-            // Without a return local, `caller_ret_place` does not matter.
-            caller_ret_place: null_ptr,
+            caller_ret_place: None,
             next_block: start_fn.start,
             next_stmt: Int::ZERO,
         };

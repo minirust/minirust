@@ -86,9 +86,11 @@ pub enum Terminator {
         /// The arguments to pass, and which ABIs to use for that.
         arguments: List<(ValueExpr, ArgAbi)>,
         /// The place to put the return value into, and which ABI to use for that.
-        ret: (PlaceExpr, ArgAbi),
+        /// Is `None`, if `callee` never returns.
+        ret: Option<(PlaceExpr, ArgAbi)>,
         /// The block to jump to when this call returns.
-        next_block: BbName,
+        /// Is `None`, if `callee` never returns.
+        next_block: Option<BbName>,
     },
     /// Return from the current function.
     Return,

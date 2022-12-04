@@ -359,19 +359,30 @@ impl<M: Memory> Machine<M> {
         };
         let mut locals: Map<LocalName, Place<M>> = default();
 
+        // If the callee might return, then `ret` and `next_block` should be `Some`.
+        // And if it never returns, they are required to be `None`.
+        let fn_might_return = func.ret.is_some();
+        if fn_might_return != ret.is_some() || fn_might_return != next_block.is_some() {
+            throw_ub!("Contradicting information on whether function might return");
+        }
+
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let (caller_ret_place, caller_ret_abi) = ret;
-        let caller_ret_place = self.eval_place(caller_ret_place)?;
-        // Create place for return local, if needed.
-        if let Some((ret_local, callee_ret_abi)) = func.ret {
+        let caller_ret_place = if fn_might_return {
+            let (caller_ret_place, caller_ret_abi) = ret.unwrap();
+            let caller_ret_place = self.eval_place(caller_ret_place)?;
+            // Create place for return local, if needed.
+            let (ret_local, callee_ret_abi) = func.ret.unwrap();
             let callee_ret_layout = func.locals[ret_local].layout::<M>();
             locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
             if caller_ret_abi != callee_ret_abi {
                 throw_ub!("call ABI violation: return ABI does not agree");
             }
+
+            Some(caller_ret_place)
         } else {
             // FIXME: Can we truly accept any caller ABI if the callee does not return anything?
-        }
+            None
+        };
 
         // Evaluate all arguments and put them into fresh places,
         // to initialize the local variable assignment.
@@ -395,9 +406,12 @@ impl<M: Memory> Machine<M> {
         }
 
         // Advance the PC for this stack frame.
-        self.mutate_cur_frame(|frame| {
-            frame.jump_to_block(next_block);
-        });
+        if fn_might_return {
+            let next_block = next_block.unwrap();
+            self.mutate_cur_frame(|frame| {
+                frame.jump_to_block(next_block);
+            });
+        }
 
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
@@ -429,7 +443,10 @@ impl<M: Memory> Machine<M> {
         // would never ensure that the value is valid at that type.
         let ret_pty = func.locals[ret_local];
         let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
-        self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        let Some(caller_ret_place) = frame.caller_ret_place else {
+            throw_ub!("encountered Return without `caller_ret_place`");
+        };
+        self.mem.typed_store(caller_ret_place, ret_val, ret_pty)?;
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
