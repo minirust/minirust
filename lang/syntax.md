@@ -27,7 +27,8 @@ pub struct Function {
     /// A list of locals that are initially filled with the function arguments.
     /// Also determines the call ABI for each argument.
     pub args: List<(LocalName, ArgAbi)>,
-    /// The name of a local that holds the return value when the function returns
+    /// The name of a local that holds the return value when the function returns.
+    /// Can be `None` if this function will not return.
     /// Also determines the return ABI.
     pub ret: Option<(LocalName, ArgAbi)>,
 

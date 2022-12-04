@@ -421,14 +421,15 @@ impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
-        if let Some((ret_local, _)) = func.ret {
-            // Copy return value, if any, to where the caller wants it.
-            // We use the type as given by `func` here (callee type) as otherwise we
-            // would never ensure that the value is valid at that type.
-            let ret_pty = func.locals[ret_local];
-            let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
-            self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        let Some((ret_local, _)) = func.ret else {
+            throw_ub!("Return from a function that does not have a return place");
         }
+        // Copy return value, if any, to where the caller wants it.
+        // We use the type as given by `func` here (callee type) as otherwise we
+        // would never ensure that the value is valid at that type.
+        let ret_pty = func.locals[ret_local];
+        let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
+        self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
