@@ -332,6 +332,18 @@ impl Terminator {
                     list![next_block.unwrap()] // NOTE: this unwrap() is safe, as we ensured `ret.is_some() == next_block.is_some()` before.
                 } else { list![] }
             }
+            CallIntrinsic { intrinsic, arguments, ret, next_block } => {
+                ensure(ret.is_some() == next_block.is_some())?;
+
+                // Argument and return expressions must all typecheck with some type.
+                for arg in arguments {
+                    arg.check_wf::<M>(live_locals)?;
+                }
+                if let Some(ret_place) = ret {
+                    ret_place.check_wf::<M>(live_locals)?;
+                    list![next_block.unwrap()] // NOTE: this unwrap() is safe, as we ensured `ret.is_some() == next_block.is_some()` before.
+                } else { list![] }
+            }
             Return => {
                 list![]
             }

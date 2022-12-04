@@ -428,6 +428,25 @@ impl<M: Memory> Machine<M> {
 Note that the content of the arguments is entirely controlled by the caller.
 The callee should probably start with a bunch of `Finalize` statements to ensure that all these arguments match the type the callee thinks they should have.
 
+### Intrinsics
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(
+        &mut self,
+        Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block }: Terminator
+    ) -> NdResult {
+        let ret = match ret {
+            Some(ret) => Some(self.eval_place(ret)?),
+            None => None,
+        };
+        // Evaluate all arguments.
+        let arguments = arguments.iter().map(|arg| self.eval_value(arg)).try_collect()?;
+        self.eval_intrinsic(intrinsic, arguments, ret, next_block)?;
+    }
+}
+```
+
 ### Return
 
 ```rust

@@ -92,6 +92,17 @@ pub enum Terminator {
         /// Is `None`, if `callee` never returns.
         next_block: Option<BbName>,
     },
+    CallIntrinsic {
+        intrinsic: Intrinsic,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
+        /// Is `None`, if `intrinsic` never returns.
+        ret: Option<PlaceExpr>,
+        /// The block to jump to when this call returns.
+        /// Is `None`, if `intrinsic` never returns.
+        next_block: Option<BbName>,
+    },
     /// Return from the current function.
     Return,
 }
