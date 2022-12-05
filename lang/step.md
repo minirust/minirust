@@ -357,7 +357,7 @@ impl<M: Memory> Machine<M> {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
         };
-        let mut locals: Map<LocalName, Place<M>> = default();
+        let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let (caller_ret_place, caller_ret_abi) = ret;

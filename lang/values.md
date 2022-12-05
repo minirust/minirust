@@ -308,16 +308,16 @@ impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
     fn le_defined(self, other: Self) -> bool {
         use AbstractByte::*;
         match (self, other) {
-            /// `Uninit <= _`: initializing something makes it "more defined".
+            // `Uninit <= _`: initializing something makes it "more defined".
             (Uninit, _) =>
                 true,
-            /// Among initialized bytes, adding provenance makes it "more defined".
+            // Among initialized bytes, adding provenance makes it "more defined".
             (Init(data1, None), Init(data2, _)) =>
                 data1 == data2,
-            /// If both bytes have provenance, everything must be equal.
+            // If both bytes have provenance, everything must be equal.
             (Init(data1, Some(provenance1)), Init(data2, Some(provenance2))) =>
                 data1 == data2 && provenance1 == provenance2,
-            /// Nothing else is related.
+            // Nothing else is related.
             _ => false,
         }
     }
