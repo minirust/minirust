@@ -2,6 +2,9 @@ name: Build
 
 on: [push, pull_request]
 
+env:
+  CARGO_UNSTABLE_SPARSE_REGISTRY: 'true'
+
 jobs:
   build:
     name: specr build
