@@ -73,9 +73,8 @@ impl Type {
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
                 ensure(size >= last_end)?;
             }
-            Array { elem, count } => {
+            Array { elem, count: _ } => {
                 elem.check_wf::<M>()?;
-                elem.size::<M>() * count;
             }
             Union { fields, size, chunks } => {
                 // The fields may overlap, but they must all fit the size.
@@ -345,7 +344,7 @@ impl Function {
 
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
-        let mut start_live: Map<LocalName, PlaceType> = default();
+        let mut start_live: Map<LocalName, PlaceType> = Map::new();
         for (arg, _abi) in self.args {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
@@ -357,7 +356,7 @@ impl Function {
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
         // which blocks we still have to check. We also track the live locals
         // they start out with.
-        let mut bb_live_at_entry: Map<BbName, Map<LocalName, PlaceType>> = default();
+        let mut bb_live_at_entry: Map<BbName, Map<LocalName, PlaceType>> = Map::new();
         bb_live_at_entry.insert(self.start, start_live);
         let mut todo = list![self.start];
         while let Some(block_name) = todo.pop_front() {
