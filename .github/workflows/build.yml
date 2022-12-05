@@ -1,0 +1,11 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: specr build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: bash ci.sh

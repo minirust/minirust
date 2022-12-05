@@ -423,7 +423,7 @@ impl<M: Memory> Machine<M> {
         let func = frame.func;
         let Some((ret_local, _)) = func.ret else {
             throw_ub!("Return from a function that does not have a return place");
-        }
+        };
         // Copy return value, if any, to where the caller wants it.
         // We use the type as given by `func` here (callee type) as otherwise we
         // would never ensure that the value is valid at that type.
