@@ -30,8 +30,8 @@ struct StackFrame<M: Memory> {
     /// For each live local, the place in memory where its value is stored.
     locals: Map<LocalName, Place<M>>,
 
-    /// The place where the caller wants to see the return value.
-    caller_ret_place: Place<M>,
+    /// Expresses what the caller does after the callee (this function) returns.
+    caller_return_info: CallerReturnInfo<M>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
@@ -41,27 +41,36 @@ struct StackFrame<M: Memory> {
     /// out-of-bounds index in the statement list), it refers to the terminator.
     next_stmt: Int,
 }
+
+struct CallerReturnInfo<M: Memory> {
+    /// The basic block to jump to when the callee returns.
+    /// If `None`, UB will be raised when the callee returns.
+    next_block: Option<BbName>,
+    /// The place where the caller wants to see the return value.
+    /// If `None`, the return value will be discarded.
+    ret_place: Option<Place<M>>
+}
 ```
 
-Next, we define the functions necessary to create and run a machine.
+Next, we define how to create a machine.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    pub fn new(prog: Program) -> Machine<M> {
-        let start_fn = prog.functions[prog.start];
+    pub fn new(prog: Program) -> Option<Machine<M>> {
+        prog.check_wf::<M>()?;
 
-        let null_ptr = Pointer {
-            addr: Int::ZERO,
-            provenance: None
-        };
+        let start_fn = prog.functions[prog.start];
 
         // Setup the initial stack frame.
         // Well-formedness ensures that this has neither arguments nor a return local.
         let init_frame = StackFrame {
             func: start_fn,
             locals: Map::new(),
-            // Without a return local, `caller_ret_place` does not matter.
-            caller_ret_place: null_ptr,
+            caller_return_info: CallerReturnInfo {
+                // the start function should never return.
+                next_block: None,
+                ret_place: None,
+            },
             next_block: start_fn.start,
             next_stmt: Int::ZERO,
         };
@@ -71,12 +80,6 @@ impl<M: Memory> Machine<M> {
             mem: M::new(),
             intptrcast: IntPtrCast::new(),
             stack: list![init_frame],
-        }
-    }
-
-    pub fn run(&mut self) -> NdResult<!> {
-        loop {
-            self.step()?;
         }
     }
 }

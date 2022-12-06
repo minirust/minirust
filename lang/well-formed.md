@@ -324,9 +324,15 @@ impl Terminator {
                 for (arg, _abi) in arguments {
                     arg.check_wf::<M>(live_locals)?;
                 }
-                let (ret_place, _ret_abi) = ret;
-                ret_place.check_wf::<M>(live_locals)?;
-                list![next_block]
+
+                if let Some((ret_place, _ret_abi)) = ret {
+                    ret_place.check_wf::<M>(live_locals)?;
+                }
+
+                match next_block {
+                    Some(b) => list![b],
+                    None => list![],
+                }
             }
             Return => {
                 list![]
