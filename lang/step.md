@@ -18,7 +18,7 @@ For statements it also advances the program counter.
 ```rust
 impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
-    fn step(&mut self) -> NdResult {
+    pub fn step(&mut self) -> NdResult {
         let frame = self.cur_frame();
         let block = &frame.func.blocks[frame.next_block];
         if frame.next_stmt == block.statements.len() {
@@ -360,17 +360,24 @@ impl<M: Memory> Machine<M> {
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let (caller_ret_place, caller_ret_abi) = ret;
-        let caller_ret_place = self.eval_place(caller_ret_place)?;
+        let ret_place = ret.try_map(|(caller_ret_place, _abi)| {
+            // FIXME: spec Ok-wrapping of return expressions does not work in closures.
+            return self.eval_place(caller_ret_place)?;
+        })?;
+
         // Create place for return local, if needed.
-        if let Some((ret_local, callee_ret_abi)) = func.ret {
+        if let Some((ret_local, _abi)) = func.ret {
             let callee_ret_layout = func.locals[ret_local].layout::<M>();
             locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+        }
+
+        // Check ABI compatibility.
+        if let (Some((_, caller_ret_abi)), Some((_, callee_ret_abi))) = (ret, func.ret) {
             if caller_ret_abi != callee_ret_abi {
                 throw_ub!("call ABI violation: return ABI does not agree");
             }
         } else {
-            // FIXME: Can we truly accept any caller ABI if the callee does not return anything?
+            // FIXME: Can we truly accept any caller/callee ABI if the other respective ABI is missing?
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -394,16 +401,14 @@ impl<M: Memory> Machine<M> {
             locals.insert(local, p);
         }
 
-        // Advance the PC for this stack frame.
-        self.mutate_cur_frame(|frame| {
-            frame.jump_to_block(next_block);
-        });
-
         // Push new stack frame, so it is executed next.
         self.stack.push(StackFrame {
             func,
             locals,
-            caller_ret_place,
+            caller_return_info: CallerReturnInfo {
+                next_block,
+                ret_place,
+            },
             next_block: func.start,
             next_stmt: Int::ZERO,
         });
@@ -422,19 +427,31 @@ impl<M: Memory> Machine<M> {
         let frame = self.stack.pop().unwrap();
         let func = frame.func;
         let Some((ret_local, _)) = func.ret else {
-            throw_ub!("Return from a function that does not have a return place");
+            throw_ub!("Return from a function that does not have a return local");
         };
+
         // Copy return value, if any, to where the caller wants it.
         // We use the type as given by `func` here (callee type) as otherwise we
         // would never ensure that the value is valid at that type.
-        let ret_pty = func.locals[ret_local];
-        let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
-        self.mem.typed_store(frame.caller_ret_place, ret_val, ret_pty)?;
+        if let Some(ret_place) = frame.caller_return_info.ret_place {
+            let ret_pty = func.locals[ret_local];
+            let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
+            self.mem.typed_store(ret_place, ret_val, ret_pty)?;
+        }
+
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
             let layout = func.locals[local].layout::<M>();
             self.mem.deallocate(place, layout.size, layout.align)?;
+        }
+
+        if let Some(next_block) = frame.caller_return_info.next_block {
+            self.mutate_cur_frame(|frame| {
+                frame.jump_to_block(next_block);
+            });
+        } else {
+            throw_ub!("Return from a function where caller did not specify next block");
         }
     }
 }
