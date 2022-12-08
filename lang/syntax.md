@@ -92,6 +92,18 @@ pub enum Terminator {
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,
     },
+    /// Call the given intrinsic with the given arguments.
+    CallIntrinsic {
+        intrinsic: Intrinsic,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
+        /// If `None`, the intrinsic's return value will be discarded.
+        ret: Option<PlaceExpr>,
+        /// The block to jump to when this call returns.
+        /// If `None`, UB will be raised when the intrinsic returns.
+        next_block: Option<BbName>,
+    },
     /// Return from the current function.
     Return,
 }

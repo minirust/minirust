@@ -334,6 +334,21 @@ impl Terminator {
                     None => list![],
                 }
             }
+            CallIntrinsic { intrinsic: _, arguments, ret, next_block } => {
+                // Argument and return expressions must all typecheck with some type.
+                for arg in arguments {
+                    arg.check_wf::<M>(live_locals)?;
+                }
+
+                if let Some(ret_place) = ret {
+                    ret_place.check_wf::<M>(live_locals)?;
+                }
+
+                match next_block {
+                    Some(b) => list![b],
+                    None => list![],
+                }
+            }
             Return => {
                 list![]
             }

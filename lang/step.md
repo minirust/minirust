@@ -459,3 +459,29 @@ impl<M: Memory> Machine<M> {
 
 Note that the caller has no guarantee at all about the value that it finds in its return place.
 It should probably do a `Finalize` as the next step to encode that it would be UB for the callee to return an invalid value.
+
+### Intrinsic
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(
+        &mut self,
+        Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block }: Terminator
+    ) -> NdResult {
+        let ret = ret.try_map(|p| self.eval_place(p))?;
+
+        // Evaluate all arguments.
+        let arguments = arguments.iter().map(|arg| self.eval_value(arg)).try_collect()?;
+        self.eval_intrinsic(intrinsic, arguments, ret)?;
+
+        if let Some(next_block) = next_block {
+            self.mutate_cur_frame(|frame| {
+                frame.jump_to_block(next_block);
+            });
+        } else {
+            throw_ub!("Return from an intrinsic where caller did not specify next block");
+        }
+    }
+}
+```
+
