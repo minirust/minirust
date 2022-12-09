@@ -96,7 +96,8 @@ impl Memory for BasicMemory {
         // meaning the program has to cope with every possible choice.
         // FIXME: This makes OOM (when there is no possible choice) into "no behavior",
         // which is not what we want.
-        let addr = pick(|addr: Int| {
+        let end = Int::from(2).pow(Self::PTR_SIZE.bits());
+        let addr = pick(Int::ZERO..end, |addr: Int| {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... that is suitably aligned...
