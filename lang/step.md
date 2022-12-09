@@ -57,9 +57,7 @@ impl<M: Memory> Machine<M> {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
             Constant::Tuple(args) => {
-                let vals = args.into_iter()
-                    .map(|c| self.eval_constant(c))
-                    .try_collect()?;
+                let vals = args.try_map(|c| self.eval_constant(c))?;
                 Value::Tuple(vals)
             },
             Constant::Variant { idx, data } => {
@@ -360,10 +358,7 @@ impl<M: Memory> Machine<M> {
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let ret_place = ret.try_map(|(caller_ret_place, _abi)| {
-            // FIXME: spec Ok-wrapping of return expressions does not work in closures.
-            return self.eval_place(caller_ret_place)?;
-        })?;
+        let ret_place = ret.try_map(|(caller_ret_place, _abi)| self.eval_place(caller_ret_place))?;
 
         // Create place for return local, if needed.
         if let Some((ret_local, _abi)) = func.ret {
@@ -469,10 +464,11 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block }: Terminator
     ) -> NdResult {
+        // First evaluate return place (left-to-right evaluation).
         let ret = ret.try_map(|p| self.eval_place(p))?;
 
         // Evaluate all arguments.
-        let arguments = arguments.iter().map(|arg| self.eval_value(arg)).try_collect()?;
+        let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
         self.eval_intrinsic(intrinsic, arguments, ret)?;
 
         if let Some(next_block) = next_block {

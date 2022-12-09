@@ -103,7 +103,7 @@ impl Type {
             throw!();
         }
         // Fails if any byte is `Uninit`.
-        let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
+        let bytes_data = bytes.try_map(|b| b.data())?;
         Value::Int(M::ENDIANNESS.decode(signed, bytes_data))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -131,7 +131,7 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
     if bytes.len() != M::PTR_SIZE.bytes() { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
-    let bytes_data = bytes.iter().map(|b| b.data()).try_collect()?;
+    let bytes_data = bytes.try_map(|b| b.data())?;
     let addr = M::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<M::Provenance> = bytes[0].provenance();
@@ -185,10 +185,10 @@ impl Type {
     fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
         Value::Tuple(
-            fields.iter().map(|(offset, ty)| {
+            fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
                 ty.decode::<M>(subslice)
-            }).try_collect()?
+            })?
         )
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -216,8 +216,7 @@ impl Type {
         if bytes.len() != full_size.bytes() { throw!(); }
         Value::Tuple(
             bytes.chunks(elem.size::<M>().bytes())
-                .map(|elem_bytes| elem.decode::<M>(elem_bytes))
-                .try_collect()?
+                .try_map(|elem_bytes| elem.decode::<M>(elem_bytes))?
         )
     }
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -468,7 +467,7 @@ impl<M: Memory> TypedMemory for M {
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.iter().zip(fields).map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry)).try_collect()?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.iter().map(|val| self.retag_val(val, ty, fn_entry)).try_collect()?),
+                Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
                 Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
             _ => panic!("this value does not have that type"),

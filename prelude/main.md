@@ -12,7 +12,7 @@ pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
 #[non_exhaustive]
 pub enum TerminationInfo {
   Ub(String),
-  MachineStop(String),
+  MachineStop,
 }
 
 /// Some macros for convenient yeeting, i.e., return an error from a
@@ -28,8 +28,8 @@ macro_rules! throw_ub {
     };
 }
 macro_rules! throw_machine_stop {
-    ($($tt:tt)*) => {
-        do yeet TerminationInfo::MachineStop(format!($($tt)*))
+    () => {
+        do yeet TerminationInfo::MachineStop
     };
 }
 

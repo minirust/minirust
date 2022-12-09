@@ -107,6 +107,12 @@ pub enum Terminator {
     /// Return from the current function.
     Return,
 }
+
+pub enum Intrinsic {
+    Exit,
+    PrintStdout,
+    PrintStderr,
+}
 ```
 
 We also need to define constants (a strict subset of `Value`).
