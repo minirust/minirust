@@ -387,7 +387,8 @@ impl<M: Memory> Machine<M> {
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.iter().zip(arguments.iter()) {
             let val = self.eval_value(arg)?;
-            let caller_ty = arg.check_wf::<M>(func.locals).unwrap(); // FIXME avoid a second traversal of `arg`
+            let caller_locals = self.cur_frame().func.locals;
+            let caller_ty = arg.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal of `arg`
             let callee_layout = func.locals[local].layout::<M>();
             if caller_abi != callee_abi {
                 throw_ub!("call ABI violation: argument ABI does not agree");
