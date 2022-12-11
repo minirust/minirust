@@ -1,12 +1,6 @@
 # Intrinsics
 
 ```rust
-pub enum Intrinsic {
-    Exit,
-    PrintStdout,
-    PrintStderr,
-}
-
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(intrinsic)]
     fn eval_intrinsic(
@@ -28,7 +22,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<Value<M>>,
         ret: Option<Place<M>>,
     ) -> NdResult {
-        throw_machine_stop!("0")
+        throw_machine_stop!()
     }
 }
 ```
