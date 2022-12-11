@@ -484,6 +484,7 @@ Certainly, it is the case that if a list of bytes is not related to any value fo
 We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
 
 ```rust
+#[allow(unused)]
 fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provenance>>) -> Result {
     if ty.decode::<M>(bytes).is_none() {
         throw_ub!("data violates validity invariant of type {ty:?}"); // FIXME use Display instead of Debug for `ty`
@@ -514,6 +515,7 @@ More precisely:
 
 ```rust
 /// Transmutes `val` from `type1` to `type2`.
+#[allow(unused)]
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
     let bytes = type1.encode::<M>(val);
     type2.decode::<M>(bytes)

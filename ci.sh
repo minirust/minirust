@@ -14,4 +14,4 @@ git checkout "$TOOLING_COMMIT"
 
 # transpile, and build the transpiled result
 (cd specr-transpile; cargo run)
-(cd gen-minirust; cargo build)
+(cd gen-minirust; RUSTFLAGS="-D warnings" cargo build)
