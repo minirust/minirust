@@ -110,9 +110,7 @@ impl Type {
         let Value::Int(i) = val else { panic!() };
         // `Endianness::encode` will do the integer's bound check.
         let bytes_data = M::ENDIANNESS.encode(signed, size, i).unwrap();
-        bytes_data.iter()
-            .map(|b| AbstractByte::Init(b, None))
-            .collect()
+        bytes_data.map(|b| AbstractByte::Init(b, None))
     }
 }
 ```
@@ -145,9 +143,7 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Poi
 
 fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
     let bytes_data = M::ENDIANNESS.encode(Unsigned, M::PTR_SIZE, ptr.addr).unwrap();
-    bytes_data.iter()
-        .map(|b| AbstractByte::Init(b, ptr.provenance))
-        .collect()
+    bytes_data.map(|b| AbstractByte::Init(b, ptr.provenance))
 }
 
 impl Type {
@@ -195,7 +191,7 @@ impl Type {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
-        for ((offset, ty), value) in fields.iter().zip(values) {
+        for ((offset, ty), value) in fields.zip(values) {
             bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
         bytes
@@ -222,11 +218,11 @@ impl Type {
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), count);
-        values.iter().flat_map(|value| {
+        values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
             assert_eq!(bytes.len(), elem.size::<M>().bytes());
             bytes
-        }).collect()
+        })
     }
 }
 ```
@@ -255,7 +251,7 @@ impl Type {
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         // Restore the data from each chunk.
-        for ((offset, size), data) in chunks.iter().zip(chunk_data.iter()) {
+        for ((offset, size), data) in chunks.zip(chunk_data) {
             assert_eq!(size.bytes(), data.len());
             bytes.write_subslice_at_index(offset.bytes(), data);
         }
@@ -344,7 +340,7 @@ In fact, we define this to be in general how lists are partially ordered (based 
 impl<T: DefinedRelation> DefinedRelation for List<T> {
     fn le_defined(self, other: Self) -> bool {
         self.len() == other.len() &&
-            self.iter().zip(other.iter()).all(|(l, r)| l.le_defined(r))
+            self.zip(other).all(|(l, r)| l.le_defined(r))
     }
 }
 ```
@@ -465,7 +461,7 @@ impl<M: Memory> TypedMemory for M {
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.iter().zip(fields).map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry)).try_collect()?),
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>

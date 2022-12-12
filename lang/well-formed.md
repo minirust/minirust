@@ -83,7 +83,7 @@ impl Type {
                     ensure(size >= offset + ty.size::<M>())?;
 
                     // And it must fit into one of the chunks.
-                    ensure(chunks.into_iter().any(|(chunk_offset, chunk_size)| {
+                    ensure(chunks.any(|(chunk_offset, chunk_size)| {
                         chunk_offset <= offset
                             && offset + ty.size::<M>() <= chunk_offset + chunk_size
                     }))?;
@@ -132,7 +132,7 @@ impl Constant {
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::Tuple(constants), Type::Tuple { fields, size: _ }) => {
                 ensure(constants.len() == fields.len())?;
-                for (c, (_offset, ty)) in constants.iter().zip(fields.iter()) {
+                for (c, (_offset, ty)) in constants.zip(fields) {
                     c.check_wf(ty)?;
                 }
             }
@@ -289,7 +289,7 @@ impl Statement {
                 live_locals
             }
             StorageDead(local) => {
-                if func.ret.is_some_and(|(l, _)| l == local) || func.args.iter().any(|(arg_name, _abi)| arg_name == local) {
+                if func.ret.is_some_and(|(l, _)| l == local) || func.args.any(|(arg_name, _abi)| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }

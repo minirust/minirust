@@ -380,7 +380,7 @@ impl<M: Memory> Machine<M> {
         if func.args.len() != arguments.len() {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
-        for ((local, callee_abi), (arg, caller_abi)) in func.args.iter().zip(arguments.iter()) {
+        for ((local, callee_abi), (arg, caller_abi)) in func.args.zip(arguments) {
             let val = self.eval_value(arg)?;
             let caller_locals = self.cur_frame().func.locals;
             let caller_ty = arg.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal of `arg`
