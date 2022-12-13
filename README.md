@@ -53,10 +53,13 @@ The return type `Nondet<T>` indicates that this function picks the returned `T` 
 This is only used in the memory model; the expression language is perfectly deterministic (but of course it has to propagate the memory model's non-determinism).
 In a function returning `Nondet`, we use `?` for monadic bind (this is more general than its usual role for short-circuiting), and the return value is implicitly wrapped in monadic return.
 
-The function `pick<T>(fn(T) -> bool) -> Nondet<T>` will return a value of type `T` such that the given closure returns `true` for this value.
+The function `pick<T>(impl Distribution<T>, fn(T) -> bool) -> Nondet<T>` will return a value of type `T` such that the given closure returns `true` for this value.
 This non-determinism is interpreted *daemonically*, which means that the program has to be correct for every possible choice.
 In particular, if the closure is `|_| false` or `T` is uninhabited, then this corresponds to "no behavior" (which is basically the perfect opposite of Undefined Behavior, and also very confusing).
-Similarly, the function `predict<T>(fn(T) -> bool) -> Nondet<T>` also returns a `T` satisfying the closure, but this non-determinism is interpreted *angelically*, which means there has to *exist* a possible choice that makes the program behave as intended.
+For the purpose of making the spec executable, `pick` also receives a `Distribution` argument.
+This argument does not affect the set of possible program behaviors, it is purely a hint for the interpreter to sample suitable candidates.
+
+Similar to `pick`, the function `predict<T>(fn(T) -> bool) -> Nondet<T>` also returns a `T` satisfying the closure, but this non-determinism is interpreted *angelically*, which means there has to *exist* a possible choice that makes the program behave as intended.
 In particular, if the closure is `|_| false` or `T` is uninhabited, then this operation is exactly the same as `hint::unreachable_unchecked()`: no possible choice exists, and hence ever reaching this operation is Undefined Behavior.
 
 The combined monad `Nondet<Result<T>>` is abbreviated `NdResult<T>`, and in such a function `?` can also be used on computations that only need one of the monads, applying suitable lifting:
