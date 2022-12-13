@@ -25,7 +25,7 @@ impl<Provenance> IntPtrCast<Provenance> {
             // Remember this provenance as having been exposed.
             self.exposed.insert(provenance);
         }
-        ptr.addr
+        ret(ptr.addr)
     }
 
     pub fn int2ptr(&mut self, addr: Int) -> NdResult<Pointer<Provenance>> {
@@ -36,8 +36,9 @@ impl<Provenance> IntPtrCast<Provenance> {
                 |p| self.exposed.contains(p),
             )
         })?;
+
         // Construct a pointer with that provenance.
-        Pointer { addr, provenance }
+        ret(Pointer { addr, provenance })
     }
 }
 ```

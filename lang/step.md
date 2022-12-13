@@ -32,6 +32,8 @@ impl<M: Memory> Machine<M> {
             });
             self.eval_statement(stmt)?;
         }
+
+        ret(())
     }
 }
 ```
@@ -53,7 +55,7 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     /// converts `Constant` to their `Value` counterpart.
     fn eval_constant(&mut self, constant: Constant) -> NdResult<Value<M>> {
-        match constant {
+        ret(match constant {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
             Constant::Tuple(args) => {
@@ -64,11 +66,11 @@ impl<M: Memory> Machine<M> {
                 let data = self.eval_constant(data)?;
                 Value::Variant { idx, data }
             },
-        }
+        })
     }
 
     fn eval_value(&mut self, ValueExpr::Constant(constant, _ty): ValueExpr) -> NdResult<Value<M>> {
-        self.eval_constant(constant)?
+        ret(self.eval_constant(constant)?)
     }
 }
 ```
@@ -87,7 +89,8 @@ impl<M: Memory> Machine<M> {
             // Overwrite the source with `Uninit`.
             self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
         }
-        v
+
+        ret(v)
     }
 }
 ```
@@ -100,7 +103,7 @@ The `&` operators simply converts a place to the pointer it denotes.
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value<M>> {
         let p = self.eval_place(target)?;
-        Value::Ptr(p)
+        ret(Value::Ptr(p))
     }
 }
 ```
@@ -113,12 +116,12 @@ The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](op
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value<M>> {
         let operand = self.eval_value(operand)?;
-        self.eval_un_op(operator, operand)?
+        ret(self.eval_un_op(operator, operand)?)
     }
     fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<Value<M>> {
         let left = self.eval_value(left)?;
         let right = self.eval_value(right)?;
-        self.eval_bin_op(operator, left, right)?
+        ret(self.eval_bin_op(operator, left, right)?)
     }
 }
 ```
@@ -149,7 +152,7 @@ The place for a local is directly given by the stack frame.
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<Place<M>> {
         // This implicitly asserts that the local is live!
-        self.cur_frame().locals[name]
+        ret(self.cur_frame().locals[name])
     }
 }
 ```
@@ -169,7 +172,8 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(p) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
-        p
+
+        ret(p)
     }
 }
 ```
@@ -187,7 +191,7 @@ impl<M: Memory> Machine<M> {
             _ => panic!("field projection on non-projectable type"),
         };
         assert!(offset < ty.size::<M>());
-        self.ptr_offset_inbounds(root, offset.bytes())?
+        ret(self.ptr_offset_inbounds(root, offset.bytes())?)
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place<M>> {
@@ -207,7 +211,7 @@ impl<M: Memory> Machine<M> {
             _ => panic!("index projection on non-indexable type"),
         };
         assert!(offset < ty.size::<M>());
-        self.ptr_offset_inbounds(root, offset.bytes())?
+        ret(self.ptr_offset_inbounds(root, offset.bytes())?)
     }
 }
 ```
@@ -242,6 +246,8 @@ impl<M: Memory> Machine<M> {
         let val = self.eval_value(source)?;
         let ptype = destination.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `destination`
         self.mem.typed_store(place, val, ptype)?;
+
+        ret(())
     }
 }
 ```
@@ -260,6 +266,8 @@ impl<M: Memory> Machine<M> {
         let val = self.mem.typed_load(p, ptype)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
         self.mem.typed_store(p, val, ptype)?;
+
+        ret(())
     }
 }
 ```
@@ -277,6 +285,8 @@ impl<M: Memory> Machine<M> {
         self.mutate_cur_frame(|frame| {
             frame.locals.try_insert(local, p).unwrap();
         });
+
+        ret(())
     }
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
@@ -286,6 +296,8 @@ impl<M: Memory> Machine<M> {
             frame.locals.remove(local).unwrap()
         });
         self.mem.deallocate(p, layout.size, layout.align)?;
+
+        ret(())
     }
 }
 ```
@@ -309,6 +321,8 @@ impl<M: Memory> Machine<M> {
         self.mutate_cur_frame(|frame| {
             frame.jump_to_block(block_name);
         });
+
+        ret(())
     }
 }
 ```
@@ -325,6 +339,8 @@ impl<M: Memory> Machine<M> {
         self.mutate_cur_frame(|frame| {
             frame.jump_to_block(next);
         });
+
+        ret(())
     }
 }
 ```
@@ -350,7 +366,7 @@ In particular, we have to initialize the new stack frame.
 impl<M: Memory> Machine<M> {
     fn eval_terminator(
         &mut self,
-        Terminator::Call { callee, arguments, ret, next_block }: Terminator
+        Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
@@ -358,7 +374,7 @@ impl<M: Memory> Machine<M> {
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let ret_place = ret.try_map(|(caller_ret_place, _abi)| self.eval_place(caller_ret_place))?;
+        let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| self.eval_place(caller_ret_place))?;
 
         // Create place for return local, if needed.
         if let Some((ret_local, _abi)) = func.ret {
@@ -367,7 +383,7 @@ impl<M: Memory> Machine<M> {
         }
 
         // Check ABI compatibility.
-        if let (Some((_, caller_ret_abi)), Some((_, callee_ret_abi))) = (ret, func.ret) {
+        if let (Some((_, caller_ret_abi)), Some((_, callee_ret_abi))) = (ret_expr, func.ret) {
             if caller_ret_abi != callee_ret_abi {
                 throw_ub!("call ABI violation: return ABI does not agree");
             }
@@ -408,6 +424,8 @@ impl<M: Memory> Machine<M> {
             next_block: func.start,
             next_stmt: Int::ZERO,
         });
+
+        ret(())
     }
 }
 ```
@@ -449,6 +467,8 @@ impl<M: Memory> Machine<M> {
         } else {
             throw_ub!("Return from a function where caller did not specify next block");
         }
+
+        ret(())
     }
 }
 ```
@@ -462,14 +482,14 @@ It should probably do a `Finalize` as the next step to encode that it would be U
 impl<M: Memory> Machine<M> {
     fn eval_terminator(
         &mut self,
-        Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block }: Terminator
+        Terminator::CallIntrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
-        let ret = ret.try_map(|p| self.eval_place(p))?;
+        let ret_place = ret_expr.try_map(|p| self.eval_place(p))?;
 
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
-        self.eval_intrinsic(intrinsic, arguments, ret)?;
+        self.eval_intrinsic(intrinsic, arguments, ret_place)?;
 
         if let Some(next_block) = next_block {
             self.mutate_cur_frame(|frame| {
@@ -478,6 +498,8 @@ impl<M: Memory> Machine<M> {
         } else {
             throw_ub!("Return from an intrinsic where caller did not specify next block");
         }
+
+        ret(())
     }
 }
 ```
