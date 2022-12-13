@@ -109,7 +109,7 @@ impl Memory for BasicMemory {
             // ... such that addr+size is in-bounds of a `usize`...
             if !(addr+size.bytes()).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
-            if self.allocations.iter().any(|a| a.live && a.overlaps(addr, size)) { return false; }
+            if self.allocations.any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
             true
         })?;

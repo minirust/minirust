@@ -137,10 +137,10 @@ impl Type {
         match self {
             Int(..) | Bool | Ptr(PtrType::Raw { .. }) => true,
             Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
-            Tuple { fields, .. } => fields.iter().all(|(_offset, ty)| ty.inhabited()),
+            Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => variants.iter().any(|ty| ty.inhabited()),
+            Enum { variants, .. } => variants.any(|ty| ty.inhabited()),
         }
     }
 }
