@@ -191,7 +191,7 @@ impl BasicMemory {
         let allocation = self.allocations[id.0];
 
         if !allocation.live {
-            throw_ub!("use after free!");
+            throw_ub!("memory accessed after deallocation");
         }
 
         // Compute relative offset, and ensure we are in-bounds.
