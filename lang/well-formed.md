@@ -10,6 +10,8 @@ We use the following helper function to convert Boolean checks into this form.
 ```rust
 fn ensure(b: bool) -> Option<()> {
     if !b { throw!(); }
+
+    ret(())
 }
 ```
 
@@ -19,6 +21,8 @@ fn ensure(b: bool) -> Option<()> {
 impl IntType {
     fn check_wf(self) -> Option<()> {
         ensure(self.size.bytes().is_power_of_two())?;
+
+        ret(())
     }
 }
 
@@ -29,6 +33,8 @@ impl Layout {
         // To represent e.g. the PlaceType of an `i32` at offset 0 in a
         // type that is `align(16)`, we have to be able to talk about types
         // with size 4 and alignment 16.
+
+        ret(())
     }
 }
 
@@ -39,6 +45,8 @@ impl PtrType {
                 pointee.check_wf()?;
             }
         }
+
+        ret(())
     }
 }
 
@@ -105,6 +113,8 @@ impl Type {
                 }
             }
         }
+
+        ret(())
     }
 }
 
@@ -112,6 +122,8 @@ impl PlaceType {
     fn check_wf<M: Memory>(self) -> Option<()> {
         self.ty.check_wf::<M>()?;
         self.layout::<M>().check_wf()?;
+
+        ret(())
     }
 }
 ```
@@ -148,13 +160,15 @@ impl Constant {
             }
             _ => throw!(),
         }
+
+        ret(())
     }
 }
 
 impl ValueExpr {
     fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
         use ValueExpr::*;
-        match self {
+        ret(match self {
             Constant(value, ty) => {
                 value.check_wf(ty)?;
                 ty
@@ -209,14 +223,14 @@ impl ValueExpr {
                     }
                 }
             }
-        }
+        })
     }
 }
 
 impl PlaceExpr {
     fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
         use PlaceExpr::*;
-        match self {
+        ret(match self {
             Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
                 let ty = operand.check_wf::<M>(locals)?;
@@ -251,7 +265,7 @@ impl PlaceExpr {
                     ty: field_ty,
                 }
             }
-        }
+        })
     }
 }
 ```
@@ -271,7 +285,7 @@ impl Statement {
         func: Function
     ) -> Option<Map<LocalName, PlaceType>> {
         use Statement::*;
-        match self {
+        ret(match self {
             Assign { destination, source } => {
                 let left = destination.check_wf::<M>(live_locals)?;
                 let right = source.check_wf::<M>(live_locals)?;
@@ -296,7 +310,7 @@ impl Statement {
                 live_locals.remove(local)?;
                 live_locals
             }
-        }
+        })
     }
 }
 
@@ -307,7 +321,7 @@ impl Terminator {
         live_locals: Map<LocalName, PlaceType>,
     ) -> Option<List<BbName>> {
         use Terminator::*;
-        match self {
+        ret(match self {
             Goto(block_name) => {
                 list![block_name]
             }
@@ -352,7 +366,7 @@ impl Terminator {
             Return => {
                 list![]
             }
-        }
+        })
     }
 }
 
@@ -405,6 +419,8 @@ impl Function {
         for block_name in self.blocks.keys() {
             ensure(bb_live_at_entry.contains_key(block_name))?;
         }
+
+        ret(())
     }
 }
 
@@ -418,6 +434,8 @@ impl Program {
         for function in self.functions.values() {
             function.check_wf::<M>()?;
         }
+
+        ret(())
     }
 }
 ```

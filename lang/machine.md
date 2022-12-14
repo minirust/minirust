@@ -75,12 +75,12 @@ impl<M: Memory> Machine<M> {
             next_stmt: Int::ZERO,
         };
 
-        Machine {
+        ret(Machine {
             prog,
             mem: M::new(),
             intptrcast: IntPtrCast::new(),
             stack: list![init_frame],
-        }
+        })
     }
 }
 ```
@@ -108,6 +108,8 @@ impl<M: Memory> StackFrame<M> {
     fn jump_to_block(&mut self, b: BbName) -> NdResult {
         self.next_block = b;
         self.next_stmt = Int::ZERO;
+
+        ret(())
     }
 }
 ```

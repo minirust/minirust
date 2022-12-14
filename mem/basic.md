@@ -125,8 +125,9 @@ impl Memory for BasicMemory {
         // Insert it into list, and remember where.
         let id = AllocId(self.allocations.len());
         self.allocations.push(allocation);
+
         // And we are done!
-        Pointer { addr, provenance: Some(id) }
+        ret(Pointer { addr, provenance: Some(id) })
     }
 
     fn deallocate(&mut self, ptr: Pointer<AllocId>, size: Size, align: Align) -> Result {
@@ -154,6 +155,8 @@ impl Memory for BasicMemory {
         self.allocations.mutate_at(id.0, |allocation| {
             allocation.live = false;
         });
+
+        ret(())
     }
 }
 ```
@@ -181,7 +184,7 @@ impl BasicMemory {
         // `offset(0)` is allowed on all non-null pointers which does not match
         // the LLVM IR rustc generates.
         if len.is_zero() {
-            return None;
+            return ret(None);
         }
         // Now try to access the allocation information.
         let Some(id) = ptr.provenance else {
@@ -200,35 +203,39 @@ impl BasicMemory {
             throw_ub!("out-of-bounds memory access");
         }
         // All is good!
-        Some((id, Size::from_bytes(offset_in_alloc)))
+        ret(Some((id, Size::from_bytes(offset_in_alloc))))
     }
 }
 
 impl Memory for BasicMemory {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
-            return list![];
+            return ret(list![]);
         };
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
-        allocation.data.subslice_with_length(offset.bytes(), len.bytes())
+        ret(allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let size = Size::from_bytes(bytes.len());
         let Some((id, offset)) = self.check_ptr(ptr, size, align)? else {
-            return;
+            return ret(());
         };
 
         // Slice into the contents, and put the new bytes there.
         self.allocations.mutate_at(id.0, |allocation| {
             allocation.data.write_subslice_at_index(offset.bytes(), bytes);
         });
+
+        ret(())
     }
 
     fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result {
         self.check_ptr(ptr, size, align)?;
+
+        ret(())
     }
 }
 ```
@@ -244,7 +251,8 @@ impl Memory for BasicMemory {
             lang::PtrType::Raw { pointee } => pointee,
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
-        ptr
+
+        ret(ptr)
     }
 }
 ```

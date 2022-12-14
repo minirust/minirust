@@ -79,11 +79,11 @@ impl Type {
         if bytes.len() != 1 {
             throw!();
         }
-        match bytes[0] {
+        ret(match bytes[0] {
             AbstractByte::Init(0, _) => Value::Bool(false),
             AbstractByte::Init(1, _) => Value::Bool(true),
             _ => throw!(),
-        }
+        })
     }
     fn encode<M: Memory>(Type::Bool: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Bool(b) = val else { panic!() };
@@ -104,7 +104,7 @@ impl Type {
         }
         // Fails if any byte is `Uninit`.
         let bytes_data = bytes.try_map(|b| b.data())?;
-        Value::Int(M::ENDIANNESS.decode(signed, bytes_data))
+        ret(Value::Int(M::ENDIANNESS.decode(signed, bytes_data)))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Int(i) = val else { panic!() };
@@ -138,7 +138,7 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Poi
             provenance = None;
         }
     }
-    Pointer { addr, provenance }
+    ret(Pointer { addr, provenance })
 }
 
 fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
@@ -157,7 +157,7 @@ impl Type {
                 ensure(ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited)?;
             }
         }
-        Value::Ptr(decode_ptr::<M>(bytes)?)
+        ret(Value::Ptr(decode_ptr::<M>(bytes)?))
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
@@ -180,12 +180,12 @@ Note that types like `&!` have no valid value: when the pointee type is uninhabi
 impl Type {
     fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
-        Value::Tuple(
+        ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
                 ty.decode::<M>(subslice)
             })?
-        )
+        ))
     }
     fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
@@ -210,10 +210,10 @@ impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let full_size = elem.size::<M>() * count;
         if bytes.len() != full_size.bytes() { throw!(); }
-        Value::Tuple(
+        ret(Value::Tuple(
             bytes.chunks(elem.size::<M>().bytes())
                 .try_map(|elem_bytes| elem.decode::<M>(elem_bytes))?
-        )
+        ))
     }
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
@@ -244,7 +244,7 @@ impl Type {
         for (offset, size) in chunks {
             chunk_data.push(bytes.subslice_with_length(offset.bytes(), size.bytes()));
         }
-        Value::Union(chunk_data)
+        ret(Value::Union(chunk_data))
     }
     fn encode<M: Memory>(Type::Union { size, chunks, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Union(chunk_data) = val else { panic!() };
@@ -435,14 +435,16 @@ impl<M: Memory> TypedMemory for M {
     fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result {
         let bytes = pty.ty.encode::<Self>(val);
         self.store(ptr, bytes, pty.align)?;
+
+        ret(())
     }
 
     fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>> {
         let bytes = self.load(ptr, pty.ty.size::<Self>(), pty.align)?;
-        match pty.ty.decode::<Self>(bytes) {
+        ret(match pty.ty.decode::<Self>(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
-        }
+        })
     }
 
     fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
@@ -451,10 +453,12 @@ impl<M: Memory> TypedMemory for M {
             throw_ub!("uninhabited types are not dereferenceable");
         }
         self.dereferenceable(ptr, layout.size, layout.align)?;
+
+        ret(())
     }
 
     fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>> {
-        match (val, ty) {
+        ret(match (val, ty) {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
             // base case
@@ -467,7 +471,7 @@ impl<M: Memory> TypedMemory for M {
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
                 Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
             _ => panic!("this value does not have that type"),
-        }
+        })
     }
 }
 ```
@@ -484,6 +488,8 @@ fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provena
     if ty.decode::<M>(bytes).is_none() {
         throw_ub!("data violates validity invariant of type {ty:?}"); // FIXME use Display instead of Debug for `ty`
     }
+
+    ret(())
 }
 ```
 
@@ -513,7 +519,7 @@ More precisely:
 #[allow(unused)]
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
     let bytes = type1.encode::<M>(val);
-    type2.decode::<M>(bytes)
+    ret(type2.decode::<M>(bytes)?)
 }
 ```
 
