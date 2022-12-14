@@ -134,7 +134,7 @@ impl Memory for BasicMemory {
             throw_ub!("deallocating invalid pointer")
         };
         // This lookup will definitely work, since AllocId cannot be faked.
-        let allocation = &self.allocations[id.0];
+        let allocation = self.allocations[id.0];
 
         // Check a bunch of things.
         if !allocation.live {
@@ -188,7 +188,12 @@ impl BasicMemory {
             // An invalid pointer.
             throw_ub!("non-zero-sized access with invalid pointer")
         };
-        let allocation = &self.allocations[id.0];
+        let allocation = self.allocations[id.0];
+
+        if !allocation.live {
+            throw_ub!("use after free!");
+        }
+
         // Compute relative offset, and ensure we are in-bounds.
         let offset_in_alloc = ptr.addr - allocation.addr;
         if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
