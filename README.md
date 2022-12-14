@@ -42,9 +42,10 @@ The next sections describe the effects used in the MiniRust interpreter.
 ### Fallible operations
 
 We use `Result` to make operations fallible (where failure indicates UB or machine termination).
-The bodies of `Result` and `Option`-returning functions behave like `try` blocks (implicit `Ok`/`Some` wrapping, and `throw!()` to return an error value (`Err`/`None`), like the experimental `yeet`).
 We use a `throw_ub!` macro to make the current function return a UB error value, and `throw_machine_stop!` to indicate that and how the machine has stopped.
-See [the prelude](prelude.md) for details.
+Similarly, we use `throw!()` inside `Option`-returning functions to return `None`.
+In order to wrap a value `t: T` as `Result<T>`, `Option<T>` or `NdResult<T>` (see next subchapter), we use the function `ret(t)`.
+See [the prelude](prelude/main.md) for details.
 
 ### Non-determinism
 
