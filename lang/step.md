@@ -190,7 +190,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field].0,
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset < ty.size::<M>());
+        assert!(offset <= ty.size::<M>());
         ret(self.ptr_offset_inbounds(root, offset.bytes())?)
     }
 
@@ -202,7 +202,7 @@ impl<M: Memory> Machine<M> {
         };
         let offset = match ty {
             Type::Array { elem, count } => {
-                if index < count {
+                if index >= 0 && index < count {
                     index * elem.size::<M>()
                 } else {
                     throw_ub!("out-of-bounds array access");
@@ -210,7 +210,7 @@ impl<M: Memory> Machine<M> {
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset < ty.size::<M>());
+        assert!(offset <= ty.size::<M>());
         ret(self.ptr_offset_inbounds(root, offset.bytes())?)
     }
 }
