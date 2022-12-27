@@ -81,7 +81,8 @@ impl Type {
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
                 ensure(size >= last_end)?;
             }
-            Array { elem, count: _ } => {
+            Array { elem, count } => {
+                ensure(count >= 0)?;
                 elem.check_wf::<M>()?;
             }
             Union { fields, size, chunks } => {
