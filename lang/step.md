@@ -371,10 +371,15 @@ impl<M: Memory> Machine<M> {
         let Some(func) = self.prog.functions.get(callee) else {
             throw_ub!("calling non-existing function");
         };
+        let caller_locals = self.cur_frame().func.locals;
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| self.eval_place(caller_ret_place))?;
+        let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| {
+            let p = self.eval_place(caller_ret_place)?;
+            let pty = caller_ret_place.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal
+            ret::<NdResult<_>>((p, pty))
+        })?;
 
         // Create place for return local, if needed.
         if let Some((ret_local, _abi)) = func.ret {
@@ -398,7 +403,6 @@ impl<M: Memory> Machine<M> {
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.zip(arguments) {
             let val = self.eval_value(arg)?;
-            let caller_locals = self.cur_frame().func.locals;
             let caller_ty = arg.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal of `arg`
             let callee_layout = func.locals[local].layout::<M>();
             if caller_abi != callee_abi {
@@ -407,7 +411,7 @@ impl<M: Memory> Machine<M> {
             // Allocate place with callee layout (a lot like `StorageLive`).
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
             // Store value with caller type (otherwise we could get panics).
-            // The size check above should ensure that this does not go OOB,
+            // The ABI above should ensure that this does not go OOB,
             // and it is a fresh pointer so there should be no other reason this can fail.
             self.mem.typed_store(p, val, PlaceType::new(caller_ty, callee_layout.align)).unwrap();
             locals.insert(local, p);
@@ -445,10 +449,11 @@ impl<M: Memory> Machine<M> {
         };
 
         // Copy return value, if any, to where the caller wants it.
-        // We use the type as given by `func` here (callee type) as otherwise we
-        // would never ensure that the value is valid at that type.
-        if let Some(ret_place) = frame.caller_return_info.ret_place {
-            let ret_pty = func.locals[ret_local];
+        // To make this work like an assignment in the caller, we use the caller type for this copy.
+        // FIXME: Should Call/Return also do a copy at *callee* type?
+        // On the other hand, the callee is done here, so why would it even still
+        // care about the return value?
+        if let Some((ret_place, ret_pty)) = frame.caller_return_info.ret_place {
             let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
             self.mem.typed_store(ret_place, ret_val, ret_pty)?;
         }
