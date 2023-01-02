@@ -381,6 +381,7 @@ impl<T: DefinedRelation> DefinedRelation for Option<T> {
 }
 ```
 
+In the following, let `ty` be an arbitrary well-formed type.
 We say that a `v: Value` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
 
 Now we can state the laws that we require.
