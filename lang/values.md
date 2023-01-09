@@ -208,11 +208,17 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let full_size = elem.size::<M>() * count;
+        let elem_size = elem.size::<M>();
+        let full_size = elem_size * count;
+
         if bytes.len() != full_size.bytes() { throw!(); }
+
+        let chunks: List<_> = (Int::ZERO..count).map(|i|
+            bytes.subslice_with_length(i*elem_size.bytes(), elem_size.bytes())
+        ).collect();
+
         ret(Value::Tuple(
-            bytes.chunks(elem.size::<M>().bytes())
-                .try_map(|elem_bytes| elem.decode::<M>(elem_bytes))?
+            chunks.try_map(|elem_bytes| elem.decode::<M>(elem_bytes))?
         ))
     }
     fn encode<M: Memory>(Type::Array { elem, count }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
