@@ -323,17 +323,13 @@ impl Terminator {
     ) -> Option<List<BbName>> {
         use Terminator::*;
         ret(match self {
-            Goto(block_name) => {
-                list![block_name]
-            }
+            Goto(block_name) => list![block_name],
             If { condition, then_block, else_block } => {
                 let ty = condition.check_wf::<M>(live_locals)?;
                 ensure(matches!(ty, Type::Bool))?;
                 list![then_block, else_block]
             }
-            Unreachable => {
-                list![]
-            }
+            Unreachable => list![],
             Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
@@ -364,9 +360,7 @@ impl Terminator {
                     None => list![],
                 }
             }
-            Return => {
-                list![]
-            }
+            Return => list![],
         })
     }
 }
