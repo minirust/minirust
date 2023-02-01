@@ -112,6 +112,8 @@ pub enum Intrinsic {
     Exit,
     PrintStdout,
     PrintStderr,
+    Allocate,
+    Deallocate,
 }
 ```
 

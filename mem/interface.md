@@ -84,8 +84,9 @@ pub trait Memory {
     /// The type of pointer provenance.
     type Provenance;
 
-    /// The size of a pointer.
+    /// The size and align of a pointer.
     const PTR_SIZE: Size;
+    const PTR_ALIGN: Align;
 
     /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
