@@ -143,18 +143,6 @@ impl Constant {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
             (Constant::Bool(_), Type::Bool) => (),
-            (Constant::Tuple(constants), Type::Tuple { fields, size: _ }) => {
-                ensure(constants.len() == fields.len())?;
-                for (c, (_offset, ty)) in constants.zip(fields) {
-                    c.check_wf(ty)?;
-                }
-            }
-            (Constant::Tuple(constants), Type::Array { elem, count }) => {
-                ensure(constants.len() == count)?;
-                for c in constants {
-                    c.check_wf(elem)?;
-                }
-            }
             (Constant::Variant { idx, data }, Type::Enum { variants, .. }) => {
                 let ty = variants.get(idx)?;
                 data.check_wf(ty)?;
@@ -173,6 +161,27 @@ impl ValueExpr {
             Constant(value, ty) => {
                 value.check_wf(ty)?;
                 ty
+            }
+            Tuple(exprs, t) => {
+                match t {
+                    Type::Tuple { fields, size: _ } => {
+                        ensure(exprs.len() == fields.len())?;
+                        for (e, (_offset, ty)) in exprs.zip(fields) {
+                            let checked = e.check_wf::<M>(locals)?;
+                            ensure(checked == ty)?;
+                        }
+                    },
+                    Type::Array { elem, count } => {
+                        ensure(exprs.len() == count)?;
+                        for e in exprs {
+                            let checked = e.check_wf::<M>(locals)?;
+                            ensure(checked == elem)?;
+                        }
+                    },
+                    _ => throw!(),
+                }
+
+                t
             }
             Load { source, destructive: _ } => {
                 let ptype = source.check_wf::<M>(locals)?;

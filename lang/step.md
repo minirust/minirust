@@ -58,10 +58,6 @@ impl<M: Memory> Machine<M> {
         ret(match constant {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
-            Constant::Tuple(args) => {
-                let vals = args.try_map(|c| self.eval_constant(c))?;
-                Value::Tuple(vals)
-            },
             Constant::Variant { idx, data } => {
                 let data = self.eval_constant(data)?;
                 Value::Variant { idx, data }
@@ -71,6 +67,17 @@ impl<M: Memory> Machine<M> {
 
     fn eval_value(&mut self, ValueExpr::Constant(constant, _ty): ValueExpr) -> NdResult<Value<M>> {
         ret(self.eval_constant(constant)?)
+    }
+}
+```
+
+### Tuples
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::Tuple(exprs, _): ValueExpr) -> NdResult<Value<M>> {
+        let vals = exprs.try_map(|e| self.eval_value(e))?;
+        ret(Value::Tuple(vals))
     }
 }
 ```
