@@ -127,9 +127,9 @@ pub enum Constant {
     Int(Int),
     /// A Boolean value, used for `bool`.
     Bool(bool),
-    /// An n-tuple, used for arrays, structs, tuples (including unit).
-    Tuple(List<Constant>),
+
     /// A variant of a sum type, used for enums.
+    // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
     Variant {
         idx: Int,
         #[specr::indirection]
@@ -145,6 +145,10 @@ And finally, the syntax of expressions:
 pub enum ValueExpr {
     /// Just return a constant value.
     Constant(Constant, Type),
+
+    /// An n-tuple, used for arrays, structs, tuples (including unit).
+    Tuple(List<ValueExpr>, Type),
+
     /// Load a value from memory.
     Load {
         /// Whether this load de-initializes the source it is loaded from ("move").
