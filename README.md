@@ -26,7 +26,7 @@ The most precise way to write down the MiniRust spec would be with mathematical 
 However, without LaTeX this is a pain, and it also involves a lot of jargon which hurts accessibility of the spec.
 That's why I decided to write the MiniRust spec as an *interpreter*, so the spec itself is code.
 That begs the question, which language do we write that code in?
-I decided to use "specr lang", a kind of "pseudo Rust" (or "OCaml with Rust syntax"):
+I decided to use a kind of "pseudo Rust" (or "OCaml with Rust syntax") called *specr lang*:
 imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
 We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
