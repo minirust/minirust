@@ -98,7 +98,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid second argument to `Intrinsic::Allocate`");
         };
         let Some(align) = Align::from_bytes(align) else {
-            throw_ub!("invalid Align for `Intrinsic::Allocate`");
+            throw_ub!("invalid alignment for `Intrinsic::Allocate`: not a power of 2");
         };
 
         let alloc = self.mem.allocate(size, align)?;
@@ -131,7 +131,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid third argument to `Intrinsic::Deallocate`");
         };
         let Some(align) = Align::from_bytes(align) else {
-            throw_ub!("invalid Align for `Intrinsic::Deallocate`");
+            throw_ub!("invalid alignment for `Intrinsic::Deallocate`: not a power of 2");
         };
 
         self.mem.deallocate(ptr, size, align)?;
