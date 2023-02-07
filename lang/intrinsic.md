@@ -92,7 +92,9 @@ impl<M: Memory> Machine<M> {
         let Value::Int(size) = arguments[0] else {
             throw_ub!("invalid first argument to `Intrinsic::Allocate`");
         };
-        let size = Size::from_bytes(size);
+        let Some(size) = Size::from_bytes(size) else {
+            throw_ub!("invalid size for `Intrinsic::Allocate`: negative size");
+        };
 
         let Value::Int(align) = arguments[1] else {
             throw_ub!("invalid second argument to `Intrinsic::Allocate`");
@@ -125,7 +127,9 @@ impl<M: Memory> Machine<M> {
         let Value::Int(size) = arguments[1] else {
             throw_ub!("invalid second argument to `Intrinsic::Deallocate`");
         };
-        let size = Size::from_bytes(size);
+        let Some(size) = Size::from_bytes(size) else {
+            throw_ub!("invalid size for `Intrinsic::Deallocate`: negative size");
+        };
 
         let Value::Int(align) = arguments[2] else {
             throw_ub!("invalid third argument to `Intrinsic::Deallocate`");
