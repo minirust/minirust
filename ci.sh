@@ -2,7 +2,7 @@
 set -ex
 
 # Fixed `minirust-tooling` commit, we need to bump this occasionally.
-TOOLING_COMMIT="02818a2"
+TOOLING_COMMIT="b1b41a1"
 
 # where to check out the tooling
 TOOLING_DIR="$HOME/minirust-tooling"

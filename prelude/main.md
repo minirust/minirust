@@ -3,7 +3,8 @@
 Across all files in this repository, we assume some definitions to always be in scope.
 
 ```rust
-pub use specr::prelude::*;
+/// Documentation for libspecr can be found here: https://docs.rs/libspecr
+pub use libspecr::prelude::*;
 
 /// All operations are fallible, so they return `Result`.  If they fail, that
 /// means the program caused UB or put the machine to a halt.
@@ -34,6 +35,6 @@ macro_rules! throw_machine_stop {
 }
 
 /// We leave the encoding of the non-determinism monad opaque.
-pub use specr::Nondet;
-pub type NdResult<T=()> = specr::NdResult<T, TerminationInfo>;
+pub use libspecr::Nondet;
+pub type NdResult<T=()> = libspecr::NdResult<T, TerminationInfo>;
 ```

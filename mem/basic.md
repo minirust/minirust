@@ -97,7 +97,7 @@ impl Memory for BasicMemory {
         // meaning the program has to cope with every possible choice.
         // FIXME: This makes OOM (when there is no possible choice) into "no behavior",
         // which is not what we want.
-        let distr = specr::IntDistribution {
+        let distr = libspecr::IntDistribution {
             start: Int::ONE,
             end: Int::from(2).pow(Self::PTR_SIZE.bits()),
             divisor: align.bytes(),
