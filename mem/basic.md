@@ -49,7 +49,7 @@ The model represents a 64-bit little-endian machine.
 
 ```rust
 impl Memory for BasicMemory {
-    const PTR_SIZE: Size = Size::from_bits_const(64);
+    const PTR_SIZE: Size = Size::from_bits_const(64).unwrap();
     const PTR_ALIGN: Align = Align::from_bits_const(64).unwrap();
     const ENDIANNESS: Endianness = LittleEndian;
 }
@@ -69,7 +69,7 @@ We start with some helper operations.
 
 ```rust
 impl Allocation {
-    fn size(self) -> Size { Size::from_bytes(self.data.len()) }
+    fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
 
     fn overlaps(self, other_addr: Int, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
@@ -204,7 +204,7 @@ impl BasicMemory {
             throw_ub!("out-of-bounds memory access");
         }
         // All is good!
-        ret(Some((id, Size::from_bytes(offset_in_alloc))))
+        ret(Some((id, Size::from_bytes(offset_in_alloc).unwrap())))
     }
 }
 
@@ -220,7 +220,7 @@ impl Memory for BasicMemory {
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
-        let size = Size::from_bytes(bytes.len());
+        let size = Size::from_bytes(bytes.len()).unwrap();
         let Some((id, offset)) = self.check_ptr(ptr, size, align)? else {
             return ret(());
         };
