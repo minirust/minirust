@@ -205,6 +205,10 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
+                    Ptr2Ptr(ptr_ty) => {
+                        ensure(matches!(operand, Type::Ptr(_)))?;
+                        Type::Ptr(ptr_ty)
+                    }
                     Ptr2Int => {
                         ensure(matches!(operand, Type::Ptr(_)))?;
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
@@ -225,6 +229,11 @@ impl ValueExpr {
                         ensure(matches!(left, Type::Int(_)))?;
                         ensure(matches!(right, Type::Int(_)))?;
                         Type::Int(int_ty)
+                    }
+                    IntRel(_int_rel) => {
+                        ensure(matches!(left, Type::Int(_)))?;
+                        ensure(matches!(right, Type::Int(_)))?;
+                        Type::Bool
                     }
                     PtrOffset { inbounds: _ } => {
                         ensure(matches!(left, Type::Ptr(_)))?;
