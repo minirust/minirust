@@ -121,7 +121,7 @@ Here we define how to compute the size and other layout properties of a type.
 
 ```rust
 impl Type {
-    fn size<M: Memory>(self) -> Size {
+    pub fn size<M: Memory>(self) -> Size {
         use Type::*;
         match self {
             Int(int_type) => int_type.size,
@@ -132,7 +132,7 @@ impl Type {
         }
     }
 
-    fn inhabited(self) -> bool {
+    pub fn inhabited(self) -> bool {
         use Type::*;
         match self {
             Int(..) | Bool | Ptr(PtrType::Raw { .. }) => true,
@@ -146,11 +146,11 @@ impl Type {
 }
 
 impl PlaceType {
-    fn new(ty: Type, align: Align) -> Self {
+    pub fn new(ty: Type, align: Align) -> Self {
         PlaceType { ty, align }
     }
 
-    fn layout<M: Memory>(self) -> Layout {
+    pub fn layout<M: Memory>(self) -> Layout {
         Layout {
             size: self.ty.size::<M>(),
             align: self.align,

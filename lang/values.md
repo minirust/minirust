@@ -454,6 +454,7 @@ impl<M: Memory> TypedMemory for M {
         })
     }
 
+    // FIXME this method is currently unused.
     fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
         if !layout.inhabited {
             // TODO: I don't think Miri does this check.
