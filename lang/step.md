@@ -82,6 +82,21 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Unions
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::Union { field, expr, union_ty } : ValueExpr) -> NdResult<Value<M>> {
+        let Type::Union { fields, size, .. } = union_ty else { panic!("ValueExpr::Union requires union type") };
+        let (offset, expr_ty) = fields[field];
+        let mut data = list![AbstractByte::Uninit; size.bytes()];
+        let val = self.eval_value(expr)?;
+        data.write_subslice_at_index(offset.bytes(), expr_ty.encode::<M>(val));
+        ret(union_ty.decode(data).unwrap())
+    }
+}
+```
+
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").

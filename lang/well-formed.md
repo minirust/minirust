@@ -159,10 +159,14 @@ impl ValueExpr {
         use ValueExpr::*;
         ret(match self {
             Constant(value, ty) => {
+                ty.check_wf::<M>()?;
+
                 value.check_wf(ty)?;
                 ty
             }
             Tuple(exprs, t) => {
+                t.check_wf::<M>()?;
+
                 match t {
                     Type::Tuple { fields, size: _ } => {
                         ensure(exprs.len() == fields.len())?;
@@ -182,6 +186,19 @@ impl ValueExpr {
                 }
 
                 t
+            }
+            Union { field, expr, union_ty } => {
+                union_ty.check_wf::<M>()?;
+
+                let Type::Union { fields, .. } = union_ty else { throw!() };
+
+                ensure(field < fields.len())?;
+                let (_offset, ty) = fields[field];
+
+                let checked = expr.check_wf::<M>(locals)?;
+                ensure(checked == ty)?;
+
+                union_ty
             }
             Load { source, destructive: _ } => {
                 let ptype = source.check_wf::<M>(locals)?;
