@@ -190,6 +190,8 @@ pub enum UnOpInt {
 pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
+    /// Pointer-to-pointer cast
+    Ptr2Ptr(PtrType),
     /// Pointer-to-integer cast
     Ptr2Int,
     /// Integer-to-pointer cast
@@ -206,10 +208,32 @@ pub enum BinOpInt {
     /// Divide two integer values.
     /// Division by zero is UB.
     Div,
+    /// Remainder of a division, the `%` operator.
+    /// Throws UB, if the modulus (second operand) is zero.
+    Rem,
 }
+
+/// A relation between integers.
+pub enum IntRel {
+    /// less than
+    Lt,
+    /// greater than
+    Gt,
+    /// less than or equal
+    Le,
+    /// greater than or equal
+    Ge,
+    /// Equality
+    Eq,
+    /// Inequality
+    Ne,
+}
+
 pub enum BinOp {
     /// An operation on integers, with the given output type.
     Int(BinOpInt, IntType),
+    /// A relation between integers.
+    IntRel(IntRel),
     /// Pointer arithmetic (with or without inbounds requirement).
     PtrOffset { inbounds: bool },
 }

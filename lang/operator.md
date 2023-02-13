@@ -34,6 +34,20 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Pointer-pointer casts
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_un_op(&mut self, UnOp::Ptr2Ptr(_ptr_ty): UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+        if !matches!(operand, Value::Ptr(_)) {
+            panic!("non-pointer input to ptr2ptr cast")
+        };
+
+        ret(operand)
+    }
+}
+```
+
 ### Pointer-integer casts
 
 ```rust
@@ -74,7 +88,13 @@ impl<M: Memory> Machine<M> {
                 if right == 0 {
                     throw_ub!("division by zero");
                 }
-                left.checked_div(right).unwrap()
+                left / right
+            }
+            Rem => {
+                if right == 0 {
+                    throw_ub!("modulus of remainder is zero");
+                }
+                left % right
             }
         })
     }
@@ -87,6 +107,31 @@ impl<M: Memory> Machine<M> {
         // Put the result into the right range (in case of overflow).
         let result = result.modulo(int_type.signed, int_type.size);
         ret(Value::Int(result))
+    }
+}
+```
+
+### Integer relations
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_int_rel(&mut self, rel: IntRel, left: Int, right: Int) -> bool {
+        use IntRel::*;
+        match rel {
+            Lt => left < right,
+            Gt => left > right,
+            Le => left <= right,
+            Ge => left >= right,
+            Eq => left == right,
+            Ne => left != right,
+        }
+    }
+    fn eval_bin_op(&mut self, BinOp::IntRel(int_rel): BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>> {
+        let Value::Int(left) = left else { panic!("non-integer input to integer relation") };
+        let Value::Int(right) = right else { panic!("non-integer input to integer relation") };
+
+        let result = self.eval_int_rel(int_rel, left, right);
+        ret(Value::Bool(result))
     }
 }
 ```
