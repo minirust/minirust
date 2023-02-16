@@ -132,3 +132,17 @@ This is a very basic memory interface that is incomplete in at least the followi
 * Maybe we want operations that can compare pointers without casting them to integers. Or else we decide only the address can matter for comparison.
 
 [`Ordering`]: https://doc.rust-lang.org/nightly/core/sync/atomic/enum.Ordering.html
+
+
+```rust
+impl<Provenance> Pointer<Provenance> {
+    /// Calculates the offset from a pointer in bytes using wrapping arithmetic.
+    /// This does not check whether the pointer is still in-bounds of its allocation.
+    pub fn wrapping_offset<M: Memory<Provenance=Provenance>>(self, offset: Int) -> Self {
+        let offset = offset.modulo(Signed, M::PTR_SIZE);
+        let addr = self.addr + offset;
+        let addr = addr.modulo(Unsigned, M::PTR_SIZE);
+        Pointer { addr, ..self }
+    }
+}
+```

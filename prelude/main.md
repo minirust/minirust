@@ -12,8 +12,12 @@ pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
 
 #[non_exhaustive]
 pub enum TerminationInfo {
-  Ub(String),
-  MachineStop,
+    /// The execution encountered undefined behaviour.
+    Ub(String),
+    /// The program was executed and the machine stopped without error.
+    MachineStop,
+    /// The program was ill-formed.
+    IllFormed,
 }
 
 /// Some macros for convenient yeeting, i.e., return an error from a
@@ -31,6 +35,11 @@ macro_rules! throw_ub {
 macro_rules! throw_machine_stop {
     () => {
         do yeet TerminationInfo::MachineStop
+    };
+}
+macro_rules! throw_ill_formed {
+    () => {
+        do yeet TerminationInfo::IllFormed
     };
 }
 

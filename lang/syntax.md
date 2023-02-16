@@ -4,9 +4,10 @@ This defines the abstract syntax of MiniRust programs.
 First, the general structure of programs and functions:
 
 ```rust
-/// Some opaque type of function names.
+/// Opaque types of names for functions and globals.
 /// The details of this this is represented to not matter.
 pub struct FnName(pub libspecr::Name);
+pub struct GlobalName(pub libspecr::Name);
 
 /// A closed MiniRust program.
 pub struct Program {
@@ -14,6 +15,8 @@ pub struct Program {
     pub functions: Map<FnName, Function>,
     /// The function where execution starts.
     pub start: FnName,
+    /// Associate each global name with the associated global.
+    pub globals: Map<GlobalName, Global>,
 }
 
 /// Opaque types of names for local variables and basic blocks.
@@ -127,6 +130,8 @@ pub enum Constant {
     Int(Int),
     /// A Boolean value, used for `bool`.
     Bool(bool),
+    /// A pointer pointing into a global allocation with a given offset.
+    Pointer(Relocation),
 
     /// A variant of a sum type, used for enums.
     // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
@@ -278,6 +283,27 @@ pub enum PlaceExpr {
         index: ValueExpr,
     },
 }
+
+/// A global allocation.
+pub struct Global {
+    /// The raw bytes of the allocation. `None` represents uninitialized bytes.
+    pub bytes: List<Option<u8>>,
+    /// Cross-references pointing to other global allocations,
+    /// together with an offset, expressing where this allocation should put the pointer.
+    /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
+    pub relocations: List<(Size, Relocation)>,
+    /// The align with which this global shall be allocated.
+    pub align: Align,
+}
+
+/// A pointer into a global allocation.
+pub struct Relocation {
+    /// The name of the global allocation we are pointing into.
+    name: GlobalName,
+    /// The offset within that allocation.
+    offset: Size,
+}
+
 ```
 
 Obviously, these are all quite incomplete still.
