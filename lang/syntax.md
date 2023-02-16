@@ -149,6 +149,17 @@ pub enum ValueExpr {
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<ValueExpr>, Type),
 
+    /// A `Union` value.
+    Union {
+        /// The union's field which will be initialized.
+        field: Int,
+        /// The value it will be initialized with.
+        #[specr::indirection]
+        expr: ValueExpr,
+        /// The union type, needs to be `Type::Union`
+        union_ty: Type,
+    },
+
     /// Load a value from memory.
     Load {
         /// Whether this load de-initializes the source it is loaded from ("move").
