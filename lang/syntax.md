@@ -151,7 +151,7 @@ pub enum ValueExpr {
 
     /// A `Union` value.
     Union {
-        /// The unions field which will be initialized.
+        /// The union's field which will be initialized.
         field: Int,
         /// The value it will be initialized with.
         #[specr::indirection]
