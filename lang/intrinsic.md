@@ -58,7 +58,7 @@ impl<M: Memory> Machine<M> {
         stream: &mut impl std::io::Write,
         arguments: List<Value<M>>,
         _ret_place: Option<Place<M>>,
-    ) -> NdResult {
+    ) -> Result {
         for arg in arguments {
             match arg {
                 Value::Int(i) => write!(stream, "{}\n", i).unwrap(),

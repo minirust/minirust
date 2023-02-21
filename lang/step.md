@@ -54,7 +54,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     /// converts `Constant` to their `Value` counterpart.
-    fn eval_constant(&mut self, constant: Constant) -> NdResult<Value<M>> {
+    fn eval_constant(&mut self, constant: Constant) -> Result<Value<M>> {
         ret(match constant {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),

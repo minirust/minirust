@@ -15,7 +15,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_int(&mut self, op: UnOpInt, operand: Int) -> NdResult<Int> {
+    fn eval_un_op_int(&mut self, op: UnOpInt, operand: Int) -> Result<Int> {
         use UnOpInt::*;
         ret(match op {
             Neg => -operand,
@@ -70,7 +70,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(operator)]
-    fn eval_bin_op(&mut self, operator: BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>>;
+    fn eval_bin_op(&mut self, operator: BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>>;
 }
 ```
 
@@ -78,7 +78,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_int(&mut self, op: BinOpInt, left: Int, right: Int) -> NdResult<Int> {
+    fn eval_bin_op_int(&mut self, op: BinOpInt, left: Int, right: Int) -> Result<Int> {
         use BinOpInt::*;
         ret(match op {
             Add => left + right,
@@ -98,7 +98,7 @@ impl<M: Memory> Machine<M> {
             }
         })
     }
-    fn eval_bin_op(&mut self, BinOp::Int(op, int_type): BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::Int(op, int_type): BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
@@ -126,7 +126,7 @@ impl<M: Memory> Machine<M> {
             Ne => left != right,
         }
     }
-    fn eval_bin_op(&mut self, BinOp::IntRel(int_rel): BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::IntRel(int_rel): BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
         let Value::Int(left) = left else { panic!("non-integer input to integer relation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer relation") };
 
@@ -150,7 +150,7 @@ impl<M: Memory> Machine<M> {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> NdResult<Pointer<M::Provenance>> {
+    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Result<Pointer<M::Provenance>> {
         if !offset.in_bounds(Signed, M::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }
@@ -176,7 +176,7 @@ impl<M: Memory> Machine<M> {
         ret(new_ptr)
     }
 
-    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, left: Value<M>, right: Value<M>) -> NdResult<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
         let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
         let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
 

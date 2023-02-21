@@ -106,11 +106,9 @@ impl<M: Memory> Machine<M> {
 
 impl<M: Memory> StackFrame<M> {
     /// jump to the beginning of the given block.
-    fn jump_to_block(&mut self, b: BbName) -> NdResult {
+    fn jump_to_block(&mut self, b: BbName) {
         self.next_block = b;
         self.next_stmt = Int::ZERO;
-
-        ret(())
     }
 }
 ```
