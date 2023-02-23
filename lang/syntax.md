@@ -85,7 +85,7 @@ pub enum Terminator {
     Unreachable,
     /// Call the given function with the given arguments.
     Call {
-        callee: FnName,
+        callee: ValueExpr,
         /// The arguments to pass, and which ABIs to use for that.
         arguments: List<(ValueExpr, ArgAbi)>,
         /// The place to put the return value into, and which ABI to use for that.
@@ -131,7 +131,9 @@ pub enum Constant {
     /// A Boolean value, used for `bool`.
     Bool(bool),
     /// A pointer pointing into a global allocation with a given offset.
-    Pointer(Relocation),
+    GlobalPointer(Relocation),
+    /// A pointer pointing to a function.
+    FnPointer(FnName),
 
     /// A variant of a sum type, used for enums.
     // TODO Variant shouldn't be a Constant, but rather a ValueExpr.

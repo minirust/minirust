@@ -91,6 +91,7 @@ pub enum PtrType {
         /// TODO: I hope we can remove this in the future.
         pointee: Layout,
     },
+    FnPtr,
 }
 
 pub struct IntType {
@@ -135,7 +136,7 @@ impl Type {
     pub fn inhabited(self) -> bool {
         use Type::*;
         match self {
-            Int(..) | Bool | Ptr(PtrType::Raw { .. }) => true,
+            Int(..) | Bool | Ptr(PtrType::Raw { .. }) | Ptr(PtrType::FnPtr) => true,
             Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),

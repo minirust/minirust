@@ -150,7 +150,7 @@ impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
         match ptr_type {
-            PtrType::Raw { pointee: _ } => {}, // nothing to check
+            PtrType::Raw { pointee: _ } | PtrType::FnPtr => {}, // nothing to check
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
                 // (Think: uninhabited types have impossible alignment.)
