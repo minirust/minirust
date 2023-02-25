@@ -19,6 +19,22 @@ For statements it also advances the program counter.
 impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     pub fn step(&mut self) -> NdResult {
+        let distr = libspecr::IntDistribution {
+            start: Int::ZERO,
+            end: Int::from(self.thread_manager.threads.len()),
+            divisor: Int::ONE,
+        };
+
+        let thread_id: ThreadId = pick(distr, |id: ThreadId| {
+            let Some(thread) = self.thread_manager.threads.get(id) else {
+                return false;
+            };
+
+            thread.state == ThreadState::Enabled
+        })?;
+
+        self.thread_manager.active_thread = Some(thread_id);
+
         let frame = self.cur_frame();
         let block = &frame.func.blocks[frame.next_block];
         if frame.next_stmt == block.statements.len() {
@@ -404,11 +420,7 @@ impl<M: Memory> Machine<M> {
             panic!("call on a non-pointer")
         };
 
-        let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == ptr.addr);
-        let Some((func_name, _)) = funcs.next() else {
-            throw_ub!("calling an address where there is no function");
-        };
-        let func = self.prog.functions[func_name];
+        let func = self.fn_from_addr(ptr.addr)?;
 
         let caller_locals = self.cur_frame().func.locals;
         let mut locals: Map<LocalName, Place<M>> = Map::new();
@@ -457,16 +469,16 @@ impl<M: Memory> Machine<M> {
         }
 
         // Push new stack frame, so it is executed next.
-        self.stack.push(StackFrame {
+        self.mutate_cur_stack(|stack| stack.push(StackFrame {
             func,
             locals,
-            caller_return_info: CallerReturnInfo {
+            caller_return_info: Some(CallerReturnInfo {
                 next_block,
                 ret_place,
-            },
+            }),
             next_block: func.start,
             next_stmt: Int::ZERO,
-        });
+        }));
 
         ret(())
     }
@@ -481,8 +493,19 @@ The callee should probably start with a bunch of `Finalize` statements to ensure
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
-        let frame = self.stack.pop().unwrap();
+        let frame = self.mutate_cur_stack(
+            |stack| stack.pop().unwrap()
+        );
         let func = frame.func;
+
+        let Some(caller_return_info) = frame.caller_return_info else {
+            // Only the bottom frame in a stack has no caller.
+            // Therefore the thread must terminate now.
+            assert_eq!(Int::ZERO, self.cur_thread().stack.len());
+
+            return self.thread_manager.terminate_active_thread();
+        };
+
         let Some((ret_local, _)) = func.ret else {
             throw_ub!("Return from a function that does not have a return local");
         };
@@ -492,7 +515,7 @@ impl<M: Memory> Machine<M> {
         // FIXME: Should Call/Return also do a copy at *callee* type?
         // On the other hand, the callee is done here, so why would it even still
         // care about the return value?
-        if let Some((ret_place, ret_pty)) = frame.caller_return_info.ret_place {
+        if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
             let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
             self.mem.typed_store(ret_place, ret_val, ret_pty)?;
         }
@@ -504,7 +527,7 @@ impl<M: Memory> Machine<M> {
             self.mem.deallocate(place, layout.size, layout.align)?;
         }
 
-        if let Some(next_block) = frame.caller_return_info.next_block {
+        if let Some(next_block) = caller_return_info.next_block {
             self.mutate_cur_frame(|frame| {
                 frame.jump_to_block(next_block);
             });
@@ -529,12 +552,21 @@ impl<M: Memory> Machine<M> {
         Terminator::CallIntrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
-        let ret_place = ret_expr.try_map(|p| self.eval_place(p))?;
 
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
-        self.eval_intrinsic(intrinsic, arguments, ret_place)?;
 
+        let (value, ret_type) = self.eval_intrinsic(intrinsic, arguments)?;
+        
+        let ret_place = ret_expr.try_map(|p| self.eval_place(p))?;
+
+        if let Some(ret_place) = ret_place {
+            let align = Align::max_for_offset(ret_type.size::<M>()).unwrap();
+            
+            let bytes = Type::encode::<M>(ret_type, value);
+            self.mem.store(ret_place, bytes, align)?;
+        }
+            
         if let Some(next_block) = next_block {
             self.mutate_cur_frame(|frame| {
                 frame.jump_to_block(next_block);
@@ -547,4 +579,3 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
-

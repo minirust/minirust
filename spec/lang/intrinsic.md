@@ -7,8 +7,7 @@ impl<M: Memory> Machine<M> {
         &mut self,
         intrinsic: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult { .. }
+    ) -> NdResult<(Value<M>, Type)> { .. }
 }
 ```
 
@@ -20,8 +19,7 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Exit: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult {
+    ) -> NdResult<(Value<M>, Type)> {
         throw_machine_stop!()
     }
 }
@@ -35,29 +33,26 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::PrintStdout: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult {
-        self.eval_print(&mut std::io::stdout(), arguments, ret_place)?;
+    ) -> NdResult<(Value<M>, Type)> {
+        self.eval_print(&mut std::io::stdout(), arguments)?;
 
-        ret(())
+        ret(unit())
     }
 
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStderr: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult {
-        self.eval_print(&mut std::io::stderr(), arguments, ret_place)?;
+    ) -> NdResult<(Value<M>, Type)> {
+        self.eval_print(&mut std::io::stderr(), arguments)?;
 
-        ret(())
+        ret(unit())
     }
 
     fn eval_print(
         &mut self,
         stream: &mut impl std::io::Write,
         arguments: List<Value<M>>,
-        _ret_place: Option<Place<M>>,
     ) -> Result {
         for arg in arguments {
             match arg {
@@ -72,7 +67,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-And finally the intrinsics used for memory allocation and deallocation.
+Next the intrinsics used for memory allocation and deallocation.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -80,12 +75,7 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Allocate: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult {
-        let Some(ret_place) = ret_place else {
-            throw_ub!("call to `Intrinsic::Allocate` is missing a return place");
-        };
-
+    ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 2 {
             throw_ub!("invalid number of arguments for `Intrinsic::Allocate`");
         }
@@ -104,18 +94,22 @@ impl<M: Memory> Machine<M> {
         };
 
         let alloc = self.mem.allocate(size, align)?;
-        let bytes = encode_ptr::<M>(alloc);
-        self.mem.store(ret_place, bytes, M::PTR_ALIGN)?;
 
-        ret(())
+        // An allocate returns *mut ()
+        let pointee = Layout {
+            size: Size::ZERO,
+            align: Align::ONE,
+            inhabited: true,
+        };
+
+        ret((Value::Ptr(alloc), Type::Ptr(PtrType::Raw{pointee})))
     }
 
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Deallocate: Intrinsic,
         arguments: List<Value<M>>,
-        ret_place: Option<Place<M>>,
-    ) -> NdResult {
+    ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 3 {
             throw_ub!("invalid number of arguments for `Intrinsic::Deallocate`");
         }
@@ -140,7 +134,87 @@ impl<M: Memory> Machine<M> {
 
         self.mem.deallocate(ptr, size, align)?;
 
-        ret(())
+        ret(unit())
     }
+}
+```
+
+And finally the intrinsics for spawning and joining threads.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::Spawn: Intrinsic,
+        arguments: List<Value<M>>,
+    ) -> NdResult<(Value<M>, Type)> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::Spawn`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0] else {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`");
+        };
+
+        let func = self.fn_from_addr(ptr.addr)?;
+
+        if func.args.len() != 0 {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function takes arguments");
+        }
+
+        // This is taken from Miri. It also does not allow for a return value in the root function of a thread.
+        if func.ret.is_some() {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something");
+        }
+
+        // FIXME: What if the thread_id doesn't fit into a u32?
+        let thread_id = self.thread_manager.new_thread(func)?;
+
+        let id_type = Type::Int(IntType{
+            signed: Signedness::Unsigned,
+            size: Size::from_bits(Int::from(32)).unwrap(),
+        });
+
+        ret((Value::Int(thread_id), id_type))
+    }
+
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::Join: Intrinsic,
+        arguments: List<Value<M>>,
+    ) -> NdResult<(Value<M>, Type)> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::Join`");
+        }
+
+        let Value::Int(thread_id) = arguments[0] else {
+            throw_ub!("invalid first argument to `Intrinsic::Join`");
+        };
+
+        let Some(thread) = self.thread_manager.threads.get(thread_id) else {
+            throw_ub!("`Intrinsic::Join`: join non existing thread");
+        };
+
+        match thread.state {
+            ThreadState::Terminated => {
+                ()
+            },
+            _ => {
+                self.mutate_cur_thread(|thread|{
+                    thread.state = ThreadState::BlockedOnJoin(thread_id);
+                });
+            },
+        };
+
+        ret(unit())
+    }  
+}
+```
+
+A helper function to keep the code readable.
+
+```rust
+fn unit<M: Memory>() -> (Value<M>, Type) {
+    (Value::Tuple(list![]), Type::Tuple{fields:list![], size: Size::ZERO})
 }
 ```

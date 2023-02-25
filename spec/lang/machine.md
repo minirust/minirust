@@ -18,8 +18,8 @@ pub struct Machine<M: Memory> {
     /// The state of the integer-pointer cast subsystem.
     intptrcast: IntPtrCast<M::Provenance>,
 
-    /// The stack.
-    stack: List<StackFrame<M>>,
+    /// The Thread Manager
+    thread_manager: ThreadManager<M>,
 
     /// Stores a pointer to each of the global allocations.
     global_ptrs: Map<GlobalName, Pointer<M::Provenance>>,
@@ -37,7 +37,8 @@ struct StackFrame<M: Memory> {
     locals: Map<LocalName, Place<M>>,
 
     /// Expresses what the caller does after the callee (this function) returns.
-    caller_return_info: CallerReturnInfo<M>,
+    /// If `None` this is the bottommost stack frame.
+    caller_return_info: Option<CallerReturnInfo<M>>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
@@ -56,6 +57,41 @@ struct CallerReturnInfo<M: Memory> {
     /// and the type it should be stored at.
     /// If `None`, the return value will be discarded.
     ret_place: Option<(Place<M>, PlaceType)>
+}
+```
+
+This defines the internal representation of a thread of execution.
+
+```rust
+pub struct Thread<M: Memory> {
+    state: ThreadState,
+
+    /// The stack.
+    stack: List<StackFrame<M>>,
+}
+
+pub enum ThreadState {
+    /// The thread is enabled and can get executed.
+    Enabled,
+    /// The thread is trying to join another thread and is blocked until that thread finishes.
+    BlockedOnJoin(ThreadId),
+    /// The thread has terminated.
+    Terminated,
+}
+
+/// The ID of a thread is an index into the ThreadManager's `threads` list.
+type ThreadId = Int;
+
+/// The thread manager tracks the list of all threads, and the thread that is currently taking a step.
+/// The latter is only needed during a step of execution; 
+/// it saves us from passing the active thread around explicitly everywhere.
+pub struct ThreadManager<M: Memory> {
+    /// The list of threads.
+    threads: List<Thread<M>>,
+
+    /// To avoid passing around the active thread through all the eval_ functions,
+    /// we store it globally here.
+    active_thread: Option<ThreadId>,
 }
 ```
 
@@ -106,27 +142,13 @@ impl<M: Memory> Machine<M> {
 
         let start_fn = prog.functions[prog.start];
 
-        // Setup the initial stack frame.
-        // Well-formedness ensures that this has neither arguments nor a return local.
-        let init_frame = StackFrame {
-            func: start_fn,
-            locals: Map::new(),
-            caller_return_info: CallerReturnInfo {
-                // The start function should never return.
-                next_block: None,
-                ret_place: None,
-            },
-            next_block: start_fn.start,
-            next_stmt: Int::ZERO,
-        };
-
         ret(Machine {
             prog,
             mem,
             intptrcast: IntPtrCast::new(),
-            stack: list![init_frame],
             global_ptrs,
             fn_addrs,
+            thread_manager: ThreadManager::new(start_fn),
         })
     }
 }
@@ -136,6 +158,96 @@ We also define some helper functions that will be useful later.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn cur_frame(&self) -> StackFrame<M> {
+        let Some(active_thread) = self.thread_manager.active_thread else {
+            panic!("`cur_frame` called without active thread!");
+        };
+
+        self.thread_manager.threads[active_thread].cur_frame()
+    }
+
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
+        let Some(active_thread) = self.thread_manager.active_thread else {
+            panic!("`mutate_cur_frame` called without active thread!");
+        };
+
+        self.thread_manager.threads.mutate_at(active_thread, |thread| thread.mutate_cur_frame(f))
+    }
+
+    fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
+        let Some(active_thread) = self.thread_manager.active_thread else {
+            panic!("`cur_stack` called without active thread!");
+        };
+
+        self.thread_manager.threads.mutate_at(active_thread, |thread| f(&mut thread.stack))
+    }
+
+    fn cur_thread(&self) -> Thread<M> {
+        let Some(active_thread) = self.thread_manager.active_thread else {
+            panic!("`cur_thread` called without active thread!");
+        };
+
+        self.thread_manager.threads[active_thread]
+    }
+
+    fn mutate_cur_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
+        let Some(active_thread) = self.thread_manager.active_thread else {
+            panic!("`cur_thread` called without active thread!");
+        };
+
+        self.thread_manager.threads.mutate_at(active_thread, f)
+    } 
+
+    fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
+        let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
+        let Some((func_name, _)) = funcs.next() else {
+            throw_ub!("Dereferencing function pointer where there is no function.");
+        };
+        let func = self.prog.functions[func_name];
+
+        ret(func)
+    }
+}
+
+impl<M: Memory> StackFrame<M> {
+    /// jump to the beginning of the given block.
+    fn jump_to_block(&mut self, b: BbName) {
+        self.next_block = b;
+        self.next_stmt = Int::ZERO;
+    }
+}
+```
+
+Next, we define how to create a thread.
+
+```rust
+impl<M: Memory> Thread<M> {
+    fn new(func: Function) -> Self {
+        // Setup the initial stack frame.
+        // For the main thread, well-formedness ensures that the func has
+        // no return value and no arguments.
+        // For any other threads, the spawn intrinsic ensures
+        // that the func has no arguments.
+        let init_frame = StackFrame {
+            func,
+            locals: Map::new(),
+            caller_return_info: None,
+            next_block: func.start,
+            next_stmt: Int::ZERO,
+        };
+
+        Self {
+            state: ThreadState::Enabled,
+            stack: list![init_frame],
+        }
+    }
+}
+```
+
+Some functionality of the threads and the thread manager.
+
+```rust
+impl<M: Memory> Thread<M> {
     fn cur_frame(&self) -> StackFrame<M> {
         self.stack.last().unwrap()
     }
@@ -150,11 +262,49 @@ impl<M: Memory> Machine<M> {
     }
 }
 
-impl<M: Memory> StackFrame<M> {
-    /// jump to the beginning of the given block.
-    fn jump_to_block(&mut self, b: BbName) {
-        self.next_block = b;
-        self.next_stmt = Int::ZERO;
+impl<M: Memory> ThreadManager<M> {
+    pub fn new(func: Function) -> Self {
+        let master = Thread::new(func);
+
+        let mut threads = List::new();
+        threads.push(master);
+
+        Self {
+            threads,
+            active_thread: None,
+        }
+    }
+
+    pub fn new_thread(&mut self, func: Function) -> NdResult<ThreadId> {
+
+        let thread_id = ThreadId::from(self.threads.len());
+
+        self.threads.push(Thread::new(func));
+
+        ret(thread_id)
+    }
+
+    pub fn terminate_active_thread(&mut self) -> NdResult {
+        let active = self.active_thread.unwrap();
+
+        if active == 0 {
+            // The main thread terminating stops the machine.
+            throw_machine_stop!();
+        }
+
+        self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
+
+        self.threads = self.threads.into_iter().map(|mut thread| {
+            match thread.state {
+                ThreadState::BlockedOnJoin(join_id) if join_id == active => {
+                    thread.state = ThreadState::Enabled
+                },
+                _ => {}
+            }
+            thread
+        }).collect();
+
+        ret(())
     }
 }
 ```
