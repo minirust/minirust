@@ -20,6 +20,9 @@ pub struct Machine<M: Memory> {
 
     /// The stack.
     stack: List<StackFrame<M>>,
+
+    /// Stores a pointer to each of the global allocations.
+    global_ptrs: Map<GlobalName, Pointer<M::Provenance>>,
 }
 
 /// The data that makes up a stack frame.
@@ -57,8 +60,36 @@ Next, we define how to create a machine.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    pub fn new(prog: Program) -> Option<Machine<M>> {
-        prog.check_wf::<M>()?;
+    pub fn new(prog: Program) -> NdResult<Machine<M>> {
+        if prog.check_wf::<M>().is_none() {
+            throw_ill_formed!();
+        }
+
+        let mut mem = M::new();
+        let mut global_ptrs = Map::new();
+
+        // Allocate every global.
+        for (global_name, global) in prog.globals {
+            let size = Size::from_bytes(global.bytes.len()).unwrap();
+            let alloc = mem.allocate(size, global.align)?;
+            global_ptrs.insert(global_name, alloc);
+        }
+
+        // Fill the allocations.
+        for (global_name, global) in prog.globals {
+            let mut bytes = global.bytes.map(|b|
+                match b {
+                    Some(x) => AbstractByte::Init(x, None),
+                    None => AbstractByte::Uninit
+                }
+            );
+            for (i, relocation) in global.relocations {
+                let ptr = global_ptrs[relocation.name].wrapping_offset::<M>(relocation.offset.bytes());
+                let encoded_ptr = encode_ptr::<M>(ptr);
+                bytes.write_subslice_at_index(i.bytes(), encoded_ptr);
+            }
+            mem.store(global_ptrs[global_name], bytes, global.align)?;
+        }
 
         let start_fn = prog.functions[prog.start];
 
@@ -68,7 +99,7 @@ impl<M: Memory> Machine<M> {
             func: start_fn,
             locals: Map::new(),
             caller_return_info: CallerReturnInfo {
-                // the start function should never return.
+                // The start function should never return.
                 next_block: None,
                 ret_place: None,
             },
@@ -78,9 +109,10 @@ impl<M: Memory> Machine<M> {
 
         ret(Machine {
             prog,
-            mem: M::new(),
+            mem,
             intptrcast: IntPtrCast::new(),
             stack: list![init_frame],
+            global_ptrs,
         })
     }
 }

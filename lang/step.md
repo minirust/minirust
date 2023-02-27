@@ -58,6 +58,10 @@ impl<M: Memory> Machine<M> {
         ret(match constant {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
+            Constant::Pointer(relocation) => {
+                let ptr = self.global_ptrs[relocation.name].wrapping_offset::<M>(relocation.offset.bytes());
+                Value::Ptr(ptr)
+            },
             Constant::Variant { idx, data } => {
                 let data = self.eval_constant(data)?;
                 Value::Variant { idx, data }
@@ -105,7 +109,7 @@ This loads a value from a place (often called "place-to-value coercion").
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value<M>> {
         let p = self.eval_place(source)?;
-        let ptype = source.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `source`
+        let ptype = source.check_wf::<M>(self.cur_frame().func.locals, self.prog.globals).unwrap(); // FIXME avoid a second traversal of `source`
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
@@ -205,7 +209,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place<M>> {
-        let ty = root.check_wf::<M>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
+        let ty = root.check_wf::<M>(self.cur_frame().func.locals, self.prog.globals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let offset = match ty {
             Type::Tuple { fields, .. } => fields[field].0,
@@ -217,7 +221,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place<M>> {
-        let ty = root.check_wf::<M>(self.cur_frame().func.locals).unwrap().ty; // FIXME avoid a second traversal of `root`
+        let ty = root.check_wf::<M>(self.cur_frame().func.locals, self.prog.globals).unwrap().ty; // FIXME avoid a second traversal of `root`
         let root = self.eval_place(root)?;
         let Value::Int(index) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
@@ -266,7 +270,7 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let place = self.eval_place(destination)?;
         let val = self.eval_value(source)?;
-        let ptype = destination.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `destination`
+        let ptype = destination.check_wf::<M>(self.cur_frame().func.locals, self.prog.globals).unwrap(); // FIXME avoid a second traversal of `destination`
         self.mem.typed_store(place, val, ptype)?;
 
         ret(())
@@ -284,7 +288,7 @@ This statement asserts that a value satisfies its validity invariant, and perfor
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Finalize { place, fn_entry }: Statement) -> NdResult {
         let p = self.eval_place(place)?;
-        let ptype = place.check_wf::<M>(self.cur_frame().func.locals).unwrap(); // FIXME avoid a second traversal of `place`
+        let ptype = place.check_wf::<M>(self.cur_frame().func.locals, self.prog.globals).unwrap(); // FIXME avoid a second traversal of `place`
         let val = self.mem.typed_load(p, ptype)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
         self.mem.typed_store(p, val, ptype)?;
@@ -399,7 +403,7 @@ impl<M: Memory> Machine<M> {
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| {
             let p = self.eval_place(caller_ret_place)?;
-            let pty = caller_ret_place.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal
+            let pty = caller_ret_place.check_wf::<M>(caller_locals, self.prog.globals).unwrap(); // FIXME avoid a second traversal
             ret::<NdResult<_>>((p, pty))
         })?;
 
@@ -425,7 +429,7 @@ impl<M: Memory> Machine<M> {
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.zip(arguments) {
             let val = self.eval_value(arg)?;
-            let caller_ty = arg.check_wf::<M>(caller_locals).unwrap(); // FIXME avoid a second traversal of `arg`
+            let caller_ty = arg.check_wf::<M>(caller_locals, self.prog.globals).unwrap(); // FIXME avoid a second traversal of `arg`
             let callee_layout = func.locals[local].layout::<M>();
             if caller_abi != callee_abi {
                 throw_ub!("call ABI violation: argument ABI does not agree");

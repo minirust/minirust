@@ -135,8 +135,8 @@ impl PlaceType {
 impl Constant {
     /// Check that the constant has the expected type.
     /// Assumes that `ty` has already been checked.
-    fn check_wf(self, ty: Type) -> Option<()> {
-        // For now, we only support integer and boolean literals, and arrays/tuples.
+    fn check_wf(self, ty: Type, globals: Map<GlobalName, Global>) -> Option<()> {
+        // For now, we only support integer and boolean literals and pointers.
         // TODO: add more.
         match (self, ty) {
             (Constant::Int(i), Type::Int(int_type)) => {
@@ -145,8 +145,11 @@ impl Constant {
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::Variant { idx, data }, Type::Enum { variants, .. }) => {
                 let ty = variants.get(idx)?;
-                data.check_wf(ty)?;
+                data.check_wf(ty, globals)?;
             }
+            (Constant::Pointer(relocation), Type::Ptr(_)) => {
+                relocation.check_wf(globals)?;
+            },
             _ => throw!(),
         }
 
@@ -155,13 +158,13 @@ impl Constant {
 }
 
 impl ValueExpr {
-    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<Type> {
+    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>, globals: Map<GlobalName, Global>) -> Option<Type> {
         use ValueExpr::*;
         ret(match self {
             Constant(value, ty) => {
                 ty.check_wf::<M>()?;
 
-                value.check_wf(ty)?;
+                value.check_wf(ty, globals)?;
                 ty
             }
             Tuple(exprs, t) => {
@@ -171,14 +174,14 @@ impl ValueExpr {
                     Type::Tuple { fields, size: _ } => {
                         ensure(exprs.len() == fields.len())?;
                         for (e, (_offset, ty)) in exprs.zip(fields) {
-                            let checked = e.check_wf::<M>(locals)?;
+                            let checked = e.check_wf::<M>(locals, globals)?;
                             ensure(checked == ty)?;
                         }
                     },
                     Type::Array { elem, count } => {
                         ensure(exprs.len() == count)?;
                         for e in exprs {
-                            let checked = e.check_wf::<M>(locals)?;
+                            let checked = e.check_wf::<M>(locals, globals)?;
                             ensure(checked == elem)?;
                         }
                     },
@@ -195,17 +198,17 @@ impl ValueExpr {
                 ensure(field < fields.len())?;
                 let (_offset, ty) = fields[field];
 
-                let checked = expr.check_wf::<M>(locals)?;
+                let checked = expr.check_wf::<M>(locals, globals)?;
                 ensure(checked == ty)?;
 
                 union_ty
             }
             Load { source, destructive: _ } => {
-                let ptype = source.check_wf::<M>(locals)?;
+                let ptype = source.check_wf::<M>(locals, globals)?;
                 ptype.ty
             }
             AddrOf { target, ptr_ty } => {
-                let ptype = target.check_wf::<M>(locals)?;
+                let ptype = target.check_wf::<M>(locals, globals)?;
                 if let PtrType::Box { pointee } | PtrType::Ref { pointee, .. } = ptr_ty {
                     // Make sure the size fits and the alignment is weakened, not strengthened.
                     ensure(pointee.size == ptype.ty.size::<M>())?;
@@ -216,7 +219,7 @@ impl ValueExpr {
             UnOp { operator, operand } => {
                 use lang::UnOp::*;
 
-                let operand = operand.check_wf::<M>(locals)?;
+                let operand = operand.check_wf::<M>(locals, globals)?;
                 match operator {
                     Int(_int_op, int_ty) => {
                         ensure(matches!(operand, Type::Int(_)))?;
@@ -239,8 +242,8 @@ impl ValueExpr {
             BinOp { operator, left, right } => {
                 use lang::BinOp::*;
 
-                let left = left.check_wf::<M>(locals)?;
-                let right = right.check_wf::<M>(locals)?;
+                let left = left.check_wf::<M>(locals, globals)?;
+                let right = right.check_wf::<M>(locals, globals)?;
                 match operator {
                     Int(_int_op, int_ty) => {
                         ensure(matches!(left, Type::Int(_)))?;
@@ -264,17 +267,17 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>) -> Option<PlaceType> {
+    fn check_wf<M: Memory>(self, locals: Map<LocalName, PlaceType>, globals: Map<GlobalName, Global>) -> Option<PlaceType> {
         use PlaceExpr::*;
         ret(match self {
             Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
-                let ty = operand.check_wf::<M>(locals)?;
+                let ty = operand.check_wf::<M>(locals, globals)?;
                 ensure(matches!(ty, Type::Ptr(_)))?;
                 ptype
             }
             Field { root, field } => {
-                let root = root.check_wf::<M>(locals)?;
+                let root = root.check_wf::<M>(locals, globals)?;
                 let (offset, field_ty) = match root.ty {
                     Type::Tuple { fields, .. } => fields.get(field)?,
                     Type::Union { fields, .. } => fields.get(field)?,
@@ -286,8 +289,8 @@ impl PlaceExpr {
                 }
             }
             Index { root, index } => {
-                let root = root.check_wf::<M>(locals)?;
-                let index = index.check_wf::<M>(locals)?;
+                let root = root.check_wf::<M>(locals, globals)?;
+                let index = index.check_wf::<M>(locals, globals)?;
                 ensure(matches!(index, Type::Int(_)))?;
                 let field_ty = match root.ty {
                     Type::Array { elem, .. } => elem,
@@ -318,18 +321,19 @@ impl Statement {
     fn check_wf<M: Memory>(
         self,
         mut live_locals: Map<LocalName, PlaceType>,
-        func: Function
+        func: Function,
+        globals: Map<GlobalName, Global>,
     ) -> Option<Map<LocalName, PlaceType>> {
         use Statement::*;
         ret(match self {
             Assign { destination, source } => {
-                let left = destination.check_wf::<M>(live_locals)?;
-                let right = source.check_wf::<M>(live_locals)?;
+                let left = destination.check_wf::<M>(live_locals, globals)?;
+                let right = source.check_wf::<M>(live_locals, globals)?;
                 ensure(left.ty == right)?;
                 live_locals
             }
             Finalize { place, fn_entry: _ } => {
-                place.check_wf::<M>(live_locals)?;
+                place.check_wf::<M>(live_locals, globals)?;
                 live_locals
             }
             StorageLive(local) => {
@@ -355,6 +359,7 @@ impl Terminator {
     fn check_wf<M: Memory>(
         self,
         live_locals: Map<LocalName, PlaceType>,
+        globals: Map<GlobalName, Global>,
     ) -> Option<List<BbName>> {
         use Terminator::*;
         ret(match self {
@@ -362,7 +367,7 @@ impl Terminator {
                 list![block_name]
             }
             If { condition, then_block, else_block } => {
-                let ty = condition.check_wf::<M>(live_locals)?;
+                let ty = condition.check_wf::<M>(live_locals, globals)?;
                 ensure(matches!(ty, Type::Bool))?;
                 list![then_block, else_block]
             }
@@ -372,11 +377,11 @@ impl Terminator {
             Call { callee: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for (arg, _abi) in arguments {
-                    arg.check_wf::<M>(live_locals)?;
+                    arg.check_wf::<M>(live_locals, globals)?;
                 }
 
                 if let Some((ret_place, _ret_abi)) = ret {
-                    ret_place.check_wf::<M>(live_locals)?;
+                    ret_place.check_wf::<M>(live_locals, globals)?;
                 }
 
                 match next_block {
@@ -387,11 +392,11 @@ impl Terminator {
             CallIntrinsic { intrinsic: _, arguments, ret, next_block } => {
                 // Argument and return expressions must all typecheck with some type.
                 for arg in arguments {
-                    arg.check_wf::<M>(live_locals)?;
+                    arg.check_wf::<M>(live_locals, globals)?;
                 }
 
                 if let Some(ret_place) = ret {
-                    ret_place.check_wf::<M>(live_locals)?;
+                    ret_place.check_wf::<M>(live_locals, globals)?;
                 }
 
                 match next_block {
@@ -407,7 +412,7 @@ impl Terminator {
 }
 
 impl Function {
-    fn check_wf<M: Memory>(self) -> Option<()> {
+    fn check_wf<M: Memory>(self, globals: Map<GlobalName, Global>) -> Option<()> {
         // Ensure all locals have a valid type.
         for pty in self.locals.values() {
             pty.check_wf::<M>()?;
@@ -435,9 +440,9 @@ impl Function {
             let mut live_locals = bb_live_at_entry[block_name];
             // Check this block, updating the live locals along the way.
             for statement in block.statements {
-                live_locals = statement.check_wf::<M>(live_locals, self)?;
+                live_locals = statement.check_wf::<M>(live_locals, self, globals)?;
             }
-            let successors = block.terminator.check_wf::<M>(live_locals)?;
+            let successors = block.terminator.check_wf::<M>(live_locals, globals)?;
             for block_name in successors {
                 if let Some(precondition) = bb_live_at_entry.get(block_name) {
                     // A block we already visited (or already have in the worklist).
@@ -460,6 +465,20 @@ impl Function {
     }
 }
 
+impl Relocation {
+    // Checks whether the relocation is within bounds.
+    fn check_wf(self, globals: Map<GlobalName, Global>) -> Option<()> {
+        // The global where are pointing to needs to exist.
+        let global = globals.get(self.name)?;
+        let size = Size::from_bytes(global.bytes.len()).unwrap();
+
+        // And the offset needs to be in-bounds of its size.
+        ensure(self.offset <= size)?;
+
+        ret(())
+    }
+}
+
 impl Program {
     fn check_wf<M: Memory>(self) -> Option<()> {
         // Ensure the start function exists, and takes no arguments.
@@ -468,7 +487,18 @@ impl Program {
         ensure(func.ret.is_none())?;
         // Check all the functions.
         for function in self.functions.values() {
-            function.check_wf::<M>()?;
+            function.check_wf::<M>(self.globals)?;
+        }
+
+        // Check globals.
+        for (_name, global) in self.globals {
+            let size = Size::from_bytes(global.bytes.len()).unwrap();
+            for (offset, relocation) in global.relocations {
+                // A relocation fills `PTR_SIZE` many bytes starting at the offset, those need to fit into the size.
+                ensure(offset + M::PTR_SIZE <= size)?;
+
+                relocation.check_wf(self.globals)?;
+            }
         }
 
         ret(())
