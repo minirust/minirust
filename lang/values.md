@@ -157,7 +157,7 @@ impl Type {
                 ensure(ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited)?;
             }
         }
-        ret(Value::Ptr(decode_ptr::<M>(bytes)?))
+        ret(Value::Ptr(ptr))
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
