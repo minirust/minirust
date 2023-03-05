@@ -299,9 +299,9 @@ pub struct Global {
 /// A pointer into a global allocation.
 pub struct Relocation {
     /// The name of the global allocation we are pointing into.
-    name: GlobalName,
+    pub name: GlobalName,
     /// The offset within that allocation.
-    offset: Size,
+    pub offset: Size,
 }
 
 ```
