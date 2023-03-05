@@ -1,0 +1,13 @@
+input = "."
+output = "./gen-minirust"
+name = "gen-minirust"
+channel = "nightly-2023-02-12"
+attrs = [
+    '#![recursion_limit = "256"]',
+    '#![feature(yeet_expr)]',
+    '#![feature(never_type)]',
+    '#![feature(iterator_try_collect)]',
+    '#![feature(is_some_and)]',
+    '#![feature(const_option)]',
+    '#![feature(try_blocks)]',
+]
