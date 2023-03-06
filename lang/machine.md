@@ -23,6 +23,9 @@ pub struct Machine<M: Memory> {
 
     /// Stores a pointer to each of the global allocations.
     global_ptrs: Map<GlobalName, Pointer<M::Provenance>>,
+
+    /// Stores an address for each function name.
+    fn_addrs: Map<FnName, mem::Address>,
 }
 
 /// The data that makes up a stack frame.
@@ -67,6 +70,7 @@ impl<M: Memory> Machine<M> {
 
         let mut mem = M::new();
         let mut global_ptrs = Map::new();
+        let mut fn_addrs = Map::new();
 
         // Allocate every global.
         for (global_name, global) in prog.globals {
@@ -91,6 +95,15 @@ impl<M: Memory> Machine<M> {
             mem.store(global_ptrs[global_name], bytes, global.align)?;
         }
 
+        // Allocate functions.
+        for (fn_name, _function) in prog.functions {
+            let alloc = mem.allocate(Size::ZERO, Align::ONE)?;
+            let addr = alloc.addr;
+            // Ensure that no two functions lie on the same address.
+            assert!(!fn_addrs.values().any(|fn_addr| addr == fn_addr));
+            fn_addrs.insert(fn_name, addr);
+        }
+
         let start_fn = prog.functions[prog.start];
 
         // Setup the initial stack frame.
@@ -113,6 +126,7 @@ impl<M: Memory> Machine<M> {
             intptrcast: IntPtrCast::new(),
             stack: list![init_frame],
             global_ptrs,
+            fn_addrs,
         })
     }
 }

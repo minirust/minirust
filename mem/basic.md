@@ -74,8 +74,11 @@ impl Allocation {
     fn overlaps(self, other_addr: Int, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
         let other_end_addr = other_addr + other_size.bytes();
-        if end_addr <= other_addr || other_end_addr <= self.addr {
+        if self.addr != other_addr && (end_addr <= other_addr || other_end_addr <= self.addr) {
             // Our end is before their beginning, or vice versa -- we do not overlap.
+            // However, also make sure that each allocation has a unique address.
+            // FIXME: This is not necessarily realistic, e.g. for zero-sized stack variables.
+            // OTOH the function pointer logic currently relies on this.
             false
         } else {
             true
@@ -249,7 +252,8 @@ impl Memory for BasicMemory {
         let layout = match ptr_type {
             lang::PtrType::Ref { pointee, .. } => pointee,
             lang::PtrType::Box { pointee } => pointee,
-            lang::PtrType::Raw { pointee } => pointee,
+            // Raw and fn ptrs do not have any requirements, skip them.
+            lang::PtrType::Raw { .. } | lang::PtrType::FnPtr => return ret(ptr),
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
 
