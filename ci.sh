@@ -7,5 +7,6 @@ VERSION="0.1.4"
 cargo install "specr-transpile@${VERSION}"
 specr-transpile specr.toml
 
-cd gen-minirust
-RUSTFLAGS="-D warnings" cargo build
+cd tooling
+(cd gen-minirust; RUSTFLAGS="-D warnings" cargo build)
+(cd minitest; cargo test)
