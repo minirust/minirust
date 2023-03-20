@@ -45,7 +45,7 @@ We use `Result` to make operations fallible (where failure indicates UB or machi
 We use a `throw_ub!` macro to make the current function return a UB error value, and `throw_machine_stop!` to indicate that and how the machine has stopped.
 Similarly, we use `throw!()` inside `Option`-returning functions to return `None`.
 In order to wrap a value `t: T` as `Result<T>`, `Option<T>` or `NdResult<T>` (see next subchapter), we use the function `ret(t)`.
-See [the prelude](prelude/main.md) for details.
+See [the prelude](spec/prelude/main.md) for details.
 
 ### Non-determinism
 
@@ -95,20 +95,20 @@ But we also need to ensure the entire document stays coherent, and I already hav
 
 ## Table of Contents
 
-* [Prelude](prelude.md): common definitions and parameters shared by everything
+* [Prelude](spec/prelude.md): common definitions and parameters shared by everything
 * MiniRust memory
-  * [Memory interface](mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
-  * [Basic memory model](mem/basic.md): an implementation of the memory interface that ignores aliasing concerns
-  * [Integer-pointer cast model](mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts
+  * [Memory interface](spec/mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
+  * [Basic memory model](spec/mem/basic.md): an implementation of the memory interface that ignores aliasing concerns
+  * [Integer-pointer cast model](spec/mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts
 * MiniRust language
-  * [Prelude](lang/prelude.md): common definitions and parameters of the language
-  * [Types](lang/types.md): the set of MiniRust types
-  * [Values and representation relation](lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
-  * [Syntax](lang/syntax.md): the abstract syntax of MiniRust programs
-  * [Well-formedness](lang/well-formed.md): the requirements for well-formed types and programs
-  * [Abstract Machine](lang/machine.md): the state that makes up a MiniRust Abstract Machine
-  * [Semantics](lang/step.md): the operational semantics ("`step` function") of the Abstract Machine
-    * [Operator semantics](lang/operator.md): the operational semantics of unary and binary operators
+  * [Prelude](spec/lang/prelude.md): common definitions and parameters of the language
+  * [Types](spec/lang/types.md): the set of MiniRust types
+  * [Values and representation relation](spec/lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
+  * [Syntax](spec/lang/syntax.md): the abstract syntax of MiniRust programs
+  * [Well-formedness](spec/lang/well-formed.md): the requirements for well-formed types and programs
+  * [Abstract Machine](spec/lang/machine.md): the state that makes up a MiniRust Abstract Machine
+  * [Semantics](spec/lang/step.md): the operational semantics ("`step` function") of the Abstract Machine
+    * [Operator semantics](spec/lang/operator.md): the operational semantics of unary and binary operators
 
 ## Relation to other efforts
 
