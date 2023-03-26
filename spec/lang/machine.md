@@ -75,6 +75,8 @@ pub enum ThreadState {
     Enabled,
     /// The thread is trying to join another thread and is blocked until that thread finishes.
     BlockedOnJoin(ThreadId),
+    /// The thread is waiting to acquire a lock.
+    BlockedOnLock(LockId),
     /// The thread has terminated.
     Terminated,
 }
@@ -88,6 +90,9 @@ type ThreadId = Int;
 pub struct ThreadManager<M: Memory> {
     /// The list of threads.
     threads: List<Thread<M>>,
+
+    /// The list of locks.
+    locks: List<LockState>,
 
     /// To avoid passing around the active thread through all the eval_ functions,
     /// we store it globally here.
@@ -274,6 +279,7 @@ impl<M: Memory> ThreadManager<M> {
 
         Self {
             threads,
+            locks: List::new(),
             active_thread: None,
         }
     }
