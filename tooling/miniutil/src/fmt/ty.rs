@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn fmt_ptype(place_ty: PlaceType, comptypes: &mut Vec<CompType>) -> String {
     let ty_str = fmt_type(place_ty.ty, comptypes);
     let align = place_ty.align.bytes();
-    format!("{ty_str}<align={align}>")
+    format!("{ty_str}@align({align})")
 }
 
 pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> String {

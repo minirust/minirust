@@ -29,26 +29,26 @@ fn fmt_function(
     let args: Vec<String> = f
         .args
         .iter()
-        .map(|(name, _arg_abi)| {
-            let ident = fmt_local_name(name);
-            let ty = fmt_ptype(f.locals.index_at(name), comptypes);
-
-            format!("{ident}: {ty}")
-        })
+        .map(|(name, _arg_abi)| fmt_local_name(name))
         .collect();
     let args = args.join(", ");
 
-    // Format return type
-    let mut ret_ty = String::from("none");
-    if let Some((ret, _arg_abi)) = f.ret {
-        ret_ty = fmt_ptype(f.locals.index_at(ret), comptypes);
-    }
+    // Format return local
+    let ret_str = match f.ret {
+        Some((ret, _arg_abi)) => {
+            let l = fmt_local_name(ret);
+            format!("-> {l}")
+        },
+        None => {
+            format!("-/>")
+        },
+    };
 
     // Format function signature
     let mut out = if start {
-        format!("start fn {fn_name}({args}) -> {ret_ty} {{\n")
+        format!("start fn {fn_name}({args}) {ret_str} {{\n")
     } else {
-        format!("fn {fn_name}({args}) -> {ret_ty} {{\n")
+        format!("fn {fn_name}({args}) {ret_str} {{\n")
     };
 
     // Format locals
@@ -141,7 +141,7 @@ fn fmt_call(
     // Format return place
     let r = match ret {
         Some(ret) => fmt_place_expr(ret, comptypes),
-        None => String::from("none"),
+        None => String::from("_"),
     };
 
     // Format next block
