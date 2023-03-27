@@ -132,10 +132,10 @@ This loads a value from a place (often called "place-to-value coercion").
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         let (p, ptype) = self.eval_place(source)?;
-        let v = self.mem.typed_load(p, ptype)?;
+        let v = self.mem.typed_load(Atomicity::Default, p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
-            self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
+            self.mem.store(Atomicity::Default, p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
         }
 
         ret((v, ptype.ty))
@@ -318,7 +318,7 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let (place, ptype) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
-        self.mem.typed_store(place, val, ptype)?;
+        self.mem.typed_store(Atomicity::Default, place, val, ptype)?;
 
         ret(())
     }
@@ -336,9 +336,9 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Finalize { place, fn_entry }: Statement) -> NdResult {
         let (p, ptype) = self.eval_place(place)?;
 
-        let val = self.mem.typed_load(p, ptype)?;
+        let val = self.mem.typed_load(Atomicity::Default, p, ptype)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
-        self.mem.typed_store(p, val, ptype)?;
+        self.mem.typed_store(Atomicity::Default, p, val, ptype)?;
 
         ret(())
     }
@@ -486,7 +486,7 @@ impl<M: Memory> Machine<M> {
             // Store value with caller type (otherwise we could get panics).
             // The ABI above should ensure that this does not go OOB,
             // and it is a fresh pointer so there should be no other reason this can fail.
-            self.mem.typed_store(p, val, PlaceType::new(caller_ty, callee_layout.align)).unwrap();
+            self.mem.typed_store(Atomicity::Default, p, val, PlaceType::new(caller_ty, callee_layout.align)).unwrap();
             locals.insert(local, p);
         }
 
@@ -538,8 +538,8 @@ impl<M: Memory> Machine<M> {
         // On the other hand, the callee is done here, so why would it even still
         // care about the return value?
         if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
-            let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty)?;
-            self.mem.typed_store(ret_place, ret_val, ret_pty)?;
+            let ret_val = self.mem.typed_load(Atomicity::Default, frame.locals[ret_local], ret_pty)?;
+            self.mem.typed_store(Atomicity::Default, ret_place, ret_val, ret_pty)?;
         }
 
         // Deallocate everything.
@@ -585,7 +585,7 @@ impl<M: Memory> Machine<M> {
 
         if let Some((ret_place, ret_pty)) = ret_place {
             // `eval_inrinsic` above must guarantee that `value` has the right type.
-            self.mem.typed_store(ret_place, value, ret_pty)?;
+            self.mem.typed_store(Atomicity::Default, ret_place, value, ret_pty)?;
         }
             
         if let Some(next_block) = next_block {
