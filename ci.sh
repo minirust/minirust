@@ -2,7 +2,7 @@
 set -ex
 
 # Fixed specr-transpile version
-VERSION="0.1.12"
+VERSION="0.1.13"
 
 cargo install "specr-transpile@${VERSION}"
 specr-transpile specr.toml
