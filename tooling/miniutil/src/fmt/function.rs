@@ -110,15 +110,15 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
         }
         Statement::Finalize { place, fn_entry } => {
             let place = fmt_place_expr(place, comptypes);
-            format!("    Finalize({place}, {fn_entry});")
+            format!("    finalize({place}, {fn_entry});")
         }
         Statement::StorageLive(local) => {
             let local = fmt_local_name(local);
-            format!("    StorageLive({local});")
+            format!("    storage_live({local});")
         }
         Statement::StorageDead(local) => {
             let local = fmt_local_name(local);
-            format!("    StorageDead({local});")
+            format!("    storage_dead({local});")
         }
     }
 }
