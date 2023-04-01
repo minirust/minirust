@@ -248,12 +248,12 @@ We don't have aliasing requirements in this model, so we only check dereferencab
 
 ```rust
 impl Memory for BasicMemory {
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         let layout = match ptr_type {
-            lang::PtrType::Ref { pointee, .. } => pointee,
-            lang::PtrType::Box { pointee } => pointee,
+            PtrType::Ref { pointee, .. } => pointee,
+            PtrType::Box { pointee } => pointee,
             // Raw and fn ptrs do not have any requirements, skip them.
-            lang::PtrType::Raw { .. } | lang::PtrType::FnPtr => return ret(ptr),
+            PtrType::Raw { .. } | PtrType::FnPtr => return ret(ptr),
         };
         self.check_ptr(ptr, layout.size, layout.align)?;
 
