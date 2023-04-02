@@ -135,13 +135,27 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             panic!("unsupported ptr_ty for AddrOr!")
         }
         ValueExpr::UnOp { operator, operand } => {
-            let operand = fmt_value_expr(operand.extract(), comptypes);
+            let operand = fmt_value_expr(operand.extract(), comptypes).to_string();
             match operator {
-                UnOp::Int(UnOpInt::Neg, _int_ty) => FmtExpr::NonAtomic(format!("-{}", operand.to_atomic_string())),
-                UnOp::Int(UnOpInt::Cast, _int_ty) => FmtExpr::Atomic(format!("int2int({})", operand.to_string())),
-                UnOp::Ptr2Ptr(_ptr_ty) => FmtExpr::Atomic(format!("ptr2ptr({})", operand.to_string())),
-                UnOp::Ptr2Int => FmtExpr::Atomic(format!("ptr2int({})", operand.to_string())),
-                UnOp::Int2Ptr(_ptr_ty) => FmtExpr::Atomic(format!("int2ptr({})", operand.to_string())),
+                UnOp::Int(UnOpInt::Neg, int_ty) => {
+                    let int_ty = fmt_int_type(int_ty);
+                    FmtExpr::NonAtomic(format!("-<{int_ty}>({operand})"))
+                }
+                UnOp::Int(UnOpInt::Cast, int_ty) => {
+                    let int_ty = fmt_int_type(int_ty);
+                    FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
+                }
+                UnOp::Ptr2Ptr(ptr_ty) => {
+                    let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
+                    FmtExpr::Atomic(format!("ptr2ptr<{ptr_ty}>({operand})"))
+                }
+                UnOp::Ptr2Int => {
+                    FmtExpr::Atomic(format!("ptr2int({operand})"))
+                }
+                UnOp::Int2Ptr(ptr_ty) => {
+                    let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
+                    FmtExpr::Atomic(format!("int2ptr<{ptr_ty}>({operand})"))
+                }
             }
         }
         ValueExpr::BinOp {
