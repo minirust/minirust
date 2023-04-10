@@ -8,7 +8,7 @@ impl<M: Memory> Machine<M> {
         intrinsic: Intrinsic,
         arguments: List<Value<M>>,
         ret_place: Option<Place<M>>,
-    ) -> NdResult;
+    ) -> NdResult { .. }
 }
 ```
 
