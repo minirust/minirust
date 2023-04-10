@@ -5,7 +5,7 @@ First, the general structure of programs and functions:
 
 ```rust
 /// Opaque types of names for functions and globals.
-/// The details of this this is represented to not matter.
+/// The internal representations of these types do not matter.
 pub struct FnName(pub libspecr::Name);
 pub struct GlobalName(pub libspecr::Name);
 
@@ -52,7 +52,7 @@ Next, the statements and terminators that MiniRust programs consist of:
 
 ```rust
 pub enum Statement {
-    /// Copy value from `source` to `target`.
+    /// Copy value from `source` to `destination`.
     Assign {
         destination: PlaceExpr,
         source: ValueExpr,
