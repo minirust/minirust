@@ -14,14 +14,14 @@ pub(super) fn fmt_globals(globals: Map<GlobalName, Global>) -> String {
     out
 }
 
-pub(super) fn fmt_relocation(relocation: Relocation) -> String {
+pub(super) fn fmt_relocation(relocation: Relocation) -> FmtExpr {
     let gname = fmt_global_name(relocation.name);
 
     if relocation.offset.bytes() == 0 {
-        gname
+        FmtExpr::Atomic(gname)
     } else {
         let offset = relocation.offset.bytes();
-        format!("({gname} + {offset})")
+        FmtExpr::NonAtomic(format!("{gname} + {offset}"))
     }
 }
 
@@ -36,7 +36,7 @@ fn fmt_global(gname: GlobalName, global: Global) -> String {
     );
     for (i, rel) in global.relocations {
         let i = i.bytes();
-        let rel_str = fmt_relocation(rel);
+        let rel_str = fmt_relocation(rel).to_string();
         out += &format!("  at byte {i}: {rel_str},\n");
     }
     out += "}\n\n";

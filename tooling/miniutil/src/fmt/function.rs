@@ -23,32 +23,32 @@ fn fmt_function(
     start: bool,
     comptypes: &mut Vec<CompType>,
 ) -> String {
-    let fn_name = fmt_fn_name(fn_name);
+    let fn_name = fmt_fn_name(fn_name).to_string();
 
     // Format function arguments
     let args: Vec<String> = f
         .args
         .iter()
-        .map(|(name, _arg_abi)| {
-            let ident = fmt_local_name(name);
-            let ty = fmt_ptype(f.locals.index_at(name), comptypes);
-
-            format!("{ident}: {ty}")
-        })
+        .map(|(name, _arg_abi)| fmt_local_name(name).to_string())
         .collect();
     let args = args.join(", ");
 
-    // Format return type
-    let mut ret_ty = String::from("none");
-    if let Some((ret, _arg_abi)) = f.ret {
-        ret_ty = fmt_ptype(f.locals.index_at(ret), comptypes);
-    }
+    // Format return local
+    let ret_str = match f.ret {
+        Some((ret, _arg_abi)) => {
+            let l = fmt_local_name(ret).to_string();
+            format!("-> {l}")
+        },
+        None => {
+            format!("-/>")
+        },
+    };
 
     // Format function signature
     let mut out = if start {
-        format!("start fn {fn_name}({args}) -> {ret_ty} {{\n")
+        format!("start fn {fn_name}({args}) {ret_str} {{\n")
     } else {
-        format!("fn {fn_name}({args}) -> {ret_ty} {{\n")
+        format!("fn {fn_name}({args}) {ret_str} {{\n")
     };
 
     // Format locals
@@ -58,8 +58,8 @@ fn fmt_function(
     locals.sort_by_key(|(LocalName(name), _place_ty)| *name);
 
     for (l, pty) in locals {
-        let local = fmt_local_name(l);
-        let ptype = fmt_ptype(pty, comptypes);
+        let local = fmt_local_name(l).to_string();
+        let ptype = fmt_ptype(pty, comptypes).to_string();
         out += &format!("  let {local}: {ptype};\n");
     }
 
@@ -104,21 +104,21 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             destination,
             source,
         } => {
-            let left = fmt_place_expr(destination, comptypes);
-            let right = fmt_value_expr(source, comptypes);
+            let left = fmt_place_expr(destination, comptypes).to_string();
+            let right = fmt_value_expr(source, comptypes).to_string();
             format!("    {left} = {right};")
         }
         Statement::Finalize { place, fn_entry } => {
-            let place = fmt_place_expr(place, comptypes);
-            format!("    Finalize({place}, {fn_entry});")
+            let place = fmt_place_expr(place, comptypes).to_string();
+            format!("    finalize({place}, {fn_entry});")
         }
         Statement::StorageLive(local) => {
-            let local = fmt_local_name(local);
-            format!("    StorageLive({local});")
+            let local = fmt_local_name(local).to_string();
+            format!("    storage_live({local});")
         }
         Statement::StorageDead(local) => {
-            let local = fmt_local_name(local);
-            format!("    StorageDead({local});")
+            let local = fmt_local_name(local).to_string();
+            format!("    storage_dead({local});")
         }
     }
 }
@@ -134,14 +134,14 @@ fn fmt_call(
     // Format function args
     let args: Vec<_> = arguments
         .iter()
-        .map(|x| fmt_value_expr(x, comptypes))
+        .map(|x| fmt_value_expr(x, comptypes).to_string())
         .collect();
     let args = args.join(", ");
 
     // Format return place
     let r = match ret {
-        Some(ret) => fmt_place_expr(ret, comptypes),
-        None => String::from("none"),
+        Some(ret) => fmt_place_expr(ret, comptypes).to_string(),
+        None => String::from("_"),
     };
 
     // Format next block
@@ -167,9 +167,9 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             then_block,
             else_block,
         } => {
-            let branch_expr = fmt_value_expr(condition, comptypes);
-            let then_bb = fmt_bb_name(then_block);
-            let else_bb = fmt_bb_name(else_block);
+            let branch_expr = fmt_value_expr(condition, comptypes).to_string();
+            let then_bb = fmt_bb_name(then_block).to_string();
+            let else_bb = fmt_bb_name(else_block).to_string();
             format!(
                 "    if {branch_expr} {{
       goto -> {then_bb};
@@ -187,7 +187,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             ret,
             next_block,
         } => {
-            let callee = fmt_value_expr(callee, comptypes);
+            let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
             let arguments = arguments.iter().map(|(expr, _arg_abi)| expr).collect();
             let ret = ret.map(|(place_expr, _arg_abi)| place_expr);
             fmt_call(&callee, arguments, ret, next_block, comptypes)
