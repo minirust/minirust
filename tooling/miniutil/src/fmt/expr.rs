@@ -43,12 +43,16 @@ pub(super) fn fmt_place_expr(p: PlaceExpr, comptypes: &mut Vec<CompType>) -> Fmt
         }
         PlaceExpr::Field { root, field } => {
             let root = fmt_place_expr(root.extract(), comptypes).to_atomic_string();
-            FmtExpr::NonAtomic(format!("{root}.{field}"))
+            // You might think that `&raw foo.bar` is ambiguous and hence `foo.bar` is non-atomic.
+            // But we define `&raw foo.bar` to always mean `&raw (foo.bar)` and not `(&raw foo).bar`.
+            // Hence this can be atomic.
+            FmtExpr::Atomic(format!("{root}.{field}"))
         }
         PlaceExpr::Index { root, index } => {
             let root = fmt_place_expr(root.extract(), comptypes).to_atomic_string();
             let index = fmt_value_expr(index.extract(), comptypes).to_string();
-            FmtExpr::NonAtomic(format!("{root}[{index}]"))
+            // This can be considered atomic due to the same reasoning as for PlaceExpr::Field, see above.
+            FmtExpr::Atomic(format!("{root}[{index}]"))
         }
     }
 }
