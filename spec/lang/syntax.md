@@ -117,6 +117,8 @@ pub enum Intrinsic {
     PrintStderr,
     Allocate,
     Deallocate,
+    Spawn,
+    Join,
 }
 ```
 

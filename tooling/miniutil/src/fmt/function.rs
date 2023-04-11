@@ -207,6 +207,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::PrintStderr => "eprint",
                 Intrinsic::Allocate => "allocate",
                 Intrinsic::Deallocate => "deallocate",
+                Intrinsic::Spawn => "spawn",
+                Intrinsic::Join => "join",
             };
             fmt_call(callee, arguments, ret, next_block, comptypes)
         }
