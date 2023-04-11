@@ -557,10 +557,9 @@ impl<M: Memory> Machine<M> {
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
         let (value, ret_type) = self.eval_intrinsic(intrinsic, arguments)?;
-        
-        let ret_place = ret_expr.try_map(|p| self.eval_place(p))?;
 
-        if let Some(ret_place) = ret_place {
+        if let Some(ret_expr) = ret_expr {
+            let ret_place = self.eval_place(ret_expr)?;
             let align = Align::max_for_offset(ret_type.size::<M>()).unwrap();
             
             let bytes = Type::encode::<M>(ret_type, value);
@@ -572,7 +571,7 @@ impl<M: Memory> Machine<M> {
                 frame.jump_to_block(next_block);
             });
         } else {
-            throw_ub!("Return from an intrinsic where caller did not specify next block");
+            throw_ub!("return from an intrinsic where caller did not specify next block");
         }
 
         ret(())
