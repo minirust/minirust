@@ -276,11 +276,8 @@ impl<M: Memory> ThreadManager<M> {
     }
 
     pub fn new_thread(&mut self, func: Function) -> NdResult<ThreadId> {
-
         let thread_id = ThreadId::from(self.threads.len());
-
         self.threads.push(Thread::new(func));
-
         ret(thread_id)
     }
 

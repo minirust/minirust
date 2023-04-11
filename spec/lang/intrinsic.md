@@ -11,6 +11,14 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+This helper functions simplifies unit-returning intrinsics.
+
+```rust
+fn unit<M: Memory>() -> (Value<M>, Type) {
+    (Value::Tuple(list![]), Type::Tuple{fields:list![], size: Size::ZERO})
+}
+```
+
 We start with the `Exit` intrinsic.
 
 ```rust
@@ -67,7 +75,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-Next the intrinsics used for memory allocation and deallocation.
+Next, the intrinsics used for memory allocation and deallocation.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -95,7 +103,7 @@ impl<M: Memory> Machine<M> {
 
         let alloc = self.mem.allocate(size, align)?;
 
-        // An allocate returns *mut ()
+        // `Allocate` returns `*mut ()`.
         let pointee = Layout {
             size: Size::ZERO,
             align: Align::ONE,
@@ -196,9 +204,7 @@ impl<M: Memory> Machine<M> {
         };
 
         match thread.state {
-            ThreadState::Terminated => {
-                ()
-            },
+            ThreadState::Terminated => {},
             _ => {
                 self.mutate_cur_thread(|thread|{
                     thread.state = ThreadState::BlockedOnJoin(thread_id);
@@ -207,14 +213,6 @@ impl<M: Memory> Machine<M> {
         };
 
         ret(unit())
-    }  
-}
-```
-
-A helper function to keep the code readable.
-
-```rust
-fn unit<M: Memory>() -> (Value<M>, Type) {
-    (Value::Tuple(list![]), Type::Tuple{fields:list![], size: Size::ZERO})
+    }
 }
 ```
