@@ -22,25 +22,6 @@ fn alloc_success() {
 }
 
 #[test]
-fn alloc_noret() {
-    let locals = [];
-
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Allocate,
-            arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-            ret: None,
-            next_block: None,
-        },
-    );
-
-    let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f]);
-    dump_program(p);
-    assert_ub(p, "call to `Intrinsic::Allocate` is missing a return place");
-}
-
-#[test]
 fn alloc_argcount() {
     let locals = [ <*const i32>::get_ptype() ];
 
