@@ -507,7 +507,7 @@ impl<M: Memory> Machine<M> {
         };
 
         let Some((ret_local, _)) = func.ret else {
-            throw_ub!("Return from a function that does not have a return local");
+            throw_ub!("return from a function that does not have a return local");
         };
 
         // Copy return value, if any, to where the caller wants it.
@@ -532,7 +532,7 @@ impl<M: Memory> Machine<M> {
                 frame.jump_to_block(next_block);
             });
         } else {
-            throw_ub!("Return from a function where caller did not specify next block");
+            throw_ub!("return from a function where caller did not specify next block");
         }
 
         ret(())
