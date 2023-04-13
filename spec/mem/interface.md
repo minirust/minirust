@@ -120,7 +120,7 @@ pub trait Memory {
     /// also seems better than just outright duplicating that type.
     ///
     /// Return the retagged pointer.
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
 
     /// Checks that `size` is not too large for the Memory.
     fn valid_size(size: Size) -> bool;
