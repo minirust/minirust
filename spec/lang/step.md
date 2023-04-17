@@ -416,12 +416,6 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
-        let Value::Ptr(ptr) = self.eval_value(callee)? else {
-            panic!("call on a non-pointer")
-        };
-
-        let func = self.fn_from_addr(ptr.addr)?;
-
         let caller_locals = self.cur_frame().func.locals;
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
@@ -431,6 +425,12 @@ impl<M: Memory> Machine<M> {
             let pty = caller_ret_place.check_wf::<M>(caller_locals, self.prog).unwrap(); // FIXME avoid a second traversal
             ret::<NdResult<_>>((p, pty))
         })?;
+
+        let Value::Ptr(ptr) = self.eval_value(callee)? else {
+            panic!("call on a non-pointer")
+        };
+
+        let func = self.fn_from_addr(ptr.addr)?;
 
         // Create place for return local, if needed.
         if let Some((ret_local, _abi)) = func.ret {
@@ -552,14 +552,14 @@ impl<M: Memory> Machine<M> {
         Terminator::CallIntrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
+        let ret_place = ret_expr.try_map(|ret_expr| self.eval_place(ret_expr))?;
 
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
         let (value, ret_type) = self.eval_intrinsic(intrinsic, arguments)?;
 
-        if let Some(ret_expr) = ret_expr {
-            let ret_place = self.eval_place(ret_expr)?;
+        if let Some(ret_place) = ret_place {
             let align = Align::max_for_offset(ret_type.size::<M>()).unwrap();
             
             let bytes = Type::encode::<M>(ret_type, value);
