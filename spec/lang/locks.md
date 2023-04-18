@@ -30,7 +30,7 @@ impl<M: Memory> ThreadManager<M> {
         let active = self.active_thread.unwrap();
 
         let Some(lock) = self.locks.get(lock_id) else {
-            throw_ub!("Acquiring non existing lock");
+            throw_ub!("acquiring non existing lock");
         };
 
         match lock {
@@ -53,7 +53,7 @@ impl<M: Memory> ThreadManager<M> {
         let active = self.active_thread.unwrap();
 
         let Some(lock) = self.locks.get(lock_id) else {
-            throw_ub!("Release non existing lock");
+            throw_ub!("release non existing lock");
         };
 
         match lock {
@@ -91,7 +91,7 @@ impl<M: Memory> ThreadManager<M> {
 
                 ret(())
             },
-            _ => throw_ub!("Releasing non owned lock.")
+            _ => throw_ub!("releasing non owned lock")
         }
     }
 }
@@ -122,7 +122,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() > 0 {
-            throw_ub!("Invalid number of arguments for `LockIntrinsic::Create`");
+            throw_ub!("invalid number of arguments for `LockIntrinsic::Create`");
         }
 
         let lock_id = self.thread_manager.lock_create();
@@ -150,11 +150,11 @@ impl<M: Memory> Machine<M> {
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 1 {
-            throw_ub!("Invalid number of arguments for `LockIntrinsic::Acquire`");
+            throw_ub!("invalid number of arguments for `LockIntrinsic::Acquire`");
         }
 
         let Value::Int(lock_id) = arguments[0] else {
-            throw_ub!("Invalid first argument to `LockIntrinsic::Acquire`");
+            throw_ub!("invalid first argument to `LockIntrinsic::Acquire`");
         };
 
         self.thread_manager.lock_acquire(lock_id)?;
@@ -174,11 +174,11 @@ impl<M: Memory> Machine<M> {
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 1 {
-            throw_ub!("Invalid number of arguments for `LockIntrinsic::Release`");
+            throw_ub!("invalid number of arguments for `LockIntrinsic::Release`");
         }
 
         let Value::Int(lock_id) = arguments[0] else {
-            throw_ub!("Invalid first argument to `LockIntrinsic::Release`");
+            throw_ub!("invalid first argument to `LockIntrinsic::Release`");
         };
 
         self.thread_manager.lock_release(lock_id)?;
