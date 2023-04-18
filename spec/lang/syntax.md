@@ -1,6 +1,9 @@
 # MiniRust Abstract Syntax
 
 This defines the abstract syntax of MiniRust programs.
+
+## Programs and functions
+
 First, the general structure of programs and functions:
 
 ```rust
@@ -47,6 +50,8 @@ pub struct BasicBlock {
     pub terminator: Terminator,
 }
 ```
+
+## Statements, terminators, expressions
 
 Next, the statements and terminators that MiniRust programs consist of:
 
