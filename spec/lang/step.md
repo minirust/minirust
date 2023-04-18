@@ -426,6 +426,7 @@ impl<M: Memory> Machine<M> {
             ret::<NdResult<_>>((p, pty))
         })?;
 
+        // Then evaluate the function that will be called.
         let Value::Ptr(ptr) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
