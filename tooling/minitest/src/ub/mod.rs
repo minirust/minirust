@@ -17,3 +17,5 @@ mod call;
 mod mem_dealloc;
 mod check_ptr;
 mod impossible_align;
+mod spawn;
+mod join;
