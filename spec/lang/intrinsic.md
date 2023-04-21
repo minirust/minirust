@@ -205,17 +205,3 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
-
-The intrinsic for locks. Mostly used for testing.
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_intrinsic(
-        &mut self,
-        Intrinsic::Lock(lock_intrinsic): Intrinsic,
-        arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
-        self.eval_lock_intrinsic(lock_intrinsic, arguments)
-    }
-}
-```

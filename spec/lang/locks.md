@@ -1,7 +1,7 @@
 # Machine Locks
 
 This file describes how system locks work in MiniRust.
-This file might be temporary for testing purposes, since rust currently implements locks via futex and not system locks.
+This does not match the actual lock implementations in Rust, it serves more as a specification for idealized locks.
 
 ## The Lock State
 
@@ -14,7 +14,7 @@ pub enum LockState {
 type LockId = Int;
 ```
 
-We implement locks for the thread manager. Since they are most useful for exactly that purpose.
+We implement locks in the thread manager, since they are mostly used to synchronize between threads.
 
 ```rust
 impl<M: Memory> ThreadManager<M> {
@@ -33,6 +33,8 @@ impl<M: Memory> ThreadManager<M> {
             throw_ub!("acquiring non existing lock");
         };
 
+        // If the lock is not taken the lock is acquired by the active thread.
+        // Otherwise the thread gets blocked.
         match lock {
             LockState::Unlocked => {
                 self.locks.mutate_at(lock_id, |lock_state| {
@@ -58,14 +60,16 @@ impl<M: Memory> ThreadManager<M> {
 
         match lock {
             LockState::LockedBy(thread_id) if thread_id == active => {
+                // If any thread is blocked waiting for this lock, we want to unblock one of those.
                 if self.threads.any(|thread| thread.state == ThreadState::BlockedOnLock(lock_id)) {
+                    // We pick the thread that gets the lock from all threads.
                     let distr = libspecr::IntDistribution {
                         start: Int::ZERO,
                         end: Int::from(self.threads.len()),
                         divisor: Int::ONE,
                     };
 
-                    let thread_id: ThreadId = pick(distr, |id: ThreadId| {
+                    let acquirer_id: ThreadId = pick(distr, |id: ThreadId| {
                         let Some(thread) = self.threads.get(id) else {
                             return false;
                         };
@@ -73,10 +77,11 @@ impl<M: Memory> ThreadManager<M> {
                         thread.state == ThreadState::BlockedOnLock(lock_id)
                     })?;
 
-                    self.threads.mutate_at(thread_id, |thread| {
+                    self.threads.mutate_at(acquirer_id, |thread| {
                         thread.state = ThreadState::Enabled;
                     });
 
+                    // Rather than unlock and lock again we just change the acquirer.
                     self.locks.mutate_at(lock_id, |lock| {
                         *lock = LockState::LockedBy(thread_id);
                     });
@@ -99,26 +104,15 @@ impl<M: Memory> ThreadManager<M> {
 
 ## The Intrinsics for Locks
 
-Since the locks might be temporary they are mostly restricted to this file. Therefore it is better to define the intrinsics here.
-
-```rust
-impl<M: Memory> Machine<M> {
-    #[specr::argmatch(lock_intrinsic)]
-    fn eval_lock_intrinsic(
-        &mut self,
-        lock_intrinsic: LockIntrinsic,
-        arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> { .. }
-}
-```
+Because the locks might be temporary they should be restricted to this file. This is why the relating intrinsics are defined here.
 
 The `Create` intrinsic. Used to create locks.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_lock_intrinsic(
+    fn eval_intrinsic(
         &mut self,
-        LockIntrinsic::Create: LockIntrinsic,
+        Intrinsic::Lock(LockIntrinsic::Create): Intrinsic,
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() > 0 {
@@ -144,9 +138,9 @@ The `Acquire` intrinsic.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_lock_intrinsic(
+    fn eval_intrinsic(
         &mut self,
-        LockIntrinsic::Acquire: LockIntrinsic,
+        Intrinsic::Lock(LockIntrinsic::Acquire): Intrinsic,
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 1 {
@@ -168,9 +162,9 @@ The `Release` intrinsic.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_lock_intrinsic(
+    fn eval_intrinsic(
         &mut self,
-        LockIntrinsic::Release: LockIntrinsic,
+        Intrinsic::Lock(LockIntrinsic::Release): Intrinsic,
         arguments: List<Value<M>>,
     ) -> NdResult<(Value<M>, Type)> {
         if arguments.len() != 1 {
