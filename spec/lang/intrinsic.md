@@ -176,7 +176,7 @@ impl<M: Memory> Machine<M> {
         }
 
         // FIXME: What if the thread_id doesn't fit into a u32?
-        let thread_id = self.thread_manager.new_thread(func)?;
+        let thread_id = self.thread_manager.spawn(func)?;
 
         let id_type = Type::Int(IntType{
             signed: Signedness::Unsigned,
@@ -199,18 +199,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Join`");
         };
 
-        let Some(thread) = self.thread_manager.threads.get(thread_id) else {
-            throw_ub!("`Intrinsic::Join`: join non existing thread");
-        };
-
-        match thread.state {
-            ThreadState::Terminated => {},
-            _ => {
-                self.mutate_cur_thread(|thread|{
-                    thread.state = ThreadState::BlockedOnJoin(thread_id);
-                });
-            },
-        };
+        self.thread_manager.join(thread_id)?;
 
         ret(unit())
     }
