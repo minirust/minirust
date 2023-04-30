@@ -26,12 +26,7 @@ fn join_arg_value() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::Join, 
-            arguments: list!(load(local(0))), 
-            ret: None, 
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
+        join(load(local(0)), 1),
     );
     let b1 = block!(exit());
 
@@ -50,12 +45,7 @@ fn join_no_thread() {
         storage_live(0),
         //Valid since the main thread has Id 0.
         assign(local(0), const_int::<u32>(1)),
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::Join, 
-            arguments: list!(load(local(0))), 
-            ret: None, 
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
+        join(load(local(0)), 1),
     );
     let b1 = block!(exit());
 
