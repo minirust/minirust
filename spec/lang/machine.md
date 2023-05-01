@@ -182,22 +182,6 @@ impl<M: Memory> Machine<M> {
         self.thread_manager.threads.mutate_at(active_thread, |thread| f(&mut thread.stack))
     }
 
-    fn cur_thread(&self) -> Thread<M> {
-        let Some(active_thread) = self.thread_manager.active_thread else {
-            panic!("`cur_thread` called without active thread!");
-        };
-
-        self.thread_manager.threads[active_thread]
-    }
-
-    fn mutate_cur_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
-        let Some(active_thread) = self.thread_manager.active_thread else {
-            panic!("`cur_thread` called without active thread!");
-        };
-
-        self.thread_manager.threads.mutate_at(active_thread, f)
-    } 
-
     fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
         let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
         let Some((func_name, _)) = funcs.next() else {
@@ -262,6 +246,25 @@ impl<M: Memory> Thread<M> {
     }
 }
 
+// Some helper functions.
+impl<M: Memory> ThreadManager<M> {
+    fn cur_thread(&self) -> Thread<M> {
+        let Some(active_thread) = self.active_thread else {
+            panic!("`cur_thread` called without active thread!");
+        };
+
+        self.threads[active_thread]
+    }
+
+    fn mutate_cur_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
+        let Some(active_thread) = self.active_thread else {
+            panic!("`mut_cur_thread` called without active thread!");
+        };
+
+        self.threads.mutate_at(active_thread, f)
+    } 
+}
+
 impl<M: Memory> ThreadManager<M> {
     pub fn new(func: Function) -> Self {
         let master = Thread::new(func);
@@ -275,10 +278,27 @@ impl<M: Memory> ThreadManager<M> {
         }
     }
 
-    pub fn new_thread(&mut self, func: Function) -> NdResult<ThreadId> {
+    pub fn spawn(&mut self, func: Function) -> NdResult<ThreadId> {
         let thread_id = ThreadId::from(self.threads.len());
         self.threads.push(Thread::new(func));
         ret(thread_id)
+    }
+
+    pub fn join(&mut self, thread_id: ThreadId) -> NdResult {
+        let Some(thread) = self.threads.get(thread_id) else {
+            throw_ub!("`Intrinsic::Join`: join non existing thread");
+        };
+
+        match thread.state {
+            ThreadState::Terminated => {},
+            _ => {
+                self.mutate_cur_thread(|thread|{
+                    thread.state = ThreadState::BlockedOnJoin(thread_id);
+                });
+            },
+        };
+
+        ret(())
     }
 
     pub fn terminate_active_thread(&mut self) -> NdResult {

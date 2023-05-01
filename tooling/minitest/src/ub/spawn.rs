@@ -14,20 +14,10 @@ fn spawn_success() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Spawn,
-            arguments: list![fn_ptr(1)],
-            ret: Some(local(0)),
-            next_block: Some(BbName(Name::from_internal(1))),
-        }
+        spawn(fn_ptr(1), Some(local(0)), 1),
     );
     let b1 = block!(
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::Join, 
-            arguments: list!(load(local(0))), 
-            ret: None, 
-            next_block: Some(BbName(Name::from_internal(2)))
-        }
+        join(load(local(0)), 2),
     );
     let b2 = block!(exit());
 
@@ -70,12 +60,7 @@ fn spawn_arg_value() {
     let b0 = block!(
         storage_live(0),
         assign(local(0), const_int::<u32>(0)),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Spawn,
-            arguments: list![load(local(0))],
-            ret: None,
-            next_block: Some(BbName(Name::from_internal(1))),
-        }
+        spawn(load(local(0)), None, 1),
     );
 
     let b1 = block!(exit());
@@ -101,12 +86,7 @@ fn spawn_func_takes_args() {
     let locals = [<()>::get_ptype()];
 
     let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Spawn,
-            arguments: list![fn_ptr(1)],
-            ret: None,
-            next_block: Some(BbName(Name::from_internal(1))),
-        }
+        spawn(fn_ptr(1), None, 1),
     );
 
     let b1 = block!(exit());
@@ -132,12 +112,7 @@ fn spawn_func_returns() {
     let locals = [<()>::get_ptype()];
 
     let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Spawn,
-            arguments: list![fn_ptr(1)],
-            ret: None,
-            next_block: Some(BbName(Name::from_internal(1))),
-        }
+        spawn(fn_ptr(1), None, 1),
     );
 
     let b1 = block!(exit());

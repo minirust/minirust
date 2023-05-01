@@ -502,7 +502,7 @@ impl<M: Memory> Machine<M> {
         let Some(caller_return_info) = frame.caller_return_info else {
             // Only the bottom frame in a stack has no caller.
             // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.cur_thread().stack.len());
+            assert_eq!(Int::ZERO, self.thread_manager.cur_thread().stack.len());
 
             return self.thread_manager.terminate_active_thread();
         };
@@ -558,13 +558,13 @@ impl<M: Memory> Machine<M> {
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
-        let (value, ret_type) = self.eval_intrinsic(intrinsic, arguments)?;
+        let (value, _ret_ty) = self.eval_intrinsic(intrinsic, arguments)?;
 
         if let Some(ret_place) = ret_place {
-            let align = Align::max_for_offset(ret_type.size::<M>()).unwrap();
-            
-            let bytes = Type::encode::<M>(ret_type, value);
-            self.mem.store(ret_place, bytes, align)?;
+            let ret_expr = ret_expr.unwrap();
+            let place_ty = ret_expr.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap(); // FIXME avoid a second traversal of `ret_expr`
+
+            self.mem.typed_store(ret_place, value, place_ty)?;
         }
             
         if let Some(next_block) = next_block {

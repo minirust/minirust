@@ -92,3 +92,21 @@ pub fn exit() -> Terminator {
 pub fn return_() -> Terminator {
     Terminator::Return
 }
+
+pub fn spawn(fn_ptr: ValueExpr, ret: Option<PlaceExpr>, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::Spawn, 
+        arguments: list!(fn_ptr), 
+        ret, 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
+
+pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::Join, 
+        arguments: list!(thread_id), 
+        ret: None, 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
