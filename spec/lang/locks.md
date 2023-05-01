@@ -14,7 +14,9 @@ pub enum LockState {
 type LockId = Int;
 ```
 
-We implement locks in the thread manager, since they are mostly used to synchronize between threads.
+## Lock operations
+
+The ThreadManager provides the key operations on locks.
 
 ```rust
 impl<M: Memory> ThreadManager<M> {
@@ -33,8 +35,8 @@ impl<M: Memory> ThreadManager<M> {
             throw_ub!("acquiring non existing lock");
         };
 
-        // If the lock is not taken the lock is acquired by the active thread.
-        // Otherwise the thread gets blocked.
+        // If the lock is not taken, the lock gets acquired by the current (active) thread.
+        // Otherwise, the active thread gets blocked.
         match lock {
             LockState::Unlocked => {
                 self.locks.mutate_at(lock_id, |lock_state| {
@@ -62,7 +64,7 @@ impl<M: Memory> ThreadManager<M> {
             LockState::LockedBy(thread_id) if thread_id == active => {
                 // If any thread is blocked waiting for this lock, we want to unblock one of those.
                 if self.threads.any(|thread| thread.state == ThreadState::BlockedOnLock(lock_id)) {
-                    // We pick the thread that gets the lock from all threads.
+                    // We pick the thread that gets the lock.
                     let distr = libspecr::IntDistribution {
                         start: Int::ZERO,
                         end: Int::from(self.threads.len()),
@@ -77,11 +79,12 @@ impl<M: Memory> ThreadManager<M> {
                         thread.state == ThreadState::BlockedOnLock(lock_id)
                     })?;
 
+                    // We unblock the selected thread.
                     self.threads.mutate_at(acquirer_id, |thread| {
                         thread.state = ThreadState::Enabled;
                     });
 
-                    // Rather than unlock and lock again we just change the acquirer.
+                    // Rather than unlock and lock again we just change the lock owner.
                     self.locks.mutate_at(lock_id, |lock| {
                         *lock = LockState::LockedBy(thread_id);
                     });
@@ -104,7 +107,7 @@ impl<M: Memory> ThreadManager<M> {
 
 ## The Intrinsics for Locks
 
-Because the locks might be temporary they should be restricted to this file. This is why the relating intrinsics are defined here.
+This exposes the ThreadManager operations to the language as intrinsics.
 
 The `Create` intrinsic. Used to create locks.
 
