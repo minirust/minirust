@@ -18,7 +18,7 @@ fn return_success() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f, other_f]);
+    let p = program(&[f, other_f], &[]);
     dump_program(p);
     assert_stop(p);
 }
@@ -40,7 +40,7 @@ fn return_no_local() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f, other_f]);
+    let p = program(&[f, other_f], &[]);
     dump_program(p);
     assert_ub(p, "return from a function that does not have a return local");
 }
@@ -62,7 +62,7 @@ fn return_no_next() {
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f, other_f]);
+    let p = program(&[f, other_f], &[]);
     dump_program(p);
     assert_ub(p, "return from a function where caller did not specify next block");
 }
@@ -83,7 +83,7 @@ fn return_intrinsic_no_next() {
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_ub(p, "return from an intrinsic where caller did not specify next block");
 }

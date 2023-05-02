@@ -22,7 +22,7 @@ fn spawn_success() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f, dummy_function()]);
+    let p = program(&[f, dummy_function()], &[]);
 
     assert_stop(p);
 }
@@ -46,7 +46,7 @@ fn spawn_arg_count() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     
     assert_ub(p, "invalid number of arguments for `Intrinsic::Spawn`")
 }
@@ -67,7 +67,7 @@ fn spawn_arg_value() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
 
     assert_ub(p, "invalid first argument to `Intrinsic::Spawn`")
 }
@@ -93,7 +93,7 @@ fn spawn_func_takes_args() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
-    let p = program(&[f, takes_args()]);
+    let p = program(&[f, takes_args()], &[]);
 
     assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function takes arguments")
 }
@@ -119,7 +119,7 @@ fn spawn_func_returns() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
-    let p = program(&[f, returns()]);
+    let p = program(&[f, returns()], &[]);
 
     assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function returns something")
 }

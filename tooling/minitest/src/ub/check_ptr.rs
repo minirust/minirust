@@ -25,7 +25,7 @@ fn check_ptr_null() {
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_ub(p, "dereferencing null pointer");
 }
@@ -55,7 +55,7 @@ fn check_ptr_misaligned() {
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_ub(p, "pointer is insufficiently aligned");
 }
@@ -74,6 +74,6 @@ fn use_after_free() {
         exit()
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     assert_ub(p, "memory accessed after deallocation");
 }

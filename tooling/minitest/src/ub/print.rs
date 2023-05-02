@@ -10,7 +10,7 @@ fn print_success() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_stop(p);
 }
@@ -25,7 +25,7 @@ fn print_fail() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_ub(p, "unsupported value for printing");
 }
