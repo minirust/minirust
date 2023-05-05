@@ -32,7 +32,7 @@ impl<M: Memory> ThreadManager<M> {
         let active = self.active_thread.unwrap();
 
         let Some(lock) = self.locks.get(lock_id) else {
-            throw_ub!("acquiring non existing lock");
+            throw_ub!("acquiring non-existing lock");
         };
 
         // If the lock is not taken, the lock gets acquired by the current (active) thread.
@@ -57,7 +57,7 @@ impl<M: Memory> ThreadManager<M> {
         let active = self.active_thread.unwrap();
 
         let Some(lock) = self.locks.get(lock_id) else {
-            throw_ub!("release non existing lock");
+            throw_ub!("releasing non-existing lock");
         };
 
         match lock {
@@ -99,7 +99,7 @@ impl<M: Memory> ThreadManager<M> {
 
                 ret(())
             },
-            _ => throw_ub!("releasing non owned lock")
+            _ => throw_ub!("releasing non-acquired lock")
         }
     }
 }

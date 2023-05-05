@@ -4,7 +4,7 @@ use crate::*;
 
 #[test]
 fn acquire_arg_count() {
-    let locals = [<()>::get_ptype()];
+    let locals = [];
     
     let b0 = block!(
         Terminator::CallIntrinsic {
@@ -58,7 +58,7 @@ fn acquire_non_existent() {
     
     let p = program(&[f]);
     
-    assert_ub(p, "acquiring non existing lock")
+    assert_ub(p, "acquiring non-existing lock")
 }
 
 // Tests for Release
@@ -119,7 +119,7 @@ fn release_non_existent() {
     
     let p = program(&[f]);
     
-    assert_ub(p, "release non existing lock")
+    assert_ub(p, "releasing non-existing lock")
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn release_non_owned() {
     
     let p = program(&[f]);
     
-    assert_ub(p, "releasing non owned lock")
+    assert_ub(p, "releasing non-acquired lock")
 }
 
 // Create lock

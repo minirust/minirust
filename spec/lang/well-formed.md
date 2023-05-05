@@ -475,7 +475,7 @@ impl Function {
 impl Relocation {
     // Checks whether the relocation is within bounds.
     fn check_wf(self, globals: Map<GlobalName, Global>) -> Option<()> {
-        // The global where are pointing to needs to exist.
+        // The global we are pointing to needs to exist.
         let global = globals.get(self.name)?;
         let size = Size::from_bytes(global.bytes.len()).unwrap();
 
