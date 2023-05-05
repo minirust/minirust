@@ -110,3 +110,30 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
         next_block: Some(BbName(Name::from_internal(next))) 
     }
 }
+
+pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Create), 
+        arguments: list!(), 
+        ret: Some(ret), 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
+
+pub fn acquire(lock_id: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire), 
+        arguments: list!(lock_id), 
+        ret: None, 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
+
+pub fn release(lock_id: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Release), 
+        arguments: list!(lock_id), 
+        ret: None, 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}

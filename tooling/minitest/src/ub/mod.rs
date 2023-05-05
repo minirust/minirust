@@ -19,3 +19,4 @@ mod check_ptr;
 mod impossible_align;
 mod spawn;
 mod join;
+mod locks;

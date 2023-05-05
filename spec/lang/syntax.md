@@ -116,6 +116,12 @@ pub enum Terminator {
     Return,
 }
 
+pub enum LockIntrinsic {
+    Acquire,
+    Release,
+    Create,
+}
+
 pub enum Intrinsic {
     Exit,
     PrintStdout,
@@ -124,6 +130,7 @@ pub enum Intrinsic {
     Deallocate,
     Spawn,
     Join,
+    Lock(LockIntrinsic),
 }
 ```
 

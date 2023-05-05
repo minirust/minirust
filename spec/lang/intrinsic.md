@@ -147,7 +147,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-And finally the intrinsics for spawning and joining threads.
+The intrinsics for spawning and joining threads.
 
 ```rust
 impl<M: Memory> Machine<M> {
