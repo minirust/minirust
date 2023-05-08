@@ -7,16 +7,29 @@ impl<M: Memory> Machine<M> {
         &mut self,
         intrinsic: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> { .. }
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> { .. }
 }
 ```
 
 This helper functions simplifies unit-returning intrinsics.
 
 ```rust
-fn unit<M: Memory>() -> (Value<M>, Type) {
-    (Value::Tuple(list![]), Type::Tuple{fields:list![], size: Size::ZERO})
+fn unit_value<M: Memory>() -> Value<M> {
+    Value::Tuple(list![])
 }
+
+fn unit_type() -> Type {
+    Type::Tuple{fields:list![], size: Size::ZERO}
+}
+
+fn is_unit(ty: Type) -> bool {
+    let Type::Tuple{size, ..} = ty else {
+        return false;
+    };
+
+    size == Size::ZERO
+} 
 ```
 
 We start with the `Exit` intrinsic.
@@ -27,7 +40,8 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Exit: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         throw_machine_stop!()
     }
 }
@@ -41,20 +55,30 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::PrintStdout: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `Intrinsic::PrintStdout`")
+        }
+
         self.eval_print(&mut std::io::stdout(), arguments)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStderr: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `Intrinsic::PrintStderr`")
+        }
+
         self.eval_print(&mut std::io::stderr(), arguments)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 
     fn eval_print(
@@ -83,7 +107,8 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Allocate: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
             throw_ub!("invalid number of arguments for `Intrinsic::Allocate`");
         }
@@ -97,27 +122,26 @@ impl<M: Memory> Machine<M> {
         let Value::Int(align) = arguments[1] else {
             throw_ub!("invalid second argument to `Intrinsic::Allocate`");
         };
+
         let Some(align) = Align::from_bytes(align) else {
             throw_ub!("invalid alignment for `Intrinsic::Allocate`: not a power of 2");
         };
 
+        if !matches!(ret_ty, Type::Ptr(_)) {
+            throw_ub!("invalid return type for `Intrinsic::Allocate`")
+        }
+
         let alloc = self.mem.allocate(size, align)?;
 
-        // `Allocate` returns `*mut ()`.
-        let pointee = Layout {
-            size: Size::ZERO,
-            align: Align::ONE,
-            inhabited: true,
-        };
-
-        ret((Value::Ptr(alloc), Type::Ptr(PtrType::Raw{pointee})))
+        ret(Value::Ptr(alloc))
     }
 
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Deallocate: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
             throw_ub!("invalid number of arguments for `Intrinsic::Deallocate`");
         }
@@ -140,9 +164,13 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid alignment for `Intrinsic::Deallocate`: not a power of 2");
         };
 
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `Intrinsic::Deallocate`")
+        }
+
         self.mem.deallocate(ptr, size, align)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 }
 ```
@@ -155,7 +183,8 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Spawn: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `Intrinsic::Spawn`");
         }
@@ -175,22 +204,22 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something");
         }
 
+        if !matches!(ret_ty, Type::Int(_)) {
+            throw_ub!("invalid return type for `Intrinsic::Spawn`")
+        }
+
         // FIXME: What if the thread_id doesn't fit into a u32?
         let thread_id = self.thread_manager.spawn(func)?;
 
-        let id_type = Type::Int(IntType{
-            signed: Signedness::Unsigned,
-            size: Size::from_bits(Int::from(32)).unwrap(),
-        });
-
-        ret((Value::Int(thread_id), id_type))
+        ret(Value::Int(thread_id))
     }
 
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Join: Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `Intrinsic::Join`");
         }
@@ -199,9 +228,13 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Join`");
         };
 
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `Intrinsic::Join`")
+        }
+
         self.thread_manager.join(thread_id)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 }
 ```

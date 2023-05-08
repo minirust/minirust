@@ -604,8 +604,9 @@ impl<M: Memory> Machine<M> {
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?.map(|e| e.0);
 
-        // FIXME: The type given by the intrinsic is entirely ignored!
-        let (value, _ret_ty) = self.eval_intrinsic(intrinsic, arguments)?;
+        let ret_ty = ret_place.map(|(_, pty)| pty.ty).unwrap_or_else(|| unit_type());
+
+        let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
 
         if let Some((ret_place, ret_pty)) = ret_place {
             self.mem.typed_store(ret_place, value, ret_pty)?;
