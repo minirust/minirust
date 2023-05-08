@@ -43,6 +43,29 @@ fn acquire_arg_value() {
 }
 
 #[test]
+fn acquire_wrongreturn() {
+    let locals = [<u32>::get_ptype()];
+    
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
+            arguments: list![const_int::<u32>(0)],
+            ret: Some(local(0)),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
+    
+    let b1 = block!(exit());
+    
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    
+    let p = program(&[f]);
+    
+    assert_ub(p, "invalid return type for `LockIntrinsic::Acquire`")
+}
+
+#[test]
 fn acquire_non_existent() {
     let locals = [<u32>::get_ptype()];
     
@@ -101,6 +124,29 @@ fn release_arg_value() {
     let p = program(&[f]);
     
     assert_ub(p, "invalid first argument to `LockIntrinsic::Release`")
+}
+
+#[test]
+fn release_wrongreturn() {
+    let locals = [<u32>::get_ptype()];
+    
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
+            arguments: list![const_int::<u32>(0)],
+            ret: Some(local(0)),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
+    
+    let b1 = block!(exit());
+    
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    
+    let p = program(&[f]);
+    
+    assert_ub(p, "invalid return type for `LockIntrinsic::Release`")
 }
 
 #[test]
@@ -167,4 +213,27 @@ fn create_arg_count() {
     let p = program(&[f]);
     
     assert_ub(p, "invalid number of arguments for `LockIntrinsic::Create`")
+}
+
+#[test]
+fn create_wrongreturn() {
+    let locals = [<()>::get_ptype()];
+    
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
+            arguments: list![],
+            ret: Some(local(0)),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
+    
+    let b1 = block!(exit());
+    
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    
+    let p = program(&[f]);
+    
+    assert_ub(p, "invalid return type for `LockIntrinsic::Create`")
 }

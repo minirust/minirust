@@ -29,3 +29,24 @@ fn print_fail() {
     dump_program(p);
     assert_ub(p, "unsupported value for printing");
 }
+
+#[test]
+fn print_wrongreturn() {
+    let locals = [<u32>::get_ptype()];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::PrintStdout,
+            arguments: list![const_int::<usize>(4)],
+            ret: Some(local(0)),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid return type for `Intrinsic::PrintStdout`");
+}
