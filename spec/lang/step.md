@@ -61,7 +61,7 @@ This section defines the following function:
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(val)]
-    fn eval_value(&mut self, val: ValueExpr) -> NdResult<Value<M>> { .. }
+    fn eval_value(&mut self, val: ValueExpr) -> NdResult<(Value<M>, Type)> { .. }
 }
 ```
 
@@ -91,8 +91,8 @@ impl<M: Memory> Machine<M> {
         })
     }
 
-    fn eval_value(&mut self, ValueExpr::Constant(constant, _ty): ValueExpr) -> NdResult<Value<M>> {
-        ret(self.eval_constant(constant)?)
+    fn eval_value(&mut self, ValueExpr::Constant(constant, ty): ValueExpr) -> NdResult<(Value<M>, Type)> {
+        ret((self.eval_constant(constant)?, ty))
     }
 }
 ```
@@ -101,9 +101,9 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::Tuple(exprs, _): ValueExpr) -> NdResult<Value<M>> {
-        let vals = exprs.try_map(|e| self.eval_value(e))?;
-        ret(Value::Tuple(vals))
+    fn eval_value(&mut self, ValueExpr::Tuple(exprs, ty): ValueExpr) -> NdResult<(Value<M>, Type)> {
+        let vals = exprs.try_map(|e| self.eval_value(e))?.map(|e| e.0);
+        ret((Value::Tuple(vals), ty))
     }
 }
 ```
@@ -112,13 +112,13 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::Union { field, expr, union_ty } : ValueExpr) -> NdResult<Value<M>> {
+    fn eval_value(&mut self, ValueExpr::Union { field, expr, union_ty } : ValueExpr) -> NdResult<(Value<M>, Type)> {
         let Type::Union { fields, size, .. } = union_ty else { panic!("ValueExpr::Union requires union type") };
         let (offset, expr_ty) = fields[field];
         let mut data = list![AbstractByte::Uninit; size.bytes()];
-        let val = self.eval_value(expr)?;
+        let (val, _) = self.eval_value(expr)?;
         data.write_subslice_at_index(offset.bytes(), expr_ty.encode::<M>(val));
-        ret(union_ty.decode(data).unwrap())
+        ret((union_ty.decode(data).unwrap(), union_ty))
     }
 }
 ```
@@ -129,16 +129,15 @@ This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<Value<M>> {
-        let p = self.eval_place(source)?;
-        let ptype = source.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap(); // FIXME avoid a second traversal of `source`
+    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
+        let (p, ptype) = self.eval_place(source)?;
         let v = self.mem.typed_load(p, ptype)?;
         if destructive {
             // Overwrite the source with `Uninit`.
             self.mem.store(p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
         }
 
-        ret(v)
+        ret((v, ptype.ty))
     }
 }
 ```
@@ -149,9 +148,9 @@ The `&` operators simply converts a place to the pointer it denotes.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::AddrOf { target, .. }: ValueExpr) -> NdResult<Value<M>> {
-        let p = self.eval_place(target)?;
-        ret(Value::Ptr(p))
+    fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> NdResult<(Value<M>, Type)> {
+        let (p, _) = self.eval_place(target)?;
+        ret((Value::Ptr(p), Type::Ptr(ptr_ty)))
     }
 }
 ```
@@ -162,14 +161,50 @@ The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](op
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<Value<M>> {
-        let operand = self.eval_value(operand)?;
-        ret(self.eval_un_op(operator, operand)?)
+    fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<(Value<M>, Type)> {
+        use lang::UnOp::*;
+
+        let (operand, _op_ty) = self.eval_value(operand)?;
+
+        let val = self.eval_un_op(operator, operand)?;
+        let ty = match operator {
+            Int(_int_op, int_ty) => {
+                Type::Int(int_ty)
+            }
+            Ptr2Ptr(ptr_ty) => {
+                Type::Ptr(ptr_ty)
+            }
+            Ptr2Int => {
+                Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
+            }
+            Int2Ptr(ptr_ty) => {
+                Type::Ptr(ptr_ty)
+            }
+        };
+
+        ret((val, ty))
     }
-    fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<Value<M>> {
-        let left = self.eval_value(left)?;
-        let right = self.eval_value(right)?;
-        ret(self.eval_bin_op(operator, left, right)?)
+
+    fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<(Value<M>, Type)> {
+        use lang::BinOp::*;
+
+        let (left, l_ty) = self.eval_value(left)?;
+        let (right, _r_ty) = self.eval_value(right)?;
+
+        let val = self.eval_bin_op(operator, left, right)?;
+        let ty = match operator {
+            Int(_int_op, int_ty) => {
+                Type::Int(int_ty)
+            }
+            IntRel(_int_rel) => {
+                Type::Bool
+            }
+            PtrOffset { inbounds: _ } => {
+                l_ty
+            }
+        };
+
+        ret((val, ty))
     }
 }
 ```
@@ -185,7 +220,7 @@ type Place<M> = Pointer<<M as Memory>::Provenance>;
 
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(place)]
-    fn eval_place(&mut self, place: PlaceExpr) -> NdResult<Place<M>> { .. }
+    fn eval_place(&mut self, place: PlaceExpr) -> NdResult<(Place<M>, PlaceType)> { .. }
 }
 ```
 
@@ -198,9 +233,12 @@ The place for a local is directly given by the stack frame.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<Place<M>> {
+    fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> NdResult<(Place<M>, PlaceType)> {
         // This implicitly asserts that the local is live!
-        ret(self.cur_frame().locals[name])
+        let place = self.cur_frame().locals[name];
+        let ptype = self.cur_frame().func.locals[name];
+        
+        ret((place, ptype))
     }
 }
 ```
@@ -216,12 +254,12 @@ It also ensures that the pointer is dereferenceable.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_place(&mut self, PlaceExpr::Deref { operand, .. }: PlaceExpr) -> NdResult<Place<M>> {
-        let Value::Ptr(p) = self.eval_value(operand)? else {
+    fn eval_place(&mut self, PlaceExpr::Deref { operand, ptype }: PlaceExpr) -> NdResult<(Place<M>, PlaceType)> {
+        let (Value::Ptr(p), _) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
 
-        ret(p)
+        ret((p, ptype))
     }
 }
 ```
@@ -230,36 +268,48 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<Place<M>> {
-        let ty = root.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap().ty; // FIXME avoid a second traversal of `root`
-        let root = self.eval_place(root)?;
-        let offset = match ty {
-            Type::Tuple { fields, .. } => fields[field].0,
-            Type::Union { fields, .. } => fields[field].0,
+    fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> NdResult<(Place<M>, PlaceType)> {
+        let (root, ptype) = self.eval_place(root)?;
+        let (offset, field_ty) = match ptype.ty {
+            Type::Tuple { fields, .. } => fields[field],
+            Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M>());
-        ret(self.ptr_offset_inbounds(root, offset.bytes())?)
+        assert!(offset <= ptype.ty.size::<M>());
+
+        let place = self.ptr_offset_inbounds(root, offset.bytes())?;
+        let ptype = PlaceType {
+            align: ptype.align.restrict_for_offset(offset),
+            ty: field_ty,
+        };
+        
+        ret((place, ptype))
     }
 
-    fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<Place<M>> {
-        let ty = root.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap().ty; // FIXME avoid a second traversal of `root`
-        let root = self.eval_place(root)?;
-        let Value::Int(index) = self.eval_value(index)? else {
+    fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> NdResult<(Place<M>, PlaceType)> {
+        let (root, ptype) = self.eval_place(root)?;
+        let (Value::Int(index), _) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
-        let offset = match ty {
+        let (offset, field_ty) = match ptype.ty {
             Type::Array { elem, count } => {
                 if index >= 0 && index < count {
-                    index * elem.size::<M>()
+                    (index * elem.size::<M>(), elem)
                 } else {
                     throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset <= ty.size::<M>());
-        ret(self.ptr_offset_inbounds(root, offset.bytes())?)
+        assert!(offset <= ptype.ty.size::<M>());
+
+        let place = self.ptr_offset_inbounds(root, offset.bytes())?;
+        let ptype = PlaceType {
+            align: ptype.align.restrict_for_offset(field_ty.size::<M>()),
+            ty: field_ty,
+        };
+
+        ret((place, ptype))
     }
 }
 ```
@@ -290,9 +340,8 @@ Assignment evaluates its two operands, and then stores the value into the destin
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
-        let place = self.eval_place(destination)?;
-        let val = self.eval_value(source)?;
-        let ptype = destination.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap(); // FIXME avoid a second traversal of `destination`
+        let (place, ptype) = self.eval_place(destination)?;
+        let (val, _) = self.eval_value(source)?;
         self.mem.typed_store(place, val, ptype)?;
 
         ret(())
@@ -309,8 +358,8 @@ This statement asserts that a value satisfies its validity invariant, and perfor
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Finalize { place, fn_entry }: Statement) -> NdResult {
-        let p = self.eval_place(place)?;
-        let ptype = place.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap(); // FIXME avoid a second traversal of `place`
+        let (p, ptype) = self.eval_place(place)?;
+
         let val = self.mem.typed_load(p, ptype)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
         self.mem.typed_store(p, val, ptype)?;
@@ -380,7 +429,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::If { condition, then_block, else_block }: Terminator) -> NdResult {
-        let Value::Bool(b) = self.eval_value(condition)? else {
+        let (Value::Bool(b), _) = self.eval_value(condition)? else {
             panic!("if on a non-boolean")
         };
         let next = if b { then_block } else { else_block };
@@ -416,18 +465,16 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
-        let caller_locals = self.cur_frame().func.locals;
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| {
-            let p = self.eval_place(caller_ret_place)?;
-            let pty = caller_ret_place.check_wf::<M>(caller_locals, self.prog).unwrap(); // FIXME avoid a second traversal
-            ret::<NdResult<_>>((p, pty))
+            let place = self.eval_place(caller_ret_place)?;
+            ret::<NdResult<_>>(place)
         })?;
 
         // Then evaluate the function that will be called.
-        let Value::Ptr(ptr) = self.eval_value(callee)? else {
+        let (Value::Ptr(ptr), _) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
 
@@ -454,8 +501,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         for ((local, callee_abi), (arg, caller_abi)) in func.args.zip(arguments) {
-            let val = self.eval_value(arg)?;
-            let caller_ty = arg.check_wf::<M>(caller_locals, self.prog).unwrap(); // FIXME avoid a second traversal of `arg`
+            let (val, caller_ty) = self.eval_value(arg)?;
             let callee_layout = func.locals[local].layout::<M>();
             if caller_abi != callee_abi {
                 throw_ub!("call ABI violation: argument ABI does not agree");
@@ -556,16 +602,13 @@ impl<M: Memory> Machine<M> {
         let ret_place = ret_expr.try_map(|ret_expr| self.eval_place(ret_expr))?;
 
         // Evaluate all arguments.
-        let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
+        let arguments = arguments.try_map(|arg| self.eval_value(arg))?.map(|e| e.0);
 
         // FIXME: The type given by the intrinsic is entirely ignored!
         let (value, _ret_ty) = self.eval_intrinsic(intrinsic, arguments)?;
 
-        if let Some(ret_place) = ret_place {
-            let ret_expr = ret_expr.unwrap();
-            let place_ty = ret_expr.check_wf::<M>(self.cur_frame().func.locals, self.prog).unwrap(); // FIXME avoid a second traversal of `ret_expr`
-
-            self.mem.typed_store(ret_place, value, place_ty)?;
+        if let Some((ret_place, ret_pty)) = ret_place {
+            self.mem.typed_store(ret_place, value, ret_pty)?;
         }
             
         if let Some(next_block) = next_block {
