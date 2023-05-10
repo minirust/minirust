@@ -33,7 +33,7 @@ fn arbitrary_order() {
     );
     let b2 = block!(
         storage_live(1),
-        spawn(fn_ptr(1), Some(local(1)), 3)
+        spawn(fn_ptr(2), Some(local(1)), 3)
     );
     let b3 = block!(
         join(load(local(0)), 4)
@@ -41,9 +41,12 @@ fn arbitrary_order() {
     let b4 = block!(
         join(load(local(1)), 5)
     );
-    let b5 = block!(exit());
+    let b5 = block!(
+        print(load(global::<u32>(1)), 6)
+    );
+    let b6 = block!( exit() );
 
-    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5, b6]);
 
     let globals = [global_int::<u32>(), global_int::<u32>()];
 
@@ -53,11 +56,16 @@ fn arbitrary_order() {
     let mut write_1 = false;
     let mut write_2 = false;
 
-    for _ in 0..50 {
-        let Ok(m) = get_final_machine(p) else {
-            panic!("Machine not valid!");
+    for _ in 0..20 {
+        let out = match get_out(p) {
+            Ok(out) => out,
+            Err(err) => panic!("{:?}", err),
         };
-        
-        m.st
+
+        if out[0] == "1" { write_1 = true; }
+        if out[0] == "2" { write_2 = true; }
     }
+
+    assert!( write_1 );
+    assert!( write_2 );
 }
