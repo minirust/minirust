@@ -20,15 +20,15 @@ fn unit_value<M: Memory>() -> Value<M> {
 }
 
 fn unit_type() -> Type {
-    Type::Tuple{fields:list![], size: Size::ZERO}
+    Type::Tuple { fields: list![], size: Size::ZERO }
 }
 
 fn is_unit(ty: Type) -> bool {
-    let Type::Tuple{size, ..} = ty else {
+    let Type::Tuple{size, fields} = ty else {
         return false;
     };
 
-    size == Size::ZERO
+    size == Size::ZERO && fields.is_empty()
 } 
 ```
 
@@ -208,7 +208,6 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::Spawn`")
         }
 
-        // FIXME: What if the thread_id doesn't fit into a u32?
         let thread_id = self.thread_manager.spawn(func)?;
 
         ret(Value::Int(thread_id))

@@ -123,7 +123,6 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Create`");
         }
 
-        // FIXME: What if the id does not fit into a u32.
         if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `LockIntrinsic::Create`")
         }

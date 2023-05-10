@@ -7,7 +7,7 @@ Here we define the part of the [`step` function](step.md) that is concerned with
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(operator)]
-    fn eval_un_op(&mut self, operator: UnOp, operand: Value<M>) -> NdResult<Value<M>> { .. }
+    fn eval_un_op(&mut self, operator: UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> { .. }
 }
 ```
 
@@ -22,14 +22,14 @@ impl<M: Memory> Machine<M> {
             Cast => operand,
         })
     }
-    fn eval_un_op(&mut self, UnOp::Int(op, int_type): UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+    fn eval_un_op(&mut self, UnOp::Int(op, int_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
         let result = self.eval_un_op_int(op, operand)?;
         // Put the result into the right range (in case of overflow).
-        let result = result.modulo(int_type.signed, int_type.size);
-        ret(Value::Int(result))
+        let result = result.modulo(int_ty.signed, int_ty.size);
+        ret((Value::Int(result), Type::Int(int_ty)))
     }
 }
 ```
@@ -38,12 +38,12 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::Ptr2Ptr(_ptr_ty): UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+    fn eval_un_op(&mut self, UnOp::Ptr2Ptr(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         if !matches!(operand, Value::Ptr(_)) {
             panic!("non-pointer input to ptr2ptr cast")
         };
 
-        ret(operand)
+        ret((operand, Type::Ptr(ptr_ty)))
     }
 }
 ```
@@ -52,15 +52,18 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+    fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
         let result = self.intptrcast.ptr2int(ptr)?;
-        ret(Value::Int(result))
+
+        let int_ty = Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE });
+
+        ret((Value::Int(result), int_ty))
     }
-    fn eval_un_op(&mut self, UnOp::Int2Ptr(_): UnOp, operand: Value<M>) -> NdResult<Value<M>> {
+    fn eval_un_op(&mut self, UnOp::Int2Ptr(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;
-        ret(Value::Ptr(result))
+        ret((Value::Ptr(result), Type::Ptr(ptr_ty)))
     }
 }
 ```
@@ -70,7 +73,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(operator)]
-    fn eval_bin_op(&mut self, operator: BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> { .. }
+    fn eval_bin_op(&mut self, operator: BinOp, (left, l_ty): (Value<M>, Type), (right, _r_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> { .. }
 }
 ```
 
@@ -98,15 +101,15 @@ impl<M: Memory> Machine<M> {
             }
         })
     }
-    fn eval_bin_op(&mut self, BinOp::Int(op, int_type): BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::Int(op, int_ty): BinOp, (left, l_ty): (Value<M>, Type), (right, _r_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
         let result = self.eval_bin_op_int(op, left, right)?;
         // Put the result into the right range (in case of overflow).
-        let result = result.modulo(int_type.signed, int_type.size);
-        ret(Value::Int(result))
+        let result = result.modulo(int_ty.signed, int_ty.size);
+        ret((Value::Int(result), Type::Int(int_ty)))
     }
 }
 ```
@@ -126,12 +129,12 @@ impl<M: Memory> Machine<M> {
             Ne => left != right,
         }
     }
-    fn eval_bin_op(&mut self, BinOp::IntRel(int_rel): BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::IntRel(int_rel): BinOp, (left, l_ty): (Value<M>, Type), (right, _r_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Int(left) = left else { panic!("non-integer input to integer relation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer relation") };
 
         let result = self.eval_int_rel(int_rel, left, right);
-        ret(Value::Bool(result))
+        ret((Value::Bool(result), Type::Bool))
     }
 }
 ```
@@ -173,7 +176,7 @@ impl<M: Memory> Machine<M> {
         ret(new_ptr)
     }
 
-    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, left: Value<M>, right: Value<M>) -> Result<Value<M>> {
+    fn eval_bin_op(&mut self, BinOp::PtrOffset { inbounds }: BinOp, (left, l_ty): (Value<M>, Type), (right, _r_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
         let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
 
@@ -182,7 +185,7 @@ impl<M: Memory> Machine<M> {
         } else {
             self.ptr_offset_wrapping(left, right)
         };
-        ret(Value::Ptr(result))
+        ret((Value::Ptr(result), l_ty))
     }
 }
 ```

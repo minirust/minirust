@@ -164,47 +164,19 @@ impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::UnOp { operator, operand }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         use lang::UnOp::*;
 
-        let (operand, _op_ty) = self.eval_value(operand)?;
+        let operand = self.eval_value(operand)?;
 
-        let val = self.eval_un_op(operator, operand)?;
-        let ty = match operator {
-            Int(_int_op, int_ty) => {
-                Type::Int(int_ty)
-            }
-            Ptr2Ptr(ptr_ty) => {
-                Type::Ptr(ptr_ty)
-            }
-            Ptr2Int => {
-                Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
-            }
-            Int2Ptr(ptr_ty) => {
-                Type::Ptr(ptr_ty)
-            }
-        };
-
-        ret((val, ty))
+        self.eval_un_op(operator, operand)
     }
 
     fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         use lang::BinOp::*;
 
-        let (left, l_ty) = self.eval_value(left)?;
-        let (right, _r_ty) = self.eval_value(right)?;
+        let left = self.eval_value(left)?;
+        let right = self.eval_value(right)?;
 
-        let val = self.eval_bin_op(operator, left, right)?;
-        let ty = match operator {
-            Int(_int_op, int_ty) => {
-                Type::Int(int_ty)
-            }
-            IntRel(_int_rel) => {
-                Type::Bool
-            }
-            PtrOffset { inbounds: _ } => {
-                l_ty
-            }
-        };
-
-        ret((val, ty))
+        
+        ret(self.eval_bin_op(operator, left, right)?)
     }
 }
 ```
@@ -279,6 +251,8 @@ impl<M: Memory> Machine<M> {
 
         let place = self.ptr_offset_inbounds(root, offset.bytes())?;
         let ptype = PlaceType {
+            // `offset` is statically known here (it is part of the field type)
+            // so we are fine using it for `ptype`.
             align: ptype.align.restrict_for_offset(offset),
             ty: field_ty,
         };
@@ -305,6 +279,7 @@ impl<M: Memory> Machine<M> {
 
         let place = self.ptr_offset_inbounds(root, offset.bytes())?;
         let ptype = PlaceType {
+            // We do *not* use `offset` here since that is only dynamically known.
             align: ptype.align.restrict_for_offset(field_ty.size::<M>()),
             ty: field_ty,
         };
@@ -469,8 +444,7 @@ impl<M: Memory> Machine<M> {
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| {
-            let place = self.eval_place(caller_ret_place)?;
-            ret::<NdResult<_>>(place)
+            self.eval_place(caller_ret_place)
         })?;
 
         // Then evaluate the function that will be called.
