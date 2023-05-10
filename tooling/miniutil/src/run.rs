@@ -1,12 +1,16 @@
-use crate::*;
+use crate::{*, mock_write::MockBuffer};
 
 use gen_minirust::prelude::NdResult;
 
 // Run the program and return its TerminationInfo.
 // We fix `BasicMemory` as a memory for now.
 pub fn run_program(prog: Program) -> TerminationInfo {
+    let out = std::io::stdout();
+    let err = std::io::stderr();
+
     let res: NdResult<!> = try {
-        let mut machine = Machine::<BasicMemory>::new(prog)?;
+
+        let mut machine = Machine::<BasicMemory>::new(prog, DynWrite::new(out), DynWrite::new(err))?;
 
         loop {
             machine.step()?;
@@ -24,11 +28,14 @@ pub fn run_program(prog: Program) -> TerminationInfo {
     }
 }
 
-// Run the program and return the machine in its finished state or a termination info if it
+// Run the program and return the output as a `Vec<String>` or a termination info if it
 // did not terminate correctly.
 // We fix `BasicMemory` as a memory for now.
-pub fn get_final_machine(prog: Program) -> Result<Machine<BasicMemory>, TerminationInfo> {
-    let mut machine = Machine::<BasicMemory>::new(prog).get_internal()?;
+pub fn get_out(prog: Program) -> Result<Vec<String>, TerminationInfo> {
+    let out = MockBuffer::new();
+    let err = std::io::stderr();
+
+    let mut machine = Machine::<BasicMemory>::new(prog, DynWrite::new(out.out()), DynWrite::new(err)).get_internal()?;
 
     let res: NdResult<!> = try {
         loop {
@@ -40,9 +47,10 @@ pub fn get_final_machine(prog: Program) -> Result<Machine<BasicMemory>, Terminat
     };
 
     let res = res.get_internal();
+
     match res {
         Ok(never) => never,
-        Err(TerminationInfo::MachineStop) => Ok(machine),
+        Err(TerminationInfo::MachineStop) => Ok(out.into_strings()),
         Err(info) => Err(info)
     }
 }
