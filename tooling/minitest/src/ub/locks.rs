@@ -60,7 +60,7 @@ fn acquire_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Acquire`")
 }
@@ -144,7 +144,7 @@ fn release_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Release`")
 }
@@ -233,7 +233,7 @@ fn create_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Create`")
 }

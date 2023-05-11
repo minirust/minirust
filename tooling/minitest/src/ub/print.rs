@@ -46,7 +46,7 @@ fn print_wrongreturn() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f]);
+    let p = program(&[f], &[]);
     dump_program(p);
     assert_ub(p, "invalid return type for `Intrinsic::PrintStdout`");
 }

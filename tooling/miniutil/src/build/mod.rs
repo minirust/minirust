@@ -46,7 +46,6 @@ pub fn size(bytes: impl Into<Int>) -> Size {
 }
 
 // The first function in `fns` is the start function of the program.
-// TODO Globals are not yet supported.
 pub fn program(fns: &[Function], globals: &[Global]) -> Program {
     let functions: Map<FnName, Function> = fns
         .iter()

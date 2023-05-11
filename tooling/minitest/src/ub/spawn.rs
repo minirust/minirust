@@ -138,7 +138,7 @@ fn spawn_wrongreturn() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f, dummy_function()]);
+    let p = program(&[f, dummy_function()], &[]);
 
     assert_ub(p, "invalid return type for `Intrinsic::Spawn`");
 }
