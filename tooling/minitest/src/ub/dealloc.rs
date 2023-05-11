@@ -163,3 +163,27 @@ fn dealloc_wrongarg3() {
     dump_program(p);
     assert_ub(p, "invalid third argument to `Intrinsic::Deallocate`");
 }
+
+#[test]
+fn dealloc_wrongreturn() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
+    );
+    let b1 = block!(
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Deallocate,
+            arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
+            ret: Some(local(0)),
+            next_block: Some(BbName(Name::from_internal(2))),
+        },
+    );
+    let b2 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid return type for `Intrinsic::Deallocate`");
+}

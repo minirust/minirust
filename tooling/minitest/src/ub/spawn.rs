@@ -123,3 +123,22 @@ fn spawn_func_returns() {
 
     assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function returns something")
 }
+
+#[test]
+fn spawn_wrongreturn() {
+    let locals = [ <()>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        spawn(fn_ptr(1), Some(local(0)), 1),
+    );
+    let b1 = block!(
+        join(load(local(0)), 2),
+    );
+    let b2 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
+    let p = program(&[f, dummy_function()]);
+
+    assert_ub(p, "invalid return type for `Intrinsic::Spawn`");
+}

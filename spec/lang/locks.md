@@ -117,22 +117,19 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Create): Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() > 0 {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Create`");
         }
 
+        if !matches!(ret_ty, Type::Int(_)) {
+            throw_ub!("invalid return type for `LockIntrinsic::Create`")
+        }
+
         let lock_id = self.thread_manager.lock_create();
 
-        // FIXME: What if the id does not fit into a u32.
-        // Currently the id is just a u32. This is hardcoded but no real thought is behind this.
-        let id_size = Size::from_bits(Int::from(32)).unwrap();
-        let id_type = Type::Int(IntType{
-            signed: Signedness::Unsigned,
-            size: id_size,
-        });
-
-        ret((Value::Int(lock_id), id_type))
+        ret(Value::Int(lock_id))
     }
 }
 ```
@@ -145,7 +142,8 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Acquire): Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Acquire`");
         }
@@ -154,9 +152,13 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `LockIntrinsic::Acquire`");
         };
 
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `LockIntrinsic::Acquire`")
+        }
+
         self.thread_manager.lock_acquire(lock_id)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 }
 ```
@@ -169,7 +171,8 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Release): Intrinsic,
         arguments: List<Value<M>>,
-    ) -> NdResult<(Value<M>, Type)> {
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Release`");
         }
@@ -178,9 +181,13 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `LockIntrinsic::Release`");
         };
 
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `LockIntrinsic::Release`")
+        }
+
         self.thread_manager.lock_release(lock_id)?;
 
-        ret(unit())
+        ret(unit_value())
     }
 }
 ```
