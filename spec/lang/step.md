@@ -4,10 +4,11 @@ This file defines the heart of MiniRust: the `step` function of the `Machine`, i
 (To avoid having huge functions, we again use the approach of having fallible patterns in function declarations,
 and having a collection of declarations with non-overlapping patterns for the same function that together cover all patterns.)
 
-One design decision I made here is that `eval_value` and `eval_place` just return a `Value`/`Place`, but not its type.
+One design decision I made here is that `eval_value` and `eval_place` return both a `Value`/`Place` and its type.
 Separately, [well-formedness](well-formed.md) defines `check_wf` functions that return a `Type`/`PlaceType`.
-This adds some redundancy, but makes also enforces structurally that the type information is determined entirely statically.
-(In the future, when we translate this to Coq, we might want to make `eval_value`/`eval_place` additionally return the type, to avoid doing two recursive traversals of the expression.)
+This adds some redundancy (we basically have two definitions of what the type of an expression is).
+The separate `check_wf` enforces structurally that the type information is determined entirely statically.
+The type propagated during evaluation means we only do a single recursive traversal, and we avoid losing track of which type a given value has (which would be a problem since a value without a type is fairly meaningless).
 
 ## Top-level step function
 
@@ -583,6 +584,7 @@ impl<M: Memory> Machine<M> {
         let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
 
         if let Some((ret_place, ret_pty)) = ret_place {
+            // `eval_inrinsic` above must guarantee that `value` has the right type.
             self.mem.typed_store(ret_place, value, ret_pty)?;
         }
             
