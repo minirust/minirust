@@ -86,7 +86,7 @@ impl<M: Memory> ThreadManager<M> {
 
                     // Rather than unlock and lock again we just change the lock owner.
                     self.locks.mutate_at(lock_id, |lock| {
-                        *lock = LockState::LockedBy(thread_id);
+                        *lock = LockState::LockedBy(acquirer_id);
                     });
                 }
                 
