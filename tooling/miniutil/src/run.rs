@@ -42,7 +42,7 @@ pub fn get_out(prog: Program) -> Result<Vec<String>, TerminationInfo> {
             machine.step()?;
 
             // Drops everything not reachable from `machine`.
-            gen_minirust::libspecr::hidden::mark_and_sweep(machine);
+            gen_minirust::libspecr::hidden::mark_and_sweep(&machine);
         }
     };
 

@@ -9,7 +9,7 @@ This key data structure says a lot about how the Abstract Machine is structured.
 /// This type contains everything that needs to be tracked during the execution
 /// of a MiniRust program.
 #[no_auto_derive]
-#[derive(GcCompat, Copy, Clone)]
+#[derive(GcCompat, Clone)]
 pub struct Machine<M: Memory> {
     /// The program we are executing.
     prog: Program,
