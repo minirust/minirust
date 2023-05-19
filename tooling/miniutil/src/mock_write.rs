@@ -1,5 +1,7 @@
 use std::{io::Write, str::from_utf8, cell::RefCell, rc::{Rc, Weak}};
 
+use gen_minirust::libspecr::hidden::GcCompat;
+
 #[derive(Default)]
 pub struct MockBuffer {
     buffer: Rc<RefCell<Vec<u8>>>,
@@ -43,6 +45,14 @@ impl Write for MockWrite {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+impl GcCompat for MockWrite {
+    fn points_to(&self, _buffer: &mut std::collections::HashSet<usize>) { }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
