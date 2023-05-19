@@ -111,6 +111,24 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
     }
 }
 
+pub fn atomic_write(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::AtomicWrite, 
+        arguments: list!(ptr, src), 
+        ret: None, 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
+
+pub fn atomic_read(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic { 
+        intrinsic: Intrinsic::AtomicRead, 
+        arguments: list!(ptr), 
+        ret: Some(dest), 
+        next_block: Some(BbName(Name::from_internal(next))) 
+    }
+}
+
 pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic { 
         intrinsic: Intrinsic::Lock(LockIntrinsic::Create), 
