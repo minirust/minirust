@@ -16,7 +16,7 @@ fn alloc_success() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_stop(p);
 }
@@ -36,7 +36,7 @@ fn alloc_argcount() {
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid number of arguments for `Intrinsic::Allocate`");
 }
@@ -57,7 +57,7 @@ fn alloc_align_err() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid alignment for `Intrinsic::Allocate`: not a power of 2");
 }
@@ -78,7 +78,7 @@ fn alloc_size_err() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid size for `Intrinsic::Allocate`: negative size");
 }
@@ -100,7 +100,7 @@ fn alloc_wrongarg1() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid first argument to `Intrinsic::Allocate`");
 }
@@ -122,7 +122,7 @@ fn alloc_wrongarg2() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid second argument to `Intrinsic::Allocate`");
 }
@@ -143,7 +143,7 @@ fn alloc_wrongreturn() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "invalid return type for `Intrinsic::Allocate`");
 }

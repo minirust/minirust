@@ -46,7 +46,7 @@ pub fn size(bytes: impl Into<Int>) -> Size {
 }
 
 // The first function in `fns` is the start function of the program.
-pub fn program(fns: &[Function], globals: &[Global]) -> Program {
+pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
     let functions: Map<FnName, Function> = fns
         .iter()
         .enumerate()
@@ -72,10 +72,15 @@ pub fn program(fns: &[Function], globals: &[Global]) -> Program {
     }
 }
 
+// The first function in `fns` is the start function of the program.
+pub fn program(fns: &[Function]) -> Program {
+    program_with_globals(fns, &[])
+}
+
 // Generates a small program with a single basic block.
 pub fn small_program(locals: &[PlaceType], statements: &[Statement]) -> Program {
     let b = block(statements, exit());
     let f = function(Ret::No, 0, locals, &[b]);
 
-    program(&[f], &[])
+    program(&[f])
 }

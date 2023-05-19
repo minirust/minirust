@@ -23,7 +23,7 @@ fn join_success() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f, dummy_function()], &[]);
+    let p = program(&[f, dummy_function()]);
 
     assert_stop(p);
 }
@@ -43,7 +43,7 @@ fn join_arg_count() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
 
     assert_ub(p, "invalid number of arguments for `Intrinsic::Join`");
 }
@@ -59,7 +59,7 @@ fn join_arg_value() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
 
     assert_ub(p, "invalid first argument to `Intrinsic::Join`");
 }
@@ -80,7 +80,7 @@ fn join_wrongreturn() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
 
     assert_ub(p, "invalid return type for `Intrinsic::Join`");
 }
@@ -98,7 +98,7 @@ fn join_no_thread() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
 
     assert_ub(p, "`Intrinsic::Join`: join non existing thread");
 }

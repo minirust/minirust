@@ -16,7 +16,7 @@ fn impossible_align() { // TODO this should not actually panic!
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_stop(p); // will panic!
 }

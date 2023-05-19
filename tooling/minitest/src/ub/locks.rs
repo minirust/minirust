@@ -19,7 +19,7 @@ fn acquire_arg_count() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid number of arguments for `LockIntrinsic::Acquire`")
 }
@@ -37,7 +37,7 @@ fn acquire_arg_value() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid first argument to `LockIntrinsic::Acquire`")
 }
@@ -60,7 +60,7 @@ fn acquire_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Acquire`")
 }
@@ -79,7 +79,7 @@ fn acquire_non_existent() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "acquiring non-existing lock")
 }
@@ -103,7 +103,7 @@ fn release_arg_count() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid number of arguments for `LockIntrinsic::Release`")
 }
@@ -121,7 +121,7 @@ fn release_arg_value() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid first argument to `LockIntrinsic::Release`")
 }
@@ -144,7 +144,7 @@ fn release_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Release`")
 }
@@ -163,7 +163,7 @@ fn release_non_existent() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "releasing non-existing lock")
 }
@@ -185,7 +185,7 @@ fn release_non_owned() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "releasing non-acquired lock")
 }
@@ -210,7 +210,7 @@ fn create_arg_count() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid number of arguments for `LockIntrinsic::Create`")
 }
@@ -233,7 +233,7 @@ fn create_wrongreturn() {
     
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     
     assert_ub(p, "invalid return type for `LockIntrinsic::Create`")
 }

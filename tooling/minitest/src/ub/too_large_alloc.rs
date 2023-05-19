@@ -9,6 +9,6 @@ fn too_large_alloc() {
     );
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b, b2]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     assert_ub(p, "asking for a too large allocation");
 }

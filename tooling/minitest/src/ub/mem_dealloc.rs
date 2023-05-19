@@ -21,7 +21,7 @@ fn mem_dealloc_success() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_stop(p);
 }
@@ -45,7 +45,7 @@ fn mem_dealloc_wrong_size() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "deallocating with incorrect size information");
 }
@@ -69,7 +69,7 @@ fn mem_dealloc_wrong_align() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "deallocating with incorrect alignment information");
 }
@@ -102,7 +102,7 @@ fn mem_dealloc_inv_ptr() {
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "deallocating invalid pointer");
 }
@@ -135,7 +135,7 @@ fn mem_dealloc_not_beginning() {
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     dump_program(p);
     assert_ub(p, "deallocating with pointer not to the beginning of its allocation");
 }
@@ -149,6 +149,6 @@ fn double_free() {
     let b2 = block!(deallocate(load(local(0)), n, n, 3));
     let b3 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
-    let p = program(&[f], &[]);
+    let p = program(&[f]);
     assert_ub(p, "double-free");
 }
