@@ -209,6 +209,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::Deallocate => "deallocate",
                 Intrinsic::Spawn => "spawn",
                 Intrinsic::Join => "join",
+                Intrinsic::AtomicWrite => "atomic_write",
+                Intrinsic::AtomicRead => "atomic_read",
                 Intrinsic::Lock(LockIntrinsic::Acquire) => "lock-acquire",
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock-create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock-release",

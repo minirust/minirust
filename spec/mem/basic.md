@@ -52,6 +52,8 @@ impl Memory for BasicMemory {
     const PTR_SIZE: Size = Size::from_bits_const(64).unwrap();
     const PTR_ALIGN: Align = Align::from_bits_const(64).unwrap();
     const ENDIANNESS: Endianness = LittleEndian;
+
+    const MAX_ATOMIC_SIZE: Size = Size::from_bits_const(64).unwrap();
 }
 ```
 

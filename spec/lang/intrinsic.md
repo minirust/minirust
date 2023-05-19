@@ -6,7 +6,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         intrinsic: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> { .. }
 }
@@ -39,7 +39,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Exit: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         throw_machine_stop!()
@@ -54,7 +54,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStdout: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if !is_unit(ret_ty) {
@@ -69,7 +69,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStderr: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if !is_unit(ret_ty) {
@@ -84,9 +84,9 @@ impl<M: Memory> Machine<M> {
     fn eval_print(
         &mut self,
         stream: DynWrite,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
     ) -> Result {
-        for arg in arguments {
+        for (arg, _) in arguments {
             match arg {
                 Value::Int(i) => write!(stream, "{}\n", i).unwrap(),
                 Value::Bool(b) => write!(stream, "{}\n", b).unwrap(),
@@ -106,20 +106,20 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Allocate: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
             throw_ub!("invalid number of arguments for `Intrinsic::Allocate`");
         }
-        let Value::Int(size) = arguments[0] else {
+        let Value::Int(size) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::Allocate`");
         };
         let Some(size) = Size::from_bytes(size) else {
             throw_ub!("invalid size for `Intrinsic::Allocate`: negative size");
         };
 
-        let Value::Int(align) = arguments[1] else {
+        let Value::Int(align) = arguments[1].0 else {
             throw_ub!("invalid second argument to `Intrinsic::Allocate`");
         };
 
@@ -139,25 +139,25 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Deallocate: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
             throw_ub!("invalid number of arguments for `Intrinsic::Deallocate`");
         }
 
-        let Value::Ptr(ptr) = arguments[0] else {
+        let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::Deallocate`");
         };
 
-        let Value::Int(size) = arguments[1] else {
+        let Value::Int(size) = arguments[1].0 else {
             throw_ub!("invalid second argument to `Intrinsic::Deallocate`");
         };
         let Some(size) = Size::from_bytes(size) else {
             throw_ub!("invalid size for `Intrinsic::Deallocate`: negative size");
         };
 
-        let Value::Int(align) = arguments[2] else {
+        let Value::Int(align) = arguments[2].0 else {
             throw_ub!("invalid third argument to `Intrinsic::Deallocate`");
         };
         let Some(align) = Align::from_bytes(align) else {
@@ -182,14 +182,14 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Spawn: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `Intrinsic::Spawn`");
         }
 
-        let Value::Ptr(ptr) = arguments[0] else {
+        let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`");
         };
 
@@ -216,14 +216,14 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Join: Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>,Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `Intrinsic::Join`");
         }
 
-        let Value::Int(thread_id) = arguments[0] else {
+        let Value::Int(thread_id) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::Join`");
         };
 
@@ -234,6 +234,80 @@ impl<M: Memory> Machine<M> {
         self.thread_manager.join(thread_id)?;
 
         ret(unit_value())
+    }
+}
+```
+
+The intrinsics for atomic memory accesses
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::AtomicWrite: Intrinsic,
+        arguments: List<(Value<M>,Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 2 {
+            throw_ub!("invalid number of arguments for `Intrinsic::AtomicWrite`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Intrinsic::AtomicWrite`");
+        };
+
+        let (val, ty) = arguments[1];
+
+        let size = ty.size::<M>();
+
+        if !size.bytes().is_power_of_two() {
+            throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size not power of two");
+        }
+
+        if size > M::MAX_ATOMIC_SIZE {
+            throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size to big");
+        }
+
+        if !is_unit(ret_ty) {
+            throw_ub!("invalid return type for `Intrinsic::AtomicWrite`")
+        }
+        
+        let pty = PlaceType{ty, align: Align::max_for_offset(size).unwrap()};
+
+        self.mem.typed_store(Atomicity::Atomic, ptr, val, pty)?;
+
+        ret(unit_value())
+    }
+
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::AtomicRead: Intrinsic,
+        arguments: List<(Value<M>,Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::AtomicRead`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Intrinsic::AtomicRead`");
+        };
+
+        let size = ret_ty.size::<M>();
+
+        if !size.bytes().is_power_of_two() {
+            throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size not power of two");
+        }
+
+        if size > M::MAX_ATOMIC_SIZE {
+            throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size to big");
+        }
+
+        let pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
+
+        let val = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
+
+        ret(val)
     }
 }
 ```

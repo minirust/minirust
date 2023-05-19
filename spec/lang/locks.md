@@ -116,7 +116,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Create): Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() > 0 {
@@ -141,14 +141,14 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Acquire): Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Acquire`");
         }
 
-        let Value::Int(lock_id) = arguments[0] else {
+        let Value::Int(lock_id) = arguments[0].0 else {
             throw_ub!("invalid first argument to `LockIntrinsic::Acquire`");
         };
 
@@ -170,14 +170,14 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Release): Intrinsic,
-        arguments: List<Value<M>>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `LockIntrinsic::Release`");
         }
 
-        let Value::Int(lock_id) = arguments[0] else {
+        let Value::Int(lock_id) = arguments[0].0 else {
             throw_ub!("invalid first argument to `LockIntrinsic::Release`");
         };
 

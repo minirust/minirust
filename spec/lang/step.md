@@ -577,7 +577,7 @@ impl<M: Memory> Machine<M> {
         let ret_place = ret_expr.try_map(|ret_expr| self.eval_place(ret_expr))?;
 
         // Evaluate all arguments.
-        let arguments = arguments.try_map(|arg| self.eval_value(arg))?.map(|e| e.0);
+        let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
         let ret_ty = ret_place.map(|(_, pty)| pty.ty).unwrap_or_else(|| unit_type());
 

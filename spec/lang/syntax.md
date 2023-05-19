@@ -130,6 +130,8 @@ pub enum Intrinsic {
     Deallocate,
     Spawn,
     Join,
+    AtomicWrite,
+    AtomicRead,
     Lock(LockIntrinsic),
 }
 ```
