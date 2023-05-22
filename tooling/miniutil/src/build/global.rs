@@ -1,6 +1,6 @@
 use crate::build::*;
 
-//bullshit
+/// Global Int initialized to zero.
 pub fn global_int<T: TypeConv>() -> Global {
     let bytes = List::from_elem(Some(0), T::get_size().bytes());
     

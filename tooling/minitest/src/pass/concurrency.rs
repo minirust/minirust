@@ -71,7 +71,7 @@ fn arbitrary_order() {
     let mut write_2 = false;
 
     for _ in 0..20 {
-        let out = match get_out(p) {
+        let out = match get_stdout(p) {
             Ok(out) => out,
             Err(err) => panic!("{:?}", err),
         };

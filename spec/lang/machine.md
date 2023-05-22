@@ -28,8 +28,10 @@ pub struct Machine<M: Memory> {
     /// Stores an address for each function name.
     fn_addrs: Map<FnName, mem::Address>,
 
-    out: DynWrite,
-    err: DynWrite,
+    /// This is where the `PrintStdout` intrinsic writes to.
+    stdout: DynWrite,
+    /// This is where the `PrintStderr` intrinsic writes to.
+    stderr: DynWrite,
 }
 
 /// The data that makes up a stack frame.
@@ -108,7 +110,7 @@ Next, we define how to create a machine.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    pub fn new(prog: Program, out: DynWrite, err: DynWrite) -> NdResult<Machine<M>> {
+    pub fn new(prog: Program, stdout: DynWrite, stderr: DynWrite) -> NdResult<Machine<M>> {
         if prog.check_wf::<M>().is_none() {
             throw_ill_formed!();
         }
@@ -158,8 +160,8 @@ impl<M: Memory> Machine<M> {
             global_ptrs,
             fn_addrs,
             thread_manager: ThreadManager::new(start_fn),
-            out,
-            err,
+            stdout,
+            stderr,
         })
     }
 }

@@ -13,7 +13,7 @@
 //! let f = function(Ret::No, 0, locals, &[bb]);
 //!
 //! // Our program only consists of the function `f`.
-//! let program = program(&[f], &[]);
+//! let program = program(&[f]);
 //! ```
 
 use crate::*;

@@ -61,7 +61,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::PrintStdout`")
         }
 
-        self.eval_print(self.out, arguments)?;
+        self.eval_print(self.stdout, arguments)?;
 
         ret(unit_value())
     }
@@ -76,7 +76,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::PrintStderr`")
         }
 
-        self.eval_print(self.err, arguments)?;
+        self.eval_print(self.stderr, arguments)?;
 
         ret(unit_value())
     }

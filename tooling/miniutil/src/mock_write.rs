@@ -1,21 +1,20 @@
-use std::{io::Write, str::from_utf8, cell::RefCell, rc::{Rc, Weak}};
+use std::{io::Write, str::from_utf8, cell::RefCell, rc::Rc};
 
 use gen_minirust::libspecr::hidden::GcCompat;
 
-#[derive(Default)]
-pub struct MockBuffer {
+/// A buffer to mock a GcWrite object. 
+/// It is used to catch output from MiniRust code for testing.
+#[derive(Default, Clone)]
+pub struct MockWrite {
     buffer: Rc<RefCell<Vec<u8>>>,
 }
 
-impl MockBuffer {
+impl MockWrite {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub(crate) fn out(&self) -> MockWrite {
-        MockWrite { buffer: Rc::downgrade(&self.buffer) }
-    }
-
+    /// Get all output lines as Strings.
     pub fn into_strings(self) -> Vec<String> {
         let slice = self.buffer.borrow();
 
@@ -27,18 +26,9 @@ impl MockBuffer {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct MockWrite {
-    buffer: Weak<RefCell<Vec<u8>>>,
-}
-
 impl Write for MockWrite {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let Some(rc) = self.buffer.upgrade() else {
-            return Ok(0);
-        };
-
-        rc.borrow_mut().extend_from_slice(buf);
+        self.buffer.borrow_mut().extend_from_slice(buf);
 
         Ok(buf.len())
     }
@@ -48,6 +38,7 @@ impl Write for MockWrite {
     }
 }
 
+// Nothing within has anything to do with specr-lang. This points to nothing.
 impl GcCompat for MockWrite {
     fn points_to(&self, _buffer: &mut std::collections::HashSet<usize>) { }
 
@@ -62,9 +53,9 @@ mod tests {
 
     #[test]
     fn basic_works() {
-        let mock = MockBuffer::new();
+        let mock = MockWrite::new();
 
-        let mut stream = mock.out();
+        let mut stream = mock.clone();
         write!(stream, "{}\n", 1).unwrap();
 
         let strings = mock.into_strings();
