@@ -300,3 +300,68 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
+
+Some more complex atomic memory operations are needed as well.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::CompareExchange: Intrinsic,
+        arguments: List<(Value<M>,Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 3 {
+            throw_ub!("invalid number of arguments for `Intrinsic::CompareExchange`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Intrinsic::CompareExchange`");
+        };
+
+        let (current, curr_ty) = arguments[1];
+        let (next, next_ty) = arguments[2];
+
+
+        let size = curr_ty.size::<M>();
+
+        //TODO: Maybe we want to check that the types are equal.
+        if next_ty.size::<M>() != size {
+            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, not same size")
+        }
+
+        if !size.bytes().is_power_of_two() {
+            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, size not power of two");
+        }
+
+        if size > M::MAX_ATOMIC_SIZE {
+            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, size to big");
+        }
+
+        if ret_ty.size::<M>() != size {
+            throw_ub!("invalid return type to `Intrinsic::CompareExchange`, not same size as arguments")
+        }
+
+        
+        let curr_pty = PlaceType{ty: curr_ty, align: Align::max_for_offset(size).unwrap()};
+        let next_pty = PlaceType{ty: next_ty, align: Align::max_for_offset(size).unwrap()};
+        let ret_pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
+
+        // The value at the location right now.
+        let before = self.mem.typed_load(Atomicity::Atomic, ptr, curr_pty)?;
+
+        // Since the return type might be different from the current type we have to load with the return type.
+        let before_ret = self.mem.typed_load(Atomicity::Atomic, ptr, ret_pty)?;
+
+        // This is the central part of the operation. If the expected before value at ptr is the current value,
+        // then we exchange it for the next value.
+        if current == before {
+            self.mem.typed_store(Atomicity::Atomic, ptr, next, next_pty)?;
+        }
+
+
+
+        ret(before_ret)
+    }
+}
+```

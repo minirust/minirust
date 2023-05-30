@@ -132,6 +132,7 @@ pub enum Intrinsic {
     Join,
     AtomicWrite,
     AtomicRead,
+    CompareExchange,
     Lock(LockIntrinsic),
 }
 ```
