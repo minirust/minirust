@@ -41,10 +41,6 @@ impl Write for MockWrite {
 // Nothing within has anything to do with specr-lang. This points to nothing.
 impl GcCompat for MockWrite {
     fn points_to(&self, _buffer: &mut std::collections::HashSet<usize>) { }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
 }
 
 #[cfg(test)]
