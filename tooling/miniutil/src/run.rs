@@ -12,7 +12,7 @@ pub fn run_program(prog: Program) -> TerminationInfo {
             machine.step()?;
 
             // Drops everything not reachable from `machine`.
-            gen_minirust::libspecr::hidden::mark_and_sweep(machine);
+            gen_minirust::libspecr::hidden::mark_and_sweep(&machine);
         }
     };
 
