@@ -466,7 +466,7 @@ impl<M: Memory> AtomicMemory<M> {
             _ => panic!("this value does not have that type"),
         })
     }
-}  
+}
 ```
 
 ## Relation to validity invariant

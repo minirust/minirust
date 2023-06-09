@@ -238,7 +238,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-The intrinsics for atomic memory accesses
+These are the intrinsics for atomic memory accesses:
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -265,14 +265,14 @@ impl<M: Memory> Machine<M> {
         }
 
         if size > M::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size to big");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size too big");
         }
 
         if !is_unit(ret_ty) {
             throw_ub!("invalid return type for `Intrinsic::AtomicWrite`")
         }
         
-        let pty = PlaceType{ty, align: Align::max_for_offset(size).unwrap()};
+        let pty = PlaceType { ty, align: Align::max_for_offset(size).unwrap() };
 
         self.mem.typed_store(Atomicity::Atomic, ptr, val, pty)?;
 
@@ -300,7 +300,7 @@ impl<M: Memory> Machine<M> {
         }
 
         if size > M::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size to big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size too big");
         }
 
         let pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
