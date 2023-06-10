@@ -29,10 +29,10 @@ fn atomic_write_success() {
 #[test]
 fn atomic_write_arg_count() {
     let b0 = block!(
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicWrite, 
-            arguments: list!(), 
-            ret: None, 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicWrite,
+            arguments: list!(),
+            ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -48,10 +48,10 @@ fn atomic_write_arg_count() {
 #[test]
 fn atomic_write_arg_type1() {
     let b0 = block!(
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicWrite, 
-            arguments: list!(const_int::<u32>(0), const_int::<u32>(0)), 
-            ret: None, 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicWrite,
+            arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
+            ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -79,10 +79,10 @@ fn atomic_write_arg_type_pow() {
     let b0 = block!(
         storage_live(0),
 
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicWrite, 
-            arguments: list!(addr_of(local(0), ptr_ty), arr), 
-            ret: None, 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicWrite,
+            arguments: list!(addr_of(local(0), ptr_ty), arr),
+            ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -110,10 +110,10 @@ fn atomic_write_arg_type_size() {
     let b0 = block!(
         storage_live(0),
 
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicWrite, 
-            arguments: list!(addr_of(local(0), ptr_ty), arr), 
-            ret: None, 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicWrite,
+            arguments: list!(addr_of(local(0), ptr_ty), arr),
+            ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -135,10 +135,10 @@ fn atomic_write_ret_type() {
     let b0 = block!(
         storage_live(0),
 
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicWrite, 
-            arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)), 
-            ret: Some(local(0)), 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicWrite,
+            arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
+            ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -184,10 +184,10 @@ fn atomic_read_arg_count() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicRead, 
-            arguments: list!(), 
-            ret: Some(local(0)), 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicRead,
+            arguments: list!(),
+            ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -206,10 +206,10 @@ fn atomic_read_arg_type() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::AtomicRead, 
-            arguments: list!(const_unit()), 
-            ret: Some(local(0)), 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::AtomicRead,
+            arguments: list!(const_unit()),
+            ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );

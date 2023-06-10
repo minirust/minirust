@@ -271,7 +271,7 @@ impl<M: Memory> Machine<M> {
         if !is_unit(ret_ty) {
             throw_ub!("invalid return type for `Intrinsic::AtomicWrite`")
         }
-        
+       
         let pty = PlaceType { ty, align: Align::max_for_offset(size).unwrap() };
 
         self.mem.typed_store(Atomicity::Atomic, ptr, val, pty)?;
