@@ -303,7 +303,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size too big");
         }
 
-        let pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
+        let pty = PlaceType { ty: ret_ty, align: Align::max_for_offset(size).unwrap() };
 
         let val = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
 

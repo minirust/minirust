@@ -19,7 +19,7 @@ pub enum Atomicity {
 
 impl<M: Memory> AtomicMemory<M> {
     pub fn new() -> Self {
-        Self{memory: M::new()}
+        Self { memory: M::new() }
     }
 
     /// Create a new allocation.
@@ -39,7 +39,7 @@ impl<M: Memory> AtomicMemory<M> {
     }
 
     /// Read some bytes from memory.
-    pub fn load(&mut self, _atomicity: Atomicity, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<M::Provenance>>>{
+    pub fn load(&mut self, _atomicity: Atomicity, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<M::Provenance>>> {
         self.memory.load(ptr, len, align)
     }
 
