@@ -123,7 +123,7 @@ fn atomic_write_arg_type_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size to big")
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size too big")
 }
 
 #[test]
@@ -258,5 +258,5 @@ fn atomic_read_ret_type_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size to big")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size too big")
 }
