@@ -6,7 +6,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         intrinsic: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> { .. }
 }
@@ -39,7 +39,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Exit: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         throw_machine_stop!()
@@ -54,7 +54,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStdout: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if !is_unit(ret_ty) {
@@ -69,7 +69,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::PrintStderr: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if !is_unit(ret_ty) {
@@ -84,7 +84,7 @@ impl<M: Memory> Machine<M> {
     fn eval_print(
         &mut self,
         stream: DynWrite,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
     ) -> Result {
         for (arg, _) in arguments {
             match arg {
@@ -106,7 +106,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Allocate: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
@@ -139,7 +139,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Deallocate: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
@@ -182,7 +182,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Spawn: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
@@ -216,7 +216,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Join: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
@@ -245,7 +245,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::AtomicWrite: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
@@ -282,7 +282,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::AtomicRead: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
