@@ -11,9 +11,8 @@ pub struct AtomicMemory<M: Memory> {
 pub enum Atomicity {
     /// A sequentially consistent atomic access.
     Atomic,
-    Default,
 
-    /// Not at run-time
+    /// A non-atomic memory access.
     None,
 }
 
