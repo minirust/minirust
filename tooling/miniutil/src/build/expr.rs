@@ -137,7 +137,7 @@ pub fn local(x: u32) -> PlaceExpr {
 
 pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
     let relocation = Relocation { 
-        name: GlobalName(Name::from_internal(x as _)), 
+        name: GlobalName(Name::from_internal(x)), 
         offset: Size::ZERO
     };
 
