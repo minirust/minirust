@@ -132,9 +132,9 @@ pub fn atomic_read(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
 pub fn compare_exchange(dest: PlaceExpr, ptr: ValueExpr, current: ValueExpr, next_val: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic { 
         intrinsic: Intrinsic::CompareExchange,
-        arguments: list!(ptr, current, next_val), 
-        ret: Some(dest), 
-        next_block: Some(BbName(Name::from_internal(next)))  
+        arguments: list!(ptr, current, next_val),
+        ret: Some(dest),
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }
 

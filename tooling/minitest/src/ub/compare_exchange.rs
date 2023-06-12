@@ -6,7 +6,7 @@ fn compare_exchange_success() {
 
     let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
 
-    let addr0 = addr_of(local(0), ptr_ty); 
+    let addr0 = addr_of(local(0), ptr_ty);
 
     // Can overwrite.
     let b0 = block!(
@@ -21,7 +21,7 @@ fn compare_exchange_success() {
     let b2 = block!(
         print(load(local(1)), 3)
     );
-    
+
     // Doesn't if current doesn't match.
     let b3 = block!(
         compare_exchange(local(1), addr0, const_int::<u32>(420), const_int::<u32>(421), 4)
@@ -48,23 +48,20 @@ fn compare_exchange_arg_count() {
     let locals = [ <u32>::get_ptype(); 2 ];
 
     let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
-
-    let addr0 = addr_of(local(0), ptr_ty); 
+    let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
         assign(local(0), const_int::<u32>(10)),
-        Terminator::CallIntrinsic { 
+        Terminator::CallIntrinsic {
             intrinsic: Intrinsic::CompareExchange,
-            arguments: list!(addr0), 
-            ret: Some(local(1)), 
-            next_block: Some(BbName(Name::from_internal(1))), 
+            arguments: list!(addr0),
+            ret: Some(local(1)),
+            next_block: Some(BbName(Name::from_internal(1))),
         }
     );
-
     let b1 = block!(exit());
-
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
@@ -73,16 +70,13 @@ fn compare_exchange_arg_count() {
 
 #[test]
 fn compare_exchange_arg_1_value() {
-
     let locals = [ <u32>::get_ptype() ];
 
     let b0 = block!(
         storage_live(0),
         compare_exchange(local(0), const_int::<u32>(0), const_int::<u32>(0), const_int::<u32>(0), 1)
     );
-
     let b1 = block!(exit());
-
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
@@ -90,37 +84,11 @@ fn compare_exchange_arg_1_value() {
 }
 
 #[test]
-fn compare_exchange_arg_size() {
-
-    let locals = [ <u32>::get_ptype(); 2 ];
-
-    let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
-
-    let addr0 = addr_of(local(0), ptr_ty); 
-
-    let b0 = block!(
-        storage_live(0),
-        storage_live(1),
-        assign(local(0), const_int::<u32>(0)),
-        compare_exchange(local(1), addr0, const_int::<u32>(0), const_int::<u8>(0), 1)
-    );
-
-    let b1 = block!(exit());
-
-
-    let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f]);
-    assert_ub(p, "invalid second & third argument to `Intrinsic::CompareExchange`, not same size");
-}
-
-#[test]
-fn compare_exchange_arg_size_pow() {
-
+fn compare_exchange_ret_type() {
     let locals = [ <[u8; 3]>::get_ptype(); 2 ];
 
     let ptr_ty = raw_ptr_ty( <[u8; 3]>::get_layout() );
-
-    let addr0 = addr_of(local(0), ptr_ty); 
+    let addr0 = addr_of(local(0), ptr_ty);
 
     let const_arr = const_array(&[const_int::<u8>(0); 3], <u8>::get_type() );
 
@@ -130,61 +98,70 @@ fn compare_exchange_arg_size_pow() {
         assign(local(0), const_arr),
         compare_exchange(local(1), addr0, const_arr, const_arr, 1)
     );
-
     let b1 = block!(exit());
-
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second & third argument to `Intrinsic::CompareExchange`, size not power of two");
+    assert_ub(p, "invalid return type for `Intrinis::CompareExchange`, only works with integers");
 }
 
 #[test]
-fn compare_exchange_arg_size_max() {
-
-    let locals = [ <[u32; 32]>::get_ptype(); 2 ];
-
-    let ptr_ty = raw_ptr_ty( <[u32; 32]>::get_layout() );
-
-    let addr0 = addr_of(local(0), ptr_ty); 
-
-    let const_arr = const_array(&[const_int::<u32>(0); 32], <u32>::get_type() );
-
-    let b0 = block!(
-        storage_live(0),
-        storage_live(1),
-        assign(local(0), const_arr),
-        compare_exchange(local(1), addr0, const_arr, const_arr, 1)
-    );
-
-    let b1 = block!(exit());
-
-
-    let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f]);
-    assert_ub(p, "invalid second & third argument to `Intrinsic::CompareExchange`, size to big");
-}
-
-#[test]
-fn compare_exchange_ret_size() {
-
-    let locals = [ <u32>::get_ptype(), <u8>::get_ptype() ];
+fn compare_exchange_arg_1_type() {
+    let locals = [ <u32>::get_ptype(); 2 ];
 
     let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
-
-    let addr0 = addr_of(local(0), ptr_ty); 
+    let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
         assign(local(0), const_int::<u32>(0)),
-        compare_exchange(local(1), addr0, const_int::<u32>(0), const_int::<u32>(0), 1)
+        compare_exchange(local(1), addr0, const_int::<i32>(0), const_int::<u32>(0), 1)
     );
+    let b1 = block!(exit());
 
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    assert_ub(p, "invalid second argument to `Intrinsic::CompareExchange`, not same type");
+}
+
+#[test]
+fn compare_exchange_arg_2_type() {
+    let locals = [ <u32>::get_ptype(); 2 ];
+
+    let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
+    let addr0 = addr_of(local(0), ptr_ty);
+
+    let b0 = block!(
+        storage_live(0),
+        storage_live(1),
+        assign(local(0), const_int::<u32>(0)),
+        compare_exchange(local(1), addr0, const_int::<u32>(0), const_int::<i32>(0), 1)
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    assert_ub(p, "invalid third argument to `Intrinsic::CompareExchange`, not same type");
+}
+
+#[test]
+fn compare_exchange_arg_size_max() {
+    let locals = [ <u128>::get_ptype(); 2 ];
+
+    let ptr_ty = raw_ptr_ty( <u128>::get_layout() );
+    let addr0 = addr_of(local(0), ptr_ty);
+
+    let b0 = block!(
+        storage_live(0),
+        storage_live(1),
+        assign(local(0), const_int::<u128>(0)),
+        compare_exchange(local(1), addr0, const_int::<u128>(0), const_int::<u128>(0), 1)
+    );
     let b1 = block!(exit());
 
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type to `Intrinsic::CompareExchange`, not same size as arguments");
+    assert_ub(p, "invalid return type for `Intrinsic::CompareExchange`, size to big");
 }

@@ -308,7 +308,7 @@ impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::CompareExchange: Intrinsic,
-        arguments: List<(Value<M>,Type)>,
+        arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
@@ -318,50 +318,39 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::CompareExchange`");
         };
-
         let (current, curr_ty) = arguments[1];
         let (next, next_ty) = arguments[2];
 
-
-        let size = curr_ty.size::<M>();
-
-        //TODO: Maybe we want to check that the types are equal.
-        if next_ty.size::<M>() != size {
-            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, not same size")
+        if !matches!(ret_ty, Type::Int(_)) {
+            throw_ub!("invalid return type for `Intrinis::CompareExchange`, only works with integers");
+        }
+        if curr_ty != ret_ty {
+            throw_ub!("invalid second argument to `Intrinsic::CompareExchange`, not same type");
+        }
+        if next_ty != ret_ty {
+            throw_ub!("invalid third argument to `Intrinsic::CompareExchange`, not same type");
         }
 
+        let size = ret_ty.size::<M>();
         if !size.bytes().is_power_of_two() {
             throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, size not power of two");
         }
-
         if size > M::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, size to big");
+            throw_ub!("invalid return type for `Intrinsic::CompareExchange`, size to big");
         }
-
-        if ret_ty.size::<M>() != size {
-            throw_ub!("invalid return type to `Intrinsic::CompareExchange`, not same size as arguments")
-        }
-
         
-        let curr_pty = PlaceType{ty: curr_ty, align: Align::max_for_offset(size).unwrap()};
-        let next_pty = PlaceType{ty: next_ty, align: Align::max_for_offset(size).unwrap()};
-        let ret_pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
+        let pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
 
         // The value at the location right now.
-        let before = self.mem.typed_load(Atomicity::Atomic, ptr, curr_pty)?;
-
-        // Since the return type might be different from the current type we have to load with the return type.
-        let before_ret = self.mem.typed_load(Atomicity::Atomic, ptr, ret_pty)?;
+        let before = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
 
         // This is the central part of the operation. If the expected before value at ptr is the current value,
         // then we exchange it for the next value.
         if current == before {
-            self.mem.typed_store(Atomicity::Atomic, ptr, next, next_pty)?;
+            self.mem.typed_store(Atomicity::Atomic, ptr, next, pty)?;
         }
 
-
-
-        ret(before_ret)
+        ret(before)
     }
 }
 ```
