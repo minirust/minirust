@@ -53,7 +53,7 @@ fn translate_const_uneval<'cx, 'tcx>(
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    let Ok(Some(instance)) = rs::Instance::resolve_opt_const_arg(fcx.cx.tcx, rs::ParamEnv::empty(), uneval.def, uneval.substs) else {
+    let Ok(Some(instance)) = rs::Instance::resolve(fcx.cx.tcx, rs::ParamEnv::empty(), uneval.def, uneval.substs) else {
         panic!("can't resolve unevaluated const!")
     };
     let cid = rs::GlobalId {

@@ -75,7 +75,7 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             Type::Ptr(PtrType::Raw { pointee })
         }
         rs::TyKind::Array(ty, c) => {
-            let count = Int::from(c.eval_usize(tcx, rs::ParamEnv::empty()));
+            let count = Int::from(c.eval_target_usize(tcx, rs::ParamEnv::empty()));
             let elem = GcCow::new(translate_ty(*ty, tcx));
             Type::Array { elem, count }
         }

@@ -28,7 +28,7 @@ impl<'tcx> Ctxt<'tcx> {
 
     pub fn translate(mut self) -> Program {
         let (entry, _ty) = self.tcx.entry_fn(()).unwrap();
-        let substs_ref: rs::SubstsRef<'tcx> = self.tcx.intern_substs(&[]);
+        let substs_ref: rs::SubstsRef<'tcx> = self.tcx.mk_substs(&[]);
         let entry_name = FnName(Name::from_internal(0));
 
         self.fn_name_map.insert((entry, substs_ref), entry_name);
@@ -131,7 +131,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let body = cx.tcx.subst_and_normalize_erasing_regions(
             substs_ref,
             rs::ParamEnv::empty(),
-            body.clone(),
+            rs::EarlyBinder::bind(body.clone()),
         );
 
         FnCtxt {
@@ -146,6 +146,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         }
     }
 
+    /// translates a function body.
+    /// Any fn calls occuring during this translation will be added to the `FnNameMap`.
     pub fn translate(mut self) -> Function {
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {
@@ -224,28 +226,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     }
 }
 
-/// translates a function body.
-/// Any fn calls occuring during this translation will be added to the `FnNameMap`.
 // TODO simplify this function.
 pub fn calc_abis<'tcx>(
     def_id: rs::DefId,
     substs_ref: rs::SubstsRef<'tcx>,
     tcx: rs::TyCtxt<'tcx>,
 ) -> (/*ret:*/ ArgAbi, /*args:*/ List<ArgAbi>) {
-    let ty = tcx.type_of(def_id);
-    let fn_sig = ty.fn_sig(tcx);
-    let ty_list = substs_ref.try_as_type_list().unwrap();
-    let fn_abi = if ty_list.is_empty() {
-        tcx.fn_abi_of_fn_ptr(rs::ParamEnv::empty().and((fn_sig, ty_list)))
-            .unwrap()
-    } else {
-        let inst = tcx
-            .resolve_instance(rs::ParamEnv::empty().and((def_id, substs_ref)))
-            .unwrap()
-            .unwrap();
-        tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((inst, rs::List::empty())))
-            .unwrap()
-    };
+    let instance = rs::Instance::resolve(tcx, rs::ParamEnv::empty(), def_id, substs_ref).unwrap().unwrap();
+    let fn_abi = tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((instance, rs::List::empty()))).unwrap();
     let ret = translate_arg_abi(&fn_abi.ret);
     let args = fn_abi.args.iter().map(|x| translate_arg_abi(x)).collect();
     (ret, args)

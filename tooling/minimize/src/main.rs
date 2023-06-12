@@ -17,21 +17,21 @@ mod rs {
     pub use rustc_middle::mir::{interpret::*, *};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
-    pub use rustc_target::abi::{call::*, Align, Size};
+    pub use rustc_target::abi::{call::*, Align, Size, FieldIdx};
 }
 
 extern crate gen_minirust;
 extern crate miniutil;
 
-pub use gen_minirust::lang::*;
-pub use gen_minirust::mem::*;
-pub use gen_minirust::prelude::*;
-
 pub use gen_minirust::libspecr::hidden::*;
 pub use gen_minirust::libspecr::prelude::*;
 pub use gen_minirust::libspecr::*;
 
+pub use gen_minirust::lang::*;
+pub use gen_minirust::mem::*;
 pub use gen_minirust::prelude::NdResult;
+pub use gen_minirust::prelude::*;
+
 pub use std::format;
 pub use std::string::String;
 

@@ -1,6 +1,3 @@
-extern crate ui_test;
-use std::process::Command;
-
 fn cfg(path: &str) -> ui_test::Config {
     ui_test::Config {
         args: Vec::new(),
@@ -22,13 +19,6 @@ fn cfg(path: &str) -> ui_test::Config {
 }
 
 fn main() {
-    // first, compile the `intrinsics` crate.
-    Command::new("cargo")
-        .arg("build")
-        .current_dir("./intrinsics")
-        .output()
-        .expect("Failed to compile `intrinsics`!");
-
     ui_test::run_tests(cfg("./tests/pass")).unwrap();
     ui_test::run_tests(cfg("./tests/ub")).unwrap();
 }

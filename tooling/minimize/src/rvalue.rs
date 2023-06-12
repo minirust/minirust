@@ -109,9 +109,9 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 Type::Union { .. } => {
                     let rs::AggregateKind::Adt(_, _, _, _, Some(field_idx)) = agg else { panic!() };
                     assert_eq!(operands.len(), 1);
-                    let expr = translate_operand(&operands[0], fcx);
+                    let expr = translate_operand(&operands[rs::FieldIdx::from_u32(0)], fcx);
                     ValueExpr::Union {
-                        field: (*field_idx).into(),
+                        field: field_idx.index().into(),
                         expr: GcCow::new(expr),
                         union_ty: ty,
                     }
@@ -174,7 +174,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             }
         }
         rs::Rvalue::Repeat(op, c) => {
-            let c = c.try_eval_usize(fcx.cx.tcx, rs::ParamEnv::empty()).unwrap();
+            let c = c.try_eval_target_usize(fcx.cx.tcx, rs::ParamEnv::empty()).unwrap();
             let c = Int::from(c);
 
             let elem_ty = translate_ty(op.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx);

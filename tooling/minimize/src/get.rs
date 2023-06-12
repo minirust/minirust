@@ -6,15 +6,13 @@ use rustc_interface::{interface::Compiler, Queries};
 
 pub fn get_mini(file: String, callback: impl FnOnce(Program) + Send + Copy) {
     if !Path::new(&file).exists() {
-        eprintln!("You need to define some `file.rs` in order to run `minimize`.");
+        eprintln!("File `{file}` not found.");
         std::process::exit(1);
     }
 
     let args = [
         ".".to_string(),
         file,
-        "--sysroot".to_string(),
-        sysroot(),
         "-L".to_string(),
         "./intrinsics/target/debug".to_string(),
         "-l".to_string(),
@@ -51,17 +49,4 @@ impl<F: FnOnce(Program) + Send + Copy> Callbacks for Cb<F> {
 
         Compilation::Stop
     }
-}
-
-fn sysroot() -> String {
-    let sysroot = std::process::Command::new("rustc")
-        .arg("--print=sysroot")
-        .current_dir(".")
-        .output()
-        .unwrap();
-
-    std::str::from_utf8(&sysroot.stdout)
-        .unwrap()
-        .trim()
-        .to_string()
 }
