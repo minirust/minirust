@@ -9,3 +9,4 @@ specr-transpile specr.toml
 
 (cd tooling/gen-minirust; RUSTFLAGS="-D warnings" cargo build)
 (cd tooling/minitest; cargo test)
+(cd tooling/minimize; cargo test)
