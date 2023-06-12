@@ -1,6 +1,6 @@
 use std::{io::Write, str::from_utf8, cell::RefCell, rc::Rc};
 
-use gen_minirust::libspecr::hidden::GcCompat;
+use minirust_rs::libspecr::hidden::GcCompat;
 
 /// A buffer to mock a GcWrite object. 
 /// It is used to catch output from MiniRust code for testing.

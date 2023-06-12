@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gen-minirust = { path = "../gen-minirust" }
+minirust-rs = { path = "../minirust-rs" }
 miniutil = { path = "../miniutil"}
 
 [dev-dependencies]

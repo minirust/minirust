@@ -250,13 +250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gen-minirust"
-version = "0.1.0"
-dependencies = [
- "libspecr",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -378,16 +371,23 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 name = "minimize"
 version = "0.1.0"
 dependencies = [
- "gen-minirust",
+ "minirust-rs",
  "miniutil",
  "ui_test",
+]
+
+[[package]]
+name = "minirust-rs"
+version = "0.1.0"
+dependencies = [
+ "libspecr",
 ]
 
 [[package]]
 name = "miniutil"
 version = "0.1.0"
 dependencies = [
- "gen-minirust",
+ "minirust-rs",
 ]
 
 [[package]]

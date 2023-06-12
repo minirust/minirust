@@ -2,16 +2,16 @@
 #![feature(decl_macro)]
 #![feature(try_blocks)]
 
-extern crate gen_minirust;
+extern crate minirust_rs;
 
-pub use gen_minirust::lang::*;
-pub use gen_minirust::mem::*;
-pub use gen_minirust::prelude::NdResult;
-pub use gen_minirust::prelude::*;
+pub use minirust_rs::libspecr::hidden::*;
+pub use minirust_rs::libspecr::prelude::*;
+pub use minirust_rs::libspecr::*;
 
-pub use gen_minirust::libspecr::hidden::*;
-pub use gen_minirust::libspecr::prelude::*;
-pub use gen_minirust::libspecr::*;
+pub use minirust_rs::lang::*;
+pub use minirust_rs::mem::*;
+pub use minirust_rs::prelude::*;
+pub use minirust_rs::prelude::NdResult;
 
 pub use std::format;
 pub use std::result::Result;

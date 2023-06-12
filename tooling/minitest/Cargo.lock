@@ -35,13 +35,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gen-minirust"
-version = "0.1.0"
-dependencies = [
- "libspecr",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -87,10 +80,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "minirust-rs"
+version = "0.1.0"
+dependencies = [
+ "libspecr",
+]
+
+[[package]]
 name = "minitest"
 version = "0.1.0"
 dependencies = [
- "gen-minirust",
+ "minirust-rs",
  "miniutil",
 ]
 
@@ -98,7 +98,7 @@ dependencies = [
 name = "miniutil"
 version = "0.1.0"
 dependencies = [
- "gen-minirust",
+ "minirust-rs",
 ]
 
 [[package]]
