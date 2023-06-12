@@ -1,0 +1,17 @@
+[package]
+name = "minimize"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gen-minirust = { path = "../minirust/tooling/gen-minirust" }
+miniutil = { path = "../minirust/tooling/miniutil"}
+
+[dev-dependencies]
+ui_test = "0.5"
+
+[[test]]
+name = "compiletest"
+harness = false
