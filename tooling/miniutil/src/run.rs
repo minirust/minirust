@@ -1,7 +1,5 @@
 use crate::{*, mock_write::MockWrite};
 
-use gen_minirust::prelude::NdResult;
-
 /// Run the program and return its TerminationInfo.
 /// Stdout/stderr are just forwarded to the host.
 ///
@@ -43,7 +41,7 @@ fn run(prog: Program, stdout: impl GcWrite, stderr: impl GcWrite) -> Result<!, T
             machine.step()?;
 
             // Drops everything not reachable from `machine`.
-            gen_minirust::libspecr::hidden::mark_and_sweep(&machine);
+            mark_and_sweep(&machine);
         }
     };
 

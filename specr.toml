@@ -1,7 +1,6 @@
 input = "./spec"
-output = "./tooling/gen-minirust"
-name = "gen-minirust"
-channel = "nightly-2023-06-01" # FIXME: remove this, it is redundant with the tooling/rust-toolchain.toml file
+output = "./tooling/minirust-rs"
+name = "minirust-rs"
 attrs = [
     '#![recursion_limit = "256"]',
     '#![feature(yeet_expr)]',
