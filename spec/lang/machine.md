@@ -8,6 +8,7 @@ This key data structure says a lot about how the Abstract Machine is structured.
 ```rust
 /// This type contains everything that needs to be tracked during the execution
 /// of a MiniRust program.
+#[no_obj]
 pub struct Machine<M: Memory> {
     /// The program we are executing.
     prog: Program,
@@ -26,6 +27,11 @@ pub struct Machine<M: Memory> {
 
     /// Stores an address for each function name.
     fn_addrs: Map<FnName, mem::Address>,
+
+    /// This is where the `PrintStdout` intrinsic writes to.
+    stdout: DynWrite,
+    /// This is where the `PrintStderr` intrinsic writes to.
+    stderr: DynWrite,
 }
 
 /// The data that makes up a stack frame.
@@ -104,7 +110,7 @@ Next, we define how to create a machine.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    pub fn new(prog: Program) -> NdResult<Machine<M>> {
+    pub fn new(prog: Program, stdout: DynWrite, stderr: DynWrite) -> NdResult<Machine<M>> {
         if prog.check_wf::<M>().is_none() {
             throw_ill_formed!();
         }
@@ -154,6 +160,8 @@ impl<M: Memory> Machine<M> {
             global_ptrs,
             fn_addrs,
             thread_manager: ThreadManager::new(start_fn),
+            stdout,
+            stderr,
         })
     }
 }

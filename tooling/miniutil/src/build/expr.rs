@@ -135,6 +135,22 @@ pub fn local(x: u32) -> PlaceExpr {
     PlaceExpr::Local(LocalName(Name::from_internal(x)))
 }
 
+pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
+    let relocation = Relocation { 
+        name: GlobalName(Name::from_internal(x)), 
+        offset: Size::ZERO
+    };
+
+    let ptr_type = Type::Ptr(
+        PtrType::Raw{ pointee: T::get_layout() }
+    );
+
+    deref(
+        ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type), 
+        T::get_ptype()
+    )
+}
+
 pub fn deref(operand: ValueExpr, ptype: PlaceType) -> PlaceExpr {
     PlaceExpr::Deref {
         operand: GcCow::new(operand),

@@ -61,7 +61,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::PrintStdout`")
         }
 
-        self.eval_print(&mut std::io::stdout(), arguments)?;
+        self.eval_print(self.stdout, arguments)?;
 
         ret(unit_value())
     }
@@ -76,14 +76,14 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::PrintStderr`")
         }
 
-        self.eval_print(&mut std::io::stderr(), arguments)?;
+        self.eval_print(self.stderr, arguments)?;
 
         ret(unit_value())
     }
 
     fn eval_print(
         &mut self,
-        stream: &mut impl std::io::Write,
+        stream: DynWrite,
         arguments: List<Value<M>>,
     ) -> Result {
         for arg in arguments {
