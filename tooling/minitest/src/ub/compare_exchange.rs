@@ -8,12 +8,12 @@ fn compare_exchange_success() {
 
     let addr0 = addr_of(local(0), ptr_ty);
 
-    // Can overwrite.
+    // Success case: check that we do perform a store.
     let b0 = block!(
         storage_live(0),
         storage_live(1),
-        assign(local(0), const_int::<u32>(10)),
-        compare_exchange(local(1), addr0, const_int::<u32>(10), const_int::<u32>(69), 1),
+        assign(local(0), const_int::<u32>(0)),
+        compare_exchange(local(1), addr0, const_int::<u32>(0), const_int::<u32>(1), 1),
     );
     let b1 = block!(
         print(load(local(0)), 2)
@@ -22,9 +22,9 @@ fn compare_exchange_success() {
         print(load(local(1)), 3)
     );
 
-    // Doesn't if current doesn't match.
+    // Failure case: check that we do not perform a store
     let b3 = block!(
-        compare_exchange(local(1), addr0, const_int::<u32>(420), const_int::<u32>(421), 4)
+        compare_exchange(local(1), addr0, const_int::<u32>(3), const_int::<u32>(42), 4)
     );
     let b4 = block!(
         print(load(local(1)), 5)
@@ -40,7 +40,7 @@ fn compare_exchange_success() {
         Ok(out) => out,
         Err(err) => panic!("{:?}", err),
     };
-    assert_eq!(&out[..3], &["69", "10", "69"]);
+    assert_eq!(&out[..3], &["1", "0", "1"]);
 }
 
 #[test]
