@@ -14,7 +14,7 @@ pub struct Machine<M: Memory> {
     prog: Program,
 
     /// The state of memory.
-    mem: M,
+    mem: AtomicMemory<M>,
 
     /// The state of the integer-pointer cast subsystem.
     intptrcast: IntPtrCast<M::Provenance>,
@@ -115,7 +115,7 @@ impl<M: Memory> Machine<M> {
             throw_ill_formed!();
         }
 
-        let mut mem = M::new();
+        let mut mem = AtomicMemory::<M>::new();
         let mut global_ptrs = Map::new();
         let mut fn_addrs = Map::new();
 
@@ -139,7 +139,7 @@ impl<M: Memory> Machine<M> {
                 let encoded_ptr = encode_ptr::<M>(ptr);
                 bytes.write_subslice_at_index(i.bytes(), encoded_ptr);
             }
-            mem.store(global_ptrs[global_name], bytes, global.align)?;
+            mem.store(Atomicity::None, global_ptrs[global_name], bytes, global.align)?;
         }
 
         // Allocate functions.

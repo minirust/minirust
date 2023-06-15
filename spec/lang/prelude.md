@@ -4,7 +4,7 @@ For the files in this folder, we assume some definitions and parameters to alway
 
 ```rust
 use crate::prelude::*;
-use mem::{Memory, AbstractByte, Pointer, IntPtrCast};
+use mem::{Memory, AbstractByte, Pointer, IntPtrCast, AtomicMemory, Atomicity};
 
 // Everything there is to say about how an argument is passed to a function,
 // and how the return value is passed back.

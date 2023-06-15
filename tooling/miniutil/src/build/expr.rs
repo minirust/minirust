@@ -116,6 +116,38 @@ pub fn div<T: TypeConv>(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop::<T>(BinOpInt::Div, l, r)
 }
 
+fn int_rel(op: IntRel, l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    ValueExpr::BinOp {
+        operator: BinOp::IntRel(op),
+        left: GcCow::new(l),
+        right: GcCow::new(r),
+    }
+}
+
+pub fn eq(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Eq, l, r)
+}
+
+pub fn ne(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Ne, l, r)
+}
+
+pub fn ge(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Ge, l, r)
+}
+
+pub fn gt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Gt, l, r)
+}
+
+pub fn le(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Le, l, r)
+}
+
+pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_rel(IntRel::Lt, l, r)
+}
+
 pub enum InBounds {
     Yes,
     No,

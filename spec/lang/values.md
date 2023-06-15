@@ -423,39 +423,24 @@ This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberu
 We also use this to lift retagging from pointers to compound values.
 
 ```rust
-trait TypedMemory: Memory {
-    /// Write a value of the given type to memory.
-    /// Note that it is a spec bug if `val` cannot be encoded at `ty`!
-    fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result;
-
-    /// Read a value of the given type.
-    fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>>;
-
-    /// Check that the given pointer is dereferenceable according to the given layout.
-    fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result;
-
-    /// Retag all pointers inside this value.
-    fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>>;
-}
-
-impl<M: Memory> TypedMemory for M {
-    fn typed_store(&mut self, ptr: Pointer<Self::Provenance>, val: Value<Self>, pty: PlaceType) -> Result {
-        let bytes = pty.ty.encode::<Self>(val);
-        self.store(ptr, bytes, pty.align)?;
+impl<M: Memory> AtomicMemory<M> {
+    fn typed_store(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, val: Value<M>, pty: PlaceType) -> Result {
+        let bytes = pty.ty.encode::<M>(val);
+        self.store(atomicity, ptr, bytes, pty.align)?;
 
         ret(())
     }
 
-    fn typed_load(&mut self, ptr: Pointer<Self::Provenance>, pty: PlaceType) -> Result<Value<Self>> {
-        let bytes = self.load(ptr, pty.ty.size::<Self>(), pty.align)?;
-        ret(match pty.ty.decode::<Self>(bytes) {
+    fn typed_load(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, pty: PlaceType) -> Result<Value<M>> {
+        let bytes = self.load(atomicity, ptr, pty.ty.size::<M>(), pty.align)?;
+        ret(match pty.ty.decode::<M>(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
         })
     }
 
     // FIXME this method is currently unused.
-    fn layout_dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
+    fn _layout_dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
         if !layout.inhabited {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");
@@ -465,7 +450,7 @@ impl<M: Memory> TypedMemory for M {
         ret(())
     }
 
-    fn retag_val(&mut self, val: Value<Self>, ty: Type, fn_entry: bool) -> Result<Value<Self>> {
+    fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,

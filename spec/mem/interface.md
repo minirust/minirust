@@ -91,6 +91,9 @@ pub trait Memory {
     /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
 
+    /// Maximum size of an atomic operation.
+    const MAX_ATOMIC_SIZE: Size;
+
 
     fn new() -> Self;
 
