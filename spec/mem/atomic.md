@@ -1,6 +1,6 @@
 # MiniRust atomic memory
 
-This is a wrapper for a memory that distinguishes between non-atomic and atomic memory accesses.
+This is a wrapper for a memory that distinguishes between non-atomic and atomic memory accesses. For now atomicity is ignored; this will change in the future/
 
 ```rust
 pub struct AtomicMemory<M: Memory> {
