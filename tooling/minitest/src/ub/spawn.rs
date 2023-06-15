@@ -32,7 +32,7 @@ fn spawn_success() {
 #[test]
 fn spawn_arg_count() {
     let locals = [<()>::get_ptype()];
-    
+
     let b0 = block!(
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Spawn,
@@ -41,13 +41,13 @@ fn spawn_arg_count() {
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
-    
+
     let b1 = block!(exit());
-    
+
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    
+
     let p = program(&[f]);
-    
+
     assert_ub(p, "invalid number of arguments for `Intrinsic::Spawn`")
 }
 

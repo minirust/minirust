@@ -15,7 +15,7 @@ pub fn run_program(prog: Program) -> TerminationInfo {
     }
 }
 
-/// Run the program and return stdout as a `Vec<String>`  or a termination info 
+/// Run the program and return stdout as a `Vec<String>`  or a termination info
 /// if it did not terminate correctly. Stderr is just forwarded to the host.
 ///
 /// We fix `BasicMemory` as a memory for now.

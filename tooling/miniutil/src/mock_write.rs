@@ -2,7 +2,7 @@ use std::{io::Write, str::from_utf8, cell::RefCell, rc::Rc};
 
 use minirust_rs::libspecr::hidden::GcCompat;
 
-/// A buffer to mock a GcWrite object. 
+/// A buffer to mock a GcWrite object.
 /// It is used to catch output from MiniRust code for testing.
 #[derive(Default, Clone)]
 pub struct MockWrite {
@@ -20,8 +20,8 @@ impl MockWrite {
 
         let string = from_utf8(&slice).unwrap().to_string();
 
-        string.split("\n").map( 
-            |str| str.to_string() 
+        string.split("\n").map(
+            |str| str.to_string()
         ).collect()
     }
 }

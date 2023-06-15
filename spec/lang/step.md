@@ -176,7 +176,7 @@ impl<M: Memory> Machine<M> {
         let left = self.eval_value(left)?;
         let right = self.eval_value(right)?;
 
-        
+
         ret(self.eval_bin_op(operator, left, right)?)
     }
 }
@@ -210,7 +210,7 @@ impl<M: Memory> Machine<M> {
         // This implicitly asserts that the local is live!
         let place = self.cur_frame().locals[name];
         let ptype = self.cur_frame().func.locals[name];
-        
+
         ret((place, ptype))
     }
 }
@@ -257,7 +257,7 @@ impl<M: Memory> Machine<M> {
             align: ptype.align.restrict_for_offset(offset),
             ty: field_ty,
         };
-        
+
         ret((place, ptype))
     }
 

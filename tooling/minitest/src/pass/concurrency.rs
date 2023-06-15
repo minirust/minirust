@@ -65,7 +65,7 @@ fn arbitrary_order() {
     let globals = [global_int::<u32>(), global_int::<u32>()];
 
     let p = program_with_globals(&[f, write_1()], &globals);
-    
+
     // We now test, that the program can both finish with global(1) = 1 and = 2.
     let mut write_1 = false;
     let mut write_2 = false;

@@ -29,7 +29,7 @@ fn is_unit(ty: Type) -> bool {
     };
 
     size == Size::ZERO && fields.is_empty()
-} 
+}
 ```
 
 We start with the `Exit` intrinsic.

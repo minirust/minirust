@@ -168,8 +168,8 @@ pub fn local(x: u32) -> PlaceExpr {
 }
 
 pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
-    let relocation = Relocation { 
-        name: GlobalName(Name::from_internal(x)), 
+    let relocation = Relocation {
+        name: GlobalName(Name::from_internal(x)),
         offset: Size::ZERO
     };
 
@@ -178,7 +178,7 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
     );
 
     deref(
-        ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type), 
+        ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type),
         T::get_ptype()
     )
 }
