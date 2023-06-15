@@ -587,7 +587,7 @@ impl<M: Memory> Machine<M> {
             // `eval_inrinsic` above must guarantee that `value` has the right type.
             self.mem.typed_store(Atomicity::None, ret_place, value, ret_pty)?;
         }
-            
+
         if let Some(next_block) = next_block {
             self.mutate_cur_frame(|frame| {
                 frame.jump_to_block(next_block);
