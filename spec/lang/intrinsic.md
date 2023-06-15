@@ -332,8 +332,9 @@ impl<M: Memory> Machine<M> {
         }
 
         let size = ret_ty.size::<M>();
+        // ISSUE: Can't be tested because`CompareExchange` only works with integeres and all integers are power of two.
         if !size.bytes().is_power_of_two() {
-            throw_ub!("invalid second & third argument to `Intrinsic::CompareExchange`, size not power of two");
+            throw_ub!("invalid return type for `Intrinsic::CompareExchange`, size not power of two");
         }
         if size > M::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::CompareExchange`, size to big");
