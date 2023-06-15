@@ -340,7 +340,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::CompareExchange`, size to big");
         }
         
-        let pty = PlaceType{ty: ret_ty, align: Align::max_for_offset(size).unwrap()};
+        let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
 
         // The value at the location right now.
         let before = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
