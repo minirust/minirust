@@ -27,20 +27,20 @@ fn compare_exchange_success() {
         compare_exchange(local(1), addr0, const_int::<u32>(420), const_int::<u32>(421), 4)
     );
     let b4 = block!(
-        print(load(local(0)), 5)
-    );
-    let b5 = block!(
-        print(load(local(1)), 6)
+        print(load(local(1)), 5)
     );
 
-    let b6 = block!(exit());
+    let b5 = block!(exit());
 
-    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5, b6]);
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
     let p = program(&[f]);
 
-    // TODO: Check logs. This needs changes from other PR.
-    // 69, 10, 69, 69
-    assert_stop(p);
+    // Check that we exchange in the first case but not the second
+    let out = match get_stdout(p) {
+        Ok(out) => out,
+        Err(err) => panic!("{:?}", err),
+    };
+    assert_eq!(&out[..3], &["69", "10", "69"]);
 }
 
 #[test]
@@ -89,7 +89,6 @@ fn compare_exchange_ret_type() {
 
     let ptr_ty = raw_ptr_ty( <[u8; 3]>::get_layout() );
     let addr0 = addr_of(local(0), ptr_ty);
-
     let const_arr = const_array(&[const_int::<u8>(0); 3], <u8>::get_type() );
 
     let b0 = block!(
@@ -159,7 +158,6 @@ fn compare_exchange_arg_size_max() {
         compare_exchange(local(1), addr0, const_int::<u128>(0), const_int::<u128>(0), 1)
     );
     let b1 = block!(exit());
-
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
