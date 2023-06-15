@@ -22,7 +22,6 @@ fn atomic_write_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-
     assert_stop(p);
 }
 
@@ -36,12 +35,10 @@ fn atomic_write_arg_count() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicWrite`")
 }
 
@@ -55,12 +52,10 @@ fn atomic_write_arg_type1() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid first argument to `Intrinsic::AtomicWrite`")
 }
 
@@ -69,7 +64,6 @@ fn atomic_write_arg_type_pow() {
     let locals = [<[u8; 3]>::get_ptype()];
 
     let ptr_ty = raw_ptr_ty( <[u8; 3]>::get_layout() );
-
     let arr = const_array(&[
         const_int::<u8>(0),
         const_int::<u8>(1),
@@ -78,7 +72,6 @@ fn atomic_write_arg_type_pow() {
 
     let b0 = block!(
         storage_live(0),
-
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicWrite,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
@@ -86,12 +79,10 @@ fn atomic_write_arg_type_pow() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size not power of two")
 }
 
@@ -101,7 +92,6 @@ fn atomic_write_arg_type_size() {
     let locals = [<[u64; 2]>::get_ptype()];
 
     let ptr_ty = raw_ptr_ty( <[u64; 2]>::get_layout() );
-
     let arr = const_array(&[
         const_int::<u64>(0),
         const_int::<u64>(1),
@@ -109,7 +99,6 @@ fn atomic_write_arg_type_size() {
 
     let b0 = block!(
         storage_live(0),
-
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicWrite,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
@@ -117,12 +106,10 @@ fn atomic_write_arg_type_size() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size too big")
 }
 
@@ -142,12 +129,10 @@ fn atomic_write_ret_type() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid return type for `Intrinsic::AtomicWrite`")
 }
 
@@ -158,7 +143,6 @@ fn atomic_read_success() {
     let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
 
     // We show that atomic read actually reads by reading 1 from local(1).
-
     let b0 = block!(
         storage_live(0),
         storage_live(1),
@@ -174,7 +158,6 @@ fn atomic_read_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-
     assert_stop(p);
 }
 
@@ -191,12 +174,10 @@ fn atomic_read_arg_count() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicRead`")
 }
 
@@ -213,12 +194,10 @@ fn atomic_read_arg_type() {
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid first argument to `Intrinsic::AtomicRead`")
 }
 
@@ -232,12 +211,10 @@ fn atomic_read_ret_type_pow() {
         storage_live(0),
         atomic_read(local(0), addr_of(local(0), ptr_ty), 1)
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size not power of two")
 }
 
@@ -252,11 +229,9 @@ fn atomic_read_ret_type_size() {
         storage_live(0),
         atomic_read(local(0), addr_of(local(0), ptr_ty), 1)
     );
-
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-
     assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size too big")
 }

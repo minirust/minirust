@@ -251,19 +251,15 @@ impl<M: Memory> Machine<M> {
         if arguments.len() != 2 {
             throw_ub!("invalid number of arguments for `Intrinsic::AtomicWrite`");
         }
-
         let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::AtomicWrite`");
         };
-
         let (val, ty) = arguments[1];
 
         let size = ty.size::<M>();
-
         if !size.bytes().is_power_of_two() {
             throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size not power of two");
         }
-
         if size > M::MAX_ATOMIC_SIZE {
             throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size too big");
         }
@@ -273,9 +269,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let pty = PlaceType { ty, align: Align::from_bytes(size.bytes()).unwrap() };
-
         self.mem.typed_store(Atomicity::Atomic, ptr, val, pty)?;
-
         ret(unit_value())
     }
 
@@ -288,25 +282,20 @@ impl<M: Memory> Machine<M> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `Intrinsic::AtomicRead`");
         }
-
         let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::AtomicRead`");
         };
 
         let size = ret_ty.size::<M>();
-
         if !size.bytes().is_power_of_two() {
             throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size not power of two");
         }
-
         if size > M::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size too big");
         }
 
-        let pty = PlaceType { ty: ret_ty, align: Align::max_for_offset(size).unwrap() };
-
+        let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
         let val = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
-
         ret(val)
     }
 }
