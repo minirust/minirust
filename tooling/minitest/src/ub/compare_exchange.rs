@@ -29,7 +29,8 @@ fn compare_exchange_success() {
         compare_exchange(local(1), addr0, const_int::<u32>(3), const_int::<u32>(42), 4)
     );
     let b4 = block!(
-        print(load(local(1)), 5)
+        // print value of CASed location
+        print(load(local(0)), 5)
     );
 
     let b5 = block!(exit());
