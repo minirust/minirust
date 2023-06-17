@@ -16,9 +16,11 @@ fn compare_exchange_success() {
         compare_exchange(local(1), addr0, const_int::<u32>(0), const_int::<u32>(1), 1),
     );
     let b1 = block!(
+        // print value of CASed location
         print(load(local(0)), 2)
     );
     let b2 = block!(
+        // print CAS return value
         print(load(local(1)), 3)
     );
 
