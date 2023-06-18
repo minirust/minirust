@@ -50,7 +50,7 @@ It differs in both store and load where we also take the `Atomicity` of an opera
 ```rust
 impl<M: Memory> AtomicMemory<M> {
     pub fn new() -> Self {
-        Self { 
+        Self {
             memory: M::new(),
             current_thread: ThreadId::ZERO,
             current_accesses: list![],
@@ -120,7 +120,7 @@ impl<M: Memory> AtomicMemory<M> {
         if self.current_thread == self.last_thread { return Ok(()) }
 
         if self.last_accesses.any(|other| access.races(&other)) {
-            throw_ub!("Data races");
+            throw_ub!("Data race");
         }
 
         Ok(())

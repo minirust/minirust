@@ -2,8 +2,6 @@ use crate::{*, mock_write::MockWrite};
 
 /// Run the program and return its TerminationInfo.
 /// Stdout/stderr are just forwarded to the host.
-///
-/// We fix `BasicMemory` as a memory for now.
 pub fn run_program(prog: Program) -> TerminationInfo {
     let out = std::io::stdout();
     let err = std::io::stderr();
@@ -17,8 +15,6 @@ pub fn run_program(prog: Program) -> TerminationInfo {
 
 /// Run the program and return stdout as a `Vec<String>`  or a termination info
 /// if it did not terminate correctly. Stderr is just forwarded to the host.
-///
-/// We fix `BasicMemory` as a memory for now.
 pub fn get_stdout(prog: Program) -> Result<Vec<String>, TerminationInfo> {
     let out = MockWrite::new();
     let err = std::io::stderr();
@@ -32,6 +28,8 @@ pub fn get_stdout(prog: Program) -> Result<Vec<String>, TerminationInfo> {
 }
 
 /// Run the program to completion using the given writers for stdout/stderr.
+/// 
+/// We fix `BasicMemory` as a memory for now.
 fn run(prog: Program, stdout: impl GcWrite, stderr: impl GcWrite) -> Result<!, TerminationInfo> {
     let res: NdResult<!> = try {
 
