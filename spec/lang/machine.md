@@ -102,7 +102,7 @@ pub struct ThreadManager<M: Memory> {
 
     /// To avoid passing around the active thread through all the eval_ functions,
     /// we store it globally here.
-    active_thread: Option<ThreadId>,
+    active_thread: ThreadId,
 }
 ```
 
@@ -172,25 +172,19 @@ We also define some helper functions that will be useful later.
 ```rust
 impl<M: Memory> Machine<M> {
     fn cur_frame(&self) -> StackFrame<M> {
-        let Some(active_thread) = self.thread_manager.active_thread else {
-            panic!("`cur_frame` called without active thread!");
-        };
+        let active_thread = self.thread_manager.active_thread;
 
         self.thread_manager.threads[active_thread].cur_frame()
     }
 
     fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
-        let Some(active_thread) = self.thread_manager.active_thread else {
-            panic!("`mutate_cur_frame` called without active thread!");
-        };
+        let active_thread = self.thread_manager.active_thread;
 
         self.thread_manager.threads.mutate_at(active_thread, |thread| thread.mutate_cur_frame(f))
     }
 
     fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
-        let Some(active_thread) = self.thread_manager.active_thread else {
-            panic!("`cur_stack` called without active thread!");
-        };
+        let active_thread = self.thread_manager.active_thread;
 
         self.thread_manager.threads.mutate_at(active_thread, |thread| f(&mut thread.stack))
     }
@@ -262,17 +256,13 @@ impl<M: Memory> Thread<M> {
 // Some helper functions.
 impl<M: Memory> ThreadManager<M> {
     fn cur_thread(&self) -> Thread<M> {
-        let Some(active_thread) = self.active_thread else {
-            panic!("`cur_thread` called without active thread!");
-        };
+        let active_thread = self.active_thread;
 
         self.threads[active_thread]
     }
 
     fn mutate_cur_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
-        let Some(active_thread) = self.active_thread else {
-            panic!("`mut_cur_thread` called without active thread!");
-        };
+        let active_thread = self.active_thread;
 
         self.threads.mutate_at(active_thread, f)
     }
@@ -288,7 +278,7 @@ impl<M: Memory> ThreadManager<M> {
         Self {
             threads,
             locks: List::new(),
-            active_thread: None,
+            active_thread: ThreadId::ZERO,
         }
     }
 
@@ -316,7 +306,7 @@ impl<M: Memory> ThreadManager<M> {
     }
 
     pub fn terminate_active_thread(&mut self) -> NdResult {
-        let active = self.active_thread.unwrap();
+        let active = self.active_thread;
 
         if active == 0 {
             // The main thread terminating stops the machine.

@@ -29,7 +29,7 @@ impl<M: Memory> ThreadManager<M> {
     }
 
     pub fn lock_acquire(&mut self, lock_id: LockId) -> Result {
-        let active = self.active_thread.unwrap();
+        let active = self.active_thread;
 
         let Some(lock) = self.locks.get(lock_id) else {
             throw_ub!("acquiring non-existing lock");
@@ -54,7 +54,7 @@ impl<M: Memory> ThreadManager<M> {
     }
 
     pub fn lock_release(&mut self, lock_id: LockId) -> NdResult {
-        let active = self.active_thread.unwrap();
+        let active = self.active_thread;
 
         let Some(lock) = self.locks.get(lock_id) else {
             throw_ub!("releasing non-existing lock");

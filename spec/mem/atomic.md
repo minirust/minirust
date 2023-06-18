@@ -8,12 +8,12 @@ pub struct AtomicMemory<M: Memory> {
     memory: M,
 
     /// The Id of the current thread
-    current_thread: Option<ThreadId>,
+    current_thread: ThreadId,
     /// List of all memory access done by the active thread in the current step.
     current_accesses: List<Access>,
 
     /// The Id of the last thread
-    last_thread: Option<ThreadId>,
+    last_thread: ThreadId,
     /// List of all memory accesses done by the last thread in the last step.
     last_accesses: List<Access>,
 }
@@ -52,9 +52,9 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn new() -> Self {
         Self { 
             memory: M::new(),
-            current_thread: None,
+            current_thread: ThreadId::ZERO,
             current_accesses: list![],
-            last_thread: None,
+            last_thread: ThreadId::ZERO,
             last_accesses: list![],
         }
     }
@@ -117,7 +117,7 @@ impl<M: Memory> AtomicMemory<M> {
     fn track_access(&mut self, access: Access) -> Result {
         self.current_accesses.push(access);
 
-        if self.current_thread == self.last_thread || self.last_thread == None { return Ok(()) }
+        if self.current_thread == self.last_thread { return Ok(()) }
 
         if self.last_accesses.any(|other| access.races(&other)) {
             throw_ub!("Data races");
@@ -127,7 +127,7 @@ impl<M: Memory> AtomicMemory<M> {
     }
 
     /// Take meassures to track the next execution step.
-    pub fn next_step(&mut self, thread: Option<ThreadId>) {
+    pub fn next_step(&mut self, thread: ThreadId) {
         self.last_thread = self.current_thread;
         self.last_accesses = self.current_accesses;
 

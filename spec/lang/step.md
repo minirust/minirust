@@ -34,7 +34,7 @@ impl<M: Memory> Machine<M> {
             thread.state == ThreadState::Enabled
         })?;
 
-        self.thread_manager.active_thread = Some(thread_id);
+        self.thread_manager.active_thread = thread_id;
 
         // Prepare data race detection for next step.
         self.mem.next_step(self.thread_manager.active_thread);
