@@ -36,6 +36,9 @@ impl<M: Memory> Machine<M> {
 
         self.thread_manager.active_thread = Some(thread_id);
 
+        // Prepare data race detection for next step.
+        self.mem.next_step(self.thread_manager.active_thread);
+
         let frame = self.cur_frame();
         let block = &frame.func.blocks[frame.next_block];
         if frame.next_stmt == block.statements.len() {
