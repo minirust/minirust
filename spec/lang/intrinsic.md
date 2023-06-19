@@ -298,13 +298,6 @@ impl<M: Memory> Machine<M> {
         let val = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
         ret(val)
     }
-}
-```
-
-Some more complex atomic memory operations are needed as well.
-
-```rust
-impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::CompareExchange: Intrinsic,
