@@ -32,10 +32,13 @@ fn compare_exchange_success() {
         // print value of CASed location
         print(load(local(0)), 5)
     );
+    let b5 = block!(
+        // print CAS return value
+        print(load(local(1)), 6)
+    );
+    let b6 = block!(exit());
 
-    let b5 = block!(exit());
-
-    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5, b6]);
     let p = program(&[f]);
 
     // Check that we exchange in the first case but not the second
@@ -43,7 +46,7 @@ fn compare_exchange_success() {
         Ok(out) => out,
         Err(err) => panic!("{:?}", err),
     };
-    assert_eq!(&out[..3], &["1", "0", "1"]);
+    assert_eq!(&out[..4], &["1", "0", "1", "1"]);
 }
 
 #[test]
