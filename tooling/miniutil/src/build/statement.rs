@@ -94,20 +94,20 @@ pub fn return_() -> Terminator {
 }
 
 pub fn spawn(fn_ptr: ValueExpr, ret: Option<PlaceExpr>, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::Spawn, 
-        arguments: list!(fn_ptr), 
-        ret, 
-        next_block: Some(BbName(Name::from_internal(next))) 
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Spawn,
+        arguments: list!(fn_ptr),
+        ret,
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }
 
 pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::Join, 
-        arguments: list!(thread_id), 
-        ret: None, 
-        next_block: Some(BbName(Name::from_internal(next))) 
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Join,
+        arguments: list!(thread_id),
+        ret: None,
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }
 
@@ -139,28 +139,28 @@ pub fn compare_exchange(dest: PlaceExpr, ptr: ValueExpr, current: ValueExpr, nex
 }
 
 pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Create), 
-        arguments: list!(), 
-        ret: Some(ret), 
-        next_block: Some(BbName(Name::from_internal(next))) 
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
+        arguments: list!(),
+        ret: Some(ret),
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }
 
 pub fn acquire(lock_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire), 
-        arguments: list!(lock_id), 
-        ret: None, 
-        next_block: Some(BbName(Name::from_internal(next))) 
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
+        arguments: list!(lock_id),
+        ret: None,
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }
 
 pub fn release(lock_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Release), 
-        arguments: list!(lock_id), 
-        ret: None, 
-        next_block: Some(BbName(Name::from_internal(next))) 
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
+        arguments: list!(lock_id),
+        ret: None,
+        next_block: Some(BbName(Name::from_internal(next)))
     }
 }

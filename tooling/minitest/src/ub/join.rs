@@ -33,10 +33,10 @@ fn join_arg_count() {
     let locals = [ <()>::get_ptype() ];
 
     let b0 = block!(
-        Terminator::CallIntrinsic { 
-            intrinsic: Intrinsic::Join, 
-            arguments: list!(), 
-            ret: None, 
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Join,
+            arguments: list!(),
+            ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );

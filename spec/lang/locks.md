@@ -89,7 +89,7 @@ impl<M: Memory> ThreadManager<M> {
                         *lock = LockState::LockedBy(acquirer_id);
                     });
                 }
-                
+
                 else {
                     self.locks.mutate_at(lock_id, |lock| {
                         *lock = LockState::Unlocked;

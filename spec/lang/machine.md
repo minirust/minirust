@@ -91,7 +91,7 @@ pub enum ThreadState {
 type ThreadId = Int;
 
 /// The thread manager tracks the list of all threads, and the thread that is currently taking a step.
-/// The latter is only needed during a step of execution; 
+/// The latter is only needed during a step of execution;
 /// it saves us from passing the active thread around explicitly everywhere.
 pub struct ThreadManager<M: Memory> {
     /// The list of threads.
@@ -275,7 +275,7 @@ impl<M: Memory> ThreadManager<M> {
         };
 
         self.threads.mutate_at(active_thread, f)
-    } 
+    }
 }
 
 impl<M: Memory> ThreadManager<M> {
