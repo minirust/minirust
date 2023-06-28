@@ -34,10 +34,11 @@ impl<M: Memory> Machine<M> {
             thread.state == ThreadState::Enabled
         })?;
 
+        let prev_thread = self.thread_manager.active_thread;
         self.thread_manager.active_thread = thread_id;
 
         // Prepare data race detection for next step.
-        self.mem.next_step(self.thread_manager.active_thread);
+        let prev_accesses = self.mem.reset_accesses();
 
         let frame = self.cur_frame();
         let block = &frame.func.blocks[frame.next_block];
@@ -52,6 +53,8 @@ impl<M: Memory> Machine<M> {
             });
             self.eval_statement(stmt)?;
         }
+
+        self.mem.check_data_races(self.thread_manager.active_thread, prev_thread, prev_accesses)?;
 
         ret(())
     }

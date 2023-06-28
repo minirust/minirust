@@ -7,15 +7,8 @@ For now atomicity is ignored; this will change in the future.
 pub struct AtomicMemory<M: Memory> {
     memory: M,
 
-    /// The Id of the current thread
-    current_thread: ThreadId,
     /// List of all memory access done by the active thread in the current step.
     current_accesses: List<Access>,
-
-    /// The Id of the last thread
-    last_thread: ThreadId,
-    /// List of all memory accesses done by the last thread in the last step.
-    last_accesses: List<Access>,
 }
 
 /// The different kinds of atomicity.
@@ -34,11 +27,11 @@ enum AccessType {
 }
 
 /// Access contains all information the data race detection needs about a single access.
-struct Access {
+pub struct Access {
     ty: AccessType,
     atomicity: Atomicity,
     addr: Address,
-    len: Int,
+    len: Size,
 }
 ```
 
@@ -52,10 +45,7 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn new() -> Self {
         Self {
             memory: M::new(),
-            current_thread: ThreadId::ZERO,
             current_accesses: list![],
-            last_thread: ThreadId::ZERO,
-            last_accesses: list![],
         }
     }
 
@@ -72,16 +62,26 @@ impl<M: Memory> AtomicMemory<M> {
 
     /// Write some bytes to memory and check for data races.
     pub fn store(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, bytes: List<AbstractByte<M::Provenance>>, align: Align) -> Result {
-        let access = Access::new(AccessType::Store, atomicity, ptr.addr, bytes.len());
-        self.track_access(access)?;
+        let access = Access {
+            ty: AccessType::Store,
+            atomicity,
+            addr: ptr.addr,
+            len: Size::from_bytes(bytes.len()).unwrap(),
+        };
+        self.current_accesses.push(access);
 
         self.memory.store(ptr, bytes, align)
     }
 
     /// Read some bytes from memory and check for data races.
     pub fn load(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<M::Provenance>>> {
-        let access = Access::new(AccessType::Load, atomicity, ptr.addr, len.bytes());
-        self.track_access(access)?;
+        let access = Access {
+            ty: AccessType::Load,
+            atomicity,
+            addr: ptr.addr,
+            len,
+        };
+        self.current_accesses.push(access);
 
         self.memory.load(ptr, len, align)
     }
@@ -112,34 +112,31 @@ Here we define the operations needed to make data race detection.
 
 ```rust
 impl<M: Memory> AtomicMemory<M> {
-    /// Checks if this access is in a data race with any access that happend in the last access.
-    /// It keeps track of the access for the next step.
-    fn track_access(&mut self, access: Access) -> Result {
-        self.current_accesses.push(access);
+    /// Given a list of previous accesses, checks if any of the current accesses is in a data race with any of those.
+    pub fn check_data_races(&self, current_thread: ThreadId, prev_thread: ThreadId, prev_accesses: List<Access>) -> Result {
+        if current_thread == prev_thread { return Ok(()) }
 
-        if self.current_thread == self.last_thread { return Ok(()) }
-
-        if self.last_accesses.any(|other| access.races(&other)) {
-            throw_ub!("Data race");
+        for access in self.current_accesses {
+            if prev_accesses.any(|prev_access| access.races(prev_access)) {
+                throw_ub!("Data race");
+            }
         }
 
         Ok(())
     }
 
-    /// Take meassures to track the next execution step.
-    pub fn next_step(&mut self, thread: ThreadId) {
-        self.last_thread = self.current_thread;
-        self.last_accesses = self.current_accesses;
-
-        self.current_thread = thread;
+    /// Prepare memory to track accesses of next step.
+    pub fn reset_accesses(&mut self) -> List<Access> {
+        let prev_accesses = self.current_accesses;
         self.current_accesses = list![];
+        prev_accesses
     }
 }
 
 impl Access {
     /// Indicates if a races happend between the two given accesses.
     /// We assume they happen on different threads.
-    fn races(&self, other: &Self) -> bool {
+    fn races(self, other: Self) -> bool {
         // At least one access modifies the data.
         if self.ty == AccessType::Load && other.ty == AccessType::Load { return false; }
 
@@ -147,24 +144,9 @@ impl Access {
         if self.atomicity == Atomicity::Atomic && other.atomicity == Atomicity::Atomic { return false; }
 
         // The accesses overlap.
-        let end_addr = self.addr + self.len;
-        let other_end_addr = other.addr + other.len;
+        let end_addr = self.addr + self.len.bytes();
+        let other_end_addr = other.addr + other.len.bytes();
         end_addr > other.addr && other_end_addr > self.addr
-    }
-}
-```
-
-## Utility
-
-```rust
-impl Access {
-    fn new(ty: AccessType, atomicity: Atomicity, addr: Address, len: Int) -> Self {
-        Access {
-            ty,
-            atomicity,
-            addr,
-            len,
-        }
     }
 }
 ```
