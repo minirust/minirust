@@ -280,10 +280,10 @@ impl<M: Memory> ThreadManager<M> {
 
 impl<M: Memory> ThreadManager<M> {
     pub fn new(func: Function) -> Self {
-        let master = Thread::new(func);
+        let main = Thread::new(func);
 
         let mut threads = List::new();
-        threads.push(master);
+        threads.push(main);
 
         Self {
             threads,
