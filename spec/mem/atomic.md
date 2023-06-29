@@ -8,7 +8,7 @@ pub struct AtomicMemory<M: Memory> {
     memory: M,
 
     /// List of all memory access done by the active thread in the current step.
-    current_accesses: List<Access>,
+    accesses: List<Access>,
 }
 
 /// The different kinds of atomicity.
@@ -45,7 +45,7 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn new() -> Self {
         Self {
             memory: M::new(),
-            current_accesses: list![],
+            accesses: list![],
         }
     }
 
@@ -68,7 +68,7 @@ impl<M: Memory> AtomicMemory<M> {
             addr: ptr.addr,
             len: Size::from_bytes(bytes.len()).unwrap(),
         };
-        self.current_accesses.push(access);
+        self.accesses.push(access);
 
         self.memory.store(ptr, bytes, align)
     }
@@ -81,7 +81,7 @@ impl<M: Memory> AtomicMemory<M> {
             addr: ptr.addr,
             len,
         };
-        self.current_accesses.push(access);
+        self.accesses.push(access);
 
         self.memory.load(ptr, len, align)
     }
@@ -116,7 +116,7 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn check_data_races(&self, current_thread: ThreadId, prev_thread: ThreadId, prev_accesses: List<Access>) -> Result {
         if current_thread == prev_thread { return Ok(()) }
 
-        for access in self.current_accesses {
+        for access in self.accesses {
             if prev_accesses.any(|prev_access| access.races(prev_access)) {
                 throw_ub!("Data race");
             }
@@ -128,8 +128,8 @@ impl<M: Memory> AtomicMemory<M> {
     /// Prepare memory to track accesses of next step: reset the internal access list to
     /// be empty, and return the list of previously collected accesses.
     pub fn reset_accesses(&mut self) -> List<Access> {
-        let prev_accesses = self.current_accesses;
-        self.current_accesses = list![];
+        let prev_accesses = self.accesses;
+        self.accesses = list![];
         prev_accesses
     }
 }

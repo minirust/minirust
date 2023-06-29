@@ -60,6 +60,8 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     let s_fun = function(Ret::No, 0, &[], &[s_b0, s_b1]);
 
     // global(0) is needed for the race behavior; the others are used to support our operations.
+    // We use globals instead of locals because locals would need an additional instruction (`storage_live`)
+    // before the race condition which would decrease the chance of it being caught.
     let globals = [global_int::<u32>(); 3];
 
     program_with_globals(&[main, s_fun], &globals)
