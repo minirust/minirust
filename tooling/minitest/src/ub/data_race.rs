@@ -59,7 +59,7 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     );
     let s_fun = function(Ret::No, 0, &[], &[s_b0, s_b1]);
 
-    // global(0) is needed for the race behavior the others are used to support our operations.
+    // global(0) is needed for the race behavior; the others are used to support our operations.
     let globals = [global_int::<u32>(); 3];
 
     program_with_globals(&[main, s_fun], &globals)

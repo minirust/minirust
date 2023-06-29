@@ -34,6 +34,7 @@ impl<M: Memory> Machine<M> {
             thread.state == ThreadState::Enabled
         })?;
 
+        // Update current thread; remember previous thread for data race detection.
         let prev_thread = self.thread_manager.active_thread;
         self.thread_manager.active_thread = thread_id;
 

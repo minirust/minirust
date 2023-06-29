@@ -125,7 +125,8 @@ impl<M: Memory> AtomicMemory<M> {
         Ok(())
     }
 
-    /// Prepare memory to track accesses of next step.
+    /// Prepare memory to track accesses of next step: reset the internal access list to
+    /// be empty, and return the list of previously collected accesses.
     pub fn reset_accesses(&mut self) -> List<Access> {
         let prev_accesses = self.current_accesses;
         self.current_accesses = list![];
