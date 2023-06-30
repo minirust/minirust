@@ -341,6 +341,10 @@ impl<M: Memory> Machine<M> {
         // then we exchange it for the next value.
         if current == before {
             self.mem.typed_store(Atomicity::Atomic, ptr, next, pty)?;
+        } else {
+            // We do *not* do a store on a failing CompareExchange. This means that races between
+            // a non-atomic read and a failing CompareExchange are not considered UB!
+            // FIXME: is that what we want?
         }
 
         ret(before)
