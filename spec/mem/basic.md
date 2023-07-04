@@ -24,13 +24,13 @@ The data tracked by the memory is fairly simple: for each allocation, we track i
 
 ```rust
 struct Allocation {
-    /// The data stored in this allocation.
-    data: List<AbstractByte<AllocId>>,
+    /// The data stored in this allocation. Can be discontiguous.
+    data: Map<Address, AbstractByte<AllocId>>,
     /// The address where this allocation starts.
-    /// This is never 0, and `addr + data.len()` fits into a `usize`.
-    addr: Address,
+    /// This is relevant for deallocation.
+    start_addr: Address,
     /// The alignment that was requested for this allocation.
-    /// `addr` will be a multiple of this.
+    /// `addr` will be a multiple of this. This is relevant for deallocation.
     align: Align,
     /// Whether this allocation is still live.
     live: bool,
@@ -74,17 +74,19 @@ impl Allocation {
     fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
 
     fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
-        let end_addr = self.addr + self.size().bytes();
-        let other_end_addr = other_addr + other_size.bytes();
-        if self.addr != other_addr && (end_addr <= other_addr || other_end_addr <= self.addr) {
-            // Our end is before their beginning, or vice versa -- we do not overlap.
-            // However, also make sure that each allocation has a unique address.
+        if self.start_addr == other_addr {
+            // Make sure that each allocation has a unique start address.
             // FIXME: This is not necessarily realistic, e.g. for zero-sized stack variables.
             // OTOH the function pointer logic currently relies on this.
-            false
-        } else {
-            true
+            return true;
         }
+        for addr in self.data.keys() {
+            if other_addr <= addr && addr < other_addr+other_size.bytes() {
+                // `addr` is in the `other` rangr!
+                return true;
+            }
+        }
+        false
     }
 }
 ```
@@ -107,7 +109,7 @@ impl Memory for BasicMemory {
             end: Int::from(2).pow(Self::PTR_SIZE.bits()),
             divisor: align.bytes(),
         };
-        let addr = pick(distr, |addr: Address| {
+        let start_addr = pick(distr, |addr: Address| {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... that is suitably aligned...
@@ -120,12 +122,17 @@ impl Memory for BasicMemory {
             true
         })?;
 
+        let mut data = Map::new();
+        for addr in start_addr .. (start_addr + size.bytes()) {
+            data.insert(addr, AbstractByte::Uninit);
+        }
+
         // Compute allocation.
         let allocation = Allocation {
-            addr,
+            start_addr,
             align,
             live: true,
-            data: list![AbstractByte::Uninit; size.bytes()],
+            data,
         };
 
         // Insert it into list, and remember where.
@@ -133,7 +140,7 @@ impl Memory for BasicMemory {
         self.allocations.push(allocation);
 
         // And we are done!
-        ret(Pointer { addr, provenance: Some(id) })
+        ret(Pointer { addr: start_addr, provenance: Some(id) })
     }
 
     fn deallocate(&mut self, ptr: Pointer<AllocId>, size: Size, align: Align) -> Result {
@@ -147,7 +154,7 @@ impl Memory for BasicMemory {
         if !allocation.live {
             throw_ub!("double-free");
         }
-        if ptr.addr != allocation.addr {
+        if ptr.addr != allocation.start_addr {
             throw_ub!("deallocating with pointer not to the beginning of its allocation");
         }
         if size != allocation.size() {
@@ -175,7 +182,7 @@ impl BasicMemory {
     /// Check if the given pointer is dereferenceable for an access of the given
     /// length and alignment. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
-    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
+    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<Option<AllocId>> {
         // Basic address sanity checks.
         if ptr.addr == 0 {
             throw_ub!("dereferencing null pointer");
@@ -204,35 +211,43 @@ impl BasicMemory {
         }
 
         // Compute relative offset, and ensure we are in-bounds.
-        let offset_in_alloc = ptr.addr - allocation.addr;
-        if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
-            throw_ub!("out-of-bounds memory access");
+        for addr in ptr.addr .. (ptr.addr + len.bytes()) {
+            if !allocation.data.contains_key(addr) {
+                throw_ub!("out-of-bounds memory access");
+            }
         }
         // All is good!
-        ret(Some((id, Size::from_bytes(offset_in_alloc).unwrap())))
+        ret(Some(id))
     }
 }
 
 impl Memory for BasicMemory {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
-        let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
+        let Some(id) = self.check_ptr(ptr, len, align)? else {
             return ret(list![]);
         };
         let allocation = &self.allocations[id.0];
 
         // Slice into the contents, and copy them to a new list.
-        ret(allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
+        let mut data = List::new();
+        for addr in ptr.addr .. (ptr.addr + len.bytes()) {
+            data.push(allocation.data[addr]);
+        }
+        ret(data)
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let size = Size::from_bytes(bytes.len()).unwrap();
-        let Some((id, offset)) = self.check_ptr(ptr, size, align)? else {
+        let Some(id) = self.check_ptr(ptr, size, align)? else {
             return ret(());
         };
 
         // Slice into the contents, and put the new bytes there.
         self.allocations.mutate_at(id.0, |allocation| {
-            allocation.data.write_subslice_at_index(offset.bytes(), bytes);
+            for (byte, addr) in bytes.iter().zip(ptr.addr .. (ptr.addr + bytes.len())) {
+                let old = allocation.data.insert(addr, byte);
+                assert!(old.is_some());
+            }
         });
 
         ret(())
