@@ -28,7 +28,7 @@ struct Allocation {
     data: List<AbstractByte<AllocId>>,
     /// The address where this allocation starts.
     /// This is never 0, and `addr + data.len()` fits into a `usize`.
-    addr: Int,
+    addr: Address,
     /// The alignment that was requested for this allocation.
     /// `addr` will be a multiple of this.
     align: Align,
@@ -73,7 +73,7 @@ We start with some helper operations.
 impl Allocation {
     fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
 
-    fn overlaps(self, other_addr: Int, other_size: Size) -> bool {
+    fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
         let other_end_addr = other_addr + other_size.bytes();
         if self.addr != other_addr && (end_addr <= other_addr || other_end_addr <= self.addr) {
@@ -107,7 +107,7 @@ impl Memory for BasicMemory {
             end: Int::from(2).pow(Self::PTR_SIZE.bits()),
             divisor: align.bytes(),
         };
-        let addr = pick(distr, |addr: Int| {
+        let addr = pick(distr, |addr: Address| {
             // Pick a strictly positive integer...
             if addr <= 0 { return false; }
             // ... that is suitably aligned...
