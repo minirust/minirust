@@ -439,8 +439,7 @@ impl<M: Memory> AtomicMemory<M> {
         })
     }
 
-    // FIXME this method is currently unused.
-    fn _layout_dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
+    fn layout_dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
         if !layout.inhabited {
             // TODO: I don't think Miri does this check.
             throw_ub!("uninhabited types are not dereferenceable");

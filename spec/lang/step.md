@@ -228,16 +228,20 @@ impl<M: Memory> Machine<M> {
 The `*` operator turns a value of pointer type into a place.
 It also ensures that the pointer is dereferenceable.
 
-- TODO: Should we ensure that `eval_place` always creates a dereferenceable place?
+- TODO: Should we ensure that `eval_place` *always* creates a dereferenceable place?
   Then we could do the alignment check here, and wouldn't even have to track alignment in `PlaceType`.
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/319).
 
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Deref { operand, ptype }: PlaceExpr) -> NdResult<(Place<M>, PlaceType)> {
-        let (Value::Ptr(p), _) = self.eval_value(operand)? else {
+        let (Value::Ptr(p), Type::Ptr(ptr_type)) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
+        if matches!(ptr_type, PtrType::Ref { .. } | PtrType::Box { .. }) {
+            // FIXME: need a test for this UB.
+            self.mem.layout_dereferenceable(p, ptype.layout::<M>())?;
+        }
 
         ret((p, ptype))
     }
