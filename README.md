@@ -102,8 +102,9 @@ But we also need to ensure the entire document stays coherent, and I already hav
   * [Integer-pointer cast model](spec/mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts
 * MiniRust language
   * [Prelude](spec/lang/prelude.md): common definitions and parameters of the language
+  * [Values](spec/lang/values.md): the domain of high-level MiniRust values
   * [Types](spec/lang/types.md): the set of MiniRust types
-  * [Values and representation relation](spec/lang/values.md): the domain of high-level MiniRust values and how types can be used to (de)serialize them to memory
+  * [Representation relation](spec/lang/representation.md): how types (de)serialize values into/from memory
   * [Syntax](spec/lang/syntax.md): the abstract syntax of MiniRust programs
   * [Well-formedness](spec/lang/well-formed.md): the requirements for well-formed types and programs
   * [Abstract Machine](spec/lang/machine.md): the state that makes up a MiniRust Abstract Machine
