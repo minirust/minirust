@@ -49,9 +49,29 @@ pub struct BasicBlock {
     pub statements: List<Statement>,
     pub terminator: Terminator,
 }
+
+/// A global allocation.
+pub struct Global {
+    /// The raw bytes of the allocation. `None` represents uninitialized bytes.
+    pub bytes: List<Option<u8>>,
+    /// Cross-references pointing to other global allocations,
+    /// together with an offset, expressing where this allocation should put the pointer.
+    /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
+    pub relocations: List<(Size, Relocation)>,
+    /// The align with which this global shall be allocated.
+    pub align: Align,
+}
+
+/// A pointer into a global allocation.
+pub struct Relocation {
+    /// The name of the global allocation we are pointing into.
+    pub name: GlobalName,
+    /// The offset within that allocation.
+    pub offset: Size,
+}
 ```
 
-## Statements, terminators, expressions
+## Statements, terminators
 
 Next, the statements and terminators that MiniRust programs consist of:
 
@@ -137,32 +157,15 @@ pub enum Intrinsic {
 }
 ```
 
-We also need to define constants (a strict subset of `Value`).
+## Expressions
 
-```rust
-/// Constants are Values, but cannot have provenance.
-/// Currently we do not support Ptr and Union constants.
-pub enum Constant {
-    /// A mathematical integer, used for `i*`/`u*` types.
-    Int(Int),
-    /// A Boolean value, used for `bool`.
-    Bool(bool),
-    /// A pointer pointing into a global allocation with a given offset.
-    GlobalPointer(Relocation),
-    /// A pointer pointing to a function.
-    FnPointer(FnName),
+MiniRust has two kinds of expressions:
+*value expressions* evaluate to a value and are found, in particular, on the right-hand side of assignments;
+*place expressions* evaluate to a place and are found, in particular, in the left-hand side of assignments.
 
-    /// A variant of a sum type, used for enums.
-    // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
-    Variant {
-        idx: Int,
-        #[specr::indirection]
-        data: Constant,
-    },
-}
-```
+Obviously, these are all quite incomplete still.
 
-And finally, the syntax of expressions:
+### Value expressions
 
 ```rust
 /// A "value expression" evaluates to a `Value`.
@@ -213,6 +216,27 @@ pub enum ValueExpr {
         left: ValueExpr,
         #[specr::indirection]
         right: ValueExpr,
+    },
+}
+
+/// Constants are basically values, but cannot have provenance.
+/// Currently we do not support Ptr and Union constants.
+pub enum Constant {
+    /// A mathematical integer, used for `i*`/`u*` types.
+    Int(Int),
+    /// A Boolean value, used for `bool`.
+    Bool(bool),
+    /// A pointer pointing into a global allocation with a given offset.
+    GlobalPointer(Relocation),
+    /// A pointer pointing to a function.
+    FnPointer(FnName),
+
+    /// A variant of a sum type, used for enums.
+    // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
+    Variant {
+        idx: Int,
+        #[specr::indirection]
+        data: Constant,
     },
 }
 
@@ -272,7 +296,11 @@ pub enum BinOp {
     /// Pointer arithmetic (with or without inbounds requirement).
     PtrOffset { inbounds: bool },
 }
+```
 
+### Place expressions
+
+```rust
 /// A "place expression" evaluates to a `Place`.
 pub enum PlaceExpr {
     /// Denotes a local variable.
@@ -302,27 +330,4 @@ pub enum PlaceExpr {
         index: ValueExpr,
     },
 }
-
-/// A global allocation.
-pub struct Global {
-    /// The raw bytes of the allocation. `None` represents uninitialized bytes.
-    pub bytes: List<Option<u8>>,
-    /// Cross-references pointing to other global allocations,
-    /// together with an offset, expressing where this allocation should put the pointer.
-    /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
-    pub relocations: List<(Size, Relocation)>,
-    /// The align with which this global shall be allocated.
-    pub align: Align,
-}
-
-/// A pointer into a global allocation.
-pub struct Relocation {
-    /// The name of the global allocation we are pointing into.
-    pub name: GlobalName,
-    /// The offset within that allocation.
-    pub offset: Size,
-}
-
 ```
-
-Obviously, these are all quite incomplete still.
