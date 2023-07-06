@@ -34,6 +34,9 @@ impl Type {
 }
 ```
 
+TODO: We currently have `encode` panic when the value doesn't match the type.
+Should we also have `decode` panic when `bytes` has the wrong length?
+
 ### `bool`
 
 ```rust
@@ -250,6 +253,10 @@ impl Type {
 ## Generic properties
 
 There are some generic properties that `encode` and `decode` must satisfy.
+The most obvious part is consistency of size and inhabitedness:
+- If `ty.decode(bytes) == Some(val)`, then `bytes` has length `ty.size()` and `ty.inhabited() == true`.
+
+More interestingly, we have some round-trip properties.
 For instance, starting with a (valid) value, encoding it, and then decoding it, must produce the same result.
 
 To make this precise, we first have to define an order in values and byte lists that captures when one value (byte list) is "more defined" than another.
