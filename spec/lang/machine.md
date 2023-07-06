@@ -255,16 +255,8 @@ impl<M: Memory> Thread<M> {
 
 // Some helper functions.
 impl<M: Memory> ThreadManager<M> {
-    fn cur_thread(&self) -> Thread<M> {
-        let active_thread = self.active_thread;
-
-        self.threads[active_thread]
-    }
-
-    fn mutate_cur_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
-        let active_thread = self.active_thread;
-
-        self.threads.mutate_at(active_thread, f)
+    fn active_thread(&self) -> Thread<M> {
+        self.threads[self.active_thread]
     }
 }
 
@@ -296,7 +288,7 @@ impl<M: Memory> ThreadManager<M> {
         match thread.state {
             ThreadState::Terminated => {},
             _ => {
-                self.mutate_cur_thread(|thread|{
+                self.threads.mutate_at(self.active_thread, |thread|{
                     thread.state = ThreadState::BlockedOnJoin(thread_id);
                 });
             },

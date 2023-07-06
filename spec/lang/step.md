@@ -534,7 +534,7 @@ impl<M: Memory> Machine<M> {
         let Some(caller_return_info) = frame.caller_return_info else {
             // Only the bottom frame in a stack has no caller.
             // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.thread_manager.cur_thread().stack.len());
+            assert_eq!(Int::ZERO, self.thread_manager.active_thread().stack.len());
 
             return self.thread_manager.terminate_active_thread();
         };
