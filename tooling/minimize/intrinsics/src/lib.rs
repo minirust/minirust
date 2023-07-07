@@ -10,8 +10,6 @@ use std::ptr::NonNull;
 use std::sync::Mutex;
 use std::thread::{JoinHandle, self};
 
-static THREAD_HANDLES: Mutex<Vec<Option<JoinHandle<()>>>> = Mutex::new(Vec::new());
-
 pub fn print(t: impl Display) {
     println!("{t}");
 }
@@ -34,6 +32,8 @@ pub unsafe fn deallocate(ptr: *mut u8, size: usize, align: usize) {
     let layout = Layout::from_size_align(size, align).unwrap();
     unsafe { System.deallocate(ptr, layout); }
 }
+
+static THREAD_HANDLES: Mutex<Vec<Option<JoinHandle<()>>>> = Mutex::new(Vec::new());
 
 // Spawn returns the index+1 of the thread because we don't have a JoinHandle for thread 0.
 pub fn spawn<F>(f: F) -> usize
@@ -66,5 +66,60 @@ pub fn join(index: usize) {
     }
     else {
         panic!("Joining non existent thread.")
+    }
+}
+
+#[derive(Default, PartialEq)]
+enum LockState {
+    Locked,
+    #[default]
+    Unlocked,
+}
+
+static LOCKS: Mutex<Vec<LockState>> = Mutex::new(Vec::new());
+
+pub fn create_lock() -> usize {
+    let mut locks = LOCKS.lock().unwrap();
+    locks.push(LockState::default());
+    locks.len()-1
+}
+
+pub fn acquire(lock_id: usize) {
+    loop {
+        let mut locks = LOCKS.lock().unwrap();
+        if locks.len() <= lock_id {
+            panic!("Acquiring non existent lock.");
+        }
+        let lock = &mut locks[lock_id];
+
+        if *lock == LockState::Unlocked {
+            *lock = LockState::Locked;
+            return;
+        }
+
+        drop(locks);
+
+        thread::park();
+    }
+}
+
+pub fn release(lock_id: usize) {
+    let mut locks = LOCKS.lock().unwrap();
+    if locks.len() <= lock_id {
+        panic!("Releasing non existent lock.");
+    }
+    let lock = &mut locks[lock_id];
+
+    if *lock == LockState::Unlocked {        
+        panic!("Releasing non locked lock.");
+    }
+    *lock = LockState::Locked;
+    drop(locks);
+
+    let thread_handles = THREAD_HANDLES.lock().unwrap();
+    for handle in thread_handles.as_slice() {
+        if let Some(handle) = handle {
+            handle.thread().unpark();
+        }
     }
 }

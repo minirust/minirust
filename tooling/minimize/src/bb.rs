@@ -103,6 +103,9 @@ fn translate_call<'cx, 'tcx>(
             "deallocate" => Intrinsic::Deallocate,
             "spawn" => Intrinsic::Spawn,
             "join" => Intrinsic::Join,
+            "create_lock" => Intrinsic::Lock(LockIntrinsic::Create),
+            "acquire" => Intrinsic::Lock(LockIntrinsic::Acquire),
+            "release" => Intrinsic::Lock(LockIntrinsic::Release),
             name => panic!("unsupported intrinsic `{}`", name),
         };
         Terminator::CallIntrinsic {
