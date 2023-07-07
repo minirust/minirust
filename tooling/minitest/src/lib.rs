@@ -19,6 +19,7 @@ pub use std::string::String;
 mod pass;
 mod ub;
 mod ill_formed;
+mod deadlock;
 
 pub fn assert_stop(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::MachineStop);
@@ -30,6 +31,10 @@ pub fn assert_ub(prog: Program, msg: &str) {
 
 pub fn assert_ill_formed(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::IllFormed);
+}
+
+pub fn assert_deadlock(prog: Program) {
+    assert_eq!(run_program(prog), TerminationInfo::Deadlock);
 }
 
 

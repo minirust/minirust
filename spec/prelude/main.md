@@ -20,6 +20,8 @@ pub enum TerminationInfo {
     MachineStop,
     /// The program was ill-formed.
     IllFormed,
+    /// The program did not terminate but no thread can make progress.
+    Deadlock,
 }
 
 /// Some macros for convenient yeeting, i.e., return an error from a
@@ -42,6 +44,11 @@ macro_rules! throw_machine_stop {
 macro_rules! throw_ill_formed {
     () => {
         do yeet TerminationInfo::IllFormed
+    };
+}
+macro_rules! throw_deadlock {
+    () => {
+        do yeet TerminationInfo::Deadlock
     };
 }
 
