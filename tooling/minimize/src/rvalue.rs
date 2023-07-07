@@ -173,6 +173,20 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 operand: GcCow::new(operand),
             }
         }
+        rs::Rvalue::Cast(rs::CastKind::Pointer(rs::adjustment::PointerCast::ReifyFnPointer), func, _) => {
+            let rs::Operand::Constant(box f1) = func else { panic!() };
+            let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
+            let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
+            let key = (*f, *substs_ref);
+
+            if !fcx.cx.fn_name_map.contains_key(&key) {
+                let fn_name = fcx.cx.fn_name_map.len();
+                let fn_name = FnName(Name::from_internal(fn_name as _));
+                fcx.cx.fn_name_map.insert(key, fn_name);
+            }
+
+            build::fn_ptr(fcx.cx.fn_name_map[&key].0.get_internal())
+        }
         rs::Rvalue::Repeat(op, c) => {
             let c = c.try_eval_target_usize(fcx.cx.tcx, rs::ParamEnv::empty()).unwrap();
             let c = Int::from(c);

@@ -199,16 +199,19 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`, function takes arguments");
         }
 
-        // This is taken from Miri. It also does not allow for a return value in the root function of a thread.
-        if func.ret.is_some() {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something");
+        // This is taken from Miri. It discards the return value of the function.
+        // We enforce this by only allowing functions that return () and !.
+        if let Some((name, _)) = func.ret {
+            if !is_unit(func.locals[name].ty) {
+                throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something");
+            }
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `Intrinsic::Spawn`")
         }
 
-        let thread_id = self.thread_manager.spawn(func)?;
+        let thread_id = self.thread_manager.spawn(&mut self.mem, func)?;
 
         ret(Value::Int(thread_id))
     }

@@ -79,6 +79,9 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let elem = GcCow::new(translate_ty(*ty, tcx));
             Type::Array { elem, count }
         }
+        rs::TyKind::FnPtr(_) => {
+            Type::Ptr(PtrType::FnPtr)
+        }
         x => {
             dbg!(x);
             todo!()

@@ -82,7 +82,7 @@ fn spawn_func_takes_args() {
 
 
 fn returns() -> Function {
-    let locals = [<()>::get_ptype()];
+    let locals = [<u32>::get_ptype()];
     let b0 = block!(exit());
     function(Ret::Yes, 0, &locals, &[b0])
 }

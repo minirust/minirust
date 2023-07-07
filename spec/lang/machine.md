@@ -213,7 +213,7 @@ Next, we define how to create a thread.
 
 ```rust
 impl<M: Memory> Thread<M> {
-    fn new(func: Function) -> Self {
+    fn new(func: Function, locals: Map<LocalName, Place<M>>) -> Self {
         // Setup the initial stack frame.
         // For the main thread, well-formedness ensures that the func has
         // no return value and no arguments.
@@ -221,7 +221,7 @@ impl<M: Memory> Thread<M> {
         // that the func has no arguments.
         let init_frame = StackFrame {
             func,
-            locals: Map::new(),
+            locals,
             caller_return_info: None,
             next_block: func.start,
             next_stmt: Int::ZERO,
@@ -231,6 +231,10 @@ impl<M: Memory> Thread<M> {
             state: ThreadState::Enabled,
             stack: list![init_frame],
         }
+    }
+
+    fn main(func: Function) -> Self {
+        Self::new(func, Map::new())
     }
 }
 ```
@@ -262,7 +266,7 @@ impl<M: Memory> ThreadManager<M> {
 
 impl<M: Memory> ThreadManager<M> {
     pub fn new(func: Function) -> Self {
-        let main = Thread::new(func);
+        let main = Thread::main(func);
 
         let mut threads = List::new();
         threads.push(main);
@@ -274,9 +278,18 @@ impl<M: Memory> ThreadManager<M> {
         }
     }
 
-    pub fn spawn(&mut self, func: Function) -> NdResult<ThreadId> {
+    pub fn spawn(&mut self, mem: &mut AtomicMemory<M>, func: Function) -> NdResult<ThreadId> {
         let thread_id = ThreadId::from(self.threads.len());
-        self.threads.push(Thread::new(func));
+
+        let mut locals = Map::new();
+        
+        // Create place for return local, if needed.
+        if let Some((ret_local, _abi)) = func.ret {
+            let callee_ret_layout = func.locals[ret_local].layout::<M>();
+            locals.insert(ret_local, mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+        }
+
+        self.threads.push(Thread::new(func, locals));
         ret(thread_id)
     }
 
