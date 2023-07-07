@@ -20,6 +20,10 @@ For statements it also advances the program counter.
 impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     pub fn step(&mut self) -> NdResult {
+        if !self.thread_manager.threads.any( |thread| thread.state == ThreadState::Enabled ) {
+            throw_deadlock!();
+        }
+
         let distr = libspecr::IntDistribution {
             start: Int::ZERO,
             end: Int::from(self.thread_manager.threads.len()),
