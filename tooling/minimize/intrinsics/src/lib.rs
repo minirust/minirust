@@ -2,12 +2,14 @@
 //! The bodies of these functions are mostly used through `tests/rust.sh`.
 
 #![feature(allocator_api)]
+#![feature(atomic_from_ptr)]
 
 use std::fmt::Display;
 use std::alloc::{System, Layout, Allocator};
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::{JoinHandle, self};
 
 pub fn print(t: impl Display) {
@@ -113,7 +115,7 @@ pub fn release(lock_id: usize) {
     if *lock == LockState::Unlocked {        
         panic!("Releasing non locked lock.");
     }
-    *lock = LockState::Locked;
+    *lock = LockState::Unlocked;
     drop(locks);
 
     let thread_handles = THREAD_HANDLES.lock().unwrap();
@@ -121,5 +123,23 @@ pub fn release(lock_id: usize) {
         if let Some(handle) = handle {
             handle.thread().unpark();
         }
+    }
+}
+
+pub unsafe fn atomic_read(ptr: *mut usize) -> usize {
+    let atomic = AtomicUsize::from_ptr(ptr);
+    atomic.load(Ordering::SeqCst)
+}
+
+pub unsafe fn atomic_write(ptr: *mut usize, val: usize) {
+    let atomic = AtomicUsize::from_ptr(ptr);
+    atomic.store(val, Ordering::SeqCst)
+}
+
+pub unsafe fn compare_exchange(ptr: *mut usize, before: usize, next: usize) -> usize {
+    let atomic = AtomicUsize::from_ptr(ptr);
+    match atomic.compare_exchange(before, next, Ordering::SeqCst, Ordering::SeqCst) {
+        Ok(val) => val,
+        Err(val) => val,
     }
 }

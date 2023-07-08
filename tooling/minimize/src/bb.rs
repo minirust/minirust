@@ -106,6 +106,9 @@ fn translate_call<'cx, 'tcx>(
             "create_lock" => Intrinsic::Lock(LockIntrinsic::Create),
             "acquire" => Intrinsic::Lock(LockIntrinsic::Acquire),
             "release" => Intrinsic::Lock(LockIntrinsic::Release),
+            "atomic_read" => Intrinsic::AtomicRead,
+            "atomic_write" => Intrinsic::AtomicWrite,
+            "compare_exchange" => Intrinsic::CompareExchange,
             name => panic!("unsupported intrinsic `{}`", name),
         };
         Terminator::CallIntrinsic {
