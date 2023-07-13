@@ -526,7 +526,6 @@ impl<M: Memory> Machine<M> {
             func,
             locals,
             caller_return_info: Some(CallerReturnInfo {
-                next_block,
                 ret_place,
             }),
             next_block: Some(func.start),

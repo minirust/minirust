@@ -57,9 +57,6 @@ struct StackFrame<M: Memory> {
 }
 
 struct CallerReturnInfo<M: Memory> {
-    /// The basic block to jump to when the callee returns.
-    /// If `None`, UB will be raised when the callee returns.
-    next_block: Option<BbName>,
     /// The place where the caller wants to see the return value,
     /// and the type it should be stored at.
     /// If `None`, the return value will be discarded.
