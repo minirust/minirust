@@ -64,7 +64,7 @@ fn return_no_next() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f, other_f]);
     dump_program(p);
-    assert_ub(p, "return from a function where caller did not specify next block");
+    assert_ub(p, "return from a call where caller did not specify next block");
 }
 
 
@@ -85,6 +85,6 @@ fn return_intrinsic_no_next() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "return from an intrinsic where caller did not specify next block");
+    assert_ub(p, "return from a call where caller did not specify next block");
 }
 

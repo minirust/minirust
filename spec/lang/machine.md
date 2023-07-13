@@ -48,7 +48,8 @@ struct StackFrame<M: Memory> {
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
-    next_block: BbName,
+    /// next_block is None after calling a function without giving a basic block to return to. UB is raised after the function returns.
+    next_block: Option<BbName>,
 
     /// If `next_stmt` is equal to the number of statements in this block (an
     /// out-of-bounds index in the statement list), it refers to the terminator.
@@ -203,7 +204,7 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> StackFrame<M> {
     /// jump to the beginning of the given block.
     fn jump_to_block(&mut self, b: BbName) {
-        self.next_block = b;
+        self.next_block = Some(b);
         self.next_stmt = Int::ZERO;
     }
 }
@@ -223,7 +224,7 @@ impl<M: Memory> Thread<M> {
             func,
             locals: Map::new(),
             caller_return_info: None,
-            next_block: func.start,
+            next_block: Some(func.start),
             next_stmt: Int::ZERO,
         };
 

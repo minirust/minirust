@@ -42,11 +42,20 @@ impl<M: Memory> Machine<M> {
         let prev_thread = self.thread_manager.active_thread;
         self.thread_manager.active_thread = thread_id;
 
+        // A thread terminates when its call stack is empty
+        if self.thread_manager.threads[thread_id].stack.is_empty() {
+            return self.thread_manager.terminate_active_thread();
+        }
+
         // Prepare data race detection for next step.
         let prev_accesses = self.mem.reset_accesses();
 
         let frame = self.cur_frame();
-        let block = &frame.func.blocks[frame.next_block];
+        let Some(next_block) = frame.next_block else {
+            throw_ub!("return from a call where caller did not specify next block");
+        };
+
+        let block = &frame.func.blocks[next_block];
         if frame.next_stmt == block.statements.len() {
             // It is the terminator. Evaluating it will update `frame.next_block` and `frame.next_stmt`.
             self.eval_terminator(block.terminator)?;
@@ -505,6 +514,13 @@ impl<M: Memory> Machine<M> {
             locals.insert(local, p);
         }
 
+
+        // Set which block the function will return to (if any)
+        self.mutate_cur_frame(|frame| {
+            frame.next_block = next_block;
+            frame.next_stmt = Int::ZERO;
+        });
+
         // Push new stack frame, so it is executed next.
         self.mutate_cur_stack(|stack| stack.push(StackFrame {
             func,
@@ -513,7 +529,7 @@ impl<M: Memory> Machine<M> {
                 next_block,
                 ret_place,
             }),
-            next_block: func.start,
+            next_block: Some(func.start),
             next_stmt: Int::ZERO,
         }));
 
@@ -535,26 +551,26 @@ impl<M: Memory> Machine<M> {
         );
         let func = frame.func;
 
-        let Some(caller_return_info) = frame.caller_return_info else {
-            // Only the bottom frame in a stack has no caller.
-            // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.thread_manager.active_thread().stack.len());
-
-            return self.thread_manager.terminate_active_thread();
-        };
-
-        let Some((ret_local, _)) = func.ret else {
-            throw_ub!("return from a function that does not have a return local");
-        };
-
-        // Copy return value, if any, to where the caller wants it.
-        // To make this work like an assignment in the caller, we use the caller type for this copy.
-        // FIXME: Should Call/Return also do a copy at *callee* type?
-        // On the other hand, the callee is done here, so why would it even still
-        // care about the return value?
-        if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
-            let ret_val = self.mem.typed_load(Atomicity::None, frame.locals[ret_local], ret_pty)?;
-            self.mem.typed_store(Atomicity::None, ret_place, ret_val, ret_pty)?;
+        match frame.caller_return_info {
+            None => {
+                // Only the bottom frame in a stack has no caller.
+                // The thread will terminate on the next step takes
+                assert_eq!(Int::ZERO, self.thread_manager.active_thread().stack.len());
+            }
+            Some(caller_return_info) => {
+                let Some((ret_local, _)) = func.ret else {
+                    throw_ub!("return from a function that does not have a return local");
+                };
+                // Copy return value, if any, to where the caller wants it.
+                // To make this work like an assignment in the caller, we use the caller type for this copy.
+                // FIXME: Should Call/Return also do a copy at *callee* type?
+                // On the other hand, the callee is done here, so why would it even still
+                // care about the return value?
+                if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
+                    let ret_val = self.mem.typed_load(Atomicity::None, frame.locals[ret_local], ret_pty)?;
+                    self.mem.typed_store(Atomicity::None, ret_place, ret_val, ret_pty)?;
+                }
+            }
         }
 
         // Deallocate everything.
@@ -562,14 +578,6 @@ impl<M: Memory> Machine<M> {
             // A lot like `StorageDead`.
             let layout = func.locals[local].layout::<M>();
             self.mem.deallocate(place, layout.size, layout.align)?;
-        }
-
-        if let Some(next_block) = caller_return_info.next_block {
-            self.mutate_cur_frame(|frame| {
-                frame.jump_to_block(next_block);
-            });
-        } else {
-            throw_ub!("return from a function where caller did not specify next block");
         }
 
         ret(())
@@ -603,13 +611,11 @@ impl<M: Memory> Machine<M> {
             self.mem.typed_store(Atomicity::None, ret_place, value, ret_pty)?;
         }
 
-        if let Some(next_block) = next_block {
-            self.mutate_cur_frame(|frame| {
-                frame.jump_to_block(next_block);
-            });
-        } else {
-            throw_ub!("return from an intrinsic where caller did not specify next block");
-        }
+        // Set which block the intrinsic will return to (if any)
+        self.mutate_cur_frame(|frame| {
+            frame.next_block = next_block;
+            frame.next_stmt = Int::ZERO;
+        });
 
         ret(())
     }
