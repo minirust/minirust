@@ -8,7 +8,7 @@ use crate::*;
 /// 
 /// What it wants to check is: Does the lock handover work correctly?
 /// By making the critical section large (256 times around a loop)
-/// we get a high probability that the hand over happened.
+/// we get a high probability that the handover happened.
 fn lock_handover() {
     let locals = [<()>::get_ptype(), <u32>::get_ptype()];
 
