@@ -33,7 +33,7 @@ pub struct Function {
     /// A list of locals that are initially filled with the function arguments.
     pub args: List<LocalName>,
     /// The name of a local that holds the return value when the function returns.
-    /// Can be `None` if this function will not return.
+    /// If `None`, UB will be raised when the function returns.
     pub ret: Option<LocalName>,
 
     /// Associate each basic block name with the associated block.

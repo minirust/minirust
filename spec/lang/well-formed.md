@@ -488,7 +488,7 @@ impl Relocation {
 
 impl Program {
     fn check_wf<M: Memory>(self) -> Option<()> {
-        // Ensure the start function exists, and takes no arguments.
+        // Ensure the start function exists, and takes no arguments and does not return.
         let func = self.functions.get(self.start)?;
         ensure(func.args.is_empty())?;
         ensure(func.ret.is_none())?;

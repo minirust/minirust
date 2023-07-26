@@ -299,11 +299,7 @@ impl<M: Memory> ThreadManager<M> {
 
     pub fn terminate_active_thread(&mut self) -> NdResult {
         let active = self.active_thread;
-
-        if active == 0 {
-            // The main thread terminating stops the machine.
-            throw_machine_stop!();
-        }
+        assert!(active != 0, "the main thread cannot terminate");
 
         self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
 

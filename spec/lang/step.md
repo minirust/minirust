@@ -482,8 +482,6 @@ impl<M: Memory> Machine<M> {
                 if ret_pty != callee_pty {
                     throw_ub!("call ABI violation: return types do not agree");
                 }
-            } else {
-                // Caller return place missing... FIXME: can we truly accept any callee return type here?
             }
         }
 
