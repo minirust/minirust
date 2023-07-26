@@ -110,7 +110,6 @@ fn translate_call<'cx, 'tcx>(
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
-        let (ret_abi, arg_abis) = calc_abis(*f, substs_ref, fcx.cx.tcx);
         let args: List<_> = args.iter().map(|op| translate_operand(op, fcx)).collect();
 
         if !fcx.cx.fn_name_map.contains_key(&key) {
@@ -120,8 +119,8 @@ fn translate_call<'cx, 'tcx>(
         }
         Terminator::Call {
             callee: build::fn_ptr(fcx.cx.fn_name_map[&key].0.get_internal()),
-            arguments: args.zip(arg_abis),
-            ret: Some((translate_place(&destination, fcx), ret_abi)),
+            arguments: args,
+            ret: Some(translate_place(&destination, fcx)),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     }

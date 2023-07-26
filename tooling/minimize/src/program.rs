@@ -201,17 +201,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         }
         self.blocks.insert(init_bb, init_blk);
 
-        let (ret_abi, arg_abis) = calc_abis(self.def_id, self.substs_ref, self.cx.tcx);
-
         // "The first local is the return value pointer, followed by arg_count locals for the function arguments, followed by any user-declared variables and temporaries."
         // - https://doc.rust-lang.org/stable/nightly-rustc/rustc_middle/mir/struct.Body.html
-        let ret = Some((LocalName(Name::from_internal(0)), ret_abi));
+        let ret = Some(LocalName(Name::from_internal(0)));
 
         let mut args = List::default();
-        for (i, arg_abi) in arg_abis.iter().enumerate() {
+        for i in 0..self.body.arg_count {
             let i = i + 1; // this starts counting with 1, as id 0 is the return value of the function.
             let local_name = LocalName(Name::from_internal(i as _));
-            args.push((local_name, arg_abi));
+            args.push(local_name);
         }
 
         let f = Function {
@@ -224,33 +222,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         f
     }
-}
-
-// TODO simplify this function.
-pub fn calc_abis<'tcx>(
-    def_id: rs::DefId,
-    substs_ref: rs::SubstsRef<'tcx>,
-    tcx: rs::TyCtxt<'tcx>,
-) -> (/*ret:*/ ArgAbi, /*args:*/ List<ArgAbi>) {
-    let instance = rs::Instance::resolve(tcx, rs::ParamEnv::empty(), def_id, substs_ref).unwrap().unwrap();
-    let fn_abi = tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((instance, rs::List::empty()))).unwrap();
-    let ret = translate_arg_abi(&fn_abi.ret);
-    let args = fn_abi.args.iter().map(|x| translate_arg_abi(x)).collect();
-    (ret, args)
-}
-
-// TODO extend when Minirust has a more sophisticated ArgAbi
-pub fn translate_arg_abi<'a, T>(arg_abi: &rs::ArgAbi<'a, T>) -> ArgAbi {
-    if let rs::PassMode::Direct(attrs) = arg_abi.mode {
-        // FIXME for some reason, this is never true.
-        if attrs.regular.contains(rs::ArgAttribute::InReg) {
-            return ArgAbi::Register;
-        }
-    }
-
-    let size = arg_abi.layout.size;
-    let align = arg_abi.layout.align.abi;
-    ArgAbi::Stack(translate_size(size), translate_align(align))
 }
 
 fn translate_local<'tcx>(local: &rs::LocalDecl<'tcx>, tcx: rs::TyCtxt<'tcx>) -> PlaceType {

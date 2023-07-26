@@ -29,13 +29,13 @@ fn fmt_function(
     let args: Vec<String> = f
         .args
         .iter()
-        .map(|(name, _arg_abi)| fmt_local_name(name).to_string())
+        .map(|name| fmt_local_name(name).to_string())
         .collect();
     let args = args.join(", ");
 
     // Format return local
     let ret_str = match f.ret {
-        Some((ret, _arg_abi)) => {
+        Some(ret) => {
             let l = fmt_local_name(ret).to_string();
             format!("-> {l}")
         },
@@ -188,8 +188,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             next_block,
         } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
-            let arguments = arguments.iter().map(|(expr, _arg_abi)| expr).collect();
-            let ret = ret.map(|(place_expr, _arg_abi)| place_expr);
+            let arguments = arguments.iter().map(|expr| expr).collect();
+            let ret = ret.map(|place_expr| place_expr);
             fmt_call(&callee, arguments, ret, next_block, comptypes)
         }
         Terminator::Return => {

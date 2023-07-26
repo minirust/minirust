@@ -31,12 +31,10 @@ pub struct Function {
     /// The locals of this function, and their type.
     pub locals: Map<LocalName, PlaceType>,
     /// A list of locals that are initially filled with the function arguments.
-    /// Also determines the call ABI for each argument.
-    pub args: List<(LocalName, ArgAbi)>,
+    pub args: List<LocalName>,
     /// The name of a local that holds the return value when the function returns.
     /// Can be `None` if this function will not return.
-    /// Also determines the return ABI.
-    pub ret: Option<(LocalName, ArgAbi)>,
+    pub ret: Option<LocalName>,
 
     /// Associate each basic block name with the associated block.
     pub blocks: Map<BbName, BasicBlock>,
@@ -111,11 +109,11 @@ pub enum Terminator {
     /// Call the given function with the given arguments.
     Call {
         callee: ValueExpr,
-        /// The arguments to pass, and which ABIs to use for that.
-        arguments: List<(ValueExpr, ArgAbi)>,
-        /// The place to put the return value into, and which ABI to use for that.
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
         /// If `None`, the function's return value will be discarded.
-        ret: Option<(PlaceExpr, ArgAbi)>,
+        ret: Option<PlaceExpr>,
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,

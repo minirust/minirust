@@ -448,7 +448,9 @@ impl<M: Memory> Machine<M> {
 A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
-- TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/71117).
+- TODO: Support in-place argument/return passing
+  (https://github.com/rust-lang/unsafe-code-guidelines/issues/416,
+  https://github.com/rust-lang/unsafe-code-guidelines/issues/417)
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -459,7 +461,7 @@ impl<M: Memory> Machine<M> {
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let ret_place = ret_expr.try_map(|(caller_ret_place, _abi)| {
+        let ret_place = ret_expr.try_map(|caller_ret_place| {
             self.eval_place(caller_ret_place)
         })?;
 
@@ -467,22 +469,22 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(ptr), _) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
-
         let func = self.fn_from_addr(ptr.addr)?;
 
-        // Create place for return local, if needed.
-        if let Some((ret_local, _abi)) = func.ret {
-            let callee_ret_layout = func.locals[ret_local].layout::<M>();
-            locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
-        }
+        // FIXME: caller and callee should have an ABI and we need to check that they are the same.
 
-        // Check ABI compatibility.
-        if let (Some((_, caller_ret_abi)), Some((_, callee_ret_abi))) = (ret_expr, func.ret) {
-            if caller_ret_abi != callee_ret_abi {
-                throw_ub!("call ABI violation: return ABI does not agree");
+        // Create place for return local, if needed.
+        if let Some(callee_ret_local) = func.ret {
+            let callee_pty = func.locals[callee_ret_local];
+            let callee_ret_layout = callee_pty.layout::<M>();
+            locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+            if let Some((_ret_place, ret_pty)) = ret_place {
+                if ret_pty != callee_pty {
+                    throw_ub!("call ABI violation: return types do not agree");
+                }
+            } else {
+                // Caller return place missing... FIXME: can we truly accept any callee return type here?
             }
-        } else {
-            // FIXME: Can we truly accept any caller/callee ABI if the other respective ABI is missing?
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -490,19 +492,21 @@ impl<M: Memory> Machine<M> {
         if func.args.len() != arguments.len() {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
-        for ((local, callee_abi), (arg, caller_abi)) in func.args.zip(arguments) {
-            let (val, caller_ty) = self.eval_value(arg)?;
-            let callee_layout = func.locals[local].layout::<M>();
-            if caller_abi != callee_abi {
-                throw_ub!("call ABI violation: argument ABI does not agree");
+        for (callee_local, caller_arg) in func.args.zip(arguments) {
+            let (caller_val, caller_ty) = self.eval_value(caller_arg)?;
+            let callee_pty = func.locals[callee_local];
+            if caller_ty != callee_pty.ty {
+                // FIXME: The caller also needs to set an alignment!
+                // Otherwise it cannot pass arguments on the stack.
+                throw_ub!("call ABI violation: argument types do not agree");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).
+            let callee_layout = callee_pty.layout::<M>();
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
-            // Store value with caller type (otherwise we could get panics).
-            // The ABI above should ensure that this does not go OOB,
-            // and it is a fresh pointer so there should be no other reason this can fail.
-            self.mem.typed_store(Atomicity::None, p, val, PlaceType::new(caller_ty, callee_layout.align)).unwrap();
-            locals.insert(local, p);
+            locals.insert(callee_local, p);
+            // Caller and callee type are the same, so we can store the value at `callee_pty`.
+            // This is a fresh pointer so there should be no reason this can fail.
+            self.mem.typed_store(Atomicity::None, p, caller_val, callee_pty).unwrap();
         }
 
         // Push new stack frame, so it is executed next.
@@ -543,15 +547,12 @@ impl<M: Memory> Machine<M> {
             return self.thread_manager.terminate_active_thread();
         };
 
-        let Some((ret_local, _)) = func.ret else {
+        let Some(ret_local) = func.ret else {
             throw_ub!("return from a function that does not have a return local");
         };
 
         // Copy return value, if any, to where the caller wants it.
         // To make this work like an assignment in the caller, we use the caller type for this copy.
-        // FIXME: Should Call/Return also do a copy at *callee* type?
-        // On the other hand, the callee is done here, so why would it even still
-        // care about the return value?
         if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
             let ret_val = self.mem.typed_load(Atomicity::None, frame.locals[ret_local], ret_pty)?;
             self.mem.typed_store(Atomicity::None, ret_place, ret_val, ret_pty)?;
@@ -590,19 +591,21 @@ impl<M: Memory> Machine<M> {
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
         let ret_place = ret_expr.try_map(|ret_expr| self.eval_place(ret_expr))?;
+        let ret_ty = ret_place.map(|(_, pty)| pty.ty).unwrap_or_else(|| unit_type());
 
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
-        let ret_ty = ret_place.map(|(_, pty)| pty.ty).unwrap_or_else(|| unit_type());
-
+        // Run the actual intrinsic.
         let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
 
+        // Store return value.
         if let Some((ret_place, ret_pty)) = ret_place {
             // `eval_inrinsic` above must guarantee that `value` has the right type.
             self.mem.typed_store(Atomicity::None, ret_place, value, ret_pty)?;
         }
 
+        // Jump to next block.
         if let Some(next_block) = next_block {
             self.mutate_cur_frame(|frame| {
                 frame.jump_to_block(next_block);

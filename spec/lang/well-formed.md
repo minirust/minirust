@@ -347,7 +347,7 @@ impl Statement {
                 live_locals
             }
             StorageDead(local) => {
-                if func.ret.is_some_and(|(l, _)| l == local) || func.args.any(|(arg_name, _abi)| arg_name == local) {
+                if func.ret.is_some_and(|l| l == local) || func.args.any(|arg_name| arg_name == local) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
@@ -383,11 +383,11 @@ impl Terminator {
                 ensure(matches!(ty, Type::Ptr(PtrType::FnPtr)))?;
 
                 // Argument and return expressions must all typecheck with some type.
-                for (arg, _abi) in arguments {
+                for arg in arguments {
                     arg.check_wf::<M>(live_locals, prog)?;
                 }
 
-                if let Some((ret_place, _ret_abi)) = ret {
+                if let Some(ret_place) = ret {
                     ret_place.check_wf::<M>(live_locals, prog)?;
                 }
 
@@ -428,11 +428,11 @@ impl Function {
         // Construct initially live locals.
         // Also ensures that argument and return locals must exist.
         let mut start_live: Map<LocalName, PlaceType> = Map::new();
-        for (arg, _abi) in self.args {
+        for arg in self.args {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
         }
-        if let Some((ret, _abi)) = self.ret {
+        if let Some(ret) = self.ret {
             start_live.try_insert(ret, self.locals.get(ret)?).ok()?;
         }
 

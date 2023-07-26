@@ -42,9 +42,7 @@ pub fn function(ret: Ret, num_args: usize, locals: &[PlaceType], bbs: &[BasicBlo
                 Ret::No => x,
             };
 
-            let name = LocalName(Name::from_internal(idx as _));
-
-            (name, ArgAbi::Register)
+            LocalName(Name::from_internal(idx as _))
         })
         .collect();
 
@@ -53,7 +51,7 @@ pub fn function(ret: Ret, num_args: usize, locals: &[PlaceType], bbs: &[BasicBlo
         Ret::Yes => {
             assert!(locals.len() > 0);
             let name = LocalName(Name::from_internal(0));
-            Some((name, ArgAbi::Register))
+            Some(name)
         }
         Ret::No => None,
     };

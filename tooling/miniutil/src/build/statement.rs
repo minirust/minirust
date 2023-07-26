@@ -38,8 +38,8 @@ pub fn unreachable() -> Terminator {
 pub fn call(f: u32, args: &[ValueExpr], ret: Option<PlaceExpr>, next: Option<u32>) -> Terminator {
     Terminator::Call {
         callee: fn_ptr(f),
-        arguments: args.iter().map(|x| (*x, ArgAbi::Register)).collect(),
-        ret: ret.map(|x| (x, ArgAbi::Register)),
+        arguments: args.iter().copied().collect(),
+        ret: ret,
         next_block: next.map(|x| BbName(Name::from_internal(x))),
     }
 }
