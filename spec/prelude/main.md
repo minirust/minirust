@@ -6,6 +6,7 @@ Across all files in this repository, we assume some definitions to always be in 
 /// Documentation for libspecr can be found here: https://docs.rs/libspecr
 pub use libspecr::prelude::*;
 
+/// Make the two main modules available.
 pub use crate::{lang, mem};
 
 /// All operations are fallible, so they return `Result`.  If they fail, that

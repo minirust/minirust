@@ -70,12 +70,12 @@ impl Type {
         }
         // Fails if any byte is `Uninit`.
         let bytes_data = bytes.try_map(|b| b.data())?;
-        ret(Value::Int(M::ENDIANNESS.decode(signed, bytes_data)))
+        ret(Value::Int(M::T::ENDIANNESS.decode(signed, bytes_data)))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Int(i) = val else { panic!() };
         // `Endianness::encode` will do the integer's bound check.
-        let bytes_data = M::ENDIANNESS.encode(signed, size, i).unwrap();
+        let bytes_data = M::T::ENDIANNESS.encode(signed, size, i).unwrap();
         bytes_data.map(|b| AbstractByte::Init(b, None))
     }
 }
@@ -93,10 +93,10 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
-    if bytes.len() != M::PTR_SIZE.bytes() { throw!(); }
+    if bytes.len() != M::T::PTR_SIZE.bytes() { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.try_map(|b| b.data())?;
-    let addr = M::ENDIANNESS.decode(Unsigned, bytes_data);
+    let addr = M::T::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
     let mut provenance: Option<M::Provenance> = bytes[0].provenance();
     for b in bytes {
@@ -108,7 +108,7 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Poi
 }
 
 fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
-    let bytes_data = M::ENDIANNESS.encode(Unsigned, M::PTR_SIZE, ptr.addr).unwrap();
+    let bytes_data = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, ptr.addr).unwrap();
     bytes_data.map(|b| AbstractByte::Init(b, ptr.provenance))
 }
 
@@ -148,7 +148,7 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
-                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M>().bytes());
+                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M::T>().bytes());
                 ty.decode::<M>(subslice)
             })?
         ))
@@ -175,7 +175,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M>();
+        let elem_size = elem.size::<M::T>();
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { throw!(); }
@@ -193,7 +193,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M>().bytes());
+            assert_eq!(bytes.len(), elem.size::<M::T>().bytes());
             bytes
         })
     }
@@ -404,7 +404,7 @@ impl<M: Memory> AtomicMemory<M> {
     }
 
     fn typed_load(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, pty: PlaceType) -> Result<Value<M>> {
-        let bytes = self.load(atomicity, ptr, pty.ty.size::<M>(), pty.align)?;
+        let bytes = self.load(atomicity, ptr, pty.ty.size::<M::T>(), pty.align)?;
         ret(match pty.ty.decode::<M>(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`

@@ -98,11 +98,6 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
         self.memory.retag_ptr(ptr, ptr_type, fn_entry)
     }
-
-    /// Checks that `size` is not too large for the Memory.
-    pub fn valid_size(size: Size) -> bool {
-        M::valid_size(size)
-    }
 }
 ```
 

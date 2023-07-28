@@ -58,18 +58,18 @@ type_conv_int_impl!(i128, Signed, size(16), align(8));
 
 // We use `BasicMemory` to run a Program (see the `run` module),
 // hence we have to use its PTR_SIZE for `usize` and `isize`.
-type_conv_int_impl!(usize, Unsigned, <BasicMemory>::PTR_SIZE, <BasicMemory>::PTR_ALIGN);
-type_conv_int_impl!(isize, Signed, <BasicMemory>::PTR_SIZE, <BasicMemory>::PTR_ALIGN);
+type_conv_int_impl!(usize, Unsigned, DefaultTarget::PTR_SIZE, DefaultTarget::PTR_ALIGN);
+type_conv_int_impl!(isize, Signed, DefaultTarget::PTR_SIZE, DefaultTarget::PTR_ALIGN);
 
 impl<T: TypeConv> TypeConv for *const T {
     fn get_type() -> Type {
         raw_ptr_ty()
     }
     fn get_size() -> Size {
-        <BasicMemory>::PTR_SIZE
+        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
-        <BasicMemory>::PTR_ALIGN
+        DefaultTarget::PTR_ALIGN
     }
 }
 
@@ -78,10 +78,10 @@ impl<T: TypeConv> TypeConv for *mut T {
         raw_ptr_ty()
     }
     fn get_size() -> Size {
-        <BasicMemory>::PTR_SIZE
+        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
-        <BasicMemory>::PTR_ALIGN
+        DefaultTarget::PTR_ALIGN
     }
 }
 
@@ -90,10 +90,10 @@ impl<T: TypeConv> TypeConv for &T {
         ref_ty(T::get_layout())
     }
     fn get_size() -> Size {
-        <BasicMemory>::PTR_SIZE
+        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
-        <BasicMemory>::PTR_ALIGN
+        DefaultTarget::PTR_ALIGN
     }
 }
 
@@ -102,10 +102,10 @@ impl<T: TypeConv> TypeConv for &mut T {
         ref_mut_ty(T::get_layout())
     }
     fn get_size() -> Size {
-        <BasicMemory>::PTR_SIZE
+        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
-        <BasicMemory>::PTR_ALIGN
+        DefaultTarget::PTR_ALIGN
     }
 }
 

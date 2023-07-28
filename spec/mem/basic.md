@@ -15,7 +15,7 @@ The provenance tracked by this memory model is just an ID that identifies which 
 ```rust
 pub struct AllocId(Int);
 
-impl Memory for BasicMemory {
+impl<T: Target> Memory for BasicMemory<T> {
     type Provenance = AllocId;
 }
 ```
@@ -40,27 +40,18 @@ struct Allocation {
 Memory then consists of a map tracking the allocation for each ID, stored as a list (since we assign IDs consecutively).
 
 ```rust
-pub struct BasicMemory {
+pub struct BasicMemory<T: Target> {
     allocations: List<Allocation>,
+
+    // FIXME: specr should add this automatically
+    _phantom: std::marker::PhantomData<T>,
 }
-```
 
-The model represents a 64-bit little-endian machine.
+impl<T: Target> Memory for BasicMemory<T> {
+    type T = T;
 
-```rust
-impl Memory for BasicMemory {
-    const PTR_SIZE: Size = Size::from_bits_const(64).unwrap();
-    const PTR_ALIGN: Align = Align::from_bits_const(64).unwrap();
-    const ENDIANNESS: Endianness = LittleEndian;
-
-    const MAX_ATOMIC_SIZE: Size = Size::from_bits_const(64).unwrap();
-}
-```
-
-```rust
-impl Memory for BasicMemory {
     fn new() -> Self {
-        Self { allocations: List::new() }
+        Self { allocations: List::new(), _phantom: std::marker::PhantomData }
     }
 }
 ```
@@ -92,10 +83,10 @@ impl Allocation {
 Then we implement creating and removing allocations.
 
 ```rust
-impl Memory for BasicMemory {
+impl<T: Target> Memory for BasicMemory<T> {
     fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
-        if !Self::valid_size(size) {
+        if !T::valid_size(size) {
             throw_ub!("asking for a too large allocation");
         }
         // Pick a base address. We use daemonic non-deterministic choice,
@@ -104,7 +95,7 @@ impl Memory for BasicMemory {
         // which is not what we want.
         let distr = libspecr::IntDistribution {
             start: Int::ONE,
-            end: Int::from(2).pow(Self::PTR_SIZE.bits()),
+            end: Int::from(2).pow(Self::T::PTR_SIZE.bits()),
             divisor: align.bytes(),
         };
         let addr = pick(distr, |addr: Address| {
@@ -113,7 +104,7 @@ impl Memory for BasicMemory {
             // ... that is suitably aligned...
             if addr % align.bytes() != 0 { return false; }
             // ... such that addr+size is in-bounds of a `usize`...
-            if !(addr+size.bytes()).in_bounds(Unsigned, Self::PTR_SIZE) { return false; }
+            if !(addr+size.bytes()).in_bounds(Unsigned, Self::T::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
             if self.allocations.any(|a| a.live && a.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
@@ -171,7 +162,7 @@ The key operations of a memory model are of course handling loads and stores.
 The helper function `check_ptr` we define for them is also used to implement the final part of the memory API, `dereferenceable`.
 
 ```rust
-impl BasicMemory {
+impl<T: Target> BasicMemory<T> {
     /// Check if the given pointer is dereferenceable for an access of the given
     /// length and alignment. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
@@ -213,7 +204,7 @@ impl BasicMemory {
     }
 }
 
-impl Memory for BasicMemory {
+impl<T: Target> Memory for BasicMemory<T> {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
             return ret(list![]);
@@ -249,7 +240,7 @@ impl Memory for BasicMemory {
 We don't have aliasing requirements in this model, so we only check dereferencability for retagging.
 
 ```rust
-impl Memory for BasicMemory {
+impl<T: Target> Memory for BasicMemory<T> {
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         let layout = match ptr_type {
             PtrType::Ref { pointee, .. } => pointee,
@@ -260,16 +251,6 @@ impl Memory for BasicMemory {
         self.check_ptr(ptr, layout.size, layout.align)?;
 
         ret(ptr)
-    }
-}
-```
-
-A size is valid, whenever it is non-negative and in-bounds for signed `PTR_SIZE`.
-
-```rust
-impl Memory for BasicMemory {
-    fn valid_size(size: Size) -> bool {
-        size.bytes().in_bounds(Signed, Self::PTR_SIZE)
     }
 }
 ```

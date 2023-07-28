@@ -256,11 +256,11 @@ impl<M: Memory> Machine<M> {
         };
         let (val, ty) = arguments[1];
 
-        let size = ty.size::<M>();
+        let size = ty.size::<M::T>();
         if !size.bytes().is_power_of_two() {
             throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size not power of two");
         }
-        if size > M::MAX_ATOMIC_SIZE {
+        if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size too big");
         }
 
@@ -286,11 +286,11 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::AtomicRead`");
         };
 
-        let size = ret_ty.size::<M>();
+        let size = ret_ty.size::<M::T>();
         if !size.bytes().is_power_of_two() {
             throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size not power of two");
         }
-        if size > M::MAX_ATOMIC_SIZE {
+        if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicRead`, size too big");
         }
 
@@ -325,10 +325,10 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid third argument to `Intrinsic::CompareExchange`, not same type");
         }
 
-        let size = ret_ty.size::<M>();
+        let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
         assert!(size.bytes().is_power_of_two());
-        if size > M::MAX_ATOMIC_SIZE {
+        if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::CompareExchange`, size to big");
         }
         

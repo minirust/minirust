@@ -35,6 +35,7 @@ pub use std::string::String;
 pub use miniutil::build;
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
+pub use miniutil::DefaultTarget;
 
 mod program;
 use program::*;

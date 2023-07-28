@@ -21,3 +21,5 @@ pub mod build;
 pub mod fmt;
 pub mod run;
 pub mod mock_write;
+
+pub type DefaultTarget = x86_64;

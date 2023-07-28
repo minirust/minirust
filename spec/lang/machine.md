@@ -111,7 +111,7 @@ Next, we define how to create a machine.
 ```rust
 impl<M: Memory> Machine<M> {
     pub fn new(prog: Program, stdout: DynWrite, stderr: DynWrite) -> NdResult<Machine<M>> {
-        if prog.check_wf::<M>().is_none() {
+        if prog.check_wf::<M::T>().is_none() {
             throw_ill_formed!();
         }
 

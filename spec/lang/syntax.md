@@ -2,163 +2,6 @@
 
 This defines the abstract syntax of MiniRust programs.
 
-## Programs and functions
-
-First, the general structure of programs and functions:
-
-```rust
-/// Opaque types of names for functions and globals.
-/// The internal representations of these types do not matter.
-pub struct FnName(pub libspecr::Name);
-pub struct GlobalName(pub libspecr::Name);
-
-/// A closed MiniRust program.
-pub struct Program {
-    /// Associate a function with each declared function name.
-    pub functions: Map<FnName, Function>,
-    /// The function where execution starts.
-    pub start: FnName,
-    /// Associate each global name with the associated global.
-    pub globals: Map<GlobalName, Global>,
-}
-
-/// Opaque types of names for local variables and basic blocks.
-pub struct LocalName(pub libspecr::Name);
-pub struct BbName(pub libspecr::Name);
-
-/// A MiniRust function.
-pub struct Function {
-    /// The locals of this function, and their type.
-    pub locals: Map<LocalName, PlaceType>,
-    /// A list of locals that are initially filled with the function arguments.
-    pub args: List<LocalName>,
-    /// The name of a local that holds the return value when the function returns.
-    /// If `None`, UB will be raised when the function returns.
-    pub ret: Option<LocalName>,
-
-    /// Associate each basic block name with the associated block.
-    pub blocks: Map<BbName, BasicBlock>,
-    /// The basic block where execution starts.
-    pub start: BbName,
-}
-
-/// A basic block is a sequence of statements followed by a terminator.
-pub struct BasicBlock {
-    pub statements: List<Statement>,
-    pub terminator: Terminator,
-}
-
-/// A global allocation.
-pub struct Global {
-    /// The raw bytes of the allocation. `None` represents uninitialized bytes.
-    pub bytes: List<Option<u8>>,
-    /// Cross-references pointing to other global allocations,
-    /// together with an offset, expressing where this allocation should put the pointer.
-    /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
-    pub relocations: List<(Size, Relocation)>,
-    /// The align with which this global shall be allocated.
-    pub align: Align,
-}
-
-/// A pointer into a global allocation.
-pub struct Relocation {
-    /// The name of the global allocation we are pointing into.
-    pub name: GlobalName,
-    /// The offset within that allocation.
-    pub offset: Size,
-}
-```
-
-## Statements, terminators
-
-Next, the statements and terminators that MiniRust programs consist of:
-
-```rust
-pub enum Statement {
-    /// Copy value from `source` to `destination`.
-    Assign {
-        destination: PlaceExpr,
-        source: ValueExpr,
-    },
-    /// 'Expose' a pointer so that it can later be cast to an integer.
-    Expose {
-        value: ValueExpr,
-    },
-    /// Ensure that `place` contains a valid value of its type (else UB).
-    /// Also perform retagging.
-    Finalize {
-        place: PlaceExpr,
-        /// Indicates whether this operation occurs as part of the prelude
-        /// that we have at the top of each function (which affects retagging).
-        fn_entry: bool,
-    },
-    /// Allocate the backing store for this local.
-    StorageLive(LocalName),
-    /// Deallocate the backing store for this local.
-    StorageDead(LocalName),
-}
-
-pub enum Terminator {
-    /// Just jump to the next block.
-    Goto(BbName),
-    /// `condition` must evaluate to a `Value::Bool`.
-    /// If it is `true`, jump to `then_block`; else jump to `else_block`.
-    If {
-        condition: ValueExpr,
-        then_block: BbName,
-        else_block: BbName,
-    },
-    /// If this is ever executed, we have UB.
-    Unreachable,
-    /// Call the given function with the given arguments.
-    Call {
-        callee: ValueExpr,
-        /// The arguments to pass.
-        arguments: List<ValueExpr>,
-        /// The place to put the return value into.
-        /// If `None`, the function's return value will be discarded.
-        ret: Option<PlaceExpr>,
-        /// The block to jump to when this call returns.
-        /// If `None`, UB will be raised when the function returns.
-        next_block: Option<BbName>,
-    },
-    /// Call the given intrinsic with the given arguments.
-    CallIntrinsic {
-        intrinsic: Intrinsic,
-        /// The arguments to pass.
-        arguments: List<ValueExpr>,
-        /// The place to put the return value into.
-        /// If `None`, the intrinsic's return value will be discarded. In this case the intrinsic return type must be `()`.
-        ret: Option<PlaceExpr>,
-        /// The block to jump to when this call returns.
-        /// If `None`, UB will be raised when the intrinsic returns.
-        next_block: Option<BbName>,
-    },
-    /// Return from the current function.
-    Return,
-}
-
-pub enum LockIntrinsic {
-    Acquire,
-    Release,
-    Create,
-}
-
-pub enum Intrinsic {
-    Exit,
-    PrintStdout,
-    PrintStderr,
-    Allocate,
-    Deallocate,
-    Spawn,
-    Join,
-    AtomicWrite,
-    AtomicRead,
-    CompareExchange,
-    Lock(LockIntrinsic),
-}
-```
-
 ## Expressions
 
 MiniRust has two kinds of expressions:
@@ -330,5 +173,162 @@ pub enum PlaceExpr {
         #[specr::indirection]
         index: ValueExpr,
     },
+}
+```
+
+## Statements, terminators
+
+Next, the statements and terminators that MiniRust programs consist of:
+
+```rust
+pub enum Statement {
+    /// Copy value from `source` to `destination`.
+    Assign {
+        destination: PlaceExpr,
+        source: ValueExpr,
+    },
+    /// 'Expose' a pointer so that it can later be cast to an integer.
+    Expose {
+        value: ValueExpr,
+    },
+    /// Ensure that `place` contains a valid value of its type (else UB).
+    /// Also perform retagging.
+    Finalize {
+        place: PlaceExpr,
+        /// Indicates whether this operation occurs as part of the prelude
+        /// that we have at the top of each function (which affects retagging).
+        fn_entry: bool,
+    },
+    /// Allocate the backing store for this local.
+    StorageLive(LocalName),
+    /// Deallocate the backing store for this local.
+    StorageDead(LocalName),
+}
+
+pub enum Terminator {
+    /// Just jump to the next block.
+    Goto(BbName),
+    /// `condition` must evaluate to a `Value::Bool`.
+    /// If it is `true`, jump to `then_block`; else jump to `else_block`.
+    If {
+        condition: ValueExpr,
+        then_block: BbName,
+        else_block: BbName,
+    },
+    /// If this is ever executed, we have UB.
+    Unreachable,
+    /// Call the given function with the given arguments.
+    Call {
+        callee: ValueExpr,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
+        /// If `None`, the function's return value will be discarded.
+        ret: Option<PlaceExpr>,
+        /// The block to jump to when this call returns.
+        /// If `None`, UB will be raised when the function returns.
+        next_block: Option<BbName>,
+    },
+    /// Call the given intrinsic with the given arguments.
+    CallIntrinsic {
+        intrinsic: Intrinsic,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
+        /// If `None`, the intrinsic's return value will be discarded. In this case the intrinsic return type must be `()`.
+        ret: Option<PlaceExpr>,
+        /// The block to jump to when this call returns.
+        /// If `None`, UB will be raised when the intrinsic returns.
+        next_block: Option<BbName>,
+    },
+    /// Return from the current function.
+    Return,
+}
+
+pub enum LockIntrinsic {
+    Acquire,
+    Release,
+    Create,
+}
+
+pub enum Intrinsic {
+    Exit,
+    PrintStdout,
+    PrintStderr,
+    Allocate,
+    Deallocate,
+    Spawn,
+    Join,
+    AtomicWrite,
+    AtomicRead,
+    CompareExchange,
+    Lock(LockIntrinsic),
+}
+```
+
+## Programs and functions
+
+Finally, the general structure of programs and functions:
+
+```rust
+/// Opaque types of names for functions and globals.
+/// The internal representations of these types do not matter.
+pub struct FnName(pub libspecr::Name);
+pub struct GlobalName(pub libspecr::Name);
+
+/// A closed MiniRust program.
+pub struct Program {
+    /// Associate a function with each declared function name.
+    pub functions: Map<FnName, Function>,
+    /// The function where execution starts.
+    pub start: FnName,
+    /// Associate each global name with the associated global.
+    pub globals: Map<GlobalName, Global>,
+}
+
+/// Opaque types of names for local variables and basic blocks.
+pub struct LocalName(pub libspecr::Name);
+pub struct BbName(pub libspecr::Name);
+
+/// A MiniRust function.
+pub struct Function {
+    /// The locals of this function, and their type.
+    pub locals: Map<LocalName, PlaceType>,
+    /// A list of locals that are initially filled with the function arguments.
+    pub args: List<LocalName>,
+    /// The name of a local that holds the return value when the function returns.
+    /// If `None`, UB will be raised when the function returns.
+    pub ret: Option<LocalName>,
+
+    /// Associate each basic block name with the associated block.
+    pub blocks: Map<BbName, BasicBlock>,
+    /// The basic block where execution starts.
+    pub start: BbName,
+}
+
+/// A basic block is a sequence of statements followed by a terminator.
+pub struct BasicBlock {
+    pub statements: List<Statement>,
+    pub terminator: Terminator,
+}
+
+/// A global allocation.
+pub struct Global {
+    /// The raw bytes of the allocation. `None` represents uninitialized bytes.
+    pub bytes: List<Option<u8>>,
+    /// Cross-references pointing to other global allocations,
+    /// together with an offset, expressing where this allocation should put the pointer.
+    /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
+    pub relocations: List<(Size, Relocation)>,
+    /// The align with which this global shall be allocated.
+    pub align: Align,
+}
+
+/// A pointer into a global allocation.
+pub struct Relocation {
+    /// The name of the global allocation we are pointing into.
+    pub name: GlobalName,
+    /// The offset within that allocation.
+    pub offset: Size,
 }
 ```
