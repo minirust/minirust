@@ -7,6 +7,10 @@ pub fn assign(destination: PlaceExpr, source: ValueExpr) -> Statement {
     }
 }
 
+pub fn expose(value: ValueExpr) -> Statement {
+    Statement::Expose { value }
+}
+
 pub fn finalize(place: PlaceExpr, fn_entry: bool) -> Statement {
     Statement::Finalize { place, fn_entry }
 }

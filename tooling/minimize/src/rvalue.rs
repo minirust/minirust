@@ -1,10 +1,11 @@
 use crate::*;
 
+/// Translate an rvalue -- could generate a bunch of helper statements.
 pub fn translate_rvalue<'cx, 'tcx>(
     rv: &rs::Rvalue<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
-) -> Option<ValueExpr> {
-    Some(match rv {
+) -> Option<(Vec<Statement>, ValueExpr)> {
+    Some((vec![], match rv {
         rs::Rvalue::Use(operand) => translate_operand(operand, fcx),
         rs::Rvalue::CheckedBinaryOp(bin_op, box (l, r))
         | rs::Rvalue::BinaryOp(bin_op, box (l, r)) => {
@@ -122,7 +123,6 @@ pub fn translate_rvalue<'cx, 'tcx>(
             }
         }
         rs::Rvalue::CopyForDeref(place) => ValueExpr::Load {
-            destructive: false,
             source: GcCow::new(translate_place(place, fcx)),
         },
         rs::Rvalue::Len(place) => {
@@ -145,11 +145,16 @@ pub fn translate_rvalue<'cx, 'tcx>(
         }
         rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
             let operand = translate_operand(operand, fcx);
-
-            ValueExpr::UnOp {
-                operator: UnOp::Ptr2Int,
+            let expose = Statement::Expose { value: operand };
+            let addr = ValueExpr::UnOp {
+                operator: UnOp::PtrAddr,
                 operand: GcCow::new(operand),
-            }
+            };
+
+            return Some((
+                vec![expose],
+                addr
+            ));  
         }
         rs::Rvalue::Cast(rs::CastKind::PointerFromExposedAddress, operand, ty) => {
             // TODO untested so far! (Can't test because of `predict`)
@@ -157,7 +162,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let Type::Ptr(ptr_ty) = translate_ty(*ty, fcx.cx.tcx) else { panic!() };
 
             ValueExpr::UnOp {
-                operator: UnOp::Int2Ptr(ptr_ty),
+                operator: UnOp::PtrFromExposed(ptr_ty),
                 operand: GcCow::new(operand),
             }
         }
@@ -166,7 +171,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let Type::Ptr(ptr_ty) = translate_ty(*ty, fcx.cx.tcx) else { panic!() };
 
             ValueExpr::UnOp {
-                operator: UnOp::Ptr2Ptr(ptr_ty),
+                operator: UnOp::PtrCast(ptr_ty),
                 operand: GcCow::new(operand),
             }
         }
@@ -189,7 +194,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             dbg!(x);
             todo!()
         }
-    })
+    }))
 }
 
 pub fn translate_operand<'cx, 'tcx>(
@@ -199,11 +204,9 @@ pub fn translate_operand<'cx, 'tcx>(
     match operand {
         rs::Operand::Constant(box c) => translate_const(c, fcx),
         rs::Operand::Copy(place) => ValueExpr::Load {
-            destructive: false,
             source: GcCow::new(translate_place(place, fcx)),
         },
         rs::Operand::Move(place) => ValueExpr::Load {
-            destructive: true,
             source: GcCow::new(translate_place(place, fcx)),
         },
     }
@@ -227,7 +230,6 @@ pub fn translate_place<'cx, 'tcx>(
             rs::ProjectionElem::Deref => {
                 let x = GcCow::new(expr);
                 let x = ValueExpr::Load {
-                    destructive: false,
                     source: x,
                 };
                 let x = GcCow::new(x);
@@ -247,7 +249,6 @@ pub fn translate_place<'cx, 'tcx>(
                 let i = PlaceExpr::Local(fcx.local_name_map[&loc]);
                 let i = GcCow::new(i);
                 let i = ValueExpr::Load {
-                    destructive: false,
                     source: i,
                 };
                 let i = GcCow::new(i);

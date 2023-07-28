@@ -77,6 +77,8 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+One key property of value (and place) expression evaluation is that it is reorderable and removable.
+
 ### Constants
 
 ```rust
@@ -141,13 +143,9 @@ This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::Load { destructive, source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
+    fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         let (p, ptype) = self.eval_place(source)?;
         let v = self.mem.typed_load(Atomicity::None, p, ptype)?;
-        if destructive {
-            // Overwrite the source with `Uninit`.
-            self.mem.store(Atomicity::None, p, list![AbstractByte::Uninit; ptype.ty.size::<M>().bytes()], ptype.align)?;
-        }
 
         ret((v, ptype.ty))
     }
@@ -214,8 +212,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-TODO: In almost all cases, callers also need to compute the type of this place, so maybe it should be returned from `eval_place`?
-It is a bit annoying to keep in sync with `check_wf`, but for Coq it would be much better to avoid recursing over the `PlaceExpr` twice.
+One key property of place (and value) expression evaluation is that it is reorderable and removable.
 
 ### Locals
 
@@ -327,13 +324,8 @@ impl<M: Memory> Machine<M> {
 
 Assignment evaluates its two operands, and then stores the value into the destination.
 
-- TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364).
-- TODO: This does left-to-right evaluation. Surface Rust uses right-to-left, so we match MIR here, not Rust.
-  Is that a good idea? Maybe we should impose some syntactic restrictions to ensure that the evaluation order does not matter, such as:
-  - If there is a destructive load in either expression, then there must be no other load.
-  - If there is a ptr2int cast, then there must be no int2ptr cast.
-
-    Or maybe we should change the grammar to make these cases impossible (like, make ptr2int casts proper statements). Also we have to assume that reads in the memory model can be reordered.
+- TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364)
+  and [this one](https://github.com/rust-lang/unsafe-code-guidelines/issues/417).
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -341,6 +333,22 @@ impl<M: Memory> Machine<M> {
         let (place, ptype) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
         self.mem.typed_store(Atomicity::None, place, val, ptype)?;
+
+        ret(())
+    }
+}
+```
+
+### Exposing a pointer
+
+See [this blog post](https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html) for why this is needed.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_statement(&mut self, Statement::Expose { value }: Statement) -> NdResult {
+        let (v, _type) = self.eval_value(value)?;
+        let Value::Ptr(ptr) = v else { panic!("non-pointer value in `Expose`") };
+        self.intptrcast.expose(ptr);
 
         ret(())
     }
@@ -551,6 +559,8 @@ impl<M: Memory> Machine<M> {
 
             return self.thread_manager.terminate_active_thread();
         };
+        // If there is caller_return_info, there must be a caller.
+        assert!(self.thread_manager.active_thread().stack.len() > 0);
 
         let Some(ret_local) = func.ret else {
             throw_ub!("return from a function that does not have a return local");

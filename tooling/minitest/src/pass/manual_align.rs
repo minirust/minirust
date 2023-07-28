@@ -12,7 +12,7 @@ fn manual_align() {
         storage_live(1),
         assign( // _1 = (&raw _0) as usize;
             local(1),
-            ptr_to_int(
+            ptr_addr(
                 addr_of(local(0), <*const u8>::get_type()),
             ),
         ),

@@ -207,7 +207,7 @@ impl ValueExpr {
 
                 union_ty
             }
-            Load { source, destructive: _ } => {
+            Load { source } => {
                 let ptype = source.check_wf::<M>(locals, prog)?;
                 ptype.ty
             }
@@ -229,15 +229,15 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
-                    Ptr2Ptr(ptr_ty) => {
+                    PtrCast(ptr_ty) => {
                         ensure(matches!(operand, Type::Ptr(_)))?;
                         Type::Ptr(ptr_ty)
                     }
-                    Ptr2Int => {
+                    PtrAddr => {
                         ensure(matches!(operand, Type::Ptr(_)))?;
                         Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE })
                     }
-                    Int2Ptr(ptr_ty) => {
+                    PtrFromExposed(ptr_ty) => {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)
                     }
@@ -339,6 +339,11 @@ impl Statement {
                 let left = destination.check_wf::<M>(live_locals, prog)?;
                 let right = source.check_wf::<M>(live_locals, prog)?;
                 ensure(left.ty == right)?;
+                live_locals
+            }
+            Expose { value } => {
+                let v = value.check_wf::<M>(live_locals, prog)?;
+                ensure(matches!(v, Type::Ptr(_)));
                 live_locals
             }
             Finalize { place, fn_entry: _ } => {

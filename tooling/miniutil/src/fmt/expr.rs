@@ -100,16 +100,11 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             FmtExpr::NonAtomic(format!("{union_ty} {{ field{field}: {expr} }}"))
         }
         ValueExpr::Load {
-            destructive,
             source,
         } => {
             let source = source.extract();
             let source = fmt_place_expr(source, comptypes).to_string();
-            let load_name = match destructive {
-                true => "move",
-                false => "load",
-            };
-            FmtExpr::Atomic(format!("{load_name}({source})"))
+            FmtExpr::Atomic(format!("load({source})"))
         }
         ValueExpr::AddrOf {
             target,
@@ -148,16 +143,16 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
                 }
-                UnOp::Ptr2Ptr(ptr_ty) => {
+                UnOp::PtrCast(ptr_ty) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
                     FmtExpr::Atomic(format!("ptr2ptr<{ptr_ty}>({operand})"))
                 }
-                UnOp::Ptr2Int => {
-                    FmtExpr::Atomic(format!("ptr2int({operand})"))
+                UnOp::PtrAddr => {
+                    FmtExpr::Atomic(format!("addr({operand})"))
                 }
-                UnOp::Int2Ptr(ptr_ty) => {
+                UnOp::PtrFromExposed(ptr_ty) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
-                    FmtExpr::Atomic(format!("int2ptr<{ptr_ty}>({operand})"))
+                    FmtExpr::Atomic(format!("from_exposed<{ptr_ty}>({operand})"))
                 }
             }
         }

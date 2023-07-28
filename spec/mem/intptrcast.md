@@ -20,12 +20,11 @@ impl<Provenance> IntPtrCast<Provenance> {
         Self { exposed: Set::new() }
     }
 
-    pub fn ptr2int(&mut self, ptr: Pointer<Provenance>) -> Result<Int> {
+    pub fn expose(&mut self, ptr: Pointer<Provenance>) {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.
             self.exposed.insert(provenance);
         }
-        ret(ptr.addr)
     }
 
     pub fn int2ptr(&mut self, addr: Int) -> NdResult<Pointer<Provenance>> {
