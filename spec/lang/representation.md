@@ -468,7 +468,22 @@ For many types this is likely what we will do anyway (e.g., for `bool` and `!` a
 The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
 This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything juts falls out of how a "typed copy" applies the value representation twice.
 
-Justifying the `dereferenceable` LLVM attribute is, in this case, left to the aliasing model (e.g. [Stacked Borrows]), just like the `noalias` attribute.
+## Validity of pointers
+
+For pointers, we often want properties that go a bit beyond what can be encoded in the representation relation.
+For instance, we want to ensure references and boxes are dereferenceable.
+This does not apply at each and every typed copy (so maybe it shouldn't be called "valid"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things hould be true.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
+        if let PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } = ptr_ty {
+            self.mem.layout_dereferenceable(ptr, pointee)?;
+        }
+        ret(())
+    }
+}
+```
 
 ## Transmutation
 

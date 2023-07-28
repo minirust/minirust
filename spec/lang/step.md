@@ -161,7 +161,13 @@ The `&` operators simply converts a place to the pointer it denotes.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> NdResult<(Value<M>, Type)> {
-        let (p, _) = self.eval_place(target)?;
+        let (p, _pty_) = self.eval_place(target)?;
+        // We check things *at the pointer's type*, not the place's type.
+        // FIXME: Should we check the stricter of the two instead?
+        // FIXME: test that this is UB when the pointer requires more alignment than the place,
+        // and *not* UB the other way around.
+        self.check_pointer_dereferenceable(p, ptr_ty)?;
+
         ret((Value::Ptr(p), Type::Ptr(ptr_ty)))
     }
 }
@@ -242,10 +248,11 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(p), Type::Ptr(ptr_type)) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
-        if matches!(ptr_type, PtrType::Ref { .. } | PtrType::Box { .. }) {
-            // FIXME: need a test for this UB.
-            self.mem.layout_dereferenceable(p, ptype.layout::<M>())?;
-        }
+        // We check things *at the pointer's type*, not the place's type.
+        // FIXME: Should we check the stricter of the two instead?
+        // FIXME: test that this is UB when the pointer requires more alignment than the place,
+        // and *not* UB the other way around.
+        self.check_pointer_dereferenceable(p, ptr_type)?;
 
         ret((p, ptype))
     }

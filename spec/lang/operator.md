@@ -168,9 +168,7 @@ impl<M: Memory> Machine<M> {
         } else {
             new_ptr
         };
-        // `offset.abs()` will fit into a `Size` since we did the overflow check above.
-        // FIXME: actually, it could be isize::MIN and then everything breaks? Is that
-        // a valid offset?
+        // `offset.abs()` is obviously positive, hence `unwrap()`.
         self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()).unwrap(), Align::ONE)?;
         // If this check passed, we are good.
         ret(new_ptr)
