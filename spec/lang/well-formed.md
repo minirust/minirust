@@ -277,7 +277,12 @@ impl PlaceExpr {
             Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
                 let ty = operand.check_wf::<M>(locals, prog)?;
-                ensure(matches!(ty, Type::Ptr(_)))?;
+                let Type::Ptr(ptr_ty) = ty else { throw!() };
+                if let PtrType::Box { pointee } | PtrType::Ref { pointee, .. } = ptr_ty {
+                    // Make sure the size fits and the alignment is weakened, not strengthened.
+                    ensure(ptype.ty.size::<M>() == pointee.size);
+                    ensure(ptype.align <= pointee.align);
+                }
                 ptype
             }
             Field { root, field } => {
