@@ -267,7 +267,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ptype.ty.size::<M>());
+        assert!(offset <= ptype.ty.size::<M::T>());
 
         let place = self.ptr_offset_inbounds(root, offset.bytes())?;
         let ptype = PlaceType {
@@ -288,19 +288,19 @@ impl<M: Memory> Machine<M> {
         let (offset, field_ty) = match ptype.ty {
             Type::Array { elem, count } => {
                 if index >= 0 && index < count {
-                    (index * elem.size::<M>(), elem)
+                    (index * elem.size::<M::T>(), elem)
                 } else {
                     throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset <= ptype.ty.size::<M>());
+        assert!(offset <= ptype.ty.size::<M::T>());
 
         let place = self.ptr_offset_inbounds(root, offset.bytes())?;
         let ptype = PlaceType {
             // We do *not* use `offset` here since that is only dynamically known.
-            align: ptype.align.restrict_for_offset(field_ty.size::<M>()),
+            align: ptype.align.restrict_for_offset(field_ty.size::<M::T>()),
             ty: field_ty,
         };
 
@@ -383,7 +383,7 @@ These operations (de)allocate the memory backing a local.
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already live local as live.
-        let layout = self.cur_frame().func.locals[local].layout::<M>();
+        let layout = self.cur_frame().func.locals[local].layout::<M::T>();
         let p = self.mem.allocate(layout.size, layout.align)?;
         self.mutate_cur_frame(|frame| {
             frame.locals.try_insert(local, p).unwrap();
@@ -394,7 +394,7 @@ impl<M: Memory> Machine<M> {
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
-        let layout = self.cur_frame().func.locals[local].layout::<M>();
+        let layout = self.cur_frame().func.locals[local].layout::<M::T>();
         let p = self.mutate_cur_frame(|frame| {
             frame.locals.remove(local).unwrap()
         });
@@ -491,7 +491,7 @@ impl<M: Memory> Machine<M> {
         // Create place for return local, if needed.
         if let Some(callee_ret_local) = func.ret {
             let callee_pty = func.locals[callee_ret_local];
-            let callee_ret_layout = callee_pty.layout::<M>();
+            let callee_ret_layout = callee_pty.layout::<M::T>();
             locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
             if let Some((_ret_place, ret_pty)) = ret_place {
                 if ret_pty != callee_pty {
@@ -514,7 +514,7 @@ impl<M: Memory> Machine<M> {
                 throw_ub!("call ABI violation: argument types do not agree");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).
-            let callee_layout = callee_pty.layout::<M>();
+            let callee_layout = callee_pty.layout::<M::T>();
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
             locals.insert(callee_local, p);
             // Caller and callee type are the same, so we can store the value at `callee_pty`.
@@ -576,7 +576,7 @@ impl<M: Memory> Machine<M> {
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
-            let layout = func.locals[local].layout::<M>();
+            let layout = func.locals[local].layout::<M::T>();
             self.mem.deallocate(place, layout.size, layout.align)?;
         }
 

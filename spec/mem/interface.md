@@ -81,19 +81,13 @@ pub struct Pointer<Provenance> {
 /// We also let read operations potentially mutate memory (they actually can
 /// change the current state in concurrent memory models and in Stacked Borrows).
 pub trait Memory {
+    /// The target information.
+    /// This doesn't really belong to the memory, but avoids having to quantify over both
+    /// memory and target everywhere.
+    type T: Target;
+
     /// The type of pointer provenance.
     type Provenance;
-
-    /// The size and align of a pointer.
-    const PTR_SIZE: Size;
-    const PTR_ALIGN: Align;
-
-    /// The endianess used for encoding multi-byte integer values (and pointers).
-    const ENDIANNESS: Endianness;
-
-    /// Maximum size of an atomic operation.
-    const MAX_ATOMIC_SIZE: Size;
-
 
     fn new() -> Self;
 
@@ -124,9 +118,6 @@ pub trait Memory {
     ///
     /// Return the retagged pointer.
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
-
-    /// Checks that `size` is not too large for the Memory.
-    fn valid_size(size: Size) -> bool;
 }
 ```
 
@@ -143,9 +134,9 @@ impl<Provenance> Pointer<Provenance> {
     /// Calculates the offset from a pointer in bytes using wrapping arithmetic.
     /// This does not check whether the pointer is still in-bounds of its allocation.
     pub fn wrapping_offset<M: Memory<Provenance=Provenance>>(self, offset: Int) -> Self {
-        let offset = offset.modulo(Signed, M::PTR_SIZE);
+        let offset = offset.modulo(Signed, M::T::PTR_SIZE);
         let addr = self.addr + offset;
-        let addr = addr.modulo(Unsigned, M::PTR_SIZE);
+        let addr = addr.modulo(Unsigned, M::T::PTR_SIZE);
         Pointer { addr, ..self }
     }
 }

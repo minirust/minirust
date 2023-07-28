@@ -33,7 +33,7 @@ pub fn get_stdout(prog: Program) -> Result<Vec<String>, TerminationInfo> {
 fn run(prog: Program, stdout: impl GcWrite, stderr: impl GcWrite) -> Result<!, TerminationInfo> {
     let res: NdResult<!> = try {
 
-        let mut machine = Machine::<BasicMemory>::new(prog, DynWrite::new(stdout), DynWrite::new(stderr))?;
+        let mut machine = Machine::<BasicMemory<DefaultTarget>>::new(prog, DynWrite::new(stdout), DynWrite::new(stderr))?;
 
         loop {
             machine.step()?;

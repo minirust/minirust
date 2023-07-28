@@ -45,7 +45,7 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
     match ty {
         Type::Int(int_ty) => mark_size(int_ty.size, markers),
         Type::Bool => mark_size(Size::from_bytes_const(1), markers),
-        Type::Ptr(_) => mark_size(BasicMemory::PTR_SIZE, markers),
+        Type::Ptr(_) => mark_size(DefaultTarget::PTR_SIZE, markers),
         Type::Tuple { fields, .. } => {
             for (offset, ty) in fields {
                 let offset = offset.bytes().try_to_usize().unwrap();
@@ -61,7 +61,7 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
         Type::Array { elem, count } => {
             let elem = elem.extract();
             for i in Int::ZERO..count {
-                let offset = i * elem.size::<BasicMemory>();
+                let offset = i * elem.size::<DefaultTarget>();
                 let offset = offset.bytes().try_to_usize().unwrap();
                 mark_used_bytes(elem, &mut markers[offset..]);
             }

@@ -47,7 +47,7 @@ impl<M: Memory> Machine<M> {
     }
     fn eval_un_op(&mut self, UnOp::PtrAddr: UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
-        let int_ty = Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE });
+        let int_ty = Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE });
 
         ret((Value::Int(ptr.addr), int_ty))
     }
@@ -142,11 +142,11 @@ impl<M: Memory> Machine<M> {
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
     fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Result<Pointer<M::Provenance>> {
-        if !offset.in_bounds(Signed, M::PTR_SIZE) {
+        if !offset.in_bounds(Signed, M::T::PTR_SIZE) {
             throw_ub!("inbounds offset does not fit into `isize`");
         }
         let addr = ptr.addr + offset;
-        if !addr.in_bounds(Unsigned, M::PTR_SIZE) {
+        if !addr.in_bounds(Unsigned, M::T::PTR_SIZE) {
             throw_ub!("overflowing inbounds pointer arithmetic");
         }
         let new_ptr = Pointer { addr, ..ptr };
