@@ -10,8 +10,10 @@ pub fn translate_bb<'cx, 'tcx>(
     let mut statements = List::new();
     for stmt in bb.statements.iter() {
         // unsupported statements will be IGNORED.
-        if let Some(x) = translate_stmt(stmt, fcx) {
-            statements.push(x);
+        if let Some(stmts) = translate_stmt(stmt, fcx) {
+            for stmt in stmts {
+                statements.push(stmt);
+            }
         }
     }
     BasicBlock {
@@ -23,16 +25,20 @@ pub fn translate_bb<'cx, 'tcx>(
 fn translate_stmt<'cx, 'tcx>(
     stmt: &rs::Statement<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
-) -> Option<Statement> {
+) -> Option<Vec<Statement>> {
     Some(match &stmt.kind {
         rs::StatementKind::Assign(box (place, rval)) => {
-            Statement::Assign {
-                destination: translate_place(place, fcx),
-                source: translate_rvalue(rval, fcx)?, // assign of unsupported rvalues are IGNORED.
-            }
+            let destination = translate_place(place, fcx);
+            let (mut stmts, source) = translate_rvalue(rval, fcx)?; // assign of unsupported rvalues are IGNORED.
+            // this puts the extra statements before the evaluation of `destination`!
+            stmts.push(Statement::Assign {
+                destination,
+                source, 
+            });
+            stmts
         }
-        rs::StatementKind::StorageLive(local) => Statement::StorageLive(fcx.local_name_map[&local]),
-        rs::StatementKind::StorageDead(local) => Statement::StorageDead(fcx.local_name_map[&local]),
+        rs::StatementKind::StorageLive(local) => vec![Statement::StorageLive(fcx.local_name_map[&local])],
+        rs::StatementKind::StorageDead(local) => vec![Statement::StorageDead(fcx.local_name_map[&local])],
         rs::StatementKind::Deinit(..) | rs::StatementKind::Retag(..) => return None, // IGNORED for now.
         x => {
             dbg!(x);

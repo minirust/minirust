@@ -34,33 +34,24 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Pointer-pointer casts
+### Pointer-related casts
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::Ptr2Ptr(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&mut self, UnOp::PtrCast(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         if !matches!(operand, Value::Ptr(_)) {
             panic!("non-pointer input to ptr2ptr cast")
         };
 
         ret((operand, Type::Ptr(ptr_ty)))
     }
-}
-```
-
-### Pointer-integer casts
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::Ptr2Int: UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&mut self, UnOp::PtrAddr: UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
-        let result = self.intptrcast.ptr2int(ptr)?;
-
         let int_ty = Type::Int(IntType { signed: Unsigned, size: M::PTR_SIZE });
 
-        ret((Value::Int(result), int_ty))
+        ret((Value::Int(ptr.addr), int_ty))
     }
-    fn eval_un_op(&mut self, UnOp::Int2Ptr(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&mut self, UnOp::PtrFromExposed(ptr_ty): UnOp, (operand, _op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;
         ret((Value::Ptr(result), Type::Ptr(ptr_ty)))

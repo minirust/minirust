@@ -28,18 +28,9 @@ pub fn const_unit() -> ValueExpr {
     ValueExpr::Tuple(Default::default(), <()>::get_type())
 }
 
-// Non-destructive load.
 pub fn load(p: PlaceExpr) -> ValueExpr {
     ValueExpr::Load {
         source: GcCow::new(p),
-        destructive: false,
-    }
-}
-
-pub fn load_destructive(p: PlaceExpr) -> ValueExpr {
-    ValueExpr::Load {
-        source: GcCow::new(p),
-        destructive: true,
     }
 }
 
@@ -75,19 +66,29 @@ pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     }
 }
 
-pub fn ptr_to_int(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp {
-        operator: UnOp::Ptr2Int,
-        operand: GcCow::new(v),
-    }
-}
-
 pub fn int_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     let Type::Ptr(ptr_ty) = t else {
         panic!("int_to_ptr requires Type::Ptr argument!");
     };
     ValueExpr::UnOp {
-        operator: UnOp::Int2Ptr(ptr_ty),
+        operator: UnOp::PtrFromExposed(ptr_ty),
+        operand: GcCow::new(v),
+    }
+}
+
+pub fn ptr_addr(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp {
+        operator: UnOp::PtrAddr,
+        operand: GcCow::new(v),
+    }
+}
+
+pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
+    let Type::Ptr(ptr_ty) = t else {
+        panic!("ptr_to_ptr requires Type::Ptr argument!");
+    };
+    ValueExpr::UnOp {
+        operator: UnOp::PtrCast(ptr_ty),
         operand: GcCow::new(v),
     }
 }

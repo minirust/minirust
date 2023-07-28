@@ -108,6 +108,10 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let right = fmt_value_expr(source, comptypes).to_string();
             format!("    {left} = {right};")
         }
+        Statement::Expose { value } => {
+            let val = fmt_value_expr(value, comptypes).to_string();
+            format!("    expose({val});")
+        }
         Statement::Finalize { place, fn_entry } => {
             let place = fmt_place_expr(place, comptypes).to_string();
             format!("    finalize({place}, {fn_entry});")

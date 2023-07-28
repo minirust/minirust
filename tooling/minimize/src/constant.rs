@@ -89,7 +89,6 @@ fn relocation_to_value_expr<'cx, 'tcx>(
     };
     ValueExpr::Load {
         source: GcCow::new(expr),
-        destructive: false,
     }
 }
 

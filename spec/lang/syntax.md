@@ -80,6 +80,10 @@ pub enum Statement {
         destination: PlaceExpr,
         source: ValueExpr,
     },
+    /// 'Expose' a pointer so that it can later be cast to an integer.
+    Expose {
+        value: ValueExpr,
+    },
     /// Ensure that `place` contains a valid value of its type (else UB).
     /// Also perform retagging.
     Finalize {
@@ -187,8 +191,6 @@ pub enum ValueExpr {
 
     /// Load a value from memory.
     Load {
-        /// Whether this load de-initializes the source it is loaded from ("move").
-        destructive: bool,
         /// The place to load from.
         #[specr::indirection]
         source: PlaceExpr,
@@ -248,11 +250,12 @@ pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
     /// Pointer-to-pointer cast
-    Ptr2Ptr(PtrType),
-    /// Pointer-to-integer cast
-    Ptr2Int,
-    /// Integer-to-pointer cast
-    Int2Ptr(PtrType),
+    PtrCast(PtrType),
+    /// Integer-to-pointer cast *without expose side-effect*.
+    /// If you want to cast back, you better expose this pointer!
+    PtrAddr,
+    /// Integer-to-pointer cast (uses previously exposed provenance)
+    PtrFromExposed(PtrType),
 }
 
 pub enum BinOpInt {
