@@ -43,7 +43,7 @@ struct StackFrame<M: Memory> {
     locals: Map<LocalName, Place<M>>,
 
     /// Expresses what the caller does after the callee (this function) returns.
-    /// If `None` this is the bottommost stack frame.
+    /// If `None`, this is the bottommost stack frame.
     caller_return_info: Option<CallerReturnInfo<M>>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").

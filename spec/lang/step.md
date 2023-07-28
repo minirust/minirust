@@ -551,6 +551,8 @@ impl<M: Memory> Machine<M> {
 
             return self.thread_manager.terminate_active_thread();
         };
+        // If there is caller_return_info, there must be a caller.
+        assert!(self.thread_manager.active_thread().stack.len() > 0);
 
         let Some(ret_local) = func.ret else {
             throw_ub!("return from a function that does not have a return local");
