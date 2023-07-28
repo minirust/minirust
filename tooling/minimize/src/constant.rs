@@ -80,9 +80,7 @@ fn relocation_to_value_expr<'cx, 'tcx>(
     let expr = Constant::GlobalPointer(rel);
 
     let pty = place_type_of(ty, fcx);
-    let ptr_ty = Type::Ptr(PtrType::Raw {
-        pointee: pty.layout::<BasicMemory>(),
-    });
+    let ptr_ty = Type::Ptr(PtrType::Raw);
 
     let expr = ValueExpr::Constant(expr, ptr_ty);
     let expr = PlaceExpr::Deref {

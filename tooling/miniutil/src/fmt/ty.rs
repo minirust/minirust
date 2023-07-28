@@ -54,9 +54,8 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let layout_str = fmt_layout(pointee);
             FmtExpr::Atomic(format!("Box<{layout_str}>"))
         }
-        PtrType::Raw { pointee } => {
-            let layout_str = fmt_layout(pointee);
-            FmtExpr::NonAtomic(format!("*{layout_str}"))
+        PtrType::Raw => {
+            FmtExpr::NonAtomic(format!("*raw"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(String::from("fn()")),
     }

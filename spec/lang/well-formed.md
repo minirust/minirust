@@ -41,10 +41,10 @@ impl Layout {
 impl PtrType {
     fn check_wf(self) -> Option<()> {
         match self {
-            PtrType::Raw { pointee } | PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
+            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 pointee.check_wf()?;
             }
-            PtrType::FnPtr => ()
+            PtrType::Raw | PtrType::FnPtr => ()
         }
 
         ret(())

@@ -4,7 +4,7 @@ use crate::*;
 fn atomic_write_success() {
     let locals = [<u32>::get_ptype()];
 
-    let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
 
     // We show that atomic write actually writes by writing 1 to local(0)
 
@@ -63,7 +63,7 @@ fn atomic_write_arg_type1() {
 fn atomic_write_arg_type_pow() {
     let locals = [<[u8; 3]>::get_ptype()];
 
-    let ptr_ty = raw_ptr_ty( <[u8; 3]>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
     let arr = const_array(&[
         const_int::<u8>(0),
         const_int::<u8>(1),
@@ -91,7 +91,7 @@ fn atomic_write_arg_type_pow() {
 fn atomic_write_arg_type_size() {
     let locals = [<[u64; 2]>::get_ptype()];
 
-    let ptr_ty = raw_ptr_ty( <[u64; 2]>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
     let arr = const_array(&[
         const_int::<u64>(0),
         const_int::<u64>(1),
@@ -117,7 +117,7 @@ fn atomic_write_arg_type_size() {
 fn atomic_write_ret_type() {
     let locals = [<u64>::get_ptype()];
 
-    let ptr_ty = raw_ptr_ty( <u64>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -140,7 +140,7 @@ fn atomic_write_ret_type() {
 fn atomic_read_success() {
     let locals = [<u32>::get_ptype(); 2];
 
-    let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
 
     // We show that atomic read actually reads by reading 1 from local(1).
     let b0 = block!(
@@ -205,7 +205,7 @@ fn atomic_read_arg_type() {
 fn atomic_read_ret_type_pow() {
     let locals = [ <()>::get_ptype() ];
 
-    let ptr_ty = raw_ptr_ty( <()>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -223,7 +223,7 @@ fn atomic_read_ret_type_pow() {
 fn atomic_read_ret_type_size() {
     let locals = [ <[u64; 2]>::get_ptype() ];
 
-    let ptr_ty = raw_ptr_ty( <[u64; 2]>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
 
     let b0 = block!(
         storage_live(0),

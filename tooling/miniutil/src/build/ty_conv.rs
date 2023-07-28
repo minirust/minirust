@@ -63,7 +63,7 @@ type_conv_int_impl!(isize, Signed, <BasicMemory>::PTR_SIZE, <BasicMemory>::PTR_A
 
 impl<T: TypeConv> TypeConv for *const T {
     fn get_type() -> Type {
-        raw_ptr_ty(T::get_layout())
+        raw_ptr_ty()
     }
     fn get_size() -> Size {
         <BasicMemory>::PTR_SIZE
@@ -75,7 +75,7 @@ impl<T: TypeConv> TypeConv for *const T {
 
 impl<T: TypeConv> TypeConv for *mut T {
     fn get_type() -> Type {
-        raw_ptr_ty(T::get_layout())
+        raw_ptr_ty()
     }
     fn get_size() -> Size {
         <BasicMemory>::PTR_SIZE

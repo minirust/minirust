@@ -10,7 +10,7 @@ struct AccessPattern(AccessType, Atomicity);
 // A block that does the access pattern on global(0): stores put the value of the "support global"
 // into global(0); loads pit the value of global(0) into the "support global".
 fn access_block(access: AccessPattern, support_global: u32, next: u32) -> BasicBlock {
-    let ptr_ty = raw_ptr_ty( <u32>::get_layout() );
+    let ptr_ty = raw_ptr_ty();
     let addr = addr_of(global::<u32>(0), ptr_ty);
     match access {
         AccessPattern(AccessType::Load, Atomicity::Atomic) => {

@@ -89,11 +89,7 @@ pub enum PtrType {
     Box {
         pointee: Layout,
     },
-    Raw {
-        /// Raw pointer layout is relevant for Stacked Borrows retagging.
-        /// TODO: I hope we can remove this in the future.
-        pointee: Layout,
-    },
+    Raw,
     FnPtr,
 }
 

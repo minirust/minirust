@@ -34,8 +34,8 @@ pub fn box_ty(pointee: Layout) -> Type {
     Type::Ptr(PtrType::Box { pointee })
 }
 
-pub fn raw_ptr_ty(pointee: Layout) -> Type {
-    Type::Ptr(PtrType::Raw { pointee })
+pub fn raw_ptr_ty() -> Type {
+    Type::Ptr(PtrType::Raw)
 }
 
 pub fn tuple_ty(f: &[(Size, Type)], size: Size) -> Type {

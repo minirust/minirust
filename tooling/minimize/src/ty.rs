@@ -70,9 +70,8 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let mutbl = translate_mutbl(*mutbl);
             Type::Ptr(PtrType::Ref { pointee, mutbl })
         }
-        rs::TyKind::RawPtr(rs::TypeAndMut { ty, mutbl: _ }) => {
-            let pointee = layout_of(*ty, tcx);
-            Type::Ptr(PtrType::Raw { pointee })
+        rs::TyKind::RawPtr(rs::TypeAndMut { ty: _, mutbl: _ }) => {
+            Type::Ptr(PtrType::Raw)
         }
         rs::TyKind::Array(ty, c) => {
             let count = Int::from(c.eval_target_usize(tcx, rs::ParamEnv::empty()));

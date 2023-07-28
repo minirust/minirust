@@ -92,13 +92,10 @@ pub fn translate_rvalue<'cx, 'tcx>(
             ValueExpr::AddrOf { target, ptr_ty }
         }
         rs::Rvalue::AddressOf(_mutbl, place) => {
-            let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
-            let pointee = layout_of(ty, fcx.cx.tcx);
-
             let place = translate_place(place, fcx);
             let target = GcCow::new(place);
 
-            let ptr_ty = PtrType::Raw { pointee };
+            let ptr_ty = PtrType::Raw;
 
             ValueExpr::AddrOf { target, ptr_ty }
         }
