@@ -202,6 +202,10 @@ pub enum Statement {
         /// that we have at the top of each function (which affects retagging).
         fn_entry: bool,
     },
+    /// De-initialize a place.
+    Deinit {
+        place: PlaceExpr,
+    },
     /// Allocate the backing store for this local.
     StorageLive(LocalName),
     /// Deallocate the backing store for this local.

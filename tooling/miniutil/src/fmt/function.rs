@@ -116,6 +116,10 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let place = fmt_place_expr(place, comptypes).to_string();
             format!("    validate({place}, {fn_entry});")
         }
+        Statement::Deinit { place } => {
+            let place = fmt_place_expr(place, comptypes).to_string();
+            format!("    deinit({place});")
+        }
         Statement::StorageLive(local) => {
             let local = fmt_local_name(local).to_string();
             format!("    storage_live({local});")

@@ -359,6 +359,10 @@ impl Statement {
                 place.check_wf::<T>(live_locals, prog)?;
                 live_locals
             }
+            Deinit { place } => {
+                place.check_wf::<T>(live_locals, prog)?;
+                live_locals
+            }
             StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.

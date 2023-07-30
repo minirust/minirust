@@ -44,7 +44,10 @@ fn translate_stmt<'cx, 'tcx>(
             let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
             vec![Statement::Validate { place, fn_entry }]
         }
-        rs::StatementKind::Deinit(..) => return None, // IGNORED for now.
+        rs::StatementKind::Deinit(place) => {
+            let place = translate_place(place, fcx);
+            vec![Statement::Deinit { place }]
+        }
         x => {
             dbg!(x);
             todo!()

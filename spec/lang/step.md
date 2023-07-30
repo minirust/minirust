@@ -374,6 +374,26 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### De-initializing a place
+
+This statement replaces the contents of a place with `Uninit`.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn deinit(&mut self, place: Place<M>, pty: PlaceType) -> NdResult {
+        self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
+        ret(())
+    }
+
+    fn eval_statement(&mut self, Statement::Deinit { place }: Statement) -> NdResult {
+        let (p, ptype) = self.eval_place(place)?;
+        self.deinit(p, ptype)?;
+
+        ret(())
+    }
+}
+```
+
 ### StorageDead and StorageLive
 
 These operations (de)allocate the memory backing a local.
@@ -479,7 +499,7 @@ impl<M: Memory> Machine<M> {
                 let value = self.mem.typed_load(place, pty, Atomicity::None)?;
                 // Make the old value unobservable because the callee might work on it in-place.
                 // FIXME: This also needs aliasing model support.
-                self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
+                self.deinit(place, pty)?;
 
                 (value, pty)
             }
@@ -498,7 +518,7 @@ impl<M: Memory> Machine<M> {
             // To allow in-place return value passing, we proactively make the old contents
             // of the return place unobservable.
             // FIXME: This also needs aliasing model support.
-            self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
+            self.deinit(place, pty)?;
             ret::<NdResult<_>>((place, pty))
         })?;
 
