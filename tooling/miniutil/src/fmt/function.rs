@@ -130,18 +130,11 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
 // used both for functions and intrinsics.
 fn fmt_call(
     callee: &str,
-    arguments: List<ValueExpr>,
+    args: String,
     ret: Option<PlaceExpr>,
     next_block: Option<BbName>,
     comptypes: &mut Vec<CompType>,
 ) -> String {
-    // Format function args
-    let args: Vec<_> = arguments
-        .iter()
-        .map(|x| fmt_value_expr(x, comptypes).to_string())
-        .collect();
-    let args = args.join(", ");
-
     // Format return place
     let r = match ret {
         Some(ret) => fmt_place_expr(ret, comptypes).to_string(),
@@ -192,9 +185,16 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             next_block,
         } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
-            let arguments = arguments.iter().map(|expr| expr).collect();
-            let ret = ret.map(|place_expr| place_expr);
-            fmt_call(&callee, arguments, ret, next_block, comptypes)
+            let args: Vec<_> = arguments
+                .iter()
+                .map(|arg| match arg {
+                    ArgumentExpr::ByValue(value, align) =>
+                        format!("by-value({})@align({})", fmt_value_expr(value, comptypes).to_string(), align.bytes()),
+                    ArgumentExpr::InPlace(place) =>
+                        format!("in-place({})", fmt_place_expr(place, comptypes).to_string()),
+                })
+                .collect();
+            fmt_call(&callee, args.join(", "), ret, next_block, comptypes)
         }
         Terminator::Return => {
             format!("    return;")
@@ -220,7 +220,11 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock-create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock-release",
             };
-            fmt_call(callee, arguments, ret, next_block, comptypes)
+            let args: Vec<_> = arguments
+                .iter()
+                .map(|arg| fmt_value_expr(arg, comptypes).to_string())
+                .collect();
+            fmt_call(callee, args.join(", "), ret, next_block, comptypes)
         }
     }
 }

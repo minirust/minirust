@@ -27,22 +27,22 @@ impl IntType {
 }
 
 impl Layout {
-    fn check_wf(self) -> Option<()> {
-        // Nothing to check here.
-        // In particular, we do *not* require that size is a multiple of align!
+    fn check_wf<T: Target>(self) -> Option<()> {
+        // We do *not* require that size is a multiple of align!
         // To represent e.g. the PlaceType of an `i32` at offset 0 in a
         // type that is `align(16)`, we have to be able to talk about types
         // with size 4 and alignment 16.
+        ensure(T::valid_size(self.size))?;
 
         ret(())
     }
 }
 
 impl PtrType {
-    fn check_wf(self) -> Option<()> {
+    fn check_wf<T: Target>(self) -> Option<()> {
         match self {
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
-                pointee.check_wf()?;
+                pointee.check_wf::<T>()?;
             }
             PtrType::Raw | PtrType::FnPtr => ()
         }
@@ -64,7 +64,7 @@ impl Type {
             }
             Bool => (),
             Ptr(ptr_type) => {
-                ptr_type.check_wf()?;
+                ptr_type.check_wf::<T>()?;
             }
             Tuple { mut fields, size } => {
                 // The fields must not overlap.
@@ -122,8 +122,8 @@ impl Type {
 
 impl PlaceType {
     fn check_wf<T: Target>(self) -> Option<()> {
-        self.ty.check_wf::<T>()?;
-        self.layout::<T>().check_wf()?;
+        let PlaceType { ty, align: _ } = self;
+        ty.check_wf::<T>()?;
 
         ret(())
     }
@@ -313,6 +313,15 @@ impl PlaceExpr {
                     ty: field_ty,
                 }
             }
+        })
+    }
+}
+
+impl ArgumentExpr {
+    fn check_wf<T: Target>(self, locals: Map<LocalName, PlaceType>, prog: Program) -> Option<Type> {
+        ret(match self {
+            ArgumentExpr::ByValue(value, _align) => value.check_wf::<T>(locals, prog)?,
+            ArgumentExpr::InPlace(place) => place.check_wf::<T>(locals, prog)?.ty
         })
     }
 }

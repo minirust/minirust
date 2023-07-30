@@ -221,7 +221,7 @@ pub enum Terminator {
     Call {
         callee: ValueExpr,
         /// The arguments to pass.
-        arguments: List<ValueExpr>,
+        arguments: List<ArgumentExpr>,
         /// The place to put the return value into.
         /// If `None`, the function's return value will be discarded.
         ret: Option<PlaceExpr>,
@@ -243,6 +243,18 @@ pub enum Terminator {
     },
     /// Return from the current function.
     Return,
+}
+
+/// Function arguments can be passed by-value or in-place.
+pub enum ArgumentExpr {
+    /// Pass a copy of this value to the function.
+    /// The alignment must match the one that the callee expects the argument to be passed at.
+    ///
+    /// Technically this could be encoded by generating a fresh temporary, copying the value there, and doing in-place passing.
+    /// FIXME: is it worth providing this mode anyway?
+    ByValue(ValueExpr, Align),
+    /// Pass the argument value in-place; the contents of this place may be altered arbitrarily by the callee.
+    InPlace(PlaceExpr),
 }
 
 pub enum LockIntrinsic {

@@ -463,12 +463,30 @@ impl<M: Memory> Machine<M> {
 A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
-- TODO: Support in-place argument/return passing
-  (https://github.com/rust-lang/unsafe-code-guidelines/issues/416,
-  https://github.com/rust-lang/unsafe-code-guidelines/issues/417)
-
 ```rust
 impl<M: Memory> Machine<M> {
+    /// A helper function to deal with `ArgumentExpr`.
+    fn eval_argument(
+        &mut self,
+        val: ArgumentExpr,
+    ) -> NdResult<(Value<M>, PlaceType)> {
+        ret(match val {
+            ArgumentExpr::ByValue(value, align) => {
+                let (value, ty) = self.eval_value(value)?;
+                (value, PlaceType::new(ty, align))
+            }
+            ArgumentExpr::InPlace(place) => {
+                let (place, pty) = self.eval_place(place)?;
+                let value = self.mem.typed_load(Atomicity::None, place, pty)?;
+                // Make the old value unobservable because the callee might work on it in-place.
+                // FIXME: This also needs aliasing model support.
+                self.mem.store(Atomicity::None, place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align)?;
+
+                (value, pty)
+            }
+        })
+    }
+
     fn eval_terminator(
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
@@ -493,10 +511,14 @@ impl<M: Memory> Machine<M> {
             let callee_pty = func.locals[callee_ret_local];
             let callee_ret_layout = callee_pty.layout::<M::T>();
             locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
-            if let Some((_ret_place, ret_pty)) = ret_place {
+            if let Some((ret_place, ret_pty)) = ret_place {
                 if ret_pty != callee_pty {
                     throw_ub!("call ABI violation: return types do not agree");
                 }
+                // To allow in-place return value passing, we proactively make the old contents
+                // of the return place unobservable.
+                // FIXME: This also needs aliasing model support.
+                self.mem.store(Atomicity::None, ret_place, list![AbstractByte::Uninit; ret_pty.ty.size::<M::T>().bytes()], ret_pty.align)?;
             }
         }
 
@@ -506,19 +528,18 @@ impl<M: Memory> Machine<M> {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         for (callee_local, caller_arg) in func.args.zip(arguments) {
-            let (caller_val, caller_ty) = self.eval_value(caller_arg)?;
+            let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
             let callee_pty = func.locals[callee_local];
-            if caller_ty != callee_pty.ty {
-                // FIXME: The caller also needs to set an alignment!
-                // Otherwise it cannot pass arguments on the stack.
+            if caller_pty != callee_pty {
                 throw_ub!("call ABI violation: argument types do not agree");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).
             let callee_layout = callee_pty.layout::<M::T>();
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
             locals.insert(callee_local, p);
+            // Copy the value.
             // Caller and callee type are the same, so we can store the value at `callee_pty`.
-            // This is a fresh pointer so there should be no reason this can fail.
+            // `p` is a fresh pointer so there should be no reason the store can fail.
             self.mem.typed_store(Atomicity::None, p, caller_val, callee_pty).unwrap();
         }
 

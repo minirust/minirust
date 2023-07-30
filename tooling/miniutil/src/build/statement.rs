@@ -39,13 +39,22 @@ pub fn unreachable() -> Terminator {
     Terminator::Unreachable
 }
 
-pub fn call(f: u32, args: &[ValueExpr], ret: Option<PlaceExpr>, next: Option<u32>) -> Terminator {
+pub fn call(f: u32, args: &[ArgumentExpr], ret: Option<PlaceExpr>, next: Option<u32>) -> Terminator {
     Terminator::Call {
         callee: fn_ptr(f),
         arguments: args.iter().copied().collect(),
         ret: ret,
         next_block: next.map(|x| BbName(Name::from_internal(x))),
     }
+}
+
+pub fn by_value<T: TypeConv>(val: ValueExpr) -> ArgumentExpr {
+    let pty = T::get_ptype();
+    ArgumentExpr::ByValue(val, pty.align)
+}
+
+pub fn in_place(arg: PlaceExpr) -> ArgumentExpr {
+    ArgumentExpr::InPlace(arg)
 }
 
 pub fn print(arg: ValueExpr, next: u32) -> Terminator {

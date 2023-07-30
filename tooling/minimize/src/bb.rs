@@ -116,7 +116,14 @@ fn translate_call<'cx, 'tcx>(
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
-        let args: List<_> = args.iter().map(|op| translate_operand(op, fcx)).collect();
+        let args: List<_> = args.iter().map(|op| match op {
+            rs::Operand::Move(place) => ArgumentExpr::InPlace(translate_place(place, fcx)),
+            op => {
+                let ty = op.ty(&fcx.body, fcx.cx.tcx);
+                let align = layout_of(ty, fcx.cx.tcx).align;
+                ArgumentExpr::ByValue(translate_operand(op, fcx), align)
+            },
+        }).collect();
 
         if !fcx.cx.fn_name_map.contains_key(&key) {
             let fn_name = fcx.cx.fn_name_map.len();
