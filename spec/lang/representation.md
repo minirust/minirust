@@ -462,7 +462,7 @@ This means we do not even need a special clause in our specification for the val
 
 For pointers, we often want properties that go a bit beyond what can be encoded in the representation relation.
 For instance, we want to ensure references and boxes are dereferenceable.
-This does not apply at each and every typed copy (so maybe it shouldn't be called "valid"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things hould be true.
+This does not apply at each and every typed copy (so maybe it shouldn't be called "validity"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things should be true.
 
 ```rust
 impl<M: Memory> AtomicMemory<M> {
