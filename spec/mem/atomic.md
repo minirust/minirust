@@ -61,7 +61,7 @@ impl<M: Memory> AtomicMemory<M> {
     }
 
     /// Write some bytes to memory and check for data races.
-    pub fn store(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, bytes: List<AbstractByte<M::Provenance>>, align: Align) -> Result {
+    pub fn store(&mut self, ptr: Pointer<M::Provenance>, bytes: List<AbstractByte<M::Provenance>>, align: Align, atomicity: Atomicity) -> Result {
         let access = Access {
             ty: AccessType::Store,
             atomicity,
@@ -74,7 +74,7 @@ impl<M: Memory> AtomicMemory<M> {
     }
 
     /// Read some bytes from memory and check for data races.
-    pub fn load(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<M::Provenance>>> {
+    pub fn load(&mut self, ptr: Pointer<M::Provenance>, len: Size, align: Align, atomicity: Atomicity) -> Result<List<AbstractByte<M::Provenance>>> {
         let access = Access {
             ty: AccessType::Load,
             atomicity,

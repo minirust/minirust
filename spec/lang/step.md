@@ -145,7 +145,7 @@ This loads a value from a place (often called "place-to-value coercion").
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         let (p, ptype) = self.eval_place(source)?;
-        let v = self.mem.typed_load(Atomicity::None, p, ptype)?;
+        let v = self.mem.typed_load(p, ptype, Atomicity::None)?;
 
         ret((v, ptype.ty))
     }
@@ -332,7 +332,7 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let (place, ptype) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
-        self.mem.typed_store(Atomicity::None, place, val, ptype)?;
+        self.mem.typed_store(place, val, ptype, Atomicity::None)?;
 
         ret(())
     }
@@ -365,9 +365,9 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (p, ptype) = self.eval_place(place)?;
 
-        let val = self.mem.typed_load(Atomicity::None, p, ptype)?;
+        let val = self.mem.typed_load(p, ptype, Atomicity::None)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
-        self.mem.typed_store(Atomicity::None, p, val, ptype)?;
+        self.mem.typed_store(p, val, ptype, Atomicity::None)?;
 
         ret(())
     }
@@ -476,10 +476,10 @@ impl<M: Memory> Machine<M> {
             }
             ArgumentExpr::InPlace(place) => {
                 let (place, pty) = self.eval_place(place)?;
-                let value = self.mem.typed_load(Atomicity::None, place, pty)?;
+                let value = self.mem.typed_load(place, pty, Atomicity::None)?;
                 // Make the old value unobservable because the callee might work on it in-place.
                 // FIXME: This also needs aliasing model support.
-                self.mem.store(Atomicity::None, place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align)?;
+                self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
 
                 (value, pty)
             }
@@ -498,7 +498,7 @@ impl<M: Memory> Machine<M> {
             // To allow in-place return value passing, we proactively make the old contents
             // of the return place unobservable.
             // FIXME: This also needs aliasing model support.
-            self.mem.store(Atomicity::None, place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align)?;
+            self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
             ret::<NdResult<_>>((place, pty))
         })?;
 
@@ -539,7 +539,7 @@ impl<M: Memory> Machine<M> {
             locals.insert(callee_local, p);
             // Copy the value. We know the types have the same layout so this will fit.
             // `p` is a fresh pointer so there should be no reason the store can fail.
-            self.mem.typed_store(Atomicity::None, p, caller_val, caller_pty).unwrap();
+            self.mem.typed_store(p, caller_val, caller_pty, Atomicity::None).unwrap();
         }
 
         // Push new stack frame, so it is executed next.
@@ -591,8 +591,8 @@ impl<M: Memory> Machine<M> {
         // we copy at the callee type -- the one place where we ensure the return value matches that type.
         if let Some(ret_place) = caller_return_info.ret_place {
             let callee_pty = frame.func.locals[ret_local];
-            let ret_val = self.mem.typed_load(Atomicity::None, frame.locals[ret_local], callee_pty)?;
-            self.mem.typed_store(Atomicity::None, ret_place, ret_val, callee_pty)?;
+            let ret_val = self.mem.typed_load(frame.locals[ret_local], callee_pty, Atomicity::None)?;
+            self.mem.typed_store(ret_place, ret_val, callee_pty, Atomicity::None)?;
         }
 
         // Deallocate everything.
@@ -639,7 +639,7 @@ impl<M: Memory> Machine<M> {
         // Store return value.
         if let Some((ret_place, ret_pty)) = ret_place {
             // `eval_inrinsic` above must guarantee that `value` has the right type.
-            self.mem.typed_store(Atomicity::None, ret_place, value, ret_pty)?;
+            self.mem.typed_store(ret_place, value, ret_pty, Atomicity::None)?;
         }
 
         // Jump to next block.
