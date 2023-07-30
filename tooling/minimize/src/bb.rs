@@ -39,7 +39,12 @@ fn translate_stmt<'cx, 'tcx>(
         }
         rs::StatementKind::StorageLive(local) => vec![Statement::StorageLive(fcx.local_name_map[&local])],
         rs::StatementKind::StorageDead(local) => vec![Statement::StorageDead(fcx.local_name_map[&local])],
-        rs::StatementKind::Deinit(..) | rs::StatementKind::Retag(..) => return None, // IGNORED for now.
+        rs::StatementKind::Retag(kind, place) => {
+            let place = translate_place(place, fcx);
+            let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
+            vec![Statement::Validate { place, fn_entry }]
+        }
+        rs::StatementKind::Deinit(..) => return None, // IGNORED for now.
         x => {
             dbg!(x);
             todo!()

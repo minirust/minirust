@@ -59,10 +59,10 @@ struct CallerReturnInfo<M: Memory> {
     /// The basic block to jump to when the callee returns.
     /// If `None`, UB will be raised when the callee returns.
     next_block: Option<BbName>,
-    /// The place where the caller wants to see the return value,
-    /// and the type it should be stored at.
+    /// The location where the caller wants to see the return value.
+    /// Has already been checked to be suitably compatible with the callee return type.
     /// If `None`, the return value will be discarded.
-    ret_place: Option<(Place<M>, PlaceType)>
+    ret_place: Option<Place<M>>
 }
 ```
 

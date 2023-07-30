@@ -11,8 +11,8 @@ pub fn expose(value: ValueExpr) -> Statement {
     Statement::Expose { value }
 }
 
-pub fn finalize(place: PlaceExpr, fn_entry: bool) -> Statement {
-    Statement::Finalize { place, fn_entry }
+pub fn validate(place: PlaceExpr, fn_entry: bool) -> Statement {
+    Statement::Validate { place, fn_entry }
 }
 
 pub fn storage_live(x: u32) -> Statement {

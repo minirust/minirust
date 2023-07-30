@@ -246,9 +246,9 @@ impl<T: Target> Memory for BasicMemory<T> {
             PtrType::Ref { pointee, .. } => pointee,
             PtrType::Box { pointee } => pointee,
             // Raw and fn ptrs do not have any requirements, skip them.
-            PtrType::Raw { .. } | PtrType::FnPtr => return ret(ptr),
+            PtrType::Raw | PtrType::FnPtr => return ret(ptr),
         };
-        self.check_ptr(ptr, layout.size, layout.align)?;
+        self.dereferenceable(ptr, layout.size, layout.align)?;
 
         ret(ptr)
     }

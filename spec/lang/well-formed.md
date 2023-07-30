@@ -355,7 +355,7 @@ impl Statement {
                 ensure(matches!(v, Type::Ptr(_)));
                 live_locals
             }
-            Finalize { place, fn_entry: _ } => {
+            Validate { place, fn_entry: _ } => {
                 place.check_wf::<T>(live_locals, prog)?;
                 live_locals
             }

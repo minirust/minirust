@@ -475,15 +475,17 @@ For instance, we want to ensure references and boxes are dereferenceable.
 This does not apply at each and every typed copy (so maybe it shouldn't be called "valid"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things hould be true.
 
 ```rust
-impl<M: Memory> Machine<M> {
+impl<M: Memory> AtomicMemory<M> {
     fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         if let PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } = ptr_ty {
-            self.mem.layout_dereferenceable(ptr, pointee)?;
+            self.layout_dereferenceable(ptr, pointee)?;
         }
         ret(())
     }
 }
 ```
+
+We expect retagging to do *at least* this check as well.
 
 ## Transmutation
 

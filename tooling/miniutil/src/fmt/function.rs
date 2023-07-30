@@ -112,9 +112,9 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let val = fmt_value_expr(value, comptypes).to_string();
             format!("    expose({val});")
         }
-        Statement::Finalize { place, fn_entry } => {
+        Statement::Validate { place, fn_entry } => {
             let place = fmt_place_expr(place, comptypes).to_string();
-            format!("    finalize({place}, {fn_entry});")
+            format!("    validate({place}, {fn_entry});")
         }
         Statement::StorageLive(local) => {
             let local = fmt_local_name(local).to_string();

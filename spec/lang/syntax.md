@@ -193,7 +193,10 @@ pub enum Statement {
     },
     /// Ensure that `place` contains a valid value of its type (else UB).
     /// Also perform retagging.
-    Finalize {
+    ///
+    /// The frontend is generally expected to generate this for all function argument,
+    /// and possibly in more places.
+    Validate {
         place: PlaceExpr,
         /// Indicates whether this operation occurs as part of the prelude
         /// that we have at the top of each function (which affects retagging).
