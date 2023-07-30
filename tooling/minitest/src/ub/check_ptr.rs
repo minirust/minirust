@@ -27,7 +27,7 @@ fn check_ptr_null() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "dereferencing null pointer");
+    assert_ub(p, "non-zero-sized access with invalid pointer");
 }
 
 #[test]

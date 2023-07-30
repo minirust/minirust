@@ -167,10 +167,7 @@ impl<T: Target> BasicMemory<T> {
     /// length and alignment. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
     fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
-        // Basic address sanity checks.
-        if ptr.addr == 0 {
-            throw_ub!("dereferencing null pointer");
-        }
+        // Alignment is always required.
         if ptr.addr % align.bytes() != 0 {
             throw_ub!("pointer is insufficiently aligned");
         }
@@ -192,6 +189,8 @@ impl<T: Target> BasicMemory<T> {
         }
 
         // Compute relative offset, and ensure we are in-bounds.
+        // We don't need a null ptr check, we just have an invariant that no allocation
+        // contains the null address.
         let offset_in_alloc = ptr.addr - allocation.addr;
         if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
             throw_ub!("out-of-bounds memory access");
