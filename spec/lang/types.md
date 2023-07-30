@@ -23,13 +23,6 @@ As always, this definition is incomplete.
 In the future, we might want to separate a type from its layout, and consider these separate components -- we will have to see what works best.
 
 ```rust
-/// A "layout" describes the shape of data in memory.
-pub struct Layout {
-    pub size: Size,
-    pub align: Align,
-    pub inhabited: bool,
-}
-
 /// "Value" types -- these have a size, but not an alignment.
 pub enum Type {
     Int(IntType),
@@ -77,21 +70,7 @@ pub enum Type {
     },
 }
 
-pub enum PtrType {
-    Ref {
-        /// Indicates a shared vs mutable reference.
-        /// FIXME: also indicate presence of `UnsafeCell`.
-        mutbl: Mutability,
-        /// We only need to know the layout of the pointee.
-        /// (This also means we have a finite representation even when the Rust type is recursive.)
-        pointee: Layout,
-    },
-    Box {
-        pointee: Layout,
-    },
-    Raw,
-    FnPtr,
-}
+
 
 pub struct IntType {
     pub signed: Signedness,

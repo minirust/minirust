@@ -4,5 +4,4 @@ For the files in this folder, we assume some definitions and parameters to alway
 
 ```rust
 use crate::prelude::*;
-use lang::{ PtrType, ThreadId };
 ```

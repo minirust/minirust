@@ -4,5 +4,5 @@ For the files in this folder, we assume some definitions and parameters to alway
 
 ```rust
 use crate::prelude::*;
-use mem::{Memory, AbstractByte, Pointer, IntPtrCast, AtomicMemory, Atomicity};
+use mem::*;
 ```

@@ -97,6 +97,7 @@ But we also need to ensure the entire document stays coherent, and I already hav
 
 * [Prelude](spec/prelude.md): common definitions and parameters shared by everything
 * MiniRust memory
+  * [Pointer](spec/mem/pointer.md): the definition of what even is a pointer in MiniRust
   * [Memory interface](spec/mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
   * [Basic memory model](spec/mem/basic.md): an implementation of the memory interface that ignores aliasing concerns
   * [Integer-pointer cast model](spec/mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts

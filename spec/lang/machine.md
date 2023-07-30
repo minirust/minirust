@@ -59,10 +59,10 @@ struct CallerReturnInfo<M: Memory> {
     /// The basic block to jump to when the callee returns.
     /// If `None`, UB will be raised when the callee returns.
     next_block: Option<BbName>,
-    /// The place where the caller wants to see the return value,
-    /// and the type it should be stored at.
+    /// The location where the caller wants to see the return value.
+    /// Has already been checked to be suitably compatible with the callee return type.
     /// If `None`, the return value will be discarded.
-    ret_place: Option<(Place<M>, PlaceType)>
+    ret_place: Option<Place<M>>
 }
 ```
 
@@ -86,9 +86,6 @@ pub enum ThreadState {
     /// The thread has terminated.
     Terminated,
 }
-
-/// The ID of a thread is an index into the ThreadManager's `threads` list.
-pub type ThreadId = Int;
 
 /// The thread manager tracks the list of all threads, and the thread that is currently taking a step.
 /// The latter is only needed during a step of execution;
@@ -139,7 +136,7 @@ impl<M: Memory> Machine<M> {
                 let encoded_ptr = encode_ptr::<M>(ptr);
                 bytes.write_subslice_at_index(i.bytes(), encoded_ptr);
             }
-            mem.store(Atomicity::None, global_ptrs[global_name], bytes, global.align)?;
+            mem.store(global_ptrs[global_name], bytes, global.align, Atomicity::None)?;
         }
 
         // Allocate functions.

@@ -269,7 +269,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let pty = PlaceType { ty, align: Align::from_bytes(size.bytes()).unwrap() };
-        self.mem.typed_store(Atomicity::Atomic, ptr, val, pty)?;
+        self.mem.typed_store(ptr, val, pty, Atomicity::Atomic)?;
         ret(unit_value())
     }
 
@@ -295,7 +295,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
-        let val = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
+        let val = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;
         ret(val)
     }
 
@@ -335,16 +335,16 @@ impl<M: Memory> Machine<M> {
         let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
 
         // The value at the location right now.
-        let before = self.mem.typed_load(Atomicity::Atomic, ptr, pty)?;
+        let before = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;
 
         // This is the central part of the operation. If the expected before value at ptr is the current value,
         // then we exchange it for the next value.
+        // FIXME: The memory model might have to know that this is a compare-exchange.
         if current == before {
-            self.mem.typed_store(Atomicity::Atomic, ptr, next, pty)?;
+            self.mem.typed_store(ptr, next, pty, Atomicity::Atomic)?;
         } else {
             // We do *not* do a store on a failing CompareExchange. This means that races between
             // a non-atomic read and a failing CompareExchange are not considered UB!
-            // FIXME: is that what we want?
         }
 
         ret(before)

@@ -145,7 +145,7 @@ This loads a value from a place (often called "place-to-value coercion").
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> NdResult<(Value<M>, Type)> {
         let (p, ptype) = self.eval_place(source)?;
-        let v = self.mem.typed_load(Atomicity::None, p, ptype)?;
+        let v = self.mem.typed_load(p, ptype, Atomicity::None)?;
 
         ret((v, ptype.ty))
     }
@@ -159,12 +159,11 @@ The `&` operators simply converts a place to the pointer it denotes.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> NdResult<(Value<M>, Type)> {
-        let (p, _pty_) = self.eval_place(target)?;
-        // We check things *at the pointer's type*, not the place's type.
-        // FIXME: Should we check the stricter of the two instead?
+        let (p, _pty) = self.eval_place(target)?;
+        // We generated a new pointer, let the aliasing model know.
         // FIXME: test that this is UB when the pointer requires more alignment than the place,
         // and *not* UB the other way around.
-        self.check_pointer_dereferenceable(p, ptr_ty)?;
+        let p = self.mem.retag_ptr(p, ptr_ty, /* fn_entry */ false)?;
 
         ret((Value::Ptr(p), Type::Ptr(ptr_ty)))
     }
@@ -245,11 +244,11 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(p), Type::Ptr(ptr_type)) = self.eval_value(operand)? else {
             panic!("dereferencing a non-pointer")
         };
-        // We check things *at the pointer's type*, not the place's type.
-        // FIXME: Should we check the stricter of the two instead?
+        // Basic check that this pointer is good for its type.
+        // (We don't do a full retag here, this is not considered creating a new pointer.)
         // FIXME: test that this is UB when the pointer requires more alignment than the place,
         // and *not* UB the other way around.
-        self.check_pointer_dereferenceable(p, ptr_type)?;
+        self.mem.check_pointer_dereferenceable(p, ptr_type)?;
 
         ret((p, ptype))
     }
@@ -326,13 +325,14 @@ Assignment evaluates its two operands, and then stores the value into the destin
 
 - TODO: This probably needs some aliasing constraints, see [this discussion](https://github.com/rust-lang/rust/issues/68364)
   and [this one](https://github.com/rust-lang/unsafe-code-guidelines/issues/417).
+- TODO: Should this implicitly retag, to have full `Validate` semantics?
 
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let (place, ptype) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
-        self.mem.typed_store(Atomicity::None, place, val, ptype)?;
+        self.mem.typed_store(place, val, ptype, Atomicity::None)?;
 
         ret(())
     }
@@ -355,20 +355,39 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Finalizing a value
+### Validating a value
 
 This statement asserts that a value satisfies its validity invariant, and performs retagging for the aliasing model.
-
-- TODO: Should `Retag` be a separate operation instead?
+(This matches the `Retag` statement in MIR. They should probaby be renamed.)
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_statement(&mut self, Statement::Finalize { place, fn_entry }: Statement) -> NdResult {
+    fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (p, ptype) = self.eval_place(place)?;
 
-        let val = self.mem.typed_load(Atomicity::None, p, ptype)?;
+        let val = self.mem.typed_load(p, ptype, Atomicity::None)?;
         let val = self.mem.retag_val(val, ptype.ty, fn_entry)?;
-        self.mem.typed_store(Atomicity::None, p, val, ptype)?;
+        self.mem.typed_store(p, val, ptype, Atomicity::None)?;
+
+        ret(())
+    }
+}
+```
+
+### De-initializing a place
+
+This statement replaces the contents of a place with `Uninit`.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn deinit(&mut self, place: Place<M>, pty: PlaceType) -> NdResult {
+        self.mem.store(place, list![AbstractByte::Uninit; pty.ty.size::<M::T>().bytes()], pty.align, Atomicity::None)?;
+        ret(())
+    }
+
+    fn eval_statement(&mut self, Statement::Deinit { place }: Statement) -> NdResult {
+        let (p, ptype) = self.eval_place(place)?;
+        self.deinit(p, ptype)?;
 
         ret(())
     }
@@ -463,12 +482,30 @@ impl<M: Memory> Machine<M> {
 A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
-- TODO: Support in-place argument/return passing
-  (https://github.com/rust-lang/unsafe-code-guidelines/issues/416,
-  https://github.com/rust-lang/unsafe-code-guidelines/issues/417)
-
 ```rust
 impl<M: Memory> Machine<M> {
+    /// A helper function to deal with `ArgumentExpr`.
+    fn eval_argument(
+        &mut self,
+        val: ArgumentExpr,
+    ) -> NdResult<(Value<M>, PlaceType)> {
+        ret(match val {
+            ArgumentExpr::ByValue(value, align) => {
+                let (value, ty) = self.eval_value(value)?;
+                (value, PlaceType::new(ty, align))
+            }
+            ArgumentExpr::InPlace(place) => {
+                let (place, pty) = self.eval_place(place)?;
+                let value = self.mem.typed_load(place, pty, Atomicity::None)?;
+                // Make the old value unobservable because the callee might work on it in-place.
+                // FIXME: This also needs aliasing model support.
+                self.deinit(place, pty)?;
+
+                (value, pty)
+            }
+        })
+    }
+
     fn eval_terminator(
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
@@ -476,8 +513,13 @@ impl<M: Memory> Machine<M> {
         let mut locals: Map<LocalName, Place<M>> = Map::new();
 
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let ret_place = ret_expr.try_map(|caller_ret_place| {
-            self.eval_place(caller_ret_place)
+        let caller_ret_place = ret_expr.try_map(|caller_ret_place| {
+            let (place, pty) = self.eval_place(caller_ret_place)?;
+            // To allow in-place return value passing, we proactively make the old contents
+            // of the return place unobservable.
+            // FIXME: This also needs aliasing model support.
+            self.deinit(place, pty)?;
+            ret::<NdResult<_>>((place, pty))
         })?;
 
         // Then evaluate the function that will be called.
@@ -493,8 +535,8 @@ impl<M: Memory> Machine<M> {
             let callee_pty = func.locals[callee_ret_local];
             let callee_ret_layout = callee_pty.layout::<M::T>();
             locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
-            if let Some((_ret_place, ret_pty)) = ret_place {
-                if ret_pty != callee_pty {
+            if let Some((_, caller_pty)) = caller_ret_place {
+                if caller_pty != callee_pty {
                     throw_ub!("call ABI violation: return types do not agree");
                 }
             }
@@ -506,20 +548,18 @@ impl<M: Memory> Machine<M> {
             throw_ub!("call ABI violation: number of arguments does not agree");
         }
         for (callee_local, caller_arg) in func.args.zip(arguments) {
-            let (caller_val, caller_ty) = self.eval_value(caller_arg)?;
+            let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
             let callee_pty = func.locals[callee_local];
-            if caller_ty != callee_pty.ty {
-                // FIXME: The caller also needs to set an alignment!
-                // Otherwise it cannot pass arguments on the stack.
+            if caller_pty != callee_pty {
                 throw_ub!("call ABI violation: argument types do not agree");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).
             let callee_layout = callee_pty.layout::<M::T>();
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
             locals.insert(callee_local, p);
-            // Caller and callee type are the same, so we can store the value at `callee_pty`.
-            // This is a fresh pointer so there should be no reason this can fail.
-            self.mem.typed_store(Atomicity::None, p, caller_val, callee_pty).unwrap();
+            // Copy the value. We know the types have the same layout so this will fit.
+            // `p` is a fresh pointer so there should be no reason the store can fail.
+            self.mem.typed_store(p, caller_val, caller_pty, Atomicity::None).unwrap();
         }
 
         // Push new stack frame, so it is executed next.
@@ -528,7 +568,7 @@ impl<M: Memory> Machine<M> {
             locals,
             caller_return_info: Some(CallerReturnInfo {
                 next_block,
-                ret_place,
+                ret_place: caller_ret_place.map(|(place, _pty)| place),
             }),
             next_block: func.start,
             next_stmt: Int::ZERO,
@@ -540,7 +580,7 @@ impl<M: Memory> Machine<M> {
 ```
 
 Note that the content of the arguments is entirely controlled by the caller.
-The callee should probably start with a bunch of `Finalize` statements to ensure that all these arguments match the type the callee thinks they should have.
+The callee should probably start with a bunch of `Validate` statements to ensure that all these arguments match the type the callee thinks they should have.
 
 ### Return
 
@@ -567,10 +607,12 @@ impl<M: Memory> Machine<M> {
         };
 
         // Copy return value, if any, to where the caller wants it.
-        // To make this work like an assignment in the caller, we use the caller type for this copy.
-        if let Some((ret_place, ret_pty)) = caller_return_info.ret_place {
-            let ret_val = self.mem.typed_load(Atomicity::None, frame.locals[ret_local], ret_pty)?;
-            self.mem.typed_store(Atomicity::None, ret_place, ret_val, ret_pty)?;
+        // To match `Call`, and since the callee might have written to its return place using a totally different type,
+        // we copy at the callee type -- the one place where we ensure the return value matches that type.
+        if let Some(ret_place) = caller_return_info.ret_place {
+            let callee_pty = frame.func.locals[ret_local];
+            let ret_val = self.mem.typed_load(frame.locals[ret_local], callee_pty, Atomicity::None)?;
+            self.mem.typed_store(ret_place, ret_val, callee_pty, Atomicity::None)?;
         }
 
         // Deallocate everything.
@@ -594,7 +636,7 @@ impl<M: Memory> Machine<M> {
 ```
 
 Note that the caller has no guarantee at all about the value that it finds in its return place.
-It should probably do a `Finalize` as the next step to encode that it would be UB for the callee to return an invalid value.
+It should probably do a `Validate` as the next step to encode that it would be UB for the callee to return an invalid value.
 
 ### Intrinsic
 
@@ -617,7 +659,7 @@ impl<M: Memory> Machine<M> {
         // Store return value.
         if let Some((ret_place, ret_pty)) = ret_place {
             // `eval_inrinsic` above must guarantee that `value` has the right type.
-            self.mem.typed_store(Atomicity::None, ret_place, value, ret_pty)?;
+            self.mem.typed_store(ret_place, value, ret_pty, Atomicity::None)?;
         }
 
         // Jump to next block.

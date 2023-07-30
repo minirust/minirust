@@ -396,29 +396,19 @@ We also use this to lift retagging from pointers to compound values.
 
 ```rust
 impl<M: Memory> AtomicMemory<M> {
-    fn typed_store(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, val: Value<M>, pty: PlaceType) -> Result {
+    fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, pty: PlaceType, atomicity: Atomicity) -> Result {
         let bytes = pty.ty.encode::<M>(val);
-        self.store(atomicity, ptr, bytes, pty.align)?;
+        self.store(ptr, bytes, pty.align, atomicity)?;
 
         ret(())
     }
 
-    fn typed_load(&mut self, atomicity: Atomicity, ptr: Pointer<M::Provenance>, pty: PlaceType) -> Result<Value<M>> {
-        let bytes = self.load(atomicity, ptr, pty.ty.size::<M::T>(), pty.align)?;
+    fn typed_load(&mut self, ptr: Pointer<M::Provenance>, pty: PlaceType, atomicity: Atomicity) -> Result<Value<M>> {
+        let bytes = self.load(ptr, pty.ty.size::<M::T>(), pty.align, atomicity)?;
         ret(match pty.ty.decode::<M>(bytes) {
             Some(val) => val,
             None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
         })
-    }
-
-    fn layout_dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
-        if !layout.inhabited {
-            // TODO: I don't think Miri does this check.
-            throw_ub!("uninhabited types are not dereferenceable");
-        }
-        self.dereferenceable(ptr, layout.size, layout.align)?;
-
-        ret(())
     }
 
     fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
@@ -475,15 +465,17 @@ For instance, we want to ensure references and boxes are dereferenceable.
 This does not apply at each and every typed copy (so maybe it shouldn't be called "valid"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things hould be true.
 
 ```rust
-impl<M: Memory> Machine<M> {
+impl<M: Memory> AtomicMemory<M> {
     fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         if let PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } = ptr_ty {
-            self.mem.layout_dereferenceable(ptr, pointee)?;
+            self.dereferenceable(ptr, pointee)?;
         }
         ret(())
     }
 }
 ```
+
+We expect retagging to do *at least* this check as well.
 
 ## Transmutation
 
