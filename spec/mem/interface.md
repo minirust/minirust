@@ -10,21 +10,6 @@ This implies that in MiniRust, *operations are typed, but memory is not* - a key
 
 [uninit]: https://www.ralfj.de/blog/2019/07/14/uninit.html
 
-## Pointers
-
-One key question a memory model has to answer is *what is a pointer*.
-It might seem like the answer is just "an integer of appropriate size", but [that is not the case][pointers-complicated] (as [more][pointers-complicated-2] and [more][pointers-complicated-3] discussion shows).
-This becomes even more prominent with aliasing models such as [Stacked Borrows].
-The memory model hence takes the stance that a pointer consists of the *address* (which truly is just an integer of appropriate size) and a *provenance*.
-What exactly [provenance] *is* is up to the memory model.
-As far as the interface is concerned, this is some opaque extra data that we carry around with our pointers and that places restrictions on which pointers may be used to do what when.
-
-[pointers-complicated]: https://www.ralfj.de/blog/2018/07/24/pointers-and-bytes.html
-[pointers-complicated-2]: https://www.ralfj.de/blog/2020/12/14/provenance.html
-[pointers-complicated-3]: https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html
-[provenance]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#pointer-provenance
-[Stacked Borrows]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md
-
 ## Abstract Bytes
 
 The unit of communication between the memory model and the rest of the program is a *byte*.
@@ -62,20 +47,6 @@ impl<Provenance> AbstractByte<Provenance> {
 The MiniRust memory interface is described by the following (not-yet-complete) trait definition:
 
 ```rust
-/// An "address" is a location in memory. This corresponds to the actual
-/// location in the real program.
-/// We make it a mathematical integer, but of course it is bounded by the size
-/// of the address space.
-pub type Address = Int;
-
-/// A "pointer" is an address together with its Provenance.
-/// Provenance can be absent; those pointers are
-/// invalid for all non-zero-sized accesses.
-pub struct Pointer<Provenance> {
-    pub addr: Address,
-    pub provenance: Option<Provenance>,
-}
-
 /// *Note*: All memory operations can be non-deterministic, which means that
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
@@ -104,17 +75,16 @@ pub trait Memory {
     /// Read some bytes from memory.
     fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
 
-    /// Test whether the given pointer is dereferenceable for the given size and alignment.
-    /// Raises UB if that is not the case.
-    /// Note that a successful read/write/deallocate implies that the pointer
-    /// was dereferenceable before that operation (but not vice versa).
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result;
+    /// Test whether the given pointer is dereferenceable for the given layout, including an alignment check.
+    /// Raises UB if that is not the case. Must always raise UB for uninhabited layouts.
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result;
 
     /// Retag the given pointer, which has the given type.
     /// `fn_entry` indicates whether this is one of the special retags that happen
     /// right at the top of each function.
-    /// FIXME: Referencing `PtrType` here feels like a layering violation, but OTOH
-    /// also seems better than just outright duplicating that type.
+    /// 
+    /// This must *at least* ensure that if the `ptr_type` carries a layout, then
+    /// the pointer is dereferenceable at that layout.
     ///
     /// Return the retagged pointer.
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;

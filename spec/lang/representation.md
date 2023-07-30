@@ -411,16 +411,6 @@ impl<M: Memory> AtomicMemory<M> {
         })
     }
 
-    fn layout_dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
-        if !layout.inhabited {
-            // TODO: I don't think Miri does this check.
-            throw_ub!("uninhabited types are not dereferenceable");
-        }
-        self.dereferenceable(ptr, layout.size, layout.align)?;
-
-        ret(())
-    }
-
     fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
@@ -478,7 +468,7 @@ This does not apply at each and every typed copy (so maybe it shouldn't be calle
 impl<M: Memory> AtomicMemory<M> {
     fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         if let PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } = ptr_ty {
-            self.layout_dereferenceable(ptr, pointee)?;
+            self.dereferenceable(ptr, pointee)?;
         }
         ret(())
     }

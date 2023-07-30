@@ -86,16 +86,14 @@ impl<M: Memory> AtomicMemory<M> {
         self.memory.load(ptr, len, align)
     }
 
-    /// Test whether the given pointer is dereferenceable for the given size and alignment.
+    /// Test whether the given pointer is dereferenceable for the given layout.
     /// Raises UB if that is not the case.
-    /// Note that a successful read/write/deallocate implies that the pointer
-    /// was dereferenceable before that operation (but not vice versa).
-    pub fn dereferenceable(&self, ptr: Pointer<M::Provenance>, size: Size, align: Align) -> Result {
-        self.memory.dereferenceable(ptr, size, align)
+    pub fn dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
+        self.memory.dereferenceable(ptr, layout)
     }
 
     /// Return the retagged pointer.
-    pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: lang::PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
+    pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
         self.memory.retag_ptr(ptr, ptr_type, fn_entry)
     }
 }
@@ -104,8 +102,12 @@ impl<M: Memory> AtomicMemory<M> {
 ## Data race detection
 
 Here we define the operations needed to make data race detection.
+The type `ThreadId` is used to identify threads.
 
 ```rust
+/// The ID of a thread is an index into the machine's `threads` list.
+pub type ThreadId = Int;
+
 impl<M: Memory> AtomicMemory<M> {
     /// Given a list of previous accesses, checks if any of the current accesses is in a data race with any of those.
     pub fn check_data_races(&self, current_thread: ThreadId, prev_thread: ThreadId, prev_accesses: List<Access>) -> Result {

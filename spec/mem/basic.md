@@ -229,8 +229,12 @@ impl<T: Target> Memory for BasicMemory<T> {
         ret(())
     }
 
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result {
-        self.check_ptr(ptr, size, align)?;
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
+        if !layout.inhabited {
+            // TODO: I don't think Miri does this check.
+            throw_ub!("uninhabited types are not dereferenceable");
+        }
+        self.check_ptr(ptr, layout.size, layout.align)?;
 
         ret(())
     }
@@ -248,7 +252,7 @@ impl<T: Target> Memory for BasicMemory<T> {
             // Raw and fn ptrs do not have any requirements, skip them.
             PtrType::Raw | PtrType::FnPtr => return ret(ptr),
         };
-        self.dereferenceable(ptr, layout.size, layout.align)?;
+        self.dereferenceable(ptr, layout)?;
 
         ret(ptr)
     }

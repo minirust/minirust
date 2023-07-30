@@ -87,9 +87,6 @@ pub enum ThreadState {
     Terminated,
 }
 
-/// The ID of a thread is an index into the ThreadManager's `threads` list.
-pub type ThreadId = Int;
-
 /// The thread manager tracks the list of all threads, and the thread that is currently taking a step.
 /// The latter is only needed during a step of execution;
 /// it saves us from passing the active thread around explicitly everywhere.
