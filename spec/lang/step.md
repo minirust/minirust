@@ -299,6 +299,7 @@ impl<M: Memory> Machine<M> {
         let place = self.ptr_offset_inbounds(root, offset.bytes())?;
         let ptype = PlaceType {
             // We do *not* use `offset` here since that is only dynamically known.
+            // Instead use element size, which yields the lowest alignment.
             align: ptype.align.restrict_for_offset(field_ty.size::<M::T>()),
             ty: field_ty,
         };
