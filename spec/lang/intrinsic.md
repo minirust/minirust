@@ -208,7 +208,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::Spawn`")
         }
 
-        let thread_id = self.thread_manager.spawn(func)?;
+        let thread_id = self.spawn(func)?;
 
         ret(Value::Int(thread_id))
     }
@@ -231,7 +231,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::Join`")
         }
 
-        self.thread_manager.join(thread_id)?;
+        self.join(thread_id)?;
 
         ret(unit_value())
     }
