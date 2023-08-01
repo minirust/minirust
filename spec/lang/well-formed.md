@@ -4,6 +4,9 @@ The various syntactic constructs of MiniRust (types, functions, ...) come with w
 The idea is that for well-formed programs, the `step` function will never panic.
 Those requirements are defined in this file.
 
+We also define the idea of a "value being well-formed at a type".
+`decode` will only ever return well-formed values, and `encode` will never panic on a well-formed value.
+
 Note that `check_wf` functions for testing well-formedness return `Option<()>` rather than `bool` so that we can use `?`.
 We use the following helper function to convert Boolean checks into this form.
 
@@ -529,6 +532,50 @@ impl Program {
 
                 relocation.check_wf(self.globals)?;
             }
+        }
+
+        ret(())
+    }
+}
+```
+
+## Well-formed values
+
+```rust
+impl<M: Memory> Value<M> {
+    /// We assume `ty` is itself well-formed.
+    fn check_wf(self, ty: Type) -> Option<()> {
+        match (self, ty) {
+            (Value::Int(i), Type::Int(ity)) => {
+                ensure(i.in_bounds(ity.signed, ity.size))?;
+            }
+            (Value::Bool(_), Type::Bool) => {},
+            (Value::Ptr(ptr), Type::Ptr(_)) => {
+                ensure(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE))?;
+            }
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
+                ensure(vals.len() == fields.len())?;
+                for (val, (_, ty)) in vals.zip(fields) {
+                    val.check_wf(ty)?;
+                }
+            }
+            (Value::Tuple(vals), Type::Array { elem, count }) => {
+                ensure(vals.len() == count)?;
+                for val in vals {
+                    val.check_wf(elem)?;
+                }
+            }
+            (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
+                ensure(chunk_data.len() == chunks.len())?;
+                for (data, (_, size)) in chunk_data.zip(chunks) {
+                    ensure(data.len() == size.bytes())?;
+                }
+            }
+            (Value::Variant { idx, data }, Type::Enum { variants, .. }) => {
+                ensure(idx < variants.len())?;
+                data.check_wf(variants[idx])?;
+            }
+            _ => throw!()
         }
 
         ret(())

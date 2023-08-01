@@ -406,7 +406,10 @@ impl<M: Memory> AtomicMemory<M> {
     fn typed_load(&mut self, ptr: Pointer<M::Provenance>, pty: PlaceType, atomicity: Atomicity) -> Result<Value<M>> {
         let bytes = self.load(ptr, pty.ty.size::<M::T>(), pty.align, atomicity)?;
         ret(match pty.ty.decode::<M>(bytes) {
-            Some(val) => val,
+            Some(val) => {
+                assert!(val.check_wf(pty.ty).is_some(), "decode returned {val:?} which is ill-formed for {:#?}", pty.ty);
+                val
+            }
             None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
         })
     }
