@@ -414,6 +414,7 @@ impl<M: Memory> Machine<M> {
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
         // Here we make it a spec bug to ever mark an already dead local as dead.
+        // FIXME: This does not match what rustc does: https://github.com/rust-lang/rust/issues/98896.
         let layout = self.cur_frame().func.locals[local].layout::<M::T>();
         let p = self.mutate_cur_frame(|frame| {
             frame.locals.remove(local).unwrap()
