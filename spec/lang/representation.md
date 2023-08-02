@@ -296,7 +296,6 @@ impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
     }
 }
 ```
-// Note that with `eq` already being defined (all our types that we want to compare derive `PartialEq` and `Eq`), defining `le` is sufficient to also define all the other parts of `DefinedRelation`.
 
 Similarly, on `Pointer` we say that adding provenance makes it more defined:
 ```rust
