@@ -24,6 +24,6 @@ enum Value<M: Memory> {
 }
 ```
 
-The point of this type is to capture the mathematical concepts that are represented by the data we store in memory.
+The point of this type is to capture the mathematical concepts that are represented by the data we store in memory by defining a [representation relation](representation.md).
 The definition is likely incomplete, and even if it was complete now, we might expand it as Rust grows.
 That is okay; all previously defined representation relations are still well-defined when the domain grows, the newly added values will just not be valid for old types as one would expect.
