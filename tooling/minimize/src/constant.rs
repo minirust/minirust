@@ -129,12 +129,8 @@ fn translate_const_allocation<'cx, 'tcx>(
 ) {
     let allocation = allocation.inner();
     let size = allocation.size();
-    let alloc_range = rs::AllocRange {
-        start: rs::Size::ZERO,
-        size,
-    };
     let mut bytes: Vec<Option<u8>> = allocation
-        .get_bytes_unchecked(alloc_range)
+        .inspect_with_uninit_and_ptr_outside_interpreter(0..size.bytes_usize())
         .iter()
         .copied()
         .map(Some)
