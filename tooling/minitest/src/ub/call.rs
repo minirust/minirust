@@ -88,7 +88,7 @@ fn call_arg_abi() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: argument types do not agree");
+    assert_ub(p, "call ABI violation: argument types are not compatible");
 }
 
 #[test]
@@ -109,5 +109,5 @@ fn call_ret_abi() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: return types do not agree");
+    assert_ub(p, "call ABI violation: return types are not compatible");
 }

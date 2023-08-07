@@ -508,6 +508,17 @@ impl<M: Memory> Machine<M> {
         })
     }
 
+    fn check_abi_compatibility(
+        caller_pty: PlaceType,
+        callee_pty: PlaceType,
+    ) -> bool {
+        // FIXME: this is our very crude ABI compatibility check. It is possibly insufficient
+        // (do we even encode everything into `Type` that is relevant for ABI?) and certainly
+        // too restrictive (i32/u32 should be compatible, for instance).
+        // But no matter what we do, crucially we must ensure the type have the same layout.
+        caller_pty == callee_pty
+    }
+
     fn eval_terminator(
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
@@ -538,8 +549,8 @@ impl<M: Memory> Machine<M> {
             let callee_ret_layout = callee_pty.layout::<M::T>();
             locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
             if let Some((_, caller_pty)) = caller_ret_place {
-                if caller_pty != callee_pty {
-                    throw_ub!("call ABI violation: return types do not agree");
+                if !Self::check_abi_compatibility(caller_pty, callee_pty) {
+                    throw_ub!("call ABI violation: return types are not compatible");
                 }
             }
         }
@@ -552,14 +563,14 @@ impl<M: Memory> Machine<M> {
         for (callee_local, caller_arg) in func.args.zip(arguments) {
             let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
             let callee_pty = func.locals[callee_local];
-            if caller_pty != callee_pty {
-                throw_ub!("call ABI violation: argument types do not agree");
+            if !Self::check_abi_compatibility(caller_pty, callee_pty) {
+                throw_ub!("call ABI violation: argument types are not compatible");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).
             let callee_layout = callee_pty.layout::<M::T>();
             let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
             locals.insert(callee_local, p);
-            // Copy the value. We know the types have the same layout so this will fit.
+            // Copy the value at caller (source) type. We know the types have the same layout so this will fit.
             // `p` is a fresh pointer so there should be no reason the store can fail.
             self.mem.typed_store(p, caller_val, caller_pty, Atomicity::None).unwrap();
         }
@@ -610,7 +621,7 @@ impl<M: Memory> Machine<M> {
 
         // Copy return value, if any, to where the caller wants it.
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
-        // we copy at the callee type -- the one place where we ensure the return value matches that type.
+        // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
         if let Some(ret_place) = caller_return_info.ret_place {
             let callee_pty = frame.func.locals[ret_local];
             let ret_val = self.mem.typed_load(frame.locals[ret_local], callee_pty, Atomicity::None)?;
