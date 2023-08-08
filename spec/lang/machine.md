@@ -19,8 +19,14 @@ pub struct Machine<M: Memory> {
     /// The state of the integer-pointer cast subsystem.
     intptrcast: IntPtrCast<M::Provenance>,
 
-    /// The Thread Manager
-    thread_manager: ThreadManager<M>,
+    /// The Threads
+    threads: List<Thread<M>>,
+
+    /// The currently / most recently active thread.
+    active_thread: ThreadId,
+
+    /// The Locks
+    locks: List<LockState>,
 
     /// Stores a pointer to each of the global allocations.
     global_ptrs: Map<GlobalName, Pointer<M::Provenance>>,
@@ -86,21 +92,6 @@ pub enum ThreadState {
     /// The thread has terminated.
     Terminated,
 }
-
-/// The thread manager tracks the list of all threads, and the thread that is currently taking a step.
-/// The latter is only needed during a step of execution;
-/// it saves us from passing the active thread around explicitly everywhere.
-pub struct ThreadManager<M: Memory> {
-    /// The list of threads.
-    threads: List<Thread<M>>,
-
-    /// The list of locks.
-    locks: List<LockState>,
-
-    /// To avoid passing around the active thread through all the eval_ functions,
-    /// we store it globally here.
-    active_thread: ThreadId,
-}
 ```
 
 Next, we define how to create a machine.
@@ -150,13 +141,16 @@ impl<M: Memory> Machine<M> {
 
         let start_fn = prog.functions[prog.start];
 
+
         ret(Machine {
             prog,
             mem,
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
-            thread_manager: ThreadManager::new(start_fn),
+            threads: list![Thread::new(start_fn)],
+            locks: List::new(),
+            active_thread: ThreadId::ZERO,
             stdout,
             stderr,
         })
@@ -169,21 +163,15 @@ We also define some helper functions that will be useful later.
 ```rust
 impl<M: Memory> Machine<M> {
     fn cur_frame(&self) -> StackFrame<M> {
-        let active_thread = self.thread_manager.active_thread;
-
-        self.thread_manager.threads[active_thread].cur_frame()
+        self.active_thread().cur_frame()
     }
 
     fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
-        let active_thread = self.thread_manager.active_thread;
-
-        self.thread_manager.threads.mutate_at(active_thread, |thread| thread.mutate_cur_frame(f))
+        self.threads.mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(f))
     }
 
     fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
-        let active_thread = self.thread_manager.active_thread;
-
-        self.thread_manager.threads.mutate_at(active_thread, |thread| f(&mut thread.stack))
+        self.threads.mutate_at(self.active_thread, |thread| f(&mut thread.stack))
     }
 
     fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
@@ -232,7 +220,7 @@ impl<M: Memory> Thread<M> {
 }
 ```
 
-Some functionality of the threads and the thread manager.
+Some functionality of the threads and the thread management in the machine.
 
 ```rust
 impl<M: Memory> Thread<M> {
@@ -250,25 +238,9 @@ impl<M: Memory> Thread<M> {
     }
 }
 
-// Some helper functions.
-impl<M: Memory> ThreadManager<M> {
+impl<M: Memory> Machine<M> {
     fn active_thread(&self) -> Thread<M> {
         self.threads[self.active_thread]
-    }
-}
-
-impl<M: Memory> ThreadManager<M> {
-    pub fn new(func: Function) -> Self {
-        let main = Thread::new(func);
-
-        let mut threads = List::new();
-        threads.push(main);
-
-        Self {
-            threads,
-            locks: List::new(),
-            active_thread: ThreadId::ZERO,
-        }
     }
 
     pub fn spawn(&mut self, func: Function) -> NdResult<ThreadId> {

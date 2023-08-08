@@ -16,10 +16,10 @@ type LockId = Int;
 
 ## Lock operations
 
-The ThreadManager provides the key operations on locks.
+The Machine provides the key operations on locks.
 
 ```rust
-impl<M: Memory> ThreadManager<M> {
+impl<M: Memory> Machine<M> {
     pub fn lock_create(&mut self) -> LockId {
         let id = self.locks.len();
 
@@ -107,7 +107,7 @@ impl<M: Memory> ThreadManager<M> {
 
 ## The Intrinsics for Locks
 
-This exposes the ThreadManager operations to the language as intrinsics.
+This exposes the Machine operations for locks to the language as intrinsics.
 
 The `Create` intrinsic. Used to create locks.
 
@@ -127,7 +127,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `LockIntrinsic::Create`")
         }
 
-        let lock_id = self.thread_manager.lock_create();
+        let lock_id = self.lock_create();
 
         ret(Value::Int(lock_id))
     }
@@ -156,7 +156,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `LockIntrinsic::Acquire`")
         }
 
-        self.thread_manager.lock_acquire(lock_id)?;
+        self.lock_acquire(lock_id)?;
 
         ret(unit_value())
     }
@@ -185,7 +185,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `LockIntrinsic::Release`")
         }
 
-        self.thread_manager.lock_release(lock_id)?;
+        self.lock_release(lock_id)?;
 
         ret(unit_value())
     }

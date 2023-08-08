@@ -20,18 +20,18 @@ For statements it also advances the program counter.
 impl<M: Memory> Machine<M> {
     /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
     pub fn step(&mut self) -> NdResult {
-        if !self.thread_manager.threads.any( |thread| thread.state == ThreadState::Enabled ) {
+        if !self.threads.any( |thread| thread.state == ThreadState::Enabled ) {
             throw_deadlock!();
         }
 
         let distr = libspecr::IntDistribution {
             start: Int::ZERO,
-            end: Int::from(self.thread_manager.threads.len()),
+            end: Int::from(self.threads.len()),
             divisor: Int::ONE,
         };
 
         let thread_id: ThreadId = pick(distr, |id: ThreadId| {
-            let Some(thread) = self.thread_manager.threads.get(id) else {
+            let Some(thread) = self.threads.get(id) else {
                 return false;
             };
 
@@ -39,8 +39,8 @@ impl<M: Memory> Machine<M> {
         })?;
 
         // Update current thread; remember previous thread for data race detection.
-        let prev_thread = self.thread_manager.active_thread;
-        self.thread_manager.active_thread = thread_id;
+        let prev_thread = self.active_thread;
+        self.active_thread = thread_id;
 
         // Prepare data race detection for next step.
         let prev_accesses = self.mem.reset_accesses();
@@ -59,7 +59,7 @@ impl<M: Memory> Machine<M> {
             self.eval_statement(stmt)?;
         }
 
-        self.mem.check_data_races(self.thread_manager.active_thread, prev_thread, prev_accesses)?;
+        self.mem.check_data_races(self.active_thread, prev_thread, prev_accesses)?;
 
         ret(())
     }
@@ -608,12 +608,12 @@ impl<M: Memory> Machine<M> {
         let Some(caller_return_info) = frame.caller_return_info else {
             // Only the bottom frame in a stack has no caller.
             // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.thread_manager.active_thread().stack.len());
+            assert_eq!(Int::ZERO, self.active_thread().stack.len());
 
-            return self.thread_manager.terminate_active_thread();
+            return self.terminate_active_thread();
         };
         // If there is caller_return_info, there must be a caller.
-        assert!(self.thread_manager.active_thread().stack.len() > 0);
+        assert!(self.active_thread().stack.len() > 0);
 
         let Some(ret_local) = func.ret else {
             throw_ub!("return from a function that does not have a return local");
