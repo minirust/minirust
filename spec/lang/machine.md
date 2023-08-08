@@ -21,6 +21,8 @@ pub struct Machine<M: Memory> {
 
     /// The Threads
     threads: List<Thread<M>>,
+
+    /// The currently / most recently active thread.
     active_thread: ThreadId,
 
     /// The Locks
@@ -139,10 +141,6 @@ impl<M: Memory> Machine<M> {
 
         let start_fn = prog.functions[prog.start];
 
-        let main = Thread::new(start_fn);
-
-        let mut threads = List::new();
-        threads.push(main);
 
         ret(Machine {
             prog,
@@ -150,7 +148,7 @@ impl<M: Memory> Machine<M> {
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
-            threads,
+            threads: list![Thread::new(start_fn)],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
             stdout,
