@@ -1,11 +1,11 @@
 use crate::*;
 
 fn dummy_function() -> Function {
-    let locals = [<()>::get_ptype()];
+    let locals = [<*const ()>::get_ptype()];
 
     let b0 = block!(exit());
 
-    function(Ret::No, 0, &locals, &[b0])
+    function(Ret::No, 1, &locals, &[b0])
 }
 
 // Duplication of `spawn::spawn_success` for consistency.
@@ -15,7 +15,7 @@ fn join_success() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), Some(local(0)), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),

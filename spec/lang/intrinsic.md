@@ -185,7 +185,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
-        if arguments.len() != 1 {
+        if arguments.len() != 2 {
             throw_ub!("invalid number of arguments for `Intrinsic::Spawn`");
         }
 
@@ -194,21 +194,28 @@ impl<M: Memory> Machine<M> {
         };
 
         let func = self.fn_from_addr(ptr.addr)?;
-
-        if func.args.len() != 0 {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function takes arguments");
+        if func.args.len() != 1 {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take one argument.");
         }
 
-        // This is taken from Miri. It also does not allow for a return value in the root function of a thread.
-        if func.ret.is_some() {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something");
+        let (data_ptr, data_ptr_ty) = arguments[1];
+        if !matches!(data_ptr_ty, Type::Ptr(_)) {
+            throw_ub!("invalid second argument to `Intrinsic::Spawn`, data pointer should be a raw pointer.");
+        }
+
+        // This is taken from Miri. It discards the return value of the function.
+        // We enforce this by only allowing functions that return zero-sized types such as () and !.
+        if let Some(name) = func.ret {
+            if func.locals[name].ty.size::<M::T>() != Size::ZERO {
+                throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something non zero sized");
+            }
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `Intrinsic::Spawn`")
         }
 
-        let thread_id = self.spawn(func)?;
+        let thread_id = self.spawn(func, data_ptr, data_ptr_ty)?;
 
         ret(Value::Int(thread_id))
     }

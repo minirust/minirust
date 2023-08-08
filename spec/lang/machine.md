@@ -148,7 +148,7 @@ impl<M: Memory> Machine<M> {
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
-            threads: list![Thread::new(start_fn)],
+            threads: list![Thread::main(start_fn)],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
             stdout,
@@ -198,7 +198,7 @@ Next, we define how to create a thread.
 
 ```rust
 impl<M: Memory> Thread<M> {
-    fn new(func: Function) -> Self {
+    fn new(func: Function, locals: Map<LocalName, Place<M>>) -> Self {
         // Setup the initial stack frame.
         // For the main thread, well-formedness ensures that the func has
         // no return value and no arguments.
@@ -206,7 +206,7 @@ impl<M: Memory> Thread<M> {
         // that the func has no arguments.
         let init_frame = StackFrame {
             func,
-            locals: Map::new(),
+            locals,
             caller_return_info: None,
             next_block: func.start,
             next_stmt: Int::ZERO,
@@ -216,6 +216,10 @@ impl<M: Memory> Thread<M> {
             state: ThreadState::Enabled,
             stack: list![init_frame],
         }
+    }
+
+    fn main(func: Function) -> Self {
+        Self::new(func, Map::new())
     }
 }
 ```
@@ -243,13 +247,41 @@ impl<M: Memory> Machine<M> {
         self.threads[self.active_thread]
     }
 
-    pub fn spawn(&mut self, func: Function) -> NdResult<ThreadId> {
+    fn spawn(&mut self, func: Function, data_pointer: Value<M>, data_ptr_ty: Type) -> NdResult<ThreadId> {
         let thread_id = ThreadId::from(self.threads.len());
-        self.threads.push(Thread::new(func));
+
+        let mut locals = Map::new();
+
+        // Create place for data pointer and place it there.
+        let callee_local = func.args[0];
+        let callee_pty = func.locals[callee_local];
+        // Allocate place with callee layout (a lot like `StorageLive`).
+        let callee_layout = callee_pty.layout::<M::T>();
+        let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
+        locals.insert(callee_local, p);
+
+        // This logic is taken from `eval(Terminator::Call)` and `eval_argument`.
+        // FIXME: find a way to avoid the code duplication.
+        let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
+        if !Self::check_abi_compatibility(data_ptr_pty, func.locals[func.args[0]]) {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take a pointer as an argument.");
+        }
+        
+        self.mem.typed_store(p, data_pointer, callee_pty, Atomicity::None).unwrap();
+
+        // Create place for return local, if needed.
+        // The return value will be ignored in `terminate_active_thread`.
+        if let Some(ret_local) = func.ret {
+            let callee_ret_layout = func.locals[ret_local].layout::<M::T>();
+            locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+        }
+
+        self.threads.push(Thread::new(func, locals));
+
         ret(thread_id)
     }
 
-    pub fn join(&mut self, thread_id: ThreadId) -> NdResult {
+    fn join(&mut self, thread_id: ThreadId) -> NdResult {
         let Some(thread) = self.threads.get(thread_id) else {
             throw_ub!("`Intrinsic::Join`: join non existing thread");
         };
@@ -266,7 +298,7 @@ impl<M: Memory> Machine<M> {
         ret(())
     }
 
-    pub fn terminate_active_thread(&mut self) -> NdResult {
+    fn terminate_active_thread(&mut self, frame: StackFrame<M>) -> NdResult {
         let active = self.active_thread;
         assert!(active != 0, "the main thread cannot terminate");
 
@@ -281,6 +313,14 @@ impl<M: Memory> Machine<M> {
             }
             thread
         }).collect();
+
+        // Deallocate everything. Same as in return.
+        // FIXME: avoid duplicating this code with `Return`.
+        for (local, place) in frame.locals {
+            // A lot like `StorageDead`.
+            let layout = frame.func.locals[local].layout::<M::T>();
+            self.mem.deallocate(place, layout.size, layout.align)?;
+        }
 
         ret(())
     }

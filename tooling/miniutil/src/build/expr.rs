@@ -28,6 +28,10 @@ pub fn const_unit() -> ValueExpr {
     ValueExpr::Tuple(Default::default(), <()>::get_type())
 }
 
+pub fn null() -> ValueExpr {
+    ValueExpr::Constant(Constant::Null, <*const ()>::get_type())
+}
+
 pub fn load(p: PlaceExpr) -> ValueExpr {
     ValueExpr::Load {
         source: GcCow::new(p),

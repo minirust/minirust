@@ -13,17 +13,18 @@ fn deadlock() {
     let b1 = block!( acquire(load(global::<u32>(0)), 2) );
     let b2 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), Some(local(0)), 3)
+        spawn(fn_ptr(1), null(), Some(local(0)), 3)
     );
     let b3 = block!( join(load(local(0)), 4) );
     let b4 = block!( release(load(global::<u32>(0)), 5) );
     let b5 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
 
+    let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
     let b0 = block!( acquire(load(global::<u32>(0)), 1) );
     let b1 = block!( release(load(global::<u32>(0)), 2) );
     let b2 = block!( return_() );
-    let second = function(Ret::No, 0, &[], &[b0,b1,b2]);
+    let second = function(Ret::Yes, 1, &locals, &[b0,b1,b2]);
 
     // global(0) is used as a lock. We store the lock id there.
     let globals = [global_int::<u32>()];

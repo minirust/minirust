@@ -106,10 +106,10 @@ pub fn return_() -> Terminator {
     Terminator::Return
 }
 
-pub fn spawn(fn_ptr: ValueExpr, ret: Option<PlaceExpr>, next: u32) -> Terminator {
+pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: Option<PlaceExpr>, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::Spawn,
-        arguments: list!(fn_ptr),
+        arguments: list!(fn_ptr, data_ptr),
         ret,
         next_block: Some(BbName(Name::from_internal(next)))
     }
