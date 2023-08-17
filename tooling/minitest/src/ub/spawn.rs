@@ -137,7 +137,7 @@ fn spawn_data_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`, data pointer should be a raw pointer.");
+    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`, data pointer should be a pointer.");
 }
 
 fn wrongarg() -> Function {

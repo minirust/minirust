@@ -84,6 +84,9 @@ impl<M: Memory> Machine<M> {
                         thread.state = ThreadState::Enabled;
                     });
 
+                    // The acquirer got synchronized because it got enabled by this thread.
+                    self.synchronized_threads.insert(acquirer_id);
+
                     // Rather than unlock and lock again we just change the lock owner.
                     self.locks.mutate_at(lock_id, |lock| {
                         *lock = LockState::LockedBy(acquirer_id);

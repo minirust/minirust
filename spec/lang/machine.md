@@ -25,6 +25,12 @@ pub struct Machine<M: Memory> {
     /// The currently / most recently active thread.
     active_thread: ThreadId,
 
+    /// A set of threads that have been synchronized.
+    /// A thread being added here in a given step means that if the very next step is
+    /// by that thread, we do *not* do data race detection: there was synchronization
+    /// between these two steps, so any potential accesses are not racing.
+    synchronized_threads: Set<ThreadId>,
+
     /// The Locks
     locks: List<LockState>,
 
@@ -141,7 +147,6 @@ impl<M: Memory> Machine<M> {
 
         let start_fn = prog.functions[prog.start];
 
-
         ret(Machine {
             prog,
             mem,
@@ -151,6 +156,7 @@ impl<M: Memory> Machine<M> {
             threads: list![Thread::main(start_fn)],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
+            synchronized_threads: Set::new(),
             stdout,
             stderr,
         })
@@ -198,6 +204,7 @@ Next, we define how to create a thread.
 
 ```rust
 impl<M: Memory> Thread<M> {
+    /// Create a new thread. The locals must have been already allocated.
     fn new(func: Function, locals: Map<LocalName, Place<M>>) -> Self {
         // Setup the initial stack frame.
         // For the main thread, well-formedness ensures that the func has
@@ -278,6 +285,9 @@ impl<M: Memory> Machine<M> {
 
         self.threads.push(Thread::new(func, locals));
 
+        // This thread got synchronized because its existence startet with this.
+        self.synchronized_threads.insert(thread_id);
+
         ret(thread_id)
     }
 
@@ -304,15 +314,14 @@ impl<M: Memory> Machine<M> {
 
         self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
 
-        self.threads = self.threads.into_iter().map(|mut thread| {
-            match thread.state {
-                ThreadState::BlockedOnJoin(join_id) if join_id == active => {
-                    thread.state = ThreadState::Enabled
-                },
-                _ => {}
+        // All threads that waited to join this thread get synchronized by this termination
+        // and enabled again.
+        for i in ThreadId::ZERO..self.threads.len() {
+            if self.threads[i].state == ThreadState::BlockedOnJoin(active) {
+                self.synchronized_threads.insert(i);
+                self.threads.mutate_at(i, |thread| thread.state = ThreadState::Enabled)
             }
-            thread
-        }).collect();
+        }
 
         // Deallocate everything. Same as in return.
         // FIXME: avoid duplicating this code with `Return`.

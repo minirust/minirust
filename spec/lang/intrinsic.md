@@ -192,7 +192,6 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(ptr) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`");
         };
-
         let func = self.fn_from_addr(ptr.addr)?;
         if func.args.len() != 1 {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take one argument.");
@@ -200,7 +199,7 @@ impl<M: Memory> Machine<M> {
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {
-            throw_ub!("invalid second argument to `Intrinsic::Spawn`, data pointer should be a raw pointer.");
+            throw_ub!("invalid second argument to `Intrinsic::Spawn`, data pointer should be a pointer.");
         }
 
         // This is taken from Miri. It discards the return value of the function.
