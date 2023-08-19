@@ -10,3 +10,14 @@ pub fn global_int<T: TypeConv>() -> Global {
         align: T::get_align(),
     }
 }
+
+/// Global pointer
+pub fn global_ptr<T: TypeConv>() -> Global {
+    let bytes = List::from_elem(Some(0), <*const T>::get_size().bytes());
+
+    Global {
+        bytes,
+        relocations: list!(),
+        align: <*const T>::get_align(),
+    }
+}

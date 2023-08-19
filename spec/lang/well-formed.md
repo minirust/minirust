@@ -157,6 +157,7 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(_)) => {
                 ensure(prog.functions.contains_key(fn_name))?;
             }
+            (Constant::Null, Type::Ptr(_)) => {}
             _ => throw!(),
         }
 

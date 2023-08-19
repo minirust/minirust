@@ -38,9 +38,17 @@ impl<M: Memory> Machine<M> {
             thread.state == ThreadState::Enabled
         })?;
 
-        // Update current thread; remember previous thread for data race detection.
-        let prev_thread = self.active_thread;
+        // Remember threads synchronized by the previous step for data race detection
+        // after this step.
+        let mut prev_sync = self.synchronized_threads;
+        // Every thread is always synchronized with itself.
+        prev_sync.insert(self.active_thread);
+        // Reset synchronized_threads for the next step.
+        self.synchronized_threads = Set::new();
+
+        // Update current thread.
         self.active_thread = thread_id;
+
 
         // Prepare data race detection for next step.
         let prev_accesses = self.mem.reset_accesses();
@@ -59,7 +67,7 @@ impl<M: Memory> Machine<M> {
             self.eval_statement(stmt)?;
         }
 
-        self.mem.check_data_races(self.active_thread, prev_thread, prev_accesses)?;
+        self.mem.check_data_races(self.active_thread, prev_sync, prev_accesses)?;
 
         ret(())
     }
@@ -98,6 +106,12 @@ impl<M: Memory> Machine<M> {
                     provenance: None,
                 })
             },
+            Constant::Null => {
+                Value::Ptr(Pointer {
+                    addr: Address::ZERO,
+                    provenance: None,
+                })
+            }
             Constant::Variant { idx, data } => {
                 let data = self.eval_constant(data)?;
                 Value::Variant { idx, data }
@@ -610,7 +624,7 @@ impl<M: Memory> Machine<M> {
             // Therefore the thread must terminate now.
             assert_eq!(Int::ZERO, self.active_thread().stack.len());
 
-            return self.terminate_active_thread();
+            return self.terminate_active_thread(frame);
         };
         // If there is caller_return_info, there must be a caller.
         assert!(self.active_thread().stack.len() > 0);

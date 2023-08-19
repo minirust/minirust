@@ -72,6 +72,7 @@ fn fmt_constant(c: Constant) -> FmtExpr {
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
         Constant::GlobalPointer(relocation) => fmt_relocation(relocation),
         Constant::FnPointer(fn_name) => FmtExpr::Atomic(fmt_fn_name(fn_name)),
+        Constant::Null => FmtExpr::Atomic("null".to_string()),
         Constant::Variant { .. } => panic!("enums are unsupported!"),
     }
 }
