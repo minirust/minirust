@@ -24,13 +24,16 @@ impl<M: Memory> Machine<M> {
             throw_deadlock!();
         }
 
+        // Reset the data race tracking *before* we change `active_thread`.
+        let prev_step_information = self.reset_data_race_tracking();
+
+        // Update current thread.
         let distr = libspecr::IntDistribution {
             start: Int::ZERO,
             end: Int::from(self.threads.len()),
             divisor: Int::ONE,
         };
-
-        let thread_id: ThreadId = pick(distr, |id: ThreadId| {
+        self.active_thread = pick(distr, |id: ThreadId| {
             let Some(thread) = self.threads.get(id) else {
                 return false;
             };
@@ -38,21 +41,7 @@ impl<M: Memory> Machine<M> {
             thread.state == ThreadState::Enabled
         })?;
 
-        // Remember threads synchronized by the previous step for data race detection
-        // after this step.
-        let mut prev_sync = self.synchronized_threads;
-        // Every thread is always synchronized with itself.
-        prev_sync.insert(self.active_thread);
-        // Reset synchronized_threads for the next step.
-        self.synchronized_threads = Set::new();
-
-        // Update current thread.
-        self.active_thread = thread_id;
-
-
-        // Prepare data race detection for next step.
-        let prev_accesses = self.mem.reset_accesses();
-
+        // Execute this step.
         let frame = self.cur_frame();
         let block = &frame.func.blocks[frame.next_block];
         if frame.next_stmt == block.statements.len() {
@@ -67,9 +56,27 @@ impl<M: Memory> Machine<M> {
             self.eval_statement(stmt)?;
         }
 
-        self.mem.check_data_races(self.active_thread, prev_sync, prev_accesses)?;
+        // Check for data races with the previous step.
+        self.mem.check_data_races(self.active_thread, prev_step_information)?;
 
         ret(())
+    }
+
+    /// Reset the data race tracking for the next step, and return the information from the previous step.
+    ///
+    /// The first component of the return value is the set of threads that were synchronized by the previous step,
+    /// the second is the list of accesses in the previous step.
+    fn reset_data_race_tracking(&mut self) -> (Set<ThreadId>, List<Access>) {
+        // Remember threads synchronized by the previous step for data race detection
+        // after this step.
+        let mut prev_sync = self.synchronized_threads;
+        // Every thread is always synchronized with itself.
+        prev_sync.insert(self.active_thread);
+
+        // Reset access tracking list.
+        let prev_accesses = self.mem.reset_accesses();
+
+        (prev_sync, prev_accesses)
     }
 }
 ```

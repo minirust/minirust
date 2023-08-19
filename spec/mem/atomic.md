@@ -110,7 +110,11 @@ pub type ThreadId = Int;
 
 impl<M: Memory> AtomicMemory<M> {
     /// Given a list of previous accesses, checks if any of the current accesses is in a data race with any of those.
-    pub fn check_data_races(&self, current_thread: ThreadId, prev_sync_threads: Set<ThreadId>, prev_accesses: List<Access>) -> Result {
+    pub fn check_data_races(
+        &self,
+        current_thread: ThreadId,
+        (prev_sync_threads, prev_accesses): (Set<ThreadId>, List<Access>),
+    ) -> Result {
         if prev_sync_threads.contains(current_thread) { return Ok(()) }
 
         for access in self.accesses {
