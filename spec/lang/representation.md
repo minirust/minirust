@@ -6,7 +6,7 @@ This is the *[representation relation]*, which is defined in the following.
 `encode` inverts `decode`; it will always work when the value is [well-formed][well-formed-value] for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
-[well-formed-value]: (well-formed.md#well-formed-values)
+[well-formed-value]: well-formed.md#well-formed-values
 
 ## Type-directed Encode/Decode of values
 
