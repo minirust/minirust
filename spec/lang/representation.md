@@ -3,9 +3,10 @@
 The main purpose of [types](types.md) is to define how [values](values.md) are (de)serialized into/from memory.
 This is the *[representation relation]*, which is defined in the following.
 `decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
-`encode` inverts `decode`; it will always work when the value is valid for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
+`encode` inverts `decode`; it will always work when the value is [well-formed][well-formed-value] for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
+[well-formed-value]: (well-formed.md#well-formed-values)
 
 ## Type-directed Encode/Decode of values
 
@@ -26,7 +27,7 @@ impl Type {
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> { .. }
 
     /// Encode `v` into a list of bytes according to the type `self`.
-    /// Note that it is a spec bug if `v` is not valid according to `ty`!
+    /// Note that it is a spec bug if `v` is not well-formed for `ty`!
     ///
     /// See below for the general properties relation `encode` and `decode`.
     #[specr::argmatch(self)]
@@ -132,7 +133,8 @@ impl Type {
 }
 ```
 
-Note that types like `&!` have no valid value: when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
+Note that types like `&!` have no valid representation:
+when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
 
 - TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
   Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
@@ -257,7 +259,7 @@ The most obvious part is consistency of size and inhabitedness:
 - If `ty.decode(bytes) == Some(val)`, then `bytes` has length `ty.size()` and `ty.inhabited() == true`.
 
 More interestingly, we have some round-trip properties.
-For instance, starting with a (valid) value, encoding it, and then decoding it, must produce the same result.
+For instance, starting with a (well-formed) value, encoding it, and then decoding it, must produce the same result.
 
 To make this precise, we first have to define an order in values and byte lists that captures when one value (byte list) is "more defined" than another.
 "More defined" here can either mean initializing some previously uninitialized data, or adding provenance to data that didn't have it.
@@ -359,15 +361,17 @@ impl<T: DefinedRelation> DefinedRelation for Option<T> {
 ```
 
 In the following, let `ty` be an arbitrary well-formed type.
-We say that a `v: Value` is "valid" for a type if it is a possible return value of `decode` (for an arbitrary byte list).
+We say that a `v: Value` is ["well-formed"][well-formed-value] for a type if `v.check_wf(ty)` is `Some(_)`.
+This ensures that the basic structure of the value and the type match up.
+Decode will only ever return well-formed values.
 
 Now we can state the laws that we require.
 First of all, `encode` and `decode` must both be "monotone":
-- If `val1 <= val2` (and if both values are valid for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
+- If `val1 <= val2` (and if both values are well-formed for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
 - If `bytes1 <= bytes2`, then `ty.decode(bytes1) <= ty.decode(bytes2)`.
 
 More interesting are the round-trip properties:
-- If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
+- If `val` is well-formed for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
   In other words, encoding a value and then decoding it again is lossless.
 - If `ty.decode(bytes) == Some(val)`, then `ty.encode(val) <= bytes`.
   In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
@@ -496,6 +500,6 @@ fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value
 }
 ```
 
-This operation can, of course, fail, which means that `val` is not valid at `type2`.
+This operation can, of course, fail, which means that the encoding of `val` is not valid at `type2`.
 
 [Stacked Borrows]: stacked-borrows.md
