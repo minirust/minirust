@@ -44,6 +44,7 @@ pub fn assert_deadlock(prog: Program) {
 
 /// Run the program multiple times. Checks if we get a data race in some execution
 /// This automatically fails if the program does not terminate correctly if the data race did not occur.
+#[track_caller]
 pub fn has_data_race(prog: Program) -> bool {
     let data_race_string = minirust_rs::prelude::String::from_internal("Data race".to_string());
 

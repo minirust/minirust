@@ -54,12 +54,12 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     let main = function(Ret::No, 0, &main_locals, &[main_b0, main_b1, main_b2, main_b3]);
 
     // The second thread.
-    let s_locals = [<*const ()>::get_ptype()];
+    let s_locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
     let s_b0 = access_block(s_access, 2, 1);
     let s_b1 = block!(
         return_()
     );
-    let s_fun = function(Ret::No, 1, &s_locals, &[s_b0, s_b1]);
+    let s_fun = function(Ret::Yes, 1, &s_locals, &[s_b0, s_b1]);
 
     // global(0) is needed for the race behavior; the others are used to support our operations.
     // We use globals instead of locals because locals would need an additional instruction (`storage_live`)

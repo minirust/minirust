@@ -37,12 +37,12 @@ fn thread_spawn_spurious_race() {
     let b3 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3]);
 
-    let locals = [pp_ptype];
+    let locals = [<()>::get_ptype(), pp_ptype];
     let b0 = block!(
-        assign(deref(load(local(0)), pp_ptype), null()),
+        assign(deref(load(local(1)), pp_ptype), null()),
         return_(),
     );
-    let second = function(Ret::No, 1, &locals, &[b0]);
+    let second = function(Ret::Yes, 1, &locals, &[b0]);
 
     let prog = program(&[main, second]);
 

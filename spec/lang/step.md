@@ -78,32 +78,6 @@ impl<M: Memory> Machine<M> {
 
         (prev_sync, prev_accesses)
     }
-
-    fn terminate_active_thread(&mut self, frame: StackFrame<M>) -> NdResult {
-        let active = self.active_thread;
-        assert!(active != 0, "the main thread cannot terminate");
-
-        self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
-
-        // All threads that waited to join this thread get synchronized by this termination
-        // and enabled again.
-        for i in ThreadId::ZERO..self.threads.len() {
-            if self.threads[i].state == ThreadState::BlockedOnJoin(active) {
-                self.synchronized_threads.insert(i);
-                self.threads.mutate_at(i, |thread| thread.state = ThreadState::Enabled)
-            }
-        }
-
-        // Deallocate everything. Same as in return.
-        // FIXME: avoid duplicating this code with `Return`.
-        for (local, place) in frame.locals {
-            // A lot like `StorageDead`.
-            let layout = frame.func.locals[local].layout::<M::T>();
-            self.mem.deallocate(place, layout.size, layout.align)?;
-        }
-
-        ret(())
-    }
 }
 ```
 
@@ -119,6 +93,7 @@ impl<M: Memory> Machine<M> {
 ```
 
 One key property of value (and place) expression evaluation is that it is reorderable and removable.
+However, they are *not* deterministic due to int-to-pointer casts.
 
 ### Constants
 
@@ -695,30 +670,37 @@ The callee should probably start with a bunch of `Validate` statements to ensure
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn terminate_active_thread(&mut self) -> NdResult {
+        let active = self.active_thread;
+        assert!(active != 0, "the main thread cannot terminate");
+
+        self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
+
+        // All threads that waited to join this thread get synchronized by this termination
+        // and enabled again.
+        for i in ThreadId::ZERO..self.threads.len() {
+            if self.threads[i].state == ThreadState::BlockedOnJoin(active) {
+                self.synchronized_threads.insert(i);
+                self.threads.mutate_at(i, |thread| thread.state = ThreadState::Enabled)
+            }
+        }
+
+        ret(())
+    }
+
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
         let frame = self.mutate_cur_stack(
             |stack| stack.pop().unwrap()
         );
-        let func = frame.func;
 
-        let Some(caller_return_info) = frame.caller_return_info else {
-            // Only the bottom frame in a stack has no caller.
-            // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.active_thread().stack.len());
-
-            return self.terminate_active_thread(frame);
-        };
-        // If there is caller_return_info, there must be a caller.
-        assert!(self.active_thread().stack.len() > 0);
-
-        let Some(ret_local) = func.ret else {
+        let Some(ret_local) = frame.func.ret else {
             throw_ub!("return from a function that does not have a return local");
         };
 
         // Copy return value, if any, to where the caller wants it.
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
-        if let Some(ret_place) = caller_return_info.ret_place {
+        if let Some(ret_place) = frame.caller_return_info.and_then(|i| i.ret_place) {
             let callee_pty = frame.func.locals[ret_local];
             let ret_val = self.mem.typed_load(frame.locals[ret_local], callee_pty, Atomicity::None)?;
             self.mem.typed_store(ret_place, ret_val, callee_pty, Atomicity::None)?;
@@ -727,9 +709,19 @@ impl<M: Memory> Machine<M> {
         // Deallocate everything.
         for (local, place) in frame.locals {
             // A lot like `StorageDead`.
-            let layout = func.locals[local].layout::<M::T>();
+            let layout = frame.func.locals[local].layout::<M::T>();
             self.mem.deallocate(place, layout.size, layout.align)?;
         }
+
+        let Some(caller_return_info) = frame.caller_return_info else {
+            // Only the bottom frame in a stack has no caller.
+            // Therefore the thread must terminate now.
+            assert_eq!(Int::ZERO, self.active_thread().stack.len());
+
+            return self.terminate_active_thread();
+        };
+        // If there is caller_return_info, there must be a caller.
+        assert!(self.active_thread().stack.len() > 0);
 
         if let Some(next_block) = caller_return_info.next_block {
             self.mutate_cur_frame(|frame| {
