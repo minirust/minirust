@@ -195,7 +195,7 @@ pub enum Statement {
         value: ValueExpr,
     },
     /// Ensure that `place` contains a valid value of its type (else UB).
-    /// Also perform retagging.
+    /// Also perform retagging and ensure safe pointers are dereferenceable.
     ///
     /// The frontend is generally expected to generate this for all function argument,
     /// and possibly in more places.
