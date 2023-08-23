@@ -79,7 +79,7 @@ fn spawn_func_no_args() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, no_args()]);
-    assert_ub(p, "spawned threads must take exactly one argument")
+    assert_ub(p, "call ABI violation: number of arguments does not agree")
 }
 
 
@@ -104,7 +104,7 @@ fn spawn_func_returns() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, returns()]);
-    assert_ub(p, "spawned threads must have return type that is ABI-compatible with `()`")
+    assert_ub(p, "call ABI violation: return types are not compatible")
 }
 
 #[test]
@@ -164,5 +164,5 @@ fn spawn_wrongarg() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, wrongarg()]);
-    assert_ub(p, "spawned thread must take a pointer as first argument");
+    assert_ub(p, "call ABI violation: argument types are not compatible");
 }

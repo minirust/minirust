@@ -176,33 +176,9 @@ The intrinsics for spawning and joining threads.
 ```rust
 impl<M: Memory> Machine<M> {
     fn spawn(&mut self, func: Function, data_pointer: Value<M>, data_ptr_ty: Type) -> NdResult<ThreadId> {
-        let thread_id = ThreadId::from(self.threads.len());
-        let frame = self.create_frame(func, ReturnAction::BottomOfStack)?;
-        // TODO: there is probably a nice helper function that could be factored to shared more code with `Call`.
-
-        // Check calling convention.
-        if func.calling_convention != CallingConvention::C {
-            throw_ub!("spawned thread must have the C call ABI");
-        }
-
-        // Check return type ABI compatibility.
-        if !check_abi_compatibility(unit_ptype(), func.locals[func.ret]) {
-            throw_ub!("spawned threads must have return type that is ABI-compatible with `()`");
-        }
-
-        // Pass the data pointer and make sure the callee argument is ABI-compatible.
-        if func.args.len() != 1 {
-            throw_ub!("spawned threads must take exactly one argument");
-        }
-        let arg_local = func.args[0];
-        let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
-        if !check_abi_compatibility(data_ptr_pty, func.locals[arg_local]) {
-            throw_ub!("spawned thread must take a pointer as first argument");
-        }
-        self.mem.typed_store(frame.locals[arg_local], data_pointer, data_ptr_pty, Atomicity::None)?;
-
-        // Done! We can create the thread.
-        self.threads.push(Thread::new(frame));
+        // Create the thread.
+        let args = list![(data_pointer, PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN))];
+        let thread_id = self.new_thread(func, args)?;
 
         // This thread got synchronized because its existence startet with this.
         self.synchronized_threads.insert(thread_id);

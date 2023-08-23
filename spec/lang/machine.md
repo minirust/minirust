@@ -165,8 +165,7 @@ impl<M: Memory> Machine<M> {
 
         // Create initial thread.
         let start_fn = prog.functions[prog.start];
-        let start_frame = machine.create_frame(start_fn, ReturnAction::BottomOfStack)?;
-        machine.threads.push(Thread::new(start_frame));
+        machine.new_thread(start_fn, list![])?;
 
         ret(machine)
     }
@@ -212,17 +211,25 @@ impl<M: Memory> StackFrame<M> {
 Next, we define how to create a thread.
 
 ```rust
-impl<M: Memory> Thread<M> {
-    fn new(init_frame: StackFrame<M>) -> Self {
+impl<M: Memory> Machine<M> {
+    fn new_thread(&mut self, func: Function, args: List<(Value<M>, PlaceType)>) -> NdResult<ThreadId> {
         // The bottom of a stack must have a 1-ZST return type.
         // This way it cannot assume there is actually a return place to write anything to.
-        let ret_layout = init_frame.func.locals[init_frame.func.ret].layout::<M::T>();
-        assert!(ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE);
-
-        Self {
+        let init_frame = self.create_frame(
+            func,
+            ReturnAction::BottomOfStack,
+            CallingConvention::C,
+            unit_ptype(),
+            args,
+        )?;
+        // Push the new thread, return the index.
+        let thread = Thread {
             state: ThreadState::Enabled,
             stack: list![init_frame],
-        }
+        };
+        let thread_id = ThreadId::from(self.threads.len());
+        self.threads.push(thread);
+        ret(thread_id)
     }
 }
 ```

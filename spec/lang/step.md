@@ -601,8 +601,16 @@ impl<M: Memory> Machine<M> {
         })
     }
 
-    /// Creates a stack frame for the given function, with the return and arugments locals allocated (but not yet initialized).
-    fn create_frame(&mut self, func: Function, return_action: ReturnAction<M>) -> NdResult<StackFrame<M>> {
+    /// Creates a stack frame for the given function, initializes the arguments,
+    /// and ensures that calling convention and argument/return value ABIs are all matching up.
+    fn create_frame(
+        &mut self,
+        func: Function,
+        return_action: ReturnAction<M>,
+        caller_conv: CallingConvention,
+        caller_ret_pty: PlaceType,
+        caller_args: List<(Value<M>, PlaceType)>,
+    ) -> NdResult<StackFrame<M>> {
         let mut frame = StackFrame {
             func,
             locals: Map::new(),
@@ -615,6 +623,31 @@ impl<M: Memory> Machine<M> {
         frame.storage_live(&mut self.mem, func.ret)?;
         for arg_local in func.args {
             frame.storage_live(&mut self.mem, arg_local)?;
+        }
+
+        // Check calling convention.
+        if caller_conv != func.calling_convention {
+            throw_ub!("call ABI violation: calling conventions are not the same");
+        }
+
+        // Check return place compatibility.
+        if !check_abi_compatibility(caller_ret_pty, func.locals[func.ret]) {
+            throw_ub!("call ABI violation: return types are not compatible");
+        }
+
+        // Pass arguments and check their compatibility.
+        if func.args.len() != caller_args.len() {
+            throw_ub!("call ABI violation: number of arguments does not agree");
+        }
+        for (callee_local, (caller_val, caller_pty)) in func.args.zip(caller_args) {
+            // Make sure caller and callee view of this are compatible.
+            if !check_abi_compatibility(caller_pty, func.locals[callee_local]) {
+                throw_ub!("call ABI violation: argument types are not compatible");
+            }
+            // Copy the value at caller (source) type -- that's necessary since it is the type the values come at.
+            // We know the types have compatible layout so this will fit into the allocation.
+            // The local is freshly allocated so there should be no reason the store can fail.
+            self.mem.typed_store(frame.locals[callee_local], caller_val, caller_pty, Atomicity::None).unwrap();
         }
 
         ret(frame)
@@ -631,45 +664,27 @@ impl<M: Memory> Machine<M> {
         // FIXME: This also needs aliasing model support.
         self.deinit(caller_ret_place, caller_ret_pty)?;
 
-        // Then evaluate the function that will be called and prepare a stack frame.
+        // Then evaluate the function that will be called.
         let (Value::Ptr(ptr), Type::Ptr(PtrType::FnPtr(caller_conv))) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
         let func = self.fn_from_addr(ptr.addr)?;
+
+        // Then evaluate the arguments.
+        let arguments = arguments.try_map(|arg| self.eval_argument(arg))?;
+
+        // Set up the stack frame.
         let return_action = ReturnAction::ReturnToCaller {
             next_block,
             ret_place: caller_ret_place,
         };
-        let frame = self.create_frame(func, return_action)?;
-
-        // Check calling convention.
-        if caller_conv != func.calling_convention {
-            throw_ub!("call ABI violation: calling conventions are not the same");
-        }
-
-        // Check return place compatibility.
-        let callee_ret_pty = func.locals[func.ret];
-        if !check_abi_compatibility(caller_ret_pty, callee_ret_pty) {
-            throw_ub!("call ABI violation: return types are not compatible");
-        }
-
-        // Evaluate all arguments and put them into fresh places,
-        // to initialize the local variable assignment.
-        if func.args.len() != arguments.len() {
-            throw_ub!("call ABI violation: number of arguments does not agree");
-        }
-        for (callee_local, caller_arg) in func.args.zip(arguments) {
-            let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
-            let callee_pty = func.locals[callee_local];
-            // Make sure caller and callee view of this are compatible.
-            if !check_abi_compatibility(caller_pty, callee_pty) {
-                throw_ub!("call ABI violation: argument types are not compatible");
-            }
-            // Copy the value at caller (source) type -- that's necessary since it is the type we did the load at (in `eval_argument`).
-            // We know the types have compatible layout so this will fit into the allocation.
-            // The local is freshly allocated so there should be no reason the store can fail.
-            self.mem.typed_store(frame.locals[callee_local], caller_val, caller_pty, Atomicity::None).unwrap();
-        }
+        let frame = self.create_frame(
+            func,
+            return_action,
+            caller_conv,
+            caller_ret_pty,
+            arguments,
+        )?;
 
         // Push new stack frame, so it is executed next.
         self.mutate_cur_stack(|stack| stack.push(frame));
