@@ -22,14 +22,6 @@ fn unit_value<M: Memory>() -> Value<M> {
 fn unit_type() -> Type {
     Type::Tuple { fields: list![], size: Size::ZERO }
 }
-
-fn is_unit(ty: Type) -> bool {
-    let Type::Tuple{size, fields} = ty else {
-        return false;
-    };
-
-    size == Size::ZERO && fields.is_empty()
-}
 ```
 
 We start with the `Exit` intrinsic.
@@ -57,7 +49,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `Intrinsic::PrintStdout`")
         }
 
@@ -72,7 +64,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `Intrinsic::PrintStderr`")
         }
 
@@ -164,7 +156,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid alignment for `Intrinsic::Deallocate`: not a power of 2");
         };
 
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `Intrinsic::Deallocate`")
         }
 
@@ -233,7 +225,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Join`");
         };
 
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `Intrinsic::Join`")
         }
 
@@ -270,7 +262,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid second argument to `Intrinsic::AtomicWrite`, size too big");
         }
 
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `Intrinsic::AtomicWrite`")
         }
 

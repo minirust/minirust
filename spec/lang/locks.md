@@ -155,7 +155,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `LockIntrinsic::Acquire`");
         };
 
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `LockIntrinsic::Acquire`")
         }
 
@@ -184,7 +184,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `LockIntrinsic::Release`");
         };
 
-        if !is_unit(ret_ty) {
+        if ret_ty != unit_type() {
             throw_ub!("invalid return type for `LockIntrinsic::Release`")
         }
 
