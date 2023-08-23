@@ -115,9 +115,9 @@ impl<M: Memory> Machine<M> {
                     provenance: None,
                 })
             },
-            Constant::Null => {
+            Constant::InvalidPointer(addr) => {
                 Value::Ptr(Pointer {
-                    addr: Address::ZERO,
+                    addr,
                     provenance: None,
                 })
             }

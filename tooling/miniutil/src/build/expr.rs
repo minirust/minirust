@@ -29,7 +29,7 @@ pub fn const_unit() -> ValueExpr {
 }
 
 pub fn null() -> ValueExpr {
-    ValueExpr::Constant(Constant::Null, <*const ()>::get_type())
+    ValueExpr::Constant(Constant::InvalidPointer(0.into()), <*const ()>::get_type())
 }
 
 pub fn load(p: PlaceExpr) -> ValueExpr {

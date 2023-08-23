@@ -73,10 +73,8 @@ pub enum Constant {
     GlobalPointer(Relocation),
     /// A pointer pointing to a function.
     FnPointer(FnName),
-    /// The null pointer, pointing to address 0.
-    /// FIXME: generalize this to pointers from arbitrary constant integers.
-    Null,
-
+    /// A constant pointer, not pointing into any allocation.
+    InvalidPointer(Address),
     /// A variant of a sum type, used for enums.
     // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
     Variant {

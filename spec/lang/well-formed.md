@@ -139,7 +139,7 @@ impl PlaceType {
 impl Constant {
     /// Check that the constant has the expected type.
     /// Assumes that `ty` has already been checked.
-    fn check_wf(self, ty: Type, prog: Program) -> Option<()> {
+    fn check_wf<T: Target>(self, ty: Type, prog: Program) -> Option<()> {
         // For now, we only support integer and boolean literals and pointers.
         // TODO: add more.
         match (self, ty) {
@@ -149,7 +149,7 @@ impl Constant {
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::Variant { idx, data }, Type::Enum { variants, .. }) => {
                 let ty = variants.get(idx)?;
-                data.check_wf(ty, prog)?;
+                data.check_wf::<T>(ty, prog)?;
             }
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
                 relocation.check_wf(prog.globals)?;
@@ -157,7 +157,9 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(_)) => {
                 ensure(prog.functions.contains_key(fn_name))?;
             }
-            (Constant::Null, Type::Ptr(_)) => {}
+            (Constant::InvalidPointer(addr), Type::Ptr(_)) => {
+                ensure(addr.in_bounds(Signedness::Unsigned, T::PTR_SIZE))?;
+            }
             _ => throw!(),
         }
 
@@ -171,8 +173,7 @@ impl ValueExpr {
         ret(match self {
             Constant(value, ty) => {
                 ty.check_wf::<T>()?;
-
-                value.check_wf(ty, prog)?;
+                value.check_wf::<T>(ty, prog)?;
                 ty
             }
             Tuple(exprs, t) => {
