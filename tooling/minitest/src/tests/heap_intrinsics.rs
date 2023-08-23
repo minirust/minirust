@@ -2,17 +2,17 @@ use crate::*;
 
 #[test]
 fn dynamic_memory() {
-    let locals = [<*const i32>::get_ptype(), <i32>::get_ptype()];
+    let locals = [<*const i32>::get_type(), <i32>::get_type()];
     let n = const_int::<usize>(4);
     let b0 = block!(storage_live(0), storage_live(1), allocate(n, n, local(0), 1)); // alloc ptr
     let b1 = block!(
         assign( // write to ptr
-            deref(load(local(0)), <i32>::get_ptype()),
+            deref(load(local(0)), <i32>::get_type()),
             const_int::<i32>(42),
         ),
         assign( // read from ptr
             local(1),
-            load(deref(load(local(0)), <i32>::get_ptype())),
+            load(deref(load(local(0)), <i32>::get_type())),
         ),
         deallocate(load(local(0)), n, n, 2)
     );
@@ -24,7 +24,7 @@ fn dynamic_memory() {
 
 #[test]
 fn alloc_argcount() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -44,7 +44,7 @@ fn alloc_argcount() {
 
 #[test]
 fn alloc_align_err() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -65,7 +65,7 @@ fn alloc_align_err() {
 
 #[test]
 fn alloc_size_err() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -86,7 +86,7 @@ fn alloc_size_err() {
 
 #[test]
 fn alloc_wrongarg1() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -108,7 +108,7 @@ fn alloc_wrongarg1() {
 
 #[test]
 fn alloc_wrongarg2() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -130,7 +130,7 @@ fn alloc_wrongarg2() {
 
 #[test]
 fn alloc_wrongreturn() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -151,7 +151,7 @@ fn alloc_wrongreturn() {
 
 #[test]
 fn dealloc_success() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -195,7 +195,7 @@ fn dealloc_argcount() {
 
 #[test]
 fn dealloc_align_err() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -219,7 +219,7 @@ fn dealloc_align_err() {
 
 #[test]
 fn dealloc_size_err() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -243,7 +243,7 @@ fn dealloc_size_err() {
 
 #[test]
 fn dealloc_wrongarg1() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -267,7 +267,7 @@ fn dealloc_wrongarg1() {
 
 #[test]
 fn dealloc_wrongarg2() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -291,7 +291,7 @@ fn dealloc_wrongarg2() {
 
 #[test]
 fn dealloc_wrongarg3() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -315,7 +315,7 @@ fn dealloc_wrongarg3() {
 
 #[test]
 fn dealloc_wrongreturn() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -339,7 +339,7 @@ fn dealloc_wrongreturn() {
 
 #[test]
 fn mem_dealloc_wrong_size() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -363,7 +363,7 @@ fn mem_dealloc_wrong_size() {
 
 #[test]
 fn mem_dealloc_wrong_align() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -392,10 +392,9 @@ fn mem_dealloc_inv_ptr() {
     let union_ty = union_ty(&[
             (size(0), <usize>::get_type()),
             (size(0), <*const i32>::get_type()),
-        ], size(8));
-    let union_pty = ptype(union_ty, align(8));
+        ], size(8), align(8));
 
-    let locals = [ union_pty ];
+    let locals = [ union_ty ];
 
     let b0 = block!(
         storage_live(0),
@@ -421,7 +420,7 @@ fn mem_dealloc_inv_ptr() {
 
 #[test]
 fn mem_dealloc_not_beginning() {
-    let locals = [ <*const i32>::get_ptype() ];
+    let locals = [ <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -453,7 +452,7 @@ fn mem_dealloc_not_beginning() {
 
 #[test]
 fn double_free() {
-    let locals = vec![<*const i32>::get_ptype()];
+    let locals = vec![<*const i32>::get_type()];
     let n = const_int::<usize>(4);
     let b0 = block!(storage_live(0), allocate(n, n, local(0), 1));
     let b1 = block!(deallocate(load(local(0)), n, n, 2));
@@ -466,7 +465,7 @@ fn double_free() {
 
 #[test]
 fn memory_leak() {
-    let locals = [<*mut i32>::get_ptype()];
+    let locals = [<*mut i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -487,7 +486,7 @@ fn memory_leak() {
 #[test]
 fn mem_dealloc_stack() {
     let n = const_int::<usize>(4); // size and align of i32
-    let locals = vec![<i32>::get_ptype()];
+    let locals = vec![<i32>::get_type()];
     let b0 = block!(
         storage_live(0),
         deallocate(

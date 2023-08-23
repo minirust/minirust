@@ -1,7 +1,7 @@
 use crate::*;
 
 fn other_f() -> Function {
-    let locals = [<()>::get_ptype(); 2];
+    let locals = [<()>::get_type(); 2];
     let b0 = block!(exit());
 
     function(Ret::Yes, 1, &locals, &[b0])
@@ -9,13 +9,13 @@ fn other_f() -> Function {
 
 #[test]
 fn call_success() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value::<()>(const_unit())],
+            arguments: list![by_value(const_unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
@@ -30,13 +30,13 @@ fn call_success() {
 
 #[test]
 fn call_non_exist() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value::<()>(const_unit())],
+            arguments: list![by_value(const_unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
@@ -51,7 +51,7 @@ fn call_non_exist() {
 
 #[test]
 fn call_arg_count() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -72,13 +72,13 @@ fn call_arg_count() {
 
 #[test]
 fn call_arg_abi() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value::<i32>(const_int::<i32>(42))],
+            arguments: list![by_value(const_int::<i32>(42))],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
@@ -93,13 +93,13 @@ fn call_arg_abi() {
 
 #[test]
 fn call_ret_abi() {
-    let locals = [<i32>::get_ptype()];
+    let locals = [<i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value::<()>(const_unit())],
+            arguments: list![by_value(const_unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }

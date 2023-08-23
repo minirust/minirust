@@ -7,7 +7,7 @@ fn arbitrary_order() {
 
     /// A function that writes 1 to the global(1).
     fn write_1() -> Function {
-        let locals = [<*const ()>::get_ptype()];
+        let locals = [<*const ()>::get_type()];
         let b0 = block!(
             acquire(load(global::<u32>(0)), 1)
         );
@@ -24,7 +24,7 @@ fn arbitrary_order() {
     // It then tries to write 2 to global(1).
 
     // The locals are used to store the thread ids.
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     // Create the lock and store its id at global(0).
     let b0 = block!(

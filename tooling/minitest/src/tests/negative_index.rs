@@ -3,8 +3,8 @@ use crate::*;
 #[test]
 fn negative_index() {
     let locals = &[
-        <[(); 2]>::get_ptype(),
-        <()>::get_ptype(),
+        <[(); 2]>::get_type(),
+        <()>::get_type(),
     ];
 
     let stmts = &[

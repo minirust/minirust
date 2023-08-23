@@ -86,10 +86,10 @@ impl<M: Memory> AtomicMemory<M> {
         self.memory.load(ptr, len, align)
     }
 
-    /// Test whether the given pointer is dereferenceable for the given layout.
+    /// Test whether the given pointer is dereferenceable for the given size.
     /// Raises UB if that is not the case.
-    pub fn dereferenceable(&self, ptr: Pointer<M::Provenance>, layout: Layout) -> Result {
-        self.memory.dereferenceable(ptr, layout)
+    pub fn dereferenceable(&self, ptr: Pointer<M::Provenance>, len: Size) -> Result {
+        self.memory.dereferenceable(ptr, len)
     }
 
     /// Return the retagged pointer.

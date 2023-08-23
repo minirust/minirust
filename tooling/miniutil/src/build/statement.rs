@@ -48,9 +48,8 @@ pub fn call(f: u32, args: &[ArgumentExpr], ret: PlaceExpr, next: Option<u32>) ->
     }
 }
 
-pub fn by_value<T: TypeConv>(val: ValueExpr) -> ArgumentExpr {
-    let pty = T::get_ptype();
-    ArgumentExpr::ByValue(val, pty.align)
+pub fn by_value(val: ValueExpr) -> ArgumentExpr {
+    ArgumentExpr::ByValue(val)
 }
 
 pub fn in_place(arg: PlaceExpr) -> ArgumentExpr {

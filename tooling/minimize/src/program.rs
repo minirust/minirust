@@ -106,7 +106,7 @@ fn mk_start_fn(entry: u32) -> Function {
     blocks.insert(b1_name, b1);
 
     let mut locals = Map::new();
-    locals.insert(l0_name, <() as build::TypeConv>::get_ptype());
+    locals.insert(l0_name, <() as build::TypeConv>::get_type());
 
     Function {
         locals,
@@ -133,7 +133,7 @@ pub struct FnCtxt<'cx, 'tcx> {
     // associate names for each basic block.
     pub bb_name_map: HashMap<rs::BasicBlock, BbName>,
 
-    pub locals: Map<LocalName, PlaceType>,
+    pub locals: Map<LocalName, Type>,
     pub blocks: Map<BbName, BasicBlock>,
 }
 
@@ -256,16 +256,8 @@ pub fn translate_calling_convention(conv: rs::Conv) -> CallingConvention {
     }
 }
 
-fn translate_local<'tcx>(local: &rs::LocalDecl<'tcx>, tcx: rs::TyCtxt<'tcx>) -> PlaceType {
-    let ty = translate_ty(local.ty, tcx);
-
-    // generics have already been resolved before, so `ParamEnv::empty()` is correct.
-    let a = rs::ParamEnv::empty().and(local.ty);
-    let layout = tcx.layout_of(a).unwrap().layout;
-    let align = layout.align().abi;
-    let align = translate_align(align);
-
-    PlaceType { ty, align }
+fn translate_local<'tcx>(local: &rs::LocalDecl<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
+    translate_ty(local.ty, tcx)
 }
 
 pub fn translate_align(align: rs::Align) -> Align {

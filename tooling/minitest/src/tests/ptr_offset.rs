@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn ptr_offset_success() {
-    let locals = &[ <i32>::get_ptype(), <*const i32>::get_ptype() ];
+    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -34,7 +34,7 @@ fn ptr_offset_success() {
 
 #[test]
 fn ptr_offset_inbounds() {
-    let locals = &[ <i32>::get_ptype(), <*const i32>::get_ptype() ];
+    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -66,7 +66,7 @@ fn ptr_offset_inbounds() {
 
 #[test]
 fn ptr_offset_no_inbounds() {
-    let locals = &[ <i32>::get_ptype(), <*const i32>::get_ptype() ];
+    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -101,10 +101,9 @@ fn ptr_offset_overflow() {
     let union_ty = union_ty(&[
             (size(0), <usize>::get_type()),
             (size(0), <*const i32>::get_type()),
-        ], size(8));
-    let union_pty = ptype(union_ty, align(8));
+        ], size(8), align(8));
 
-    let locals = [ union_pty ];
+    let locals = [ union_ty ];
 
     let b0 = block!(
         storage_live(0),
@@ -132,7 +131,7 @@ fn ptr_offset_overflow() {
 
 #[test]
 fn ptr_offset_out_of_bounds() {
-    let locals = &[ <i32>::get_ptype(), <*const i32>::get_ptype() ];
+    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),

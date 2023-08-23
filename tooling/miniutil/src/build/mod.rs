@@ -78,7 +78,7 @@ pub fn program(fns: &[Function]) -> Program {
 }
 
 // Generates a small program with a single basic block.
-pub fn small_program(locals: &[PlaceType], statements: &[Statement]) -> Program {
+pub fn small_program(locals: &[Type], statements: &[Statement]) -> Program {
     let b = block(statements, exit());
     let f = function(Ret::No, 0, locals, &[b]);
 

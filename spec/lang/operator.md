@@ -160,9 +160,7 @@ impl<M: Memory> Machine<M> {
             new_ptr
         };
         // `offset.abs()` is obviously positive, hence `unwrap()`.
-        // We effetively skip the align and inhabited check by using maximally permissive values.
-        let layout = Layout { size: Size::from_bytes(offset.abs()).unwrap(), align: Align::ONE, inhabited: true };
-        self.mem.dereferenceable(min_ptr, layout)?;
+        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()).unwrap())?;
         // If this check passed, we are good.
         ret(new_ptr)
     }

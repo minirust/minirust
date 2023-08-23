@@ -182,14 +182,14 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
 
     deref(
         ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type),
-        T::get_ptype()
+        T::get_type()
     )
 }
 
-pub fn deref(operand: ValueExpr, ptype: PlaceType) -> PlaceExpr {
+pub fn deref(operand: ValueExpr, ty: Type) -> PlaceExpr {
     PlaceExpr::Deref {
         operand: GcCow::new(operand),
-        ptype,
+        ty,
     }
 }
 
@@ -212,6 +212,6 @@ pub fn zst_place() -> PlaceExpr {
     let ptr = ValueExpr::Constant(Constant::InvalidPointer(1.into()), <*const ()>::get_type());
     PlaceExpr::Deref {
         operand: GcCow::new(ptr),
-        ptype: <()>::get_ptype(),
+        ty: <()>::get_type(),
     }
 }

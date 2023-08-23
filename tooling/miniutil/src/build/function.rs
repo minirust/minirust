@@ -29,8 +29,8 @@ pub enum Ret {
 // if ret == No,
 //   then there is no return local
 //   and _0 .. _n are the locals of the function args.
-pub fn function(ret: Ret, num_args: usize, locals: &[PlaceType], bbs: &[BasicBlock]) -> Function {
-    let mut locals: Map<LocalName, PlaceType> = locals
+pub fn function(ret: Ret, num_args: usize, locals: &[Type], bbs: &[BasicBlock]) -> Function {
+    let mut locals: Map<LocalName, Type> = locals
         .iter()
         .enumerate()
         .map(|(i, l)| {
@@ -61,7 +61,7 @@ pub fn function(ret: Ret, num_args: usize, locals: &[PlaceType], bbs: &[BasicBlo
         Ret::No => {
             // Generate a return local of type unit.
             let name = LocalName(Name::from_internal(locals.len().try_to_usize().unwrap() as _));
-            locals.try_insert(name, <()>::get_ptype()).unwrap();
+            locals.try_insert(name, <()>::get_type()).unwrap();
             name
         }
     };

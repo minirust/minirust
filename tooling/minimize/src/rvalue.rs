@@ -251,9 +251,9 @@ pub fn translate_place<'cx, 'tcx>(
                     fcx.cx.tcx,
                 )
                 .ty;
-                let ptype = place_type_of(ty, fcx);
+                let ty = translate_ty(ty, fcx.cx.tcx);
 
-                expr = PlaceExpr::Deref { operand: x, ptype };
+                expr = PlaceExpr::Deref { operand: x, ty };
             }
             rs::ProjectionElem::Index(loc) => {
                 let i = PlaceExpr::Local(fcx.local_name_map[&loc]);
@@ -269,11 +269,4 @@ pub fn translate_place<'cx, 'tcx>(
         }
     }
     expr
-}
-
-pub fn place_type_of<'cx, 'tcx>(ty: rs::Ty<'tcx>, fcx: &mut FnCtxt<'cx, 'tcx>) -> PlaceType {
-    let align = layout_of(ty, fcx.cx.tcx).align;
-    let ty = translate_ty(ty, fcx.cx.tcx);
-
-    PlaceType { ty, align }
 }

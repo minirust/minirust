@@ -3,8 +3,8 @@ use crate::*;
 #[test]
 fn manual_align() {
     let locals = &[
-        <[u8; 64]>::get_ptype(),
-        <usize>::get_ptype()
+        <[u8; 64]>::get_type(),
+        <usize>::get_type()
     ];
 
     let stmts = &[
@@ -39,7 +39,7 @@ fn manual_align() {
                     load(local(1)),
                     InBounds::Yes
                 ),
-                <u64>::get_ptype()
+                <u64>::get_type()
             ),
             const_int::<u64>(42)
         ),
@@ -59,9 +59,9 @@ fn impossible_align() {
     let align = 2u128.pow(65);
     let align = Align::from_bytes(align).unwrap();
 
-    let pty = ptype(<u8>::get_type(), align);
+    let ty = tuple_ty(&[], size(0), align);
 
-    let locals = [ pty ];
+    let locals = [ ty ];
 
     let b0 = block!(
         storage_live(0),

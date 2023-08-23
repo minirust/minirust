@@ -32,7 +32,7 @@ fn print_fail() {
 
 #[test]
 fn print_wrongreturn() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),

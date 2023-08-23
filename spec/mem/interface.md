@@ -76,6 +76,8 @@ pub trait Memory {
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
+    ///
+    /// This is the only non-deterministic operation in the memory interface.
     fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
 
     /// Remove an allocation.
@@ -87,19 +89,23 @@ pub trait Memory {
     /// Read some bytes from memory.
     fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
 
-    /// Test whether the given pointer is dereferenceable for the given layout, including an alignment check.
-    /// Raises UB if that is not the case. Must always raise UB for uninhabited layouts.
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result;
+    /// Test whether the given pointer is dereferenceable for the given size.
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result;
 
     /// Retag the given pointer, which has the given type.
     /// `fn_entry` indicates whether this is one of the special retags that happen
     /// right at the top of each function.
-    /// 
-    /// This must *at least* ensure that if the `ptr_type` carries a layout, then
-    /// the pointer is dereferenceable at that layout.
+    ///
+    /// This must at least check that the pointer is `dereferenceable` for its size
+    // (IOW, it cannot be more defined than the default implementation).
     ///
     /// Return the retagged pointer.
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+        if let Some(layout) = ptr_type.safe_pointee() {
+            self.dereferenceable(ptr, layout.size)?;
+        }
+        ret(ptr)
+    }
 
     /// Check if there are any memory leaks.
     fn leak_check(&self) -> Result;

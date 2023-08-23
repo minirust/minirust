@@ -36,8 +36,8 @@ impl FmtExpr {
 pub(super) fn fmt_place_expr(p: PlaceExpr, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match p {
         PlaceExpr::Local(l) => FmtExpr::Atomic(fmt_local_name(l)),
-        PlaceExpr::Deref { operand, ptype } => {
-            let ptype = fmt_ptype(ptype, comptypes).to_string();
+        PlaceExpr::Deref { operand, ty } => {
+            let ptype = fmt_type(ty, comptypes).to_string();
             let expr = fmt_value_expr(operand.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("deref<{ptype}>({expr})"))
         }

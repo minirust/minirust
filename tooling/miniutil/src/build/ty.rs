@@ -38,18 +38,20 @@ pub fn raw_ptr_ty() -> Type {
     Type::Ptr(PtrType::Raw)
 }
 
-pub fn tuple_ty(f: &[(Size, Type)], size: Size) -> Type {
+pub fn tuple_ty(f: &[(Size, Type)], size: Size, align: Align) -> Type {
     Type::Tuple {
         fields: f.iter().copied().collect(),
         size,
+        align,
     }
 }
 
-pub fn union_ty(f: &[(Size, Type)], size: Size) -> Type {
+pub fn union_ty(f: &[(Size, Type)], size: Size, align: Align) -> Type {
     let chunks = list![(Size::ZERO, size)];
     Type::Union {
         fields: f.iter().copied().collect(),
         size,
+        align,
         chunks,
     }
 }
@@ -59,8 +61,4 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
         elem: GcCow::new(elem),
         count: count.into(),
     }
-}
-
-pub fn ptype(ty: Type, align: Align) -> PlaceType {
-    PlaceType { ty, align }
 }

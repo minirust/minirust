@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn compare_exchange_success() {
-    let locals = [ <u32>::get_ptype(); 2 ];
+    let locals = [ <u32>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -51,7 +51,7 @@ fn compare_exchange_success() {
 
 #[test]
 fn compare_exchange_arg_count() {
-    let locals = [ <u32>::get_ptype(); 2 ];
+    let locals = [ <u32>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -76,7 +76,7 @@ fn compare_exchange_arg_count() {
 
 #[test]
 fn compare_exchange_arg_1_value() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -91,7 +91,7 @@ fn compare_exchange_arg_1_value() {
 
 #[test]
 fn compare_exchange_ret_type() {
-    let locals = [ <[u8; 3]>::get_ptype(); 2 ];
+    let locals = [ <[u8; 3]>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -112,7 +112,7 @@ fn compare_exchange_ret_type() {
 
 #[test]
 fn compare_exchange_arg_1_type() {
-    let locals = [ <u32>::get_ptype(); 2 ];
+    let locals = [ <u32>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -132,7 +132,7 @@ fn compare_exchange_arg_1_type() {
 
 #[test]
 fn compare_exchange_arg_2_type() {
-    let locals = [ <u32>::get_ptype(); 2 ];
+    let locals = [ <u32>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -152,7 +152,7 @@ fn compare_exchange_arg_2_type() {
 
 #[test]
 fn compare_exchange_arg_size_max() {
-    let locals = [ <u128>::get_ptype(); 2 ];
+    let locals = [ <u128>::get_type(); 2 ];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);

@@ -79,13 +79,13 @@ fn relocation_to_value_expr<'cx, 'tcx>(
 ) -> ValueExpr {
     let expr = Constant::GlobalPointer(rel);
 
-    let pty = place_type_of(ty, fcx);
+    let ty = translate_ty(ty, fcx.cx.tcx);
     let ptr_ty = Type::Ptr(PtrType::Raw);
 
     let expr = ValueExpr::Constant(expr, ptr_ty);
     let expr = PlaceExpr::Deref {
         operand: GcCow::new(expr),
-        ptype: pty,
+        ty,
     };
     ValueExpr::Load {
         source: GcCow::new(expr),

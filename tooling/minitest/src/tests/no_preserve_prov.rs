@@ -7,13 +7,12 @@ fn no_preserve_prov() {
             (size(0), <[&i32; 1]>::get_type()),
             (size(0), <[usize; 1]>::get_type()),
             (size(0), <&i32>::get_type()),
-        ], size(8));
-    let union_pty = ptype(union_ty, align(8));
+        ], size(8), align(8));
 
     let locals = vec![
-        <i32>::get_ptype(),
-        union_pty,
-        <i32>::get_ptype(),
+        <i32>::get_type(),
+        union_ty,
+        <i32>::get_type(),
     ];
 
     let stmts = vec![
@@ -36,7 +35,7 @@ fn no_preserve_prov() {
             local(2),
             load(deref(
                 load(field(local(1), 2)),
-                <i32>::get_ptype(),
+                <i32>::get_type(),
             ))
         ),
     ];

@@ -171,14 +171,10 @@ The helper function `check_ptr` we define for them is also used to implement the
 ```rust
 impl<T: Target> BasicMemory<T> {
     /// Check if the given pointer is dereferenceable for an access of the given
-    /// length and alignment. For dereferenceable, return the allocation ID and
+    /// length. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
-    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<Option<(AllocId, Size)>> {
-        // Alignment is always required.
-        if !align.is_aligned(ptr.addr) {
-            throw_ub!("pointer is insufficiently aligned");
-        }
-        // For zero-sized accesses, this is enough.
+    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size) -> Result<Option<(AllocId, Size)>> {
+        // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
         if len.is_zero() {
@@ -209,7 +205,10 @@ impl<T: Target> BasicMemory<T> {
 
 impl<T: Target> Memory for BasicMemory<T> {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
-        let Some((id, offset)) = self.check_ptr(ptr, len, align)? else {
+        if !align.is_aligned(ptr.addr) {
+            throw_ub!("load from a misaligned pointer");
+        }
+        let Some((id, offset)) = self.check_ptr(ptr, len)? else {
             return ret(list![]);
         };
         let allocation = &self.allocations[id.0];
@@ -219,8 +218,11 @@ impl<T: Target> Memory for BasicMemory<T> {
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
+        if !align.is_aligned(ptr.addr) {
+            throw_ub!("store to a misaligned pointer");
+        }
         let size = Size::from_bytes(bytes.len()).unwrap();
-        let Some((id, offset)) = self.check_ptr(ptr, size, align)? else {
+        let Some((id, offset)) = self.check_ptr(ptr, size)? else {
             return ret(());
         };
 
@@ -232,30 +234,9 @@ impl<T: Target> Memory for BasicMemory<T> {
         ret(())
     }
 
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, layout: Layout) -> Result {
-        if !layout.inhabited {
-            // TODO: I don't think Miri does this check.
-            throw_ub!("uninhabited types are not dereferenceable");
-        }
-        self.check_ptr(ptr, layout.size, layout.align)?;
-
+    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result {
+        self.check_ptr(ptr, len)?;
         ret(())
-    }
-}
-```
-
-We don't have aliasing requirements in this model, so we only check dereferencability for retagging.
-
-```rust
-impl<T: Target> Memory for BasicMemory<T> {
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
-        let Some(layout) = ptr_type.safe_pointee() else {
-            // A pointer without any requirements, skip.
-            return ret(ptr)
-        };
-        self.dereferenceable(ptr, layout)?;
-
-        ret(ptr)
     }
 }
 ```

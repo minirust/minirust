@@ -12,7 +12,7 @@ use crate::*;
 /// By making the critical section large (256 times around a loop)
 /// we get a high probability that the handover happened.
 fn lock_handover() {
-    let locals = [<()>::get_ptype(), <u32>::get_ptype()];
+    let locals = [<()>::get_type(), <u32>::get_type()];
 
     let b0 = block!(
         storage_live(1),
@@ -29,7 +29,7 @@ fn lock_handover() {
     let critical = function(Ret::Yes, 0, &locals, &[b0,b1,b2,b3,b4]);
 
 
-    let locals = [<u32>::get_ptype(), <()>::get_ptype()];
+    let locals = [<u32>::get_type(), <()>::get_type()];
     
     let b0 = block!(
         storage_live(0),
@@ -42,7 +42,7 @@ fn lock_handover() {
     let b4 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
     
-    let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
+    let locals = [<()>::get_type(), <*const ()>::get_type()];
 
     let b0 = block!(
         call(2, &[], local(0), Some(1))
@@ -84,11 +84,11 @@ fn lock_handover() {
 /// If a handover occurs and data race detection does not synchronize the acquirer,
 /// it immediatly writing to global_1 would be a data race with the release.
 fn lock_handover_data_race() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let ptr_ty = <*const u32>::get_type();
 
-    let p_ptype = <u32>::get_ptype();
+    let p_ptype = <u32>::get_type();
     
     let b0 = block!(
         acquire(load(global::<u32>(0)), 1) 
@@ -99,7 +99,7 @@ fn lock_handover_data_race() {
     let critical = function(Ret::Yes, 0, &locals, &[b0,b1,b2,b3]);
 
 
-    let locals = [<u32>::get_ptype(), <()>::get_ptype()];
+    let locals = [<u32>::get_type(), <()>::get_type()];
     
     let b0 = block!(
         storage_live(0),
@@ -112,7 +112,7 @@ fn lock_handover_data_race() {
     let b4 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
     
-    let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
+    let locals = [<()>::get_type(), <*const ()>::get_type()];
 
     let b0 = block!(
         call(2, &[], local(0), Some(1))
@@ -148,7 +148,7 @@ fn acquire_arg_count() {
 
 #[test]
 fn acquire_arg_value() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -163,7 +163,7 @@ fn acquire_arg_value() {
 
 #[test]
 fn acquire_wrongreturn() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -183,7 +183,7 @@ fn acquire_wrongreturn() {
 
 #[test]
 fn acquire_non_existent() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -201,7 +201,7 @@ fn acquire_non_existent() {
 
 #[test]
 fn release_arg_count() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         Terminator::CallIntrinsic {
@@ -220,7 +220,7 @@ fn release_arg_count() {
 
 #[test]
 fn release_arg_value() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -235,7 +235,7 @@ fn release_arg_value() {
 
 #[test]
 fn release_wrongreturn() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -255,7 +255,7 @@ fn release_wrongreturn() {
 
 #[test]
 fn release_non_existent() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -271,7 +271,7 @@ fn release_non_existent() {
 
 #[test]
 fn release_non_owned() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -291,7 +291,7 @@ fn release_non_owned() {
 
 #[test]
 fn create_arg_count() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -311,7 +311,7 @@ fn create_arg_count() {
 
 #[test]
 fn create_wrongreturn() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -338,7 +338,7 @@ fn deadlock() {
     // In such a situation both threads wait for each other and we have a deadlock.
 
     // The locals are used to store the thread ids.
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!( create_lock(global::<u32>(0), 1) );
     let b1 = block!( acquire(load(global::<u32>(0)), 2) );
@@ -351,7 +351,7 @@ fn deadlock() {
     let b5 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
 
-    let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
+    let locals = [<()>::get_type(), <*const ()>::get_type()];
     let b0 = block!( acquire(load(global::<u32>(0)), 1) );
     let b1 = block!( release(load(global::<u32>(0)), 2) );
     let b2 = block!( return_() );

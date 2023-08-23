@@ -5,11 +5,10 @@ fn invalid_offset() {
     let union_ty = union_ty(&[
             (size(0), <*const i32>::get_type()),
             (size(0), <usize>::get_type()),
-        ], size(8));
-    let union_pty = ptype(union_ty, align(8));
+        ], size(8), align(8));
     let locals = &[
-        <[i32; 2]>::get_ptype(),
-        union_pty
+        <[i32; 2]>::get_type(),
+        union_ty
     ];
 
     let stmts = &[
