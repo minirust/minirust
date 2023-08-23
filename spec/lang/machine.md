@@ -172,8 +172,8 @@ impl<M: Memory> Machine<M> {
         self.active_thread().cur_frame()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
-        self.threads.mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(f))
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut AtomicMemory<M>) -> NdResult<O>) -> NdResult<O> {
+        self.threads.try_mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(|frame| f(frame, &mut self.mem)))
     }
 
     fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
@@ -239,13 +239,13 @@ impl<M: Memory> Thread<M> {
         self.stack.last().unwrap()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
         if self.stack.is_empty() {
             panic!("`mutate_cur_frame` called on empty stack!");
         }
 
         let last_idx = self.stack.len() - 1;
-        self.stack.mutate_at(last_idx, f)
+        self.stack.try_mutate_at(last_idx, f)
     }
 }
 

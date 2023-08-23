@@ -50,10 +50,11 @@ impl<M: Memory> Machine<M> {
         } else {
             // Bump up PC, evaluate this statement.
             let stmt = block.statements[frame.next_stmt];
-            self.mutate_cur_frame(|frame| {
-                frame.next_stmt += 1;
-            });
             self.eval_statement(stmt)?;
+            self.mutate_cur_frame(|frame, _mem| {
+                frame.next_stmt += 1;
+                ret(())
+            })?;
         }
 
         // Check for data races with the previous step.
@@ -422,28 +423,36 @@ impl<M: Memory> Machine<M> {
 These operations (de)allocate the memory backing a local.
 
 ```rust
-impl<M: Memory> Machine<M> {
-    fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
+impl<M: Memory> StackFrame<M> {
+    fn storage_live(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
+        let layout = self.func.locals[local].layout::<M::T>();
+        let p = mem.allocate(layout.size, layout.align)?;
         // Here we make it a spec bug to ever mark an already live local as live.
-        let layout = self.cur_frame().func.locals[local].layout::<M::T>();
-        let p = self.mem.allocate(layout.size, layout.align)?;
-        self.mutate_cur_frame(|frame| {
-            frame.locals.try_insert(local, p).unwrap();
-        });
-
+        self.locals.try_insert(local, p).unwrap();
         ret(())
     }
 
-    fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
+    fn storage_dead(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
+        let layout = self.func.locals[local].layout::<M::T>();
+        let p = self.locals.remove(local).unwrap();
         // Here we make it a spec bug to ever mark an already dead local as dead.
         // FIXME: This does not match what rustc does: https://github.com/rust-lang/rust/issues/98896.
-        let layout = self.cur_frame().func.locals[local].layout::<M::T>();
-        let p = self.mutate_cur_frame(|frame| {
-            frame.locals.remove(local).unwrap()
-        });
-        self.mem.deallocate(p, layout.size, layout.align)?;
-
+        mem.deallocate(p, layout.size, layout.align)?;
         ret(())
+    }
+}
+
+impl<M: Memory> Machine<M> {
+    fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
+        self.mutate_cur_frame(|frame, mem| {
+            frame.storage_live(mem, local)
+        })
+    }
+
+    fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
+        self.mutate_cur_frame(|frame, mem| {
+            frame.storage_dead(mem, local)
+        })
     }
 }
 ```
@@ -463,11 +472,15 @@ The simplest terminator: jump to the (beginning of the) given block.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
-        self.mutate_cur_frame(|frame| {
-            frame.jump_to_block(block_name);
-        });
+    fn jump_to_block(&mut self, block: BbName) -> NdResult {
+        self.mutate_cur_frame(|frame, _mem| {
+            frame.jump_to_block(block);
+            ret(())
+        })
+    }
 
+    fn eval_terminator(&mut self, Terminator::Goto(block_name): Terminator) -> NdResult {
+        self.jump_to_block(block_name)?;
         ret(())
     }
 }
@@ -482,9 +495,7 @@ impl<M: Memory> Machine<M> {
             panic!("if on a non-boolean")
         };
         let next = if b { then_block } else { else_block };
-        self.mutate_cur_frame(|frame| {
-            frame.jump_to_block(next);
-        });
+        self.jump_to_block(next)?;
 
         ret(())
     }
@@ -594,8 +605,6 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
-        let mut locals: Map<LocalName, Place<M>> = Map::new();
-
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let caller_ret_place = ret_expr.try_map(|caller_ret_place| {
             let (place, pty) = self.eval_place(caller_ret_place)?;
@@ -614,16 +623,29 @@ impl<M: Memory> Machine<M> {
 
         // FIXME: caller and callee should have an ABI and we need to check that they are the same.
 
-        // Create place for return local, if needed.
+        // Prepare a stack frame.
+        let mut frame = StackFrame {
+            func,
+            locals: Map::new(),
+            caller_return_info: Some(CallerReturnInfo {
+                next_block,
+                ret_place: caller_ret_place.map(|(place, _pty)| place),
+            }),
+            next_block: func.start,
+            next_stmt: Int::ZERO,
+        };
+
+        // Chec and create return local, if needed.
         if let Some(callee_ret_local) = func.ret {
             let callee_pty = func.locals[callee_ret_local];
-            let callee_ret_layout = callee_pty.layout::<M::T>();
-            locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+            // Make sure caller and callee view of this are compatible.
             if let Some((_, caller_pty)) = caller_ret_place {
                 if !check_abi_compatibility(caller_pty, callee_pty) {
                     throw_ub!("call ABI violation: return types are not compatible");
                 }
             }
+            // Make the return local live.
+            frame.storage_live(&mut self.mem, callee_ret_local)?;
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -634,30 +656,20 @@ impl<M: Memory> Machine<M> {
         for (callee_local, caller_arg) in func.args.zip(arguments) {
             let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
             let callee_pty = func.locals[callee_local];
+            // Make sure caller and callee view of this are compatible.
             if !check_abi_compatibility(caller_pty, callee_pty) {
                 throw_ub!("call ABI violation: argument types are not compatible");
             }
-            // Allocate place with callee layout (a lot like `StorageLive`).
-            let callee_layout = callee_pty.layout::<M::T>();
-            let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
-            locals.insert(callee_local, p);
-            // Copy the value at caller (source) type. We know the types have the same layout so this will fit.
-            // `p` is a fresh pointer so there should be no reason the store can fail.
-            self.mem.typed_store(p, caller_val, caller_pty, Atomicity::None).unwrap();
+            // Make the argument local live.
+            frame.storage_live(&mut self.mem, callee_local)?;
+            // Copy the value at caller (source) type -- that's necessary since it is the type we did the load at (in `eval_argument`).
+            // We know the types have compatible layout so this will fit into the allocation.
+            // The local is freshly allocated so there should be no reason the store can fail.
+            self.mem.typed_store(frame.locals[callee_local], caller_val, caller_pty, Atomicity::None).unwrap();
         }
 
         // Push new stack frame, so it is executed next.
-        self.mutate_cur_stack(|stack| stack.push(StackFrame {
-            func,
-            locals,
-            caller_return_info: Some(CallerReturnInfo {
-                next_block,
-                ret_place: caller_ret_place.map(|(place, _pty)| place),
-            }),
-            next_block: func.start,
-            next_stmt: Int::ZERO,
-        }));
-
+        self.mutate_cur_stack(|stack| stack.push(frame));
         ret(())
     }
 }
@@ -689,7 +701,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_terminator(&mut self, Terminator::Return: Terminator) -> NdResult {
-        let frame = self.mutate_cur_stack(
+        let mut frame = self.mutate_cur_stack(
             |stack| stack.pop().unwrap()
         );
 
@@ -707,10 +719,8 @@ impl<M: Memory> Machine<M> {
         }
 
         // Deallocate everything.
-        for (local, place) in frame.locals {
-            // A lot like `StorageDead`.
-            let layout = frame.func.locals[local].layout::<M::T>();
-            self.mem.deallocate(place, layout.size, layout.align)?;
+        while let Some(local) = frame.locals.keys().next() {
+            frame.storage_dead(&mut self.mem, local)?;
         }
 
         let Some(caller_return_info) = frame.caller_return_info else {
@@ -724,9 +734,7 @@ impl<M: Memory> Machine<M> {
         assert!(self.active_thread().stack.len() > 0);
 
         if let Some(next_block) = caller_return_info.next_block {
-            self.mutate_cur_frame(|frame| {
-                frame.jump_to_block(next_block);
-            });
+            self.jump_to_block(next_block)?;
         } else {
             throw_ub!("return from a function where caller did not specify next block");
         }
@@ -765,9 +773,7 @@ impl<M: Memory> Machine<M> {
 
         // Jump to next block.
         if let Some(next_block) = next_block {
-            self.mutate_cur_frame(|frame| {
-                frame.jump_to_block(next_block);
-            });
+            self.jump_to_block(next_block)?;
         } else {
             throw_ub!("return from an intrinsic where caller did not specify next block");
         }
