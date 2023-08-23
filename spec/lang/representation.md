@@ -116,14 +116,7 @@ fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Pr
 impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
-        match ptr_type {
-            PtrType::Raw | PtrType::FnPtr => {}, // nothing to check
-            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
-                // References (and `Box`) need to be non-null, aligned, and not point to an uninhabited type.
-                // (Think: uninhabited types have impossible alignment.)
-                ensure(ptr.addr != 0 && ptr.addr % pointee.align.bytes() == 0 && pointee.inhabited)?;
-            }
-        }
+        ensure(ptr_type.addr_valid(ptr.addr))?;
         ret(Value::Ptr(ptr))
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -400,6 +393,7 @@ We also use this to lift retagging from pointers to compound values.
 ```rust
 impl<M: Memory> AtomicMemory<M> {
     fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, pty: PlaceType, atomicity: Atomicity) -> Result {
+        assert!(val.check_wf(pty.ty).is_some(), "trying to store {val:?} which is ill-formed for {:#?}", pty.ty);
         let bytes = pty.ty.encode::<M>(val);
         self.store(ptr, bytes, pty.align, atomicity)?;
 
@@ -473,7 +467,7 @@ This does not apply at each and every typed copy (so maybe it shouldn't be calle
 ```rust
 impl<M: Memory> AtomicMemory<M> {
     fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
-        if let PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } = ptr_ty {
+        if let Some(pointee) = ptr_ty.safe_pointee() {
             self.dereferenceable(ptr, pointee)?;
         }
         ret(())

@@ -242,11 +242,9 @@ We don't have aliasing requirements in this model, so we only check dereferencab
 ```rust
 impl<T: Target> Memory for BasicMemory<T> {
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
-        let layout = match ptr_type {
-            PtrType::Ref { pointee, .. } => pointee,
-            PtrType::Box { pointee } => pointee,
-            // Raw and fn ptrs do not have any requirements, skip them.
-            PtrType::Raw | PtrType::FnPtr => return ret(ptr),
+        let Some(layout) = ptr_type.safe_pointee() else {
+            // A pointer without any requirements, skip.
+            return ret(ptr)
         };
         self.dereferenceable(ptr, layout)?;
 

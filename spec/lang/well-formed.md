@@ -216,12 +216,8 @@ impl ValueExpr {
                 ptype.ty
             }
             AddrOf { target, ptr_ty } => {
-                let ptype = target.check_wf::<T>(locals, prog)?;
-                if let PtrType::Box { pointee } | PtrType::Ref { pointee, .. } = ptr_ty {
-                    // Make sure the size fits and the alignment is weakened, not strengthened.
-                    ensure(pointee.size == ptype.ty.size::<T>())?;
-                    ensure(pointee.align <= ptype.align)?;
-                }
+                target.check_wf::<T>(locals, prog)?;
+                // No check of how the alignment changes here -- that is purely a runtime constraint.
                 Type::Ptr(ptr_ty)
             }
             UnOp { operator, operand } => {
@@ -281,12 +277,8 @@ impl PlaceExpr {
             Local(name) => locals.get(name)?,
             Deref { operand, ptype } => {
                 let ty = operand.check_wf::<T>(locals, prog)?;
-                let Type::Ptr(ptr_ty) = ty else { throw!() };
-                if let PtrType::Box { pointee } | PtrType::Ref { pointee, .. } = ptr_ty {
-                    // Make sure the size fits and the alignment is weakened, not strengthened.
-                    ensure(ptype.ty.size::<T>() == pointee.size);
-                    ensure(ptype.align <= pointee.align);
-                }
+                ensure(matches!(ty, Type::Ptr(_)))?;
+                // No check of how the alignment changes here -- that is purely a runtime constraint.
                 ptype
             }
             Field { root, field } => {
@@ -551,7 +543,8 @@ impl<M: Memory> Value<M> {
                 ensure(i.in_bounds(ity.signed, ity.size))?;
             }
             (Value::Bool(_), Type::Bool) => {},
-            (Value::Ptr(ptr), Type::Ptr(_)) => {
+            (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
+                ensure(ptr_ty.addr_valid(ptr.addr))?;
                 ensure(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE))?;
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
