@@ -48,7 +48,7 @@ fn fmt_bytes(bytes: List<Option<u8>>) -> String {
         .iter()
         .map(|x| match x {
             Some(u) => format!("{:02x?}", u),
-            None => String::from("__"),
+            None => format!("__"),
         })
         .collect();
 

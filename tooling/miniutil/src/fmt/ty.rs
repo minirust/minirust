@@ -10,7 +10,7 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match t {
         Type::Int(int_ty) => FmtExpr::Atomic(fmt_int_type(int_ty)),
         Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
-        Type::Bool => FmtExpr::Atomic(String::from("bool")),
+        Type::Bool => FmtExpr::Atomic(format!("bool")),
         Type::Tuple { .. } | Type::Union { .. } => {
             let comp_ty = CompType(t);
             let comptype_index = get_comptype_index(comp_ty, comptypes);

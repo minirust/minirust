@@ -142,7 +142,7 @@ fn fmt_call(
     // Format return place
     let r = match ret {
         Some(ret) => fmt_place_expr(ret, comptypes).to_string(),
-        None => String::from("_"),
+        None => format!("_"),
     };
 
     // Format next block
