@@ -68,7 +68,7 @@ impl PtrType {
         if let Some(layout) = self.safe_pointee() {
             // Safe addresses need to be non-null, aligned, and not point to an uninhabited type.
             // (Think: uninhabited types have impossible alignment.)
-            addr != 0 && addr % layout.align.bytes() == 0 && layout.inhabited
+            addr != 0 && layout.align.is_aligned(addr) && layout.inhabited
         } else {
             true
         }
