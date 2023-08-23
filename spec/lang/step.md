@@ -532,6 +532,66 @@ A lot of things happen when a function is being called!
 In particular, we have to initialize the new stack frame.
 
 ```rust
+/// Check whether the two types are compatible in function calls.
+///
+/// This means *at least* they have the same size and alignment (for on-stack argument passing).
+/// However, when arguments get passed in registers, more details become relevant, so we require
+/// almost full structural equality.
+fn check_abi_compatibility(
+    caller_pty: PlaceType,
+    callee_pty: PlaceType,
+) -> bool {
+    // FIXME: we probably do not have enough details captured in `Type` to fully implement this.
+    // For instance, what about SIMD vectors?
+    // FIXME: we also reject too much here, e.g. we do not reflect `repr(transparent)`,
+    // let alone `Option<&T>` being compatible with `*const T`.
+    fn check_ty_abi_compatibility(
+        caller_ty: Type,
+        callee_ty: Type,
+    ) -> bool {
+        match (caller_ty, callee_ty) {
+            (Type::Int(caller_ty), Type::Int(callee_ty)) =>
+                // Signedness does not matter for ABI
+                caller_ty.size == callee_ty.size,
+            (Type::Bool, Type::Bool) =>
+                true,
+            (Type::Ptr(_), Type::Ptr(_)) =>
+                // The kind of pointer and pointee details do not matter for ABI.
+                true,
+            (Type::Tuple { fields: caller_fields, size: caller_size },
+             Type::Tuple { fields: callee_fields, size: callee_size }) =>
+                caller_fields.len() == callee_fields.len() &&
+                caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
+                    caller_field.0 == callee_field.0 && check_ty_abi_compatibility(caller_field.1, callee_field.1)
+                ) &&
+                caller_size == callee_size,
+            (Type::Array { elem: caller_elem, count: caller_count },
+             Type::Array { elem: callee_elem, count: callee_count }) =>
+                check_ty_abi_compatibility(caller_elem, callee_elem) && caller_count == callee_count,
+            (Type::Union { fields: caller_fields, chunks: caller_chunks, size: caller_size },
+             Type::Union { fields: callee_fields, chunks: callee_chunks, size: callee_size }) =>
+                caller_fields.len() == callee_fields.len() &&
+                caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
+                    caller_field.0 == callee_field.0 && check_ty_abi_compatibility(caller_field.1, callee_field.1)
+                ) &&
+                caller_chunks == callee_chunks &&
+                caller_size == callee_size,
+            (Type::Enum { variants: caller_variants, tag_encoding: caller_encoding, size: caller_size },
+             Type::Enum { variants: callee_variants, tag_encoding: callee_encoding, size: callee_size }) =>
+                caller_variants.len() == callee_variants.len() &&
+                caller_variants.zip(callee_variants).all(|(caller_field, callee_field)|
+                    check_ty_abi_compatibility(caller_field, callee_field)
+                ) &&
+                caller_encoding == callee_encoding &&
+                caller_size == callee_size,
+            // Different kind of type, definitely incompatible.
+            _ =>
+                false
+        }
+    }
+    caller_pty.align == callee_pty.align && check_ty_abi_compatibility(caller_pty.ty, callee_pty.ty)
+}
+
 impl<M: Memory> Machine<M> {
     /// A helper function to deal with `ArgumentExpr`.
     fn eval_argument(
@@ -553,66 +613,6 @@ impl<M: Memory> Machine<M> {
                 (value, pty)
             }
         })
-    }
-
-    /// Check whether the two types are compatible in function calls.
-    ///
-    /// This means *at least* they have the same size and alignment (for on-stack argument passing).
-    /// However, when arguments get passed in registers, more details become relevant, so we require
-    /// almost full structural equality.
-    fn check_abi_compatibility(
-        caller_pty: PlaceType,
-        callee_pty: PlaceType,
-    ) -> bool {
-        // FIXME: we probably do not have enough details captured in `Type` to fully implement this.
-        // For instance, what about SIMD vectors?
-        // FIXME: we also reject too much here, e.g. we do not reflect `repr(transparent)`,
-        // let alone `Option<&T>` being compatible with `*const T`.
-        fn check_ty_abi_compatibility(
-            caller_ty: Type,
-            callee_ty: Type,
-        ) -> bool {
-            match (caller_ty, callee_ty) {
-                (Type::Int(caller_ty), Type::Int(callee_ty)) =>
-                    // Signedness does not matter for ABI
-                    caller_ty.size == callee_ty.size,
-                (Type::Bool, Type::Bool) =>
-                    true,
-                (Type::Ptr(_), Type::Ptr(_)) =>
-                    // The kind of pointer and pointee details do not matter for ABI.
-                    true,
-                (Type::Tuple { fields: caller_fields, size: caller_size },
-                 Type::Tuple { fields: callee_fields, size: callee_size }) =>
-                    caller_fields.len() == callee_fields.len() &&
-                    caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
-                        caller_field.0 == callee_field.0 && check_ty_abi_compatibility(caller_field.1, callee_field.1)
-                    ) &&
-                    caller_size == callee_size,
-                (Type::Array { elem: caller_elem, count: caller_count },
-                 Type::Array { elem: callee_elem, count: callee_count }) =>
-                    check_ty_abi_compatibility(caller_elem, callee_elem) && caller_count == callee_count,
-                (Type::Union { fields: caller_fields, chunks: caller_chunks, size: caller_size },
-                 Type::Union { fields: callee_fields, chunks: callee_chunks, size: callee_size }) =>
-                    caller_fields.len() == callee_fields.len() &&
-                    caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
-                        caller_field.0 == callee_field.0 && check_ty_abi_compatibility(caller_field.1, callee_field.1)
-                    ) &&
-                    caller_chunks == callee_chunks &&
-                    caller_size == callee_size,
-                (Type::Enum { variants: caller_variants, tag_encoding: caller_encoding, size: caller_size },
-                 Type::Enum { variants: callee_variants, tag_encoding: callee_encoding, size: callee_size }) =>
-                    caller_variants.len() == callee_variants.len() &&
-                    caller_variants.zip(callee_variants).all(|(caller_field, callee_field)|
-                        check_ty_abi_compatibility(caller_field, callee_field)
-                    ) &&
-                    caller_encoding == callee_encoding &&
-                    caller_size == callee_size,
-                // Different kind of type, definitely incompatible.
-                _ =>
-                    false
-            }
-        }
-        caller_pty.align == callee_pty.align && check_ty_abi_compatibility(caller_pty.ty, callee_pty.ty)
     }
 
     fn eval_terminator(
@@ -645,7 +645,7 @@ impl<M: Memory> Machine<M> {
             let callee_ret_layout = callee_pty.layout::<M::T>();
             locals.insert(callee_ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
             if let Some((_, caller_pty)) = caller_ret_place {
-                if !Self::check_abi_compatibility(caller_pty, callee_pty) {
+                if !check_abi_compatibility(caller_pty, callee_pty) {
                     throw_ub!("call ABI violation: return types are not compatible");
                 }
             }
@@ -659,7 +659,7 @@ impl<M: Memory> Machine<M> {
         for (callee_local, caller_arg) in func.args.zip(arguments) {
             let (caller_val, caller_pty) = self.eval_argument(caller_arg)?;
             let callee_pty = func.locals[callee_local];
-            if !Self::check_abi_compatibility(caller_pty, callee_pty) {
+            if !check_abi_compatibility(caller_pty, callee_pty) {
                 throw_ub!("call ABI violation: argument types are not compatible");
             }
             // Allocate place with callee layout (a lot like `StorageLive`).

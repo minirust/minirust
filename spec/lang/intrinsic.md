@@ -187,7 +187,7 @@ impl<M: Memory> Machine<M> {
         // This logic is taken from `eval(Terminator::Call)` and `eval_argument`.
         // FIXME: find a way to avoid the code duplication.
         let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
-        if !Self::check_abi_compatibility(data_ptr_pty, func.locals[func.args[0]]) {
+        if !check_abi_compatibility(data_ptr_pty, func.locals[func.args[0]]) {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take a pointer as an argument.");
         }
 
