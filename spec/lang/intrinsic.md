@@ -171,6 +171,43 @@ The intrinsics for spawning and joining threads.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn spawn(&mut self, func: Function, data_pointer: Value<M>, data_ptr_ty: Type) -> NdResult<ThreadId> {
+        let thread_id = ThreadId::from(self.threads.len());
+
+        let mut locals = Map::new();
+
+        // Create place for data pointer and place it there.
+        let callee_local = func.args[0];
+        let callee_pty = func.locals[callee_local];
+        // Allocate place with callee layout (a lot like `StorageLive`).
+        let callee_layout = callee_pty.layout::<M::T>();
+        let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
+        locals.insert(callee_local, p);
+
+        // This logic is taken from `eval(Terminator::Call)` and `eval_argument`.
+        // FIXME: find a way to avoid the code duplication.
+        let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
+        if !Self::check_abi_compatibility(data_ptr_pty, func.locals[func.args[0]]) {
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take a pointer as an argument.");
+        }
+
+        self.mem.typed_store(p, data_pointer, callee_pty, Atomicity::None).unwrap();
+
+        // Create place for return local, if needed.
+        // The return value will be ignored in `terminate_active_thread`.
+        if let Some(ret_local) = func.ret {
+            let callee_ret_layout = func.locals[ret_local].layout::<M::T>();
+            locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+        }
+
+        self.threads.push(Thread::new(func, locals));
+
+        // This thread got synchronized because its existence startet with this.
+        self.synchronized_threads.insert(thread_id);
+
+        ret(thread_id)
+    }
+
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Spawn: Intrinsic,
@@ -209,6 +246,23 @@ impl<M: Memory> Machine<M> {
         let thread_id = self.spawn(func, data_ptr, data_ptr_ty)?;
 
         ret(Value::Int(thread_id))
+    }
+
+    fn join(&mut self, thread_id: ThreadId) -> NdResult {
+        let Some(thread) = self.threads.get(thread_id) else {
+            throw_ub!("`Intrinsic::Join`: join non existing thread");
+        };
+
+        match thread.state {
+            ThreadState::Terminated => {},
+            _ => {
+                self.threads.mutate_at(self.active_thread, |thread|{
+                    thread.state = ThreadState::BlockedOnJoin(thread_id);
+                });
+            },
+        };
+
+        ret(())
     }
 
     fn eval_intrinsic(
