@@ -281,9 +281,9 @@ pub enum Intrinsic {
     Deallocate,
     Spawn,
     Join,
-    AtomicWrite,
-    AtomicRead,
-    CompareExchange,
+    AtomicStore,
+    AtomicLoad,
+    AtomicCompareExchange,
     Lock(LockIntrinsic),
 }
 ```

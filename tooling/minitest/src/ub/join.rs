@@ -61,7 +61,7 @@ fn join_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `Intrinsic::Join`");
+    assert_ub(p, "invalid first argument to `Intrinsic::Join`, not an integer");
 }
 
 #[test]

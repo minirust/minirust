@@ -21,18 +21,22 @@ mod ub;
 mod ill_formed;
 mod deadlock;
 
+#[track_caller]
 pub fn assert_stop(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::MachineStop);
 }
 
+#[track_caller]
 pub fn assert_ub(prog: Program, msg: &str) {
     assert_eq!(run_program(prog), TerminationInfo::Ub(minirust_rs::prelude::String::from_internal(msg.to_string())));
 }
 
+#[track_caller]
 pub fn assert_ill_formed(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::IllFormed);
 }
 
+#[track_caller]
 pub fn assert_deadlock(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::Deadlock);
 }

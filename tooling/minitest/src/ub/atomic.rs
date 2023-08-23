@@ -29,7 +29,7 @@ fn atomic_write_success() {
 fn atomic_write_arg_count() {
     let b0 = block!(
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicWrite,
+            intrinsic: Intrinsic::AtomicStore,
             arguments: list!(),
             ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
@@ -39,14 +39,14 @@ fn atomic_write_arg_count() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicWrite`")
+    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicStore`")
 }
 
 #[test]
 fn atomic_write_arg_type1() {
     let b0 = block!(
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicWrite,
+            intrinsic: Intrinsic::AtomicStore,
             arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
             ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
@@ -56,7 +56,7 @@ fn atomic_write_arg_type1() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicWrite`")
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicStore`, not a pointer")
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn atomic_write_arg_type_pow() {
     let b0 = block!(
         storage_live(0),
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicWrite,
+            intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
             ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
@@ -83,7 +83,7 @@ fn atomic_write_arg_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size not power of two")
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`, size not power of two")
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -100,7 +100,7 @@ fn atomic_write_arg_type_size() {
     let b0 = block!(
         storage_live(0),
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicWrite,
+            intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
             ret: None,
             next_block: Some(BbName(Name::from_internal(1)))
@@ -110,7 +110,7 @@ fn atomic_write_arg_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicWrite`, size too big")
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`, size too big")
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn atomic_write_ret_type() {
         storage_live(0),
 
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicWrite,
+            intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
             ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
@@ -133,7 +133,7 @@ fn atomic_write_ret_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicWrite`")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicStore`")
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn atomic_read_arg_count() {
     let b0 = block!(
         storage_live(0),
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicRead,
+            intrinsic: Intrinsic::AtomicLoad,
             arguments: list!(),
             ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
@@ -178,7 +178,7 @@ fn atomic_read_arg_count() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicRead`")
+    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicLoad`")
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn atomic_read_arg_type() {
     let b0 = block!(
         storage_live(0),
         Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicRead,
+            intrinsic: Intrinsic::AtomicLoad,
             arguments: list!(const_unit()),
             ret: Some(local(0)),
             next_block: Some(BbName(Name::from_internal(1)))
@@ -198,7 +198,7 @@ fn atomic_read_arg_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicRead`")
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicLoad`, not a pointer")
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn atomic_read_ret_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size not power of two")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`, size not power of two")
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -233,5 +233,5 @@ fn atomic_read_ret_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicRead`, size too big")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`, size too big")
 }

@@ -126,7 +126,7 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
 
 pub fn atomic_write(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicWrite,
+        intrinsic: Intrinsic::AtomicStore,
         arguments: list!(ptr, src),
         ret: None,
         next_block: Some(BbName(Name::from_internal(next)))
@@ -135,7 +135,7 @@ pub fn atomic_write(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
 
 pub fn atomic_read(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicRead,
+        intrinsic: Intrinsic::AtomicLoad,
         arguments: list!(ptr),
         ret: Some(dest),
         next_block: Some(BbName(Name::from_internal(next)))
@@ -144,7 +144,7 @@ pub fn atomic_read(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
 
 pub fn compare_exchange(dest: PlaceExpr, ptr: ValueExpr, current: ValueExpr, next_val: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic { 
-        intrinsic: Intrinsic::CompareExchange,
+        intrinsic: Intrinsic::AtomicCompareExchange,
         arguments: list!(ptr, current, next_val),
         ret: Some(dest),
         next_block: Some(BbName(Name::from_internal(next)))

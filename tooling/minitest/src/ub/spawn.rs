@@ -58,7 +58,7 @@ fn spawn_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`")
+    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, not a pointer")
 }
 
 
