@@ -402,13 +402,10 @@ impl Terminator {
                 let ty = callee.check_wf::<T>(live_locals, prog)?;
                 ensure(matches!(ty, Type::Ptr(PtrType::FnPtr(_))))?;
 
-                // Argument and return expressions must all typecheck with some type.
+                // Return and argument expressions must all typecheck with some type.
+                ret.check_wf::<T>(live_locals, prog)?;
                 for arg in arguments {
                     arg.check_wf::<T>(live_locals, prog)?;
-                }
-
-                if let Some(ret_place) = ret {
-                    ret_place.check_wf::<T>(live_locals, prog)?;
                 }
 
                 match next_block {
@@ -417,13 +414,10 @@ impl Terminator {
                 }
             }
             CallIntrinsic { intrinsic: _, arguments, ret, next_block } => {
-                // Argument and return expressions must all typecheck with some type.
+                // Return and argument expressions must all typecheck with some type.
+                ret.check_wf::<T>(live_locals, prog)?;
                 for arg in arguments {
                     arg.check_wf::<T>(live_locals, prog)?;
-                }
-
-                if let Some(ret_place) = ret {
-                    ret_place.check_wf::<T>(live_locals, prog)?;
                 }
 
                 match next_block {

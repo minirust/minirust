@@ -15,7 +15,7 @@ fn join_success() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),
@@ -36,7 +36,7 @@ fn join_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Join,
             arguments: list!(),
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -73,7 +73,7 @@ fn join_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Join,
             arguments: list![const_int::<u32>(1)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );

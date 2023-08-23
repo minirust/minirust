@@ -9,7 +9,7 @@ fn alloc_success() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -30,7 +30,7 @@ fn alloc_argcount() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: None,
         },
     );
@@ -50,7 +50,7 @@ fn alloc_align_err() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![const_int::<usize>(4), const_int::<usize>(13)], // 13 is no power of two! hence error!
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -71,7 +71,7 @@ fn alloc_size_err() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -93,7 +93,7 @@ fn alloc_wrongarg1() {
             intrinsic: Intrinsic::Allocate,
             // First argument should be an int, so bool is unexpected here!
             arguments: list![const_bool(true), const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -115,7 +115,7 @@ fn alloc_wrongarg2() {
             intrinsic: Intrinsic::Allocate,
             // Second argument should be an int, so bool is unexpected here!
             arguments: list![const_int::<usize>(4), const_bool(true)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -136,7 +136,7 @@ fn alloc_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );

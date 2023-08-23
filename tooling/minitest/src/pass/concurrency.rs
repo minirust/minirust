@@ -35,7 +35,7 @@ fn arbitrary_order() {
     // The function given to it tries to write 1.
     let b1 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 2)
+        spawn(fn_ptr(1), null(), local(0), 2)
     );
 
     // Write 2 to global(1) within critical section.

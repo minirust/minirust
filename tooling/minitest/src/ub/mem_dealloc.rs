@@ -14,7 +14,7 @@ fn mem_dealloc_success() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -38,7 +38,7 @@ fn mem_dealloc_wrong_size() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(5), const_int::<usize>(4)],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -62,7 +62,7 @@ fn mem_dealloc_wrong_align() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(8)],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );

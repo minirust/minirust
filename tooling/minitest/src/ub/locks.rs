@@ -8,7 +8,7 @@ fn acquire_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
             arguments: list![],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -43,7 +43,7 @@ fn acquire_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
             arguments: list![const_int::<u32>(0)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -80,7 +80,7 @@ fn release_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
             arguments: list![],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -115,7 +115,7 @@ fn release_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
             arguments: list![const_int::<u32>(0)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -171,7 +171,7 @@ fn create_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
             arguments: list![load(local(0))],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -191,7 +191,7 @@ fn create_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
             arguments: list![],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );

@@ -135,15 +135,12 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
 fn fmt_call(
     callee: &str,
     args: String,
-    ret: Option<PlaceExpr>,
+    ret: PlaceExpr,
     next_block: Option<BbName>,
     comptypes: &mut Vec<CompType>,
 ) -> String {
     // Format return place
-    let r = match ret {
-        Some(ret) => fmt_place_expr(ret, comptypes).to_string(),
-        None => format!("_"),
-    };
+    let r = fmt_place_expr(ret, comptypes).to_string();
 
     // Format next block
     let next = match next_block {

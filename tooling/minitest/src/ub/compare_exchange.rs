@@ -63,7 +63,7 @@ fn compare_exchange_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicCompareExchange,
             arguments: list!(addr0),
-            ret: Some(local(1)),
+            ret: local(1),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );

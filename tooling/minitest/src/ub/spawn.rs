@@ -12,7 +12,7 @@ fn spawn_success() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),
@@ -32,7 +32,7 @@ fn spawn_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Spawn,
             arguments: list![],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -52,7 +52,7 @@ fn spawn_arg_value() {
     let b0 = block!(
         storage_live(0),
         assign(local(0), const_int::<u32>(0)),
-        spawn(load(local(0)), null(), None, 1),
+        spawn(load(local(0)), null(), zst_place(), 1),
     );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -73,7 +73,7 @@ fn spawn_func_no_args() {
     let locals = [<i32>::get_ptype()];
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -98,7 +98,7 @@ fn spawn_func_returns() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -113,7 +113,7 @@ fn spawn_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),
@@ -131,7 +131,7 @@ fn spawn_data_ptr() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), const_int::<usize>(0), None, 1),
+        spawn(fn_ptr(1), const_int::<usize>(0), zst_place(), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),
@@ -155,7 +155,7 @@ fn spawn_wrongarg() {
 
     let b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let b1 = block!(
         join(load(local(0)), 2),

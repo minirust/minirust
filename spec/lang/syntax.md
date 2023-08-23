@@ -232,7 +232,7 @@ pub enum Terminator {
         arguments: List<ArgumentExpr>,
         /// The place to put the return value into.
         /// If `None`, the function's return value will be discarded.
-        ret: Option<PlaceExpr>,
+        ret: PlaceExpr,
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,
@@ -244,7 +244,7 @@ pub enum Terminator {
         arguments: List<ValueExpr>,
         /// The place to put the return value into.
         /// If `None`, the intrinsic's return value will be discarded. In this case the intrinsic return type must be `()`.
-        ret: Option<PlaceExpr>,
+        ret: PlaceExpr,
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the intrinsic returns.
         next_block: Option<BbName>,

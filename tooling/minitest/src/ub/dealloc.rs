@@ -12,7 +12,7 @@ fn dealloc_success() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -32,7 +32,7 @@ fn dealloc_argcount() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![],
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
@@ -56,7 +56,7 @@ fn dealloc_align_err() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(13)], // 13 is not a power of two!
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -80,7 +80,7 @@ fn dealloc_size_err() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -104,7 +104,7 @@ fn dealloc_wrongarg1() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![const_bool(true), const_int::<usize>(4), const_int::<usize>(4)], // bool unexpected here
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -128,7 +128,7 @@ fn dealloc_wrongarg2() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_bool(true), const_int::<usize>(4)], // bool unexpected here
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -152,7 +152,7 @@ fn dealloc_wrongarg3() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_bool(true)], // bool unexpected here
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );
@@ -176,7 +176,7 @@ fn dealloc_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Deallocate,
             arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(2))),
         },
     );

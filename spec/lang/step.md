@@ -627,14 +627,11 @@ impl<M: Memory> Machine<M> {
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let caller_ret_place = ret_expr.try_map(|caller_ret_place| {
-            let (place, pty) = self.eval_place(caller_ret_place)?;
-            // To allow in-place return value passing, we proactively make the old contents
-            // of the return place unobservable.
-            // FIXME: This also needs aliasing model support.
-            self.deinit(place, pty)?;
-            ret::<NdResult<_>>((place, pty))
-        })?;
+        let (caller_ret_place, caller_ret_pty) = self.eval_place(ret_expr)?;
+        // To allow in-place return value passing, we proactively make the old contents
+        // of the return place unobservable.
+        // FIXME: This also needs aliasing model support.
+        self.deinit(caller_ret_place, caller_ret_pty)?;
 
         // Then evaluate the function that will be called and prepare a stack frame.
         let (Value::Ptr(ptr), Type::Ptr(PtrType::FnPtr(caller_conv))) = self.eval_value(callee)? else {
@@ -643,7 +640,7 @@ impl<M: Memory> Machine<M> {
         let func = self.fn_from_addr(ptr.addr)?;
         let return_action = ReturnAction::ReturnToCaller {
             next_block,
-            ret_place: caller_ret_place.map(|(place, _pty)| place),
+            ret_place: caller_ret_place,
         };
         let frame = self.create_frame(func, return_action)?;
 
@@ -654,19 +651,10 @@ impl<M: Memory> Machine<M> {
 
         // Check return place compatibility.
         if let Some(callee_ret_local) = func.ret {
-            let callee_pty = func.locals[callee_ret_local];
-            if let Some((_, caller_pty)) = caller_ret_place {
-                if !check_abi_compatibility(caller_pty, callee_pty) {
-                    throw_ub!("call ABI violation: return types are not compatible");
-                }
-            } else {
-                // No return place provided by the caller. Make sure the callee doesn't expect anything.
-                if !check_abi_compatibility(unit_ptype(), callee_pty) {
-                    throw_ub!("call ABI violation: return type is not compatible with omitting return place");
-                }
+            let callee_ret_pty = func.locals[callee_ret_local];
+            if !check_abi_compatibility(caller_ret_pty, callee_ret_pty) {
+                throw_ub!("call ABI violation: return types are not compatible");
             }
-        } else {
-            // No return local in the callee, nothing can go wrong.
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -753,11 +741,9 @@ impl<M: Memory> Machine<M> {
             ReturnAction::ReturnToCaller { ret_place: caller_ret_place, next_block } => {
                 // There must be a caller.
                 assert!(self.active_thread().stack.len() > 0);
-                // Store the return value where the caller wanted it (if it wanted it).
-                if let Some(caller_ret_place) = caller_ret_place {
-                    // Crucially, we are doing the store at the same type as the load above.
-                    self.mem.typed_store(caller_ret_place, ret_val, ret_pty, Atomicity::None)?;
-                }
+                // Store the return value where the caller wanted it.
+                // Crucially, we are doing the store at the same type as the load above.
+                self.mem.typed_store(caller_ret_place, ret_val, ret_pty, Atomicity::None)?;
                 // Jump to where the caller wants us to jump.
                 if let Some(next_block) = next_block {
                     self.jump_to_block(next_block)?;
@@ -784,20 +770,17 @@ impl<M: Memory> Machine<M> {
         Terminator::CallIntrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
-        let ret_place = ret_expr.try_map(|ret_expr| self.eval_place(ret_expr))?;
-        let ret_ty = ret_place.map(|(_, pty)| pty.ty).unwrap_or_else(|| unit_type());
+        let (ret_place, ret_pty) = self.eval_place(ret_expr)?;
 
         // Evaluate all arguments.
         let arguments = arguments.try_map(|arg| self.eval_value(arg))?;
 
         // Run the actual intrinsic.
-        let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
+        let value = self.eval_intrinsic(intrinsic, arguments, ret_pty.ty)?;
 
         // Store return value.
-        if let Some((ret_place, ret_pty)) = ret_place {
-            // `eval_inrinsic` above must guarantee that `value` has the right type.
-            self.mem.typed_store(ret_place, value, ret_pty, Atomicity::None)?;
-        }
+        // `eval_inrinsic` above must guarantee that `value` has the right type.
+        self.mem.typed_store(ret_place, value, ret_pty, Atomicity::None)?;
 
         // Jump to next block.
         if let Some(next_block) = next_block {

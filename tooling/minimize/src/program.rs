@@ -75,7 +75,7 @@ fn mk_start_fn(entry: u32) -> Function {
         terminator: Terminator::Call {
             callee: build::fn_ptr_conv(entry, CallingConvention::Rust),
             arguments: List::new(),
-            ret: None,
+            ret: build::zst_place(),
             next_block: Some(b1_name),
         },
     };
@@ -85,7 +85,7 @@ fn mk_start_fn(entry: u32) -> Function {
         terminator: Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Exit,
             arguments: List::new(),
-            ret: None,
+            ret: build::zst_place(),
             next_block: None,
         },
     };

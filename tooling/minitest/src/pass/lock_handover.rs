@@ -34,8 +34,8 @@ fn lock_handover() {
         storage_live(1),
         create_lock(global::<u32>(0), 1),
     );
-    let b1 = block!( spawn(fn_ptr(1), null(), Some(local(0)), 2) );
-    let b2 = block!( call(2, &[], Some(local(1)), Some(3)));
+    let b1 = block!( spawn(fn_ptr(1), null(), local(0), 2) );
+    let b2 = block!( call(2, &[], local(1), Some(3)));
     let b3 = block!( join(load(local(0)), 4) );
     let b4 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
@@ -43,7 +43,7 @@ fn lock_handover() {
     let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
 
     let b0 = block!(
-        call(2, &[], Some(local(0)), Some(1))
+        call(2, &[], local(0), Some(1))
     );
     let b1 = block!( return_() );
     let second = function(Ret::Yes, 1, &locals, &[b0,b1]);

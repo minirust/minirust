@@ -13,7 +13,7 @@ fn deadlock() {
     let b1 = block!( acquire(load(global::<u32>(0)), 2) );
     let b2 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 3)
+        spawn(fn_ptr(1), null(), local(0), 3)
     );
     let b3 = block!( join(load(local(0)), 4) );
     let b4 = block!( release(load(global::<u32>(0)), 5) );

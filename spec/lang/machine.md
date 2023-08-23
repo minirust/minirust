@@ -76,8 +76,7 @@ enum ReturnAction<M: Memory> {
         next_block: Option<BbName>,
         /// The location where the caller wants to see the return value.
         /// Has already been checked to be suitably compatible with the callee return type.
-        /// If `None`, the return value will be discarded.
-        ret_place: Option<Place<M>>,
+        ret_place: Place<M>,
     }
 }
 ```

@@ -31,7 +31,7 @@ fn atomic_write_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(),
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -48,7 +48,7 @@ fn atomic_write_arg_type1() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -75,7 +75,7 @@ fn atomic_write_arg_type_pow() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -102,7 +102,7 @@ fn atomic_write_arg_type_size() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: None,
+            ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -125,7 +125,7 @@ fn atomic_write_ret_type() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -170,7 +170,7 @@ fn atomic_read_arg_count() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicLoad,
             arguments: list!(),
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -190,7 +190,7 @@ fn atomic_read_arg_type() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicLoad,
             arguments: list!(const_unit()),
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );

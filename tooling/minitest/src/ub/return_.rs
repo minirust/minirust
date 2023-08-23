@@ -13,7 +13,7 @@ fn return_success() {
 
     let b0 = block!(
         storage_live(0),
-        call(1, &[], Some(local(0)), Some(1))
+        call(1, &[], local(0), Some(1))
     );
     let b1 = block!(exit());
 
@@ -35,7 +35,7 @@ fn return_no_local() {
 
     let b0 = block!(
         storage_live(0),
-        call(1, &[], Some(local(0)), Some(1))
+        call(1, &[], local(0), Some(1))
     );
     let b1 = block!(exit());
 
@@ -58,7 +58,7 @@ fn return_no_next() {
 
     let b0 = block!(
         storage_live(0),
-        call(1, &[], Some(local(0)), None)
+        call(1, &[], local(0), None)
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
@@ -77,7 +77,7 @@ fn return_intrinsic_no_next() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::Allocate,
             arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: None,
         }
     );

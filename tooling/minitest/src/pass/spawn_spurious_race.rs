@@ -29,7 +29,7 @@ fn thread_spawn_spurious_race() {
     let b1 = block!(
         storage_live(1),
         assign(deref(load(local(0)), pp_ptype), load(local(0))),
-        spawn(fn_ptr(1), load(deref(load(local(0)), pp_ptype)), Some(local(1)), 2)
+        spawn(fn_ptr(1), load(deref(load(local(0)), pp_ptype)), local(1), 2)
     );
     let b2 = block!(
         join(load(local(1)), 3)

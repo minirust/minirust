@@ -1,7 +1,7 @@
 use crate::*;
 
 fn mk_main_fn() -> Function {
-    let b = block!(call(1, &[], None, None));
+    let b = block!(call(1, &[], zst_place(), None));
     function(Ret::No, 0, &[], &[b])
 }
 

@@ -206,3 +206,12 @@ pub fn index(root: PlaceExpr, index: ValueExpr) -> PlaceExpr {
         index: GcCow::new(index),
     }
 }
+
+/// A place suited for zero-sized accesses.
+pub fn zst_place() -> PlaceExpr {
+    let ptr = ValueExpr::Constant(Constant::InvalidPointer(1.into()), <*const ()>::get_type());
+    PlaceExpr::Deref {
+        operand: GcCow::new(ptr),
+        ptype: <()>::get_ptype(),
+    }
+}

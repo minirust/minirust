@@ -127,7 +127,7 @@ fn translate_call<'cx, 'tcx>(
         Terminator::CallIntrinsic {
             intrinsic,
             arguments: args.iter().map(|x| translate_operand(x, fcx)).collect(),
-            ret: Some(translate_place(&destination, fcx)),
+            ret: translate_place(&destination, fcx),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
@@ -151,7 +151,7 @@ fn translate_call<'cx, 'tcx>(
         Terminator::Call {
             callee: build::fn_ptr_conv(fcx.cx.fn_name_map[&key].0.get_internal(), conv),
             arguments: args,
-            ret: Some(translate_place(&destination, fcx)),
+            ret: translate_place(&destination, fcx),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     }

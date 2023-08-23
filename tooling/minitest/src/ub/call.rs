@@ -16,7 +16,7 @@ fn call_success() {
         Terminator::Call {
             callee: fn_ptr(1),
             arguments: list![by_value::<()>(const_unit())],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -37,7 +37,7 @@ fn call_non_exist() {
         Terminator::Call {
             callee: fn_ptr(1),
             arguments: list![by_value::<()>(const_unit())],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -58,7 +58,7 @@ fn call_arg_count() {
         Terminator::Call {
             callee: fn_ptr(1),
             arguments: list![],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -79,7 +79,7 @@ fn call_arg_abi() {
         Terminator::Call {
             callee: fn_ptr(1),
             arguments: list![by_value::<i32>(const_int::<i32>(42))],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );
@@ -100,7 +100,7 @@ fn call_ret_abi() {
         Terminator::Call {
             callee: fn_ptr(1),
             arguments: list![by_value::<()>(const_unit())],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );

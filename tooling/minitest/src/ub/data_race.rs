@@ -44,7 +44,7 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
 
     let main_b0 = block!(
         storage_live(0),
-        spawn(fn_ptr(1), null(), Some(local(0)), 1),
+        spawn(fn_ptr(1), null(), local(0), 1),
     );
     let main_b1 = access_block(main_access, 1, 2);
     let main_b2 = block!(

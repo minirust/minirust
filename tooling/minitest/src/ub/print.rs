@@ -39,7 +39,7 @@ fn print_wrongreturn() {
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::PrintStdout,
             arguments: list![const_int::<usize>(4)],
-            ret: Some(local(0)),
+            ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
