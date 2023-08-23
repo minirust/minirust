@@ -22,6 +22,10 @@ fn unit_value<M: Memory>() -> Value<M> {
 fn unit_type() -> Type {
     Type::Tuple { fields: list![], size: Size::ZERO }
 }
+
+fn unit_ptype() -> PlaceType {
+    PlaceType { ty: unit_type(), align: Align::ONE }
+}
 ```
 
 We start with the `Exit` intrinsic.
@@ -173,34 +177,33 @@ The intrinsics for spawning and joining threads.
 impl<M: Memory> Machine<M> {
     fn spawn(&mut self, func: Function, data_pointer: Value<M>, data_ptr_ty: Type) -> NdResult<ThreadId> {
         let thread_id = ThreadId::from(self.threads.len());
+        let frame = self.create_frame(func, ReturnAction::BottomOfStack)?;
+        // TODO: there is probably a nice helper function that could be factored to shared more code with `Call`.
 
-        let mut locals = Map::new();
+        // FIXME: check callee ABI
 
-        // Create place for data pointer and place it there.
-        let callee_local = func.args[0];
-        let callee_pty = func.locals[callee_local];
-        // Allocate place with callee layout (a lot like `StorageLive`).
-        let callee_layout = callee_pty.layout::<M::T>();
-        let p = self.mem.allocate(callee_layout.size, callee_layout.align)?;
-        locals.insert(callee_local, p);
-
-        // This logic is taken from `eval(Terminator::Call)` and `eval_argument`.
-        // FIXME: find a way to avoid the code duplication.
-        let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
-        if !check_abi_compatibility(data_ptr_pty, func.locals[func.args[0]]) {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take a pointer as an argument.");
-        }
-
-        self.mem.typed_store(p, data_pointer, callee_pty, Atomicity::None).unwrap();
-
-        // Create place for return local, if needed.
-        // The return value will be ignored in `terminate_active_thread`.
+        // Check return type ABI compatibility.
         if let Some(ret_local) = func.ret {
-            let callee_ret_layout = func.locals[ret_local].layout::<M::T>();
-            locals.insert(ret_local, self.mem.allocate(callee_ret_layout.size, callee_ret_layout.align)?);
+            if !check_abi_compatibility(unit_ptype(), func.locals[ret_local]) {
+                throw_ub!("spawned threads must have return type that is ABI-compatible with `()`");
+            }
+        } else {
+            // No return local in the callee, nothing can go wrong.
         }
 
-        self.threads.push(Thread::new(func, locals));
+        // Pass the data pointer and make sure the callee argument is ABI-compatible.
+        if func.args.len() != 1 {
+            throw_ub!("spawned threads must take exactly one argument");
+        }
+        let arg_local = func.args[0];
+        let data_ptr_pty = PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN);
+        if !check_abi_compatibility(data_ptr_pty, func.locals[arg_local]) {
+            throw_ub!("spawned thread must take a pointer as first argument");
+        }
+        self.mem.typed_store(frame.locals[arg_local], data_pointer, data_ptr_pty, Atomicity::None)?;
+
+        // Done! We can create the thread.
+        self.threads.push(Thread::new(frame));
 
         // This thread got synchronized because its existence startet with this.
         self.synchronized_threads.insert(thread_id);
@@ -222,21 +225,10 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `Intrinsic::Spawn`, not a pointer");
         };
         let func = self.fn_from_addr(ptr.addr)?;
-        if func.args.len() != 1 {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, function should take one argument.");
-        }
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {
-            throw_ub!("invalid second argument to `Intrinsic::Spawn`, data pointer should be a pointer.");
-        }
-
-        // This is taken from Miri. It discards the return value of the function.
-        // We enforce this by only allowing functions that return zero-sized types such as () and !.
-        if let Some(name) = func.ret {
-            if func.locals[name].ty.size::<M::T>() != Size::ZERO {
-                throw_ub!("invalid first argument to `Intrinsic::Spawn`, function returns something non zero sized");
-            }
+            throw_ub!("invalid second argument to `Intrinsic::Spawn`, not a pointer");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
@@ -244,7 +236,6 @@ impl<M: Memory> Machine<M> {
         }
 
         let thread_id = self.spawn(func, data_ptr, data_ptr_ty)?;
-
         ret(Value::Int(thread_id))
     }
 
@@ -284,7 +275,6 @@ impl<M: Memory> Machine<M> {
         }
 
         self.join(thread_id)?;
-
         ret(unit_value())
     }
 }

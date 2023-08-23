@@ -54,9 +54,8 @@ struct StackFrame<M: Memory> {
     /// For each live local, the place in memory where its value is stored.
     locals: Map<LocalName, Place<M>>,
 
-    /// Expresses what the caller does after the callee (this function) returns.
-    /// If `None`, this is the bottommost stack frame.
-    caller_return_info: Option<CallerReturnInfo<M>>,
+    /// Expresses what happens after the callee (this function) returns.
+    return_action: ReturnAction<M>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
@@ -67,14 +66,19 @@ struct StackFrame<M: Memory> {
     next_stmt: Int,
 }
 
-struct CallerReturnInfo<M: Memory> {
-    /// The basic block to jump to when the callee returns.
-    /// If `None`, UB will be raised when the callee returns.
-    next_block: Option<BbName>,
-    /// The location where the caller wants to see the return value.
-    /// Has already been checked to be suitably compatible with the callee return type.
-    /// If `None`, the return value will be discarded.
-    ret_place: Option<Place<M>>
+enum ReturnAction<M: Memory> {
+    /// This is the bottom of the stack, there is nothing left to do in this thread.
+    BottomOfStack,
+    /// Return to the caller.
+    ReturnToCaller {
+        /// The basic block to jump to when the callee returns.
+        /// If `None`, UB will be raised when the callee returns.
+        next_block: Option<BbName>,
+        /// The location where the caller wants to see the return value.
+        /// Has already been checked to be suitably compatible with the callee return type.
+        /// If `None`, the return value will be discarded.
+        ret_place: Option<Place<M>>,
+    }
 }
 ```
 
@@ -145,21 +149,27 @@ impl<M: Memory> Machine<M> {
             fn_addrs.insert(fn_name, addr);
         }
 
-        let start_fn = prog.functions[prog.start];
-
-        ret(Machine {
+        // Create machine, without a thread yet.
+        let mut machine = Machine {
             prog,
             mem,
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
-            threads: list![Thread::main(start_fn)],
+            threads: list![],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
             synchronized_threads: Set::new(),
             stdout,
             stderr,
-        })
+        };
+
+        // Create initial thread.
+        let start_fn = prog.functions[prog.start];
+        let start_frame = machine.create_frame(start_fn, ReturnAction::BottomOfStack)?;
+        machine.threads.push(Thread::new(start_frame));
+
+        ret(machine)
     }
 }
 ```
@@ -204,29 +214,11 @@ Next, we define how to create a thread.
 
 ```rust
 impl<M: Memory> Thread<M> {
-    /// Create a new thread. The locals must have been already allocated.
-    fn new(func: Function, locals: Map<LocalName, Place<M>>) -> Self {
-        // Setup the initial stack frame.
-        // For the main thread, well-formedness ensures that the func has
-        // no return value and no arguments.
-        // For any other threads, the spawn intrinsic ensures
-        // that the func has no arguments.
-        let init_frame = StackFrame {
-            func,
-            locals,
-            caller_return_info: None,
-            next_block: func.start,
-            next_stmt: Int::ZERO,
-        };
-
+    fn new(init_frame: StackFrame<M>) -> Self {
         Self {
             state: ThreadState::Enabled,
             stack: list![init_frame],
         }
-    }
-
-    fn main(func: Function) -> Self {
-        Self::new(func, Map::new())
     }
 }
 ```

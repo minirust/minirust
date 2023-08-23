@@ -601,6 +601,27 @@ impl<M: Memory> Machine<M> {
         })
     }
 
+    /// Creates a stack frame for the given function, with the return and arugments locals allocated (but not yet initialized).
+    fn create_frame(&mut self, func: Function, return_action: ReturnAction<M>) -> NdResult<StackFrame<M>> {
+        let mut frame = StackFrame {
+            func,
+            locals: Map::new(),
+            return_action,
+            next_block: func.start,
+            next_stmt: Int::ZERO,
+        };
+
+        // Allocate all the initially live locals.
+        if let Some(ret_local) = func.ret {
+            frame.storage_live(&mut self.mem, ret_local)?;
+        }
+        for arg_local in func.args {
+            frame.storage_live(&mut self.mem, arg_local)?;
+        }
+
+        ret(frame)
+    }
+
     fn eval_terminator(
         &mut self,
         Terminator::Call { callee, arguments, ret: ret_expr, next_block }: Terminator
@@ -615,37 +636,34 @@ impl<M: Memory> Machine<M> {
             ret::<NdResult<_>>((place, pty))
         })?;
 
-        // Then evaluate the function that will be called.
+        // Then evaluate the function that will be called and prepare a stack frame.
         let (Value::Ptr(ptr), _) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
         let func = self.fn_from_addr(ptr.addr)?;
+        let return_action = ReturnAction::ReturnToCaller {
+            next_block,
+            ret_place: caller_ret_place.map(|(place, _pty)| place),
+        };
+        let frame = self.create_frame(func, return_action)?;
 
         // FIXME: caller and callee should have an ABI and we need to check that they are the same.
 
-        // Prepare a stack frame.
-        let mut frame = StackFrame {
-            func,
-            locals: Map::new(),
-            caller_return_info: Some(CallerReturnInfo {
-                next_block,
-                ret_place: caller_ret_place.map(|(place, _pty)| place),
-            }),
-            next_block: func.start,
-            next_stmt: Int::ZERO,
-        };
-
-        // Chec and create return local, if needed.
+        // Check return place compatibility.
         if let Some(callee_ret_local) = func.ret {
             let callee_pty = func.locals[callee_ret_local];
-            // Make sure caller and callee view of this are compatible.
             if let Some((_, caller_pty)) = caller_ret_place {
                 if !check_abi_compatibility(caller_pty, callee_pty) {
                     throw_ub!("call ABI violation: return types are not compatible");
                 }
+            } else {
+                // No return place provided by the caller. Make sure the callee doesn't expect anything.
+                if !check_abi_compatibility(unit_ptype(), callee_pty) {
+                    throw_ub!("call ABI violation: return type is not compatible with omitting return place");
+                }
             }
-            // Make the return local live.
-            frame.storage_live(&mut self.mem, callee_ret_local)?;
+        } else {
+            // No return local in the callee, nothing can go wrong.
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -660,8 +678,6 @@ impl<M: Memory> Machine<M> {
             if !check_abi_compatibility(caller_pty, callee_pty) {
                 throw_ub!("call ABI violation: argument types are not compatible");
             }
-            // Make the argument local live.
-            frame.storage_live(&mut self.mem, callee_local)?;
             // Copy the value at caller (source) type -- that's necessary since it is the type we did the load at (in `eval_argument`).
             // We know the types have compatible layout so this will fit into the allocation.
             // The local is freshly allocated so there should be no reason the store can fail.
@@ -684,9 +700,13 @@ The callee should probably start with a bunch of `Validate` statements to ensure
 impl<M: Memory> Machine<M> {
     fn terminate_active_thread(&mut self) -> NdResult {
         let active = self.active_thread;
+        // We would habe reached UB before the main thread terminates.
         assert!(active != 0, "the main thread cannot terminate");
 
-        self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
+        self.threads.mutate_at(active, |thread| {
+            assert!(thread.stack.len() == 0);
+            thread.state = ThreadState::Terminated;
+        });
 
         // All threads that waited to join this thread get synchronized by this termination
         // and enabled again.
@@ -709,34 +729,39 @@ impl<M: Memory> Machine<M> {
             throw_ub!("return from a function that does not have a return local");
         };
 
-        // Copy return value, if any, to where the caller wants it.
+        // Load the return value.
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
-        if let Some(ret_place) = frame.caller_return_info.and_then(|i| i.ret_place) {
-            let callee_pty = frame.func.locals[ret_local];
-            let ret_val = self.mem.typed_load(frame.locals[ret_local], callee_pty, Atomicity::None)?;
-            self.mem.typed_store(ret_place, ret_val, callee_pty, Atomicity::None)?;
-        }
+        let ret_pty = frame.func.locals[ret_local];
+        let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty, Atomicity::None)?;
 
         // Deallocate everything.
         while let Some(local) = frame.locals.keys().next() {
             frame.storage_dead(&mut self.mem, local)?;
         }
 
-        let Some(caller_return_info) = frame.caller_return_info else {
-            // Only the bottom frame in a stack has no caller.
-            // Therefore the thread must terminate now.
-            assert_eq!(Int::ZERO, self.active_thread().stack.len());
-
-            return self.terminate_active_thread();
-        };
-        // If there is caller_return_info, there must be a caller.
-        assert!(self.active_thread().stack.len() > 0);
-
-        if let Some(next_block) = caller_return_info.next_block {
-            self.jump_to_block(next_block)?;
-        } else {
-            throw_ub!("return from a function where caller did not specify next block");
+        // Perform the return action.
+        match frame.return_action {
+            ReturnAction::BottomOfStack => {
+                // Only the bottom frame in a stack has no caller.
+                // Therefore the thread must terminate now.
+                self.terminate_active_thread()?;
+            }
+            ReturnAction::ReturnToCaller { ret_place: caller_ret_place, next_block } => {
+                // There must be a caller.
+                assert!(self.active_thread().stack.len() > 0);
+                // Store the return value where the caller wanted it (if it wanted it).
+                if let Some(caller_ret_place) = caller_ret_place {
+                    // Crucially, we are doing the store at the same type as the load above.
+                    self.mem.typed_store(caller_ret_place, ret_val, ret_pty, Atomicity::None)?;
+                }
+                // Jump to where the caller wants us to jump.
+                if let Some(next_block) = next_block {
+                    self.jump_to_block(next_block)?;
+                } else {
+                    throw_ub!("return from a function where caller did not specify next block");
+                }
+            }
         }
 
         ret(())

@@ -70,14 +70,16 @@ fn no_args() -> Function {
 
 #[test]
 fn spawn_func_no_args() {
+    let locals = [<i32>::get_ptype()];
     let b0 = block!(
-        spawn(fn_ptr(1), null(), None, 1),
+        storage_live(0),
+        spawn(fn_ptr(1), null(), Some(local(0)), 1),
     );
     let b1 = block!(exit());
-    let f = function(Ret::No, 0, &[], &[b0, b1]);
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, no_args()]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function should take one argument.")
+    assert_ub(p, "spawned threads must take exactly one argument")
 }
 
 
@@ -92,16 +94,17 @@ fn returns() -> Function {
 
 #[test]
 fn spawn_func_returns() {
-    let locals = [<()>::get_ptype()];
+    let locals = [<i32>::get_ptype()];
 
     let b0 = block!(
-        spawn(fn_ptr(1), null(), None, 1),
+        storage_live(0),
+        spawn(fn_ptr(1), null(), Some(local(0)), 1),
     );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, returns()]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function returns something non zero sized")
+    assert_ub(p, "spawned threads must have return type that is ABI-compatible with `()`")
 }
 
 #[test]
@@ -137,7 +140,7 @@ fn spawn_data_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`, data pointer should be a pointer.");
+    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`, not a pointer");
 }
 
 fn wrongarg() -> Function {
@@ -161,5 +164,5 @@ fn spawn_wrongarg() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, wrongarg()]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, function should take a pointer as an argument.");
+    assert_ub(p, "spawned thread must take a pointer as first argument");
 }
