@@ -253,31 +253,5 @@ impl<M: Memory> Machine<M> {
     fn active_thread(&self) -> Thread<M> {
         self.threads[self.active_thread]
     }
-
-    fn terminate_active_thread(&mut self, frame: StackFrame<M>) -> NdResult {
-        let active = self.active_thread;
-        assert!(active != 0, "the main thread cannot terminate");
-
-        self.threads.mutate_at(active, |thread| thread.state = ThreadState::Terminated);
-
-        // All threads that waited to join this thread get synchronized by this termination
-        // and enabled again.
-        for i in ThreadId::ZERO..self.threads.len() {
-            if self.threads[i].state == ThreadState::BlockedOnJoin(active) {
-                self.synchronized_threads.insert(i);
-                self.threads.mutate_at(i, |thread| thread.state = ThreadState::Enabled)
-            }
-        }
-
-        // Deallocate everything. Same as in return.
-        // FIXME: avoid duplicating this code with `Return`.
-        for (local, place) in frame.locals {
-            // A lot like `StorageDead`.
-            let layout = frame.func.locals[local].layout::<M::T>();
-            self.mem.deallocate(place, layout.size, layout.align)?;
-        }
-
-        ret(())
-    }
 }
 ```
