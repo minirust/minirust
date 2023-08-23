@@ -47,7 +47,7 @@ impl PtrType {
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw | PtrType::FnPtr => ()
+            PtrType::Raw | PtrType::FnPtr(_) => ()
         }
 
         ret(())
@@ -399,7 +399,7 @@ impl Terminator {
             }
             Call { callee, arguments, ret, next_block } => {
                 let ty = callee.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(ty, Type::Ptr(PtrType::FnPtr)))?;
+                ensure(matches!(ty, Type::Ptr(PtrType::FnPtr(_))))?;
 
                 // Argument and return expressions must all typecheck with some type.
                 for arg in arguments {
@@ -507,8 +507,9 @@ impl Relocation {
 
 impl Program {
     fn check_wf<T: Target>(self) -> Option<()> {
-        // Ensure the start function exists, and takes no arguments and does not return.
+        // Ensure the start function exists, has the right ABI, takes no arguments, and does not return.
         let func = self.functions.get(self.start)?;
+        ensure(func.calling_convention == CallingConvention::C);
         ensure(func.args.is_empty())?;
         ensure(func.ret.is_none())?;
         // Check all the functions.

@@ -180,7 +180,10 @@ impl<M: Memory> Machine<M> {
         let frame = self.create_frame(func, ReturnAction::BottomOfStack)?;
         // TODO: there is probably a nice helper function that could be factored to shared more code with `Call`.
 
-        // FIXME: check callee ABI
+        // Check calling convention.
+        if func.calling_convention != CallingConvention::C {
+            throw_ub!("spawned thread must have the C call ABI");
+        }
 
         // Check return type ABI compatibility.
         if let Some(ret_local) = func.ret {

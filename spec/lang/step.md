@@ -637,7 +637,7 @@ impl<M: Memory> Machine<M> {
         })?;
 
         // Then evaluate the function that will be called and prepare a stack frame.
-        let (Value::Ptr(ptr), _) = self.eval_value(callee)? else {
+        let (Value::Ptr(ptr), Type::Ptr(PtrType::FnPtr(caller_conv))) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
         let func = self.fn_from_addr(ptr.addr)?;
@@ -647,7 +647,10 @@ impl<M: Memory> Machine<M> {
         };
         let frame = self.create_frame(func, return_action)?;
 
-        // FIXME: caller and callee should have an ABI and we need to check that they are the same.
+        // Check calling convention.
+        if caller_conv != func.calling_convention {
+            throw_ub!("call ABI violation: calling conventions are not the same");
+        }
 
         // Check return place compatibility.
         if let Some(callee_ret_local) = func.ret {

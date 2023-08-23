@@ -33,6 +33,7 @@ impl<'tcx> Ctxt<'tcx> {
 
         self.fn_name_map.insert((entry, substs_ref), entry_name);
 
+        // This is the main monomorphization loop.
         // take any not-yet-implemented function:
         while let Some(fn_name) = self
             .fn_name_map
@@ -72,7 +73,7 @@ fn mk_start_fn(entry: u32) -> Function {
     let b0 = BasicBlock {
         statements: List::new(),
         terminator: Terminator::Call {
-            callee: build::fn_ptr(entry),
+            callee: build::fn_ptr_conv(entry, CallingConvention::Rust),
             arguments: List::new(),
             ret: None,
             next_block: Some(b1_name),
@@ -99,15 +100,16 @@ fn mk_start_fn(entry: u32) -> Function {
         ret: None,
         blocks,
         start: b0_name,
+        calling_convention: CallingConvention::C,
     }
 }
 
 /// data regarding the currently translated function.
 pub struct FnCtxt<'cx, 'tcx> {
-    // the body we intend to translate.
+    /// the body we intend to translate. substitutions are already applied.
     pub body: rs::Body<'tcx>,
-    pub def_id: rs::DefId,
-    pub substs_ref: rs::SubstsRef<'tcx>,
+    /// where the body comes from.
+    pub instance: rs::Instance<'tcx>,
 
     pub cx: &'cx mut Ctxt<'tcx>,
 
@@ -133,11 +135,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::ParamEnv::empty(),
             rs::EarlyBinder::bind(body.clone()),
         );
+        let instance = rs::Instance::resolve(
+            cx.tcx,
+            rs::ParamEnv::empty(),
+            def_id,
+            substs_ref,
+        ).unwrap().unwrap();
 
         FnCtxt {
             body,
-            def_id,
-            substs_ref,
+            instance,
             cx,
             local_name_map: Default::default(),
             bb_name_map: Default::default(),
@@ -149,6 +156,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// translates a function body.
     /// Any fn calls occuring during this translation will be added to the `FnNameMap`.
     pub fn translate(mut self) -> Function {
+        let abi = self.cx.tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((self.instance, rs::List::empty()))).unwrap();
+
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {
             let bb_name = self.bb_name_map.len(); // .len() is the next free index
@@ -218,9 +227,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             ret,
             blocks: self.blocks,
             start: init_bb,
+            calling_convention: translate_calling_convention(abi.conv),
         };
 
         f
+    }
+}
+
+pub fn translate_calling_convention(conv: rs::Conv) -> CallingConvention {
+    match conv {
+        rs::Conv::C => CallingConvention::C,
+        rs::Conv::Rust => CallingConvention::Rust,
+        _ => todo!(),
     }
 }
 

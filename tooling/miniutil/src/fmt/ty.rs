@@ -57,7 +57,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
         PtrType::Raw => {
             FmtExpr::NonAtomic(format!("*raw"))
         }
-        PtrType::FnPtr => FmtExpr::Atomic(String::from("fn()")),
+        PtrType::FnPtr(conv) => FmtExpr::Atomic(format!("fn({conv:?})")),
     }
 }
 

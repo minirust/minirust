@@ -1,12 +1,17 @@
 use crate::build::*;
 
 pub fn fn_ptr(fn_name: u32) -> ValueExpr {
+    // For now we use the C ABI for everything since that's what `spawn` needs...
+    fn_ptr_conv(fn_name, CallingConvention::C)
+}
+
+pub fn fn_ptr_conv(fn_name: u32, conv: CallingConvention) -> ValueExpr {
     let x = Name::from_internal(fn_name as _);
     let x = FnName(x);
     let x = Constant::FnPointer(x);
-    let x = ValueExpr::Constant(x, Type::Ptr(PtrType::FnPtr));
-    x
+    ValueExpr::Constant(x, Type::Ptr(PtrType::FnPtr(conv)))
 }
+
 
 // Whether a function returns or not.
 pub enum Ret {
@@ -73,6 +78,8 @@ pub fn function(ret: Ret, num_args: usize, locals: &[PlaceType], bbs: &[BasicBlo
         ret,
         blocks,
         start,
+        // For now we use the C ABI for everything since that's what `spawn` needs...
+        calling_convention: CallingConvention::C,
     }
 }
 

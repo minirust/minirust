@@ -103,13 +103,20 @@ fn translate_call<'cx, 'tcx>(
     destination: &rs::Place<'tcx>,
     target: &Option<rs::BasicBlock>,
 ) -> Terminator {
+    // For now we only support calling specific functions, not function pointers.
     let rs::Operand::Constant(box f1) = func else { panic!() };
     let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
-    let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-    let key = (*f, *substs_ref);
+    let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
+    let key = (f, substs_ref);
+    let instance = rs::Instance::resolve(
+        fcx.cx.tcx,
+        rs::ParamEnv::empty(),
+        f,
+        substs_ref,
+    ).unwrap().unwrap();
 
     if fcx.cx.tcx.crate_name(f.krate).as_str() == "intrinsics" {
-        let intrinsic = match fcx.cx.tcx.item_name(*f).as_str() {
+        let intrinsic = match fcx.cx.tcx.item_name(f).as_str() {
             "print" => Intrinsic::PrintStdout,
             "eprint" => Intrinsic::PrintStderr,
             "exit" => Intrinsic::Exit,
@@ -124,6 +131,9 @@ fn translate_call<'cx, 'tcx>(
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
+        let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((instance, rs::List::empty()))).unwrap();
+        let conv = translate_calling_convention(abi.conv);
+
         let args: List<_> = args.iter().map(|op| match op {
             rs::Operand::Move(place) => ArgumentExpr::InPlace(translate_place(place, fcx)),
             op => {
@@ -139,7 +149,7 @@ fn translate_call<'cx, 'tcx>(
             fcx.cx.fn_name_map.insert(key, fn_name);
         }
         Terminator::Call {
-            callee: build::fn_ptr(fcx.cx.fn_name_map[&key].0.get_internal()),
+            callee: build::fn_ptr_conv(fcx.cx.fn_name_map[&key].0.get_internal(), conv),
             arguments: args,
             ret: Some(translate_place(&destination, fcx)),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),

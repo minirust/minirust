@@ -321,6 +321,8 @@ pub struct Function {
     /// The name of a local that holds the return value when the function returns.
     /// If `None`, UB will be raised when the function returns.
     pub ret: Option<LocalName>,
+    /// The call calling convention of this function.
+    pub calling_convention: CallingConvention,
 
     /// Associate each basic block name with the associated block.
     pub blocks: Map<BbName, BasicBlock>,
