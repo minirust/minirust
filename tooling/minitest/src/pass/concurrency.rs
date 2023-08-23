@@ -7,7 +7,7 @@ fn arbitrary_order() {
 
     /// A function that writes 1 to the global(1).
     fn write_1() -> Function {
-        let locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
+        let locals = [<*const ()>::get_ptype()];
         let b0 = block!(
             acquire(load(global::<u32>(0)), 1)
         );
@@ -17,7 +17,7 @@ fn arbitrary_order() {
         );
         let b2 = block!(return_());
 
-        function(Ret::Yes, 1, &locals, &[b0, b1, b2])
+        function(Ret::No, 1, &locals, &[b0, b1, b2])
     }
 
     // Main function, creates a lock and a thread.

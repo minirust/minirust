@@ -4,7 +4,6 @@ mod no_preserve_prov;
 mod no_preserve_padding;
 mod ptr_partial_overwrite;
 mod uninit_read;
-mod return_from_never_fn;
 mod too_large_alloc;
 mod div_zero;
 mod alloc;

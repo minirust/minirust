@@ -214,6 +214,11 @@ Next, we define how to create a thread.
 ```rust
 impl<M: Memory> Thread<M> {
     fn new(init_frame: StackFrame<M>) -> Self {
+        // The bottom of a stack must have a 1-ZST return type.
+        // This way it cannot assume there is actually a return place to write anything to.
+        let ret_layout = init_frame.func.locals[init_frame.func.ret].layout::<M::T>();
+        assert!(ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE);
+
         Self {
             state: ThreadState::Enabled,
             stack: list![init_frame],

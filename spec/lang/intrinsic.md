@@ -186,10 +186,8 @@ impl<M: Memory> Machine<M> {
         }
 
         // Check return type ABI compatibility.
-        if let Some(ret_local) = func.ret {
-            if !check_abi_compatibility(unit_ptype(), func.locals[ret_local]) {
-                throw_ub!("spawned threads must have return type that is ABI-compatible with `()`");
-            }
+        if !check_abi_compatibility(unit_ptype(), func.locals[func.ret]) {
+            throw_ub!("spawned threads must have return type that is ABI-compatible with `()`");
         }
 
         // Pass the data pointer and make sure the callee argument is ABI-compatible.

@@ -69,6 +69,7 @@ impl<'tcx> Ctxt<'tcx> {
 fn mk_start_fn(entry: u32) -> Function {
     let b0_name = BbName(Name::from_internal(0));
     let b1_name = BbName(Name::from_internal(1));
+    let l0_name = LocalName(Name::from_internal(0));
 
     let b0 = BasicBlock {
         statements: List::new(),
@@ -94,10 +95,13 @@ fn mk_start_fn(entry: u32) -> Function {
     blocks.insert(b0_name, b0);
     blocks.insert(b1_name, b1);
 
+    let mut locals = Map::new();
+    locals.insert(l0_name, <() as build::TypeConv>::get_ptype());
+
     Function {
-        locals: Map::new(),
+        locals,
         args: List::new(),
-        ret: None,
+        ret: l0_name,
         blocks,
         start: b0_name,
         calling_convention: CallingConvention::C,
@@ -212,7 +216,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         // "The first local is the return value pointer, followed by arg_count locals for the function arguments, followed by any user-declared variables and temporaries."
         // - https://doc.rust-lang.org/stable/nightly-rustc/rustc_middle/mir/struct.Body.html
-        let ret = Some(LocalName(Name::from_internal(0)));
+        let ret = LocalName(Name::from_internal(0));
 
         let mut args = List::default();
         for i in 0..self.body.arg_count {

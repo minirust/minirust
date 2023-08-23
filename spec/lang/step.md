@@ -612,9 +612,7 @@ impl<M: Memory> Machine<M> {
         };
 
         // Allocate all the initially live locals.
-        if let Some(ret_local) = func.ret {
-            frame.storage_live(&mut self.mem, ret_local)?;
-        }
+        frame.storage_live(&mut self.mem, func.ret)?;
         for arg_local in func.args {
             frame.storage_live(&mut self.mem, arg_local)?;
         }
@@ -650,11 +648,9 @@ impl<M: Memory> Machine<M> {
         }
 
         // Check return place compatibility.
-        if let Some(callee_ret_local) = func.ret {
-            let callee_ret_pty = func.locals[callee_ret_local];
-            if !check_abi_compatibility(caller_ret_pty, callee_ret_pty) {
-                throw_ub!("call ABI violation: return types are not compatible");
-            }
+        let callee_ret_pty = func.locals[func.ret];
+        if !check_abi_compatibility(caller_ret_pty, callee_ret_pty) {
+            throw_ub!("call ABI violation: return types are not compatible");
         }
 
         // Evaluate all arguments and put them into fresh places,
@@ -716,15 +712,11 @@ impl<M: Memory> Machine<M> {
             |stack| stack.pop().unwrap()
         );
 
-        let Some(ret_local) = frame.func.ret else {
-            throw_ub!("return from a function that does not have a return local");
-        };
-
         // Load the return value.
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
-        let ret_pty = frame.func.locals[ret_local];
-        let ret_val = self.mem.typed_load(frame.locals[ret_local], ret_pty, Atomicity::None)?;
+        let ret_pty = frame.func.locals[frame.func.ret];
+        let ret_val = self.mem.typed_load(frame.locals[frame.func.ret], ret_pty, Atomicity::None)?;
 
         // Deallocate everything.
         while let Some(local) = frame.locals.keys().next() {

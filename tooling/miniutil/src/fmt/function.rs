@@ -34,15 +34,7 @@ fn fmt_function(
     let args = args.join(", ");
 
     // Format return local
-    let ret_str = match f.ret {
-        Some(ret) => {
-            let l = fmt_local_name(ret).to_string();
-            format!("-> {l}")
-        },
-        None => {
-            format!("-/>")
-        },
-    };
+    let ret_str = format!("-> {}", fmt_local_name(f.ret));
 
     // Format function signature
     let mut out = if start {

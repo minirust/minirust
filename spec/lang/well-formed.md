@@ -367,7 +367,7 @@ impl Statement {
                 live_locals
             }
             StorageDead(local) => {
-                if func.ret.is_some_and(|l| l == local) || func.args.any(|arg_name| arg_name == local) {
+                if local == func.ret || func.args.any(|arg_name| local == arg_name) {
                     // Trying to mark an argument or the return local as dead.
                     throw!();
                 }
@@ -440,14 +440,12 @@ impl Function {
         }
 
         // Construct initially live locals.
-        // Also ensures that argument and return locals must exist.
+        // Also ensures that return and argument locals must exist.
         let mut start_live: Map<LocalName, PlaceType> = Map::new();
+        start_live.try_insert(self.ret, self.locals.get(self.ret)?).ok()?;
         for arg in self.args {
             // Also ensures that no two arguments refer to the same local.
             start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
-        }
-        if let Some(ret) = self.ret {
-            start_live.try_insert(ret, self.locals.get(ret)?).ok()?;
         }
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
@@ -502,11 +500,13 @@ impl Relocation {
 
 impl Program {
     fn check_wf<T: Target>(self) -> Option<()> {
-        // Ensure the start function exists, has the right ABI, takes no arguments, and does not return.
+        // Ensure the start function exists, has the right ABI, takes no arguments, and returns a 1-ZST.
         let func = self.functions.get(self.start)?;
         ensure(func.calling_convention == CallingConvention::C);
+        let ret_layout = func.locals.get(func.ret)?.layout::<T>();
+        ensure(ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE);
         ensure(func.args.is_empty())?;
-        ensure(func.ret.is_none())?;
+
         // Check all the functions.
         for function in self.functions.values() {
             function.check_wf::<T>(self)?;

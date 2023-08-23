@@ -24,28 +24,6 @@ fn return_success() {
 }
 
 #[test]
-fn return_no_local() {
-    let other_f = {
-        let b0 = block!(return_());
-
-        function(Ret::No, 0, &[], &[b0])
-    };
-
-    let locals = [<()>::get_ptype()];
-
-    let b0 = block!(
-        storage_live(0),
-        call(1, &[], local(0), Some(1))
-    );
-    let b1 = block!(exit());
-
-    let f = function(Ret::No, 0, &locals, &[b0, b1]);
-    let p = program(&[f, other_f]);
-    dump_program(p);
-    assert_ub(p, "return from a function that does not have a return local");
-}
-
-#[test]
 fn return_no_next() {
     let other_f = {
         let locals = [<()>::get_ptype()];

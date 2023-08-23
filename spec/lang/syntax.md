@@ -317,8 +317,7 @@ pub struct Function {
     /// A list of locals that are initially filled with the function arguments.
     pub args: List<LocalName>,
     /// The name of a local that holds the return value when the function returns.
-    /// If `None`, UB will be raised when the function returns.
-    pub ret: Option<LocalName>,
+    pub ret: LocalName,
     /// The call calling convention of this function.
     pub calling_convention: CallingConvention,
 
