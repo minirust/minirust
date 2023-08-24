@@ -6,8 +6,11 @@ use crate::build::*;
 /// Example usage: `let x: Type = <usize>::get_type();`
 pub trait TypeConv {
     fn get_type() -> Type;
-    fn get_size() -> Size;
     fn get_align() -> Align;
+
+    fn get_size() -> Size {
+        Self::get_type().size::<DefaultTarget>()
+    }
 
     fn get_ptype() -> PlaceType {
         PlaceType {
@@ -33,9 +36,6 @@ macro_rules! type_conv_int_impl {
                     signed: $signed,
                     size: $size,
                 })
-            }
-            fn get_size() -> Size {
-                $size
             }
             fn get_align() -> Align {
                 $align
@@ -65,9 +65,6 @@ impl<T: TypeConv> TypeConv for *const T {
     fn get_type() -> Type {
         raw_ptr_ty()
     }
-    fn get_size() -> Size {
-        DefaultTarget::PTR_SIZE
-    }
     fn get_align() -> Align {
         DefaultTarget::PTR_ALIGN
     }
@@ -76,9 +73,6 @@ impl<T: TypeConv> TypeConv for *const T {
 impl<T: TypeConv> TypeConv for *mut T {
     fn get_type() -> Type {
         raw_ptr_ty()
-    }
-    fn get_size() -> Size {
-        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
         DefaultTarget::PTR_ALIGN
@@ -89,9 +83,6 @@ impl<T: TypeConv> TypeConv for &T {
     fn get_type() -> Type {
         ref_ty(T::get_layout())
     }
-    fn get_size() -> Size {
-        DefaultTarget::PTR_SIZE
-    }
     fn get_align() -> Align {
         DefaultTarget::PTR_ALIGN
     }
@@ -100,9 +91,6 @@ impl<T: TypeConv> TypeConv for &T {
 impl<T: TypeConv> TypeConv for &mut T {
     fn get_type() -> Type {
         ref_mut_ty(T::get_layout())
-    }
-    fn get_size() -> Size {
-        DefaultTarget::PTR_SIZE
     }
     fn get_align() -> Align {
         DefaultTarget::PTR_ALIGN
@@ -113,9 +101,6 @@ impl TypeConv for bool {
     fn get_type() -> Type {
         bool_ty()
     }
-    fn get_size() -> Size {
-        size(1)
-    }
     fn get_align() -> Align {
         align(1)
     }
@@ -125,9 +110,6 @@ impl<T: TypeConv, const N: usize> TypeConv for [T; N] {
     fn get_type() -> Type {
         array_ty(T::get_type(), N)
     }
-    fn get_size() -> Size {
-        T::get_size() * N.into()
-    }
     fn get_align() -> Align {
         T::get_align()
     }
@@ -136,9 +118,6 @@ impl<T: TypeConv, const N: usize> TypeConv for [T; N] {
 impl TypeConv for () {
     fn get_type() -> Type {
         tuple_ty(&[], size(0))
-    }
-    fn get_size() -> Size {
-        size(0)
     }
     fn get_align() -> Align {
         align(1)
