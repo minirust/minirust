@@ -8,6 +8,7 @@ pub trait TypeConv {
     fn get_type() -> Type;
     fn get_align() -> Align;
 
+    // Convenience methods, these should not be overridden.
     fn get_size() -> Size {
         Self::get_type().size::<DefaultTarget>()
     }
