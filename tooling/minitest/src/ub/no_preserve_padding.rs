@@ -72,5 +72,5 @@ fn no_preserve_padding() {
 
     let p = small_program(&locals, &stmts);
     dump_program(p);
-    assert_ub(p, "load at type PlaceType { ty: Int(IntType { signed: Unsigned, size: Size { raw: Int(Small(1)) } }), align: Align { raw: Int(Small(1)) } } but the data in memory violates the validity invariant");
+    assert_ub(p, "load at type PlaceType { ty: Int(IntType { signed: Unsigned, size: Size(1 bytes) }), align: Align(1 bytes) } but the data in memory violates the validity invariant");
 }
