@@ -20,11 +20,7 @@ pub trait TypeConv {
     }
 
     fn get_layout() -> Layout {
-        Layout {
-            size: Self::get_size(),
-            align: Self::get_align(),
-            inhabited: true, // currently there are no uninhabited types in MiniRust; Type::Enum is not yet supported!
-        }
+        Self::get_ptype().layout::<DefaultTarget>()
     }
 }
 
