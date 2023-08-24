@@ -1,8 +1,11 @@
 use crate::*;
 
 #[test]
+// TODO this should not actually panic!
+// However, this alignment makes allocation impossible, so `pick` has to give up and what else should it do?
+// This program has "no behavior".
 #[should_panic]
-fn impossible_align() { // TODO this should not actually panic!
+fn impossible_align() {
     let align = 2u128.pow(65);
     let align = Align::from_bytes(align).unwrap();
 
