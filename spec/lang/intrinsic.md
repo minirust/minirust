@@ -275,9 +275,9 @@ impl<M: Memory> Machine<M> {
 
         let (val, ty) = arguments[1];
         let size = ty.size::<M::T>();
-        if !size.bytes().is_power_of_two() {
+        let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid second argument to `Intrinsic::AtomicStore`, size not power of two");
-        }
+        };
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid second argument to `Intrinsic::AtomicStore`, size too big");
         }
@@ -286,7 +286,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::AtomicStore`")
         }
 
-        let pty = PlaceType { ty, align: Align::from_bytes(size.bytes()).unwrap() };
+        let pty = PlaceType { ty, align };
         self.mem.typed_store(ptr, val, pty, Atomicity::Atomic)?;
         ret(unit_value())
     }
@@ -306,14 +306,14 @@ impl<M: Memory> Machine<M> {
         };
 
         let size = ret_ty.size::<M::T>();
-        if !size.bytes().is_power_of_two() {
+        let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid return type for `Intrinsic::AtomicLoad`, size not power of two");
-        }
+        };
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicLoad`, size too big");
         }
 
-        let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
+        let pty = PlaceType { ty: ret_ty, align };
         let val = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;
         ret(val)
     }
@@ -348,12 +348,12 @@ impl<M: Memory> Machine<M> {
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
-        assert!(size.bytes().is_power_of_two());
+        let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size to big");
         }
         
-        let pty = PlaceType { ty: ret_ty, align: Align::from_bytes(size.bytes()).unwrap() };
+        let pty = PlaceType { ty: ret_ty, align };
 
         // The value at the location right now.
         let before = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;

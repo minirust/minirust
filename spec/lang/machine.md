@@ -136,7 +136,8 @@ impl<M: Memory> Machine<M> {
                 let encoded_ptr = encode_ptr::<M>(ptr);
                 bytes.write_subslice_at_index(i.bytes(), encoded_ptr);
             }
-            mem.store(global_ptrs[global_name], bytes, global.align, Atomicity::None)?;
+            // This cannot fail, we just allocated that memory above.
+            mem.store(global_ptrs[global_name], bytes, global.align, Atomicity::None).unwrap();
         }
 
         // Allocate functions.
