@@ -122,6 +122,14 @@ fn translate_call<'cx, 'tcx>(
             "exit" => Intrinsic::Exit,
             "allocate" => Intrinsic::Allocate,
             "deallocate" => Intrinsic::Deallocate,
+            "spawn" => Intrinsic::Spawn,
+            "join" => Intrinsic::Join,
+            "create_lock" => Intrinsic::Lock(LockIntrinsic::Create),
+            "acquire" => Intrinsic::Lock(LockIntrinsic::Acquire),
+            "release" => Intrinsic::Lock(LockIntrinsic::Release),
+            "atomic_store" => Intrinsic::AtomicStore,
+            "atomic_load" => Intrinsic::AtomicLoad,
+            "compare_exchange" => Intrinsic::AtomicCompareExchange,
             name => panic!("unsupported intrinsic `{}`", name),
         };
         Terminator::CallIntrinsic {
