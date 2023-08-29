@@ -40,7 +40,7 @@ static JOIN_HANDLES: Mutex<Vec<Option<JoinHandle<()>>>> = Mutex::new( Vec::new()
 struct SendPtr<T>(*const T);
 unsafe impl<T> Send for SendPtr<T> {}
 
-pub fn spawn(fn_ptr: fn(*const ()), data_ptr: *const ()) -> usize {
+pub fn spawn(fn_ptr: extern "C" fn(*const ()), data_ptr: *const ()) -> usize {
     let mut join_handles = JOIN_HANDLES.lock().unwrap();
 
     if join_handles.len() == 0 {

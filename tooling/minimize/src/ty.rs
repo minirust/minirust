@@ -78,6 +78,10 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let elem = GcCow::new(translate_ty(*ty, tcx));
             Type::Array { elem, count }
         }
+        rs::TyKind::FnPtr(_) => {
+            // For now we use the C ABI for everything since that's what `spawn` needs...
+            Type::Ptr(PtrType::FnPtr(CallingConvention::C))
+        }
         x => {
             dbg!(x);
             todo!()
