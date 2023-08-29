@@ -67,12 +67,13 @@ impl Allocation {
     fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
         let end_addr = self.addr + self.size().bytes();
         let other_end_addr = other_addr + other_size.bytes();
-        if self.addr != other_addr && (end_addr <= other_addr || other_end_addr <= self.addr) {
+        if end_addr <= other_addr || other_end_addr <= self.addr {
             // Our end is before their beginning, or vice versa -- we do not overlap.
-            // However, also make sure that each allocation has a unique address.
+            // However, to make sure that each allocation has a unique address, we still
+            // report overlap if both allocations have the same address.
             // FIXME: This is not necessarily realistic, e.g. for zero-sized stack variables.
             // OTOH the function pointer logic currently relies on this.
-            false
+            self.addr == other_addr
         } else {
             true
         }
