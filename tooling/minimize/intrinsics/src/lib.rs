@@ -34,7 +34,9 @@ pub unsafe fn deallocate(ptr: *mut u8, size: usize, align: usize) {
     unsafe { System.deallocate(ptr, layout); }
 }
 
-
+// This global keeps track of any join handles produced. It is needed
+// because the minirust intrinsic for spawn only returns an integer and
+// the join only takes an integer.
 static JOIN_HANDLES: Mutex<Vec<Option<JoinHandle<()>>>> = Mutex::new( Vec::new() );
 
 struct SendPtr<T>(*const T);
@@ -72,8 +74,12 @@ enum LockState {
     Open,
     Locked,
 }
+
+// We implement our own locks for the intrinsics. They do not have an implicit
+// logic to unlock and operate on integers. This is why they are implemented in this way.
 static LOCKS: Mutex<Vec<LockState>> = Mutex::new( Vec::new() );
 
+// Keeps track of threads that are waiting for a lock.
 static WAITING: Mutex<Vec<Thread>> = Mutex::new( Vec::new() );
 
 pub fn create_lock() -> usize {
