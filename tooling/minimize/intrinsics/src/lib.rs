@@ -60,9 +60,9 @@ pub fn spawn(fn_ptr: extern "C" fn(*const ()), data_ptr: *const ()) -> usize {
 }
 
 
-// This implementation differes slightly from how MiniRust does this.
-// Here only one thread can join another thread, while in MiniRust
-// a single thread can be joined by many.
+// This implementation differs slightly from how MiniRust does this.
+// Here a thread can only be joined once, while in MiniRust
+// a single thread can be joined many times.
 pub fn join(thread_id: usize) {
     let mut join_handles = JOIN_HANDLES.lock().unwrap();
     let handle = join_handles[thread_id].take().unwrap();
