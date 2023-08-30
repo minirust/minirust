@@ -196,13 +196,10 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
             let key = (*f, *substs_ref);
 
-            if !fcx.cx.fn_name_map.contains_key(&key) {
-                let fn_name = fcx.cx.fn_name_map.len();
-                let fn_name = FnName(Name::from_internal(fn_name as _));
-                fcx.cx.fn_name_map.insert(key, fn_name);
-            }
-
-            build::fn_ptr(fcx.cx.fn_name_map[&key].0.get_internal())
+            build::fn_ptr(
+                fcx.cx.get_fn_name_or_set(key)
+                .0.get_internal()
+            )
         }
         x => {
             dbg!(x);

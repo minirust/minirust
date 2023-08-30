@@ -64,6 +64,17 @@ impl<'tcx> Ctxt<'tcx> {
             globals: self.globals,
         }
     }
+
+    // Returns FnName associated with some key. If it does not exist it creates a new one.
+    pub fn get_fn_name_or_set(&mut self, key: (rs::DefId, &'tcx rs::List<rs::GenericArg<'tcx>>)) -> FnName {
+        if !self.fn_name_map.contains_key(&key) {
+            let fn_name = self.fn_name_map.len();
+            let fn_name = FnName(Name::from_internal(fn_name as _));
+            self.fn_name_map.insert(key, fn_name);
+        }
+
+       self.fn_name_map[&key]
+    }
 }
 
 fn mk_start_fn(entry: u32) -> Function {
