@@ -9,7 +9,7 @@ use std::alloc::{System, Layout, Allocator};
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::thread::{JoinHandle, self};
+use std::thread::{JoinHandle, self, Thread};
 
 pub fn print(t: impl Display) {
     println!("{t}");
@@ -74,6 +74,8 @@ enum LockState {
 }
 static LOCKS: Mutex<Vec<LockState>> = Mutex::new( Vec::new() );
 
+static WAITING: Mutex<Vec<Thread>> = Mutex::new( Vec::new() );
+
 pub fn create_lock() -> usize {
     let mut locks = LOCKS.lock().unwrap();
 
@@ -95,6 +97,7 @@ pub fn acquire(lock_id: usize) {
         }
 
         drop(locks);
+        WAITING.lock().unwrap().push(thread::current());
         thread::park()
     }
 }
@@ -103,11 +106,11 @@ pub fn acquire(lock_id: usize) {
 pub fn release(lock_id: usize) {
     LOCKS.lock().unwrap()[lock_id] = LockState::Open;
 
-    let join_handles = JOIN_HANDLES.lock().unwrap();
+    let mut waiting = WAITING.lock().unwrap();
     // We don't precisely track who is waiting for which lock, so
     // we just wake up *all* the threads.
-    for handle in join_handles.iter().flatten() {
-        handle.thread().unpark();
+    for thread in waiting.drain(..) {
+        thread.unpark();
     }
 }
 
