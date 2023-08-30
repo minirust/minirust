@@ -197,8 +197,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let key = (*f, *substs_ref);
 
             build::fn_ptr(
-                fcx.cx.get_fn_name_or_set(key)
-                .0.get_internal()
+                fcx.cx.get_fn_name(key).0.get_internal()
             )
         }
         x => {

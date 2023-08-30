@@ -1,6 +1,9 @@
 extern crate intrinsics;
 use intrinsics::*;
 
+// The output sequence 0, 1 is deterministic 
+// since the lock is acquired by "main" before the other thread is spawned.
+
 extern "C" fn thread(data_ptr: *const ()) {
     let lock_id = unsafe { *(data_ptr as *const usize) };
     acquire(lock_id);

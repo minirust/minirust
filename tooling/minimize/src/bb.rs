@@ -154,7 +154,7 @@ fn translate_call<'cx, 'tcx>(
         
         Terminator::Call {
             callee: build::fn_ptr_conv(
-                fcx.cx.get_fn_name_or_set(key).0.get_internal(),
+                fcx.cx.get_fn_name(key).0.get_internal(),
                 conv
             ),
             arguments: args,

@@ -66,14 +66,13 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     // Returns FnName associated with some key. If it does not exist it creates a new one.
-    pub fn get_fn_name_or_set(&mut self, key: (rs::DefId, &'tcx rs::List<rs::GenericArg<'tcx>>)) -> FnName {
-        if !self.fn_name_map.contains_key(&key) {
-            let fn_name = self.fn_name_map.len();
-            let fn_name = FnName(Name::from_internal(fn_name as _));
-            self.fn_name_map.insert(key, fn_name);
-        }
+    pub fn get_fn_name(&mut self, key: (rs::DefId, &'tcx rs::List<rs::GenericArg<'tcx>>)) -> FnName {
+        // Used as the fn name if it is not named yet.
+        let len = self.fn_name_map.len();
 
-       self.fn_name_map[&key]
+        *self.fn_name_map.entry(key).or_insert_with(|| {
+            FnName(Name::from_internal(len as _))
+        })
     }
 }
 

@@ -36,7 +36,8 @@ pub unsafe fn deallocate(ptr: *mut u8, size: usize, align: usize) {
 
 // This global keeps track of any join handles produced. It is needed
 // because the minirust intrinsic for spawn only returns an integer and
-// the join only takes an integer.
+// the join only takes an integer, so we have to map these integers to `JoinHandles`
+// for the Rust-based implementation.
 static JOIN_HANDLES: Mutex<Vec<Option<JoinHandle<()>>>> = Mutex::new( Vec::new() );
 
 struct SendPtr<T>(*const T);
@@ -44,10 +45,6 @@ unsafe impl<T> Send for SendPtr<T> {}
 
 pub fn spawn(fn_ptr: extern "C" fn(*const ()), data_ptr: *const ()) -> usize {
     let mut join_handles = JOIN_HANDLES.lock().unwrap();
-
-    if join_handles.len() == 0 {
-        join_handles.push(None);
-    }
 
     let ptr = SendPtr(data_ptr);
     let handle = thread::spawn(
@@ -62,6 +59,10 @@ pub fn spawn(fn_ptr: extern "C" fn(*const ()), data_ptr: *const ()) -> usize {
     join_handles.len()-1
 }
 
+
+// This implementation differes slightly from how MiniRust does this.
+// Here only one thread can join another thread, while in MiniRust
+// a single thread can be joined by many.
 pub fn join(thread_id: usize) {
     let mut join_handles = JOIN_HANDLES.lock().unwrap();
     let handle = join_handles[thread_id].take().unwrap();
@@ -75,8 +76,9 @@ enum LockState {
     Locked,
 }
 
-// We implement our own locks for the intrinsics. They do not have an implicit
-// logic to unlock and operate on integers. This is why they are implemented in this way.
+// We cannot use the locks from the standard library since MiniRust locks are acquired
+// and released with an integer ID, but the standard library requires an `&Mutex` for
+// `acquire` and a `MutexGuard` for `release`.
 static LOCKS: Mutex<Vec<LockState>> = Mutex::new( Vec::new() );
 
 // Keeps track of threads that are waiting for a lock.
@@ -104,6 +106,9 @@ pub fn acquire(lock_id: usize) {
 
         drop(locks);
         WAITING.lock().unwrap().push(thread::current());
+        // In principle another thread could call `unpark` here, before we
+        // `park` ourselves. However, in that case the next `park` of this thread
+        // is guaranteed to return immediately.
         thread::park()
     }
 }
@@ -114,7 +119,8 @@ pub fn release(lock_id: usize) {
 
     let mut waiting = WAITING.lock().unwrap();
     // We don't precisely track who is waiting for which lock, so
-    // we just wake up *all* the threads.
+    // we just wake up all threads that are waiting for *some* lock.
+    // They will re-queue themselves into `WAITING` if they cannot acquire their lock.
     for thread in waiting.drain(..) {
         thread.unpark();
     }
