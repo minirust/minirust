@@ -50,12 +50,13 @@ pub fn spawn(fn_ptr: extern "C" fn(*const ()), data_ptr: *const ()) -> usize {
     let ptr = SendPtr(data_ptr);
     let handle = thread::spawn(
         move || {
-            let ptr = ptr;
+            let ptr = ptr; // avoid per-field closure capturing
             fn_ptr(ptr.0);
         }
     );
     join_handles.push(Some(handle));
 
+    // Return the index of the element we just pushed.
     join_handles.len()-1
 }
 
@@ -81,12 +82,13 @@ pub fn create_lock() -> usize {
     id
 }
 
-// Spin until the lock is open.
+// Spin (with parking) until the lock is open.
 pub fn acquire(lock_id: usize) {
     loop {
         let mut locks = LOCKS.lock().unwrap();
 
         if locks[lock_id] == LockState::Open {
+            // We can grab the lock! Return successfully.
             locks[lock_id] = LockState::Locked;
 
             return;
@@ -102,6 +104,8 @@ pub fn release(lock_id: usize) {
     LOCKS.lock().unwrap()[lock_id] = LockState::Open;
 
     let join_handles = JOIN_HANDLES.lock().unwrap();
+    // We don't precisely track who is waiting for which lock, so
+    // we just wake up *all* the threads.
     for handle in join_handles.iter().flatten() {
         handle.thread().unpark();
     }
