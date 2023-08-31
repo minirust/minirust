@@ -122,6 +122,14 @@ fn translate_call<'cx, 'tcx>(
             "exit" => Intrinsic::Exit,
             "allocate" => Intrinsic::Allocate,
             "deallocate" => Intrinsic::Deallocate,
+            "spawn" => Intrinsic::Spawn,
+            "join" => Intrinsic::Join,
+            "create_lock" => Intrinsic::Lock(LockIntrinsic::Create),
+            "acquire" => Intrinsic::Lock(LockIntrinsic::Acquire),
+            "release" => Intrinsic::Lock(LockIntrinsic::Release),
+            "atomic_store" => Intrinsic::AtomicStore,
+            "atomic_load" => Intrinsic::AtomicLoad,
+            "compare_exchange" => Intrinsic::AtomicCompareExchange,
             name => panic!("unsupported intrinsic `{}`", name),
         };
         Terminator::CallIntrinsic {
@@ -143,13 +151,12 @@ fn translate_call<'cx, 'tcx>(
             },
         }).collect();
 
-        if !fcx.cx.fn_name_map.contains_key(&key) {
-            let fn_name = fcx.cx.fn_name_map.len();
-            let fn_name = FnName(Name::from_internal(fn_name as _));
-            fcx.cx.fn_name_map.insert(key, fn_name);
-        }
+        
         Terminator::Call {
-            callee: build::fn_ptr_conv(fcx.cx.fn_name_map[&key].0.get_internal(), conv),
+            callee: build::fn_ptr_conv(
+                fcx.cx.get_fn_name(key).0.get_internal(),
+                conv
+            ),
             arguments: args,
             ret: translate_place(&destination, fcx),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),

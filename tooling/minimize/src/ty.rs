@@ -78,6 +78,11 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let elem = GcCow::new(translate_ty(*ty, tcx));
             Type::Array { elem, count }
         }
+        rs::TyKind::FnPtr(sig) => {
+            let abi = tcx.fn_abi_of_fn_ptr(rs::ParamEnv::empty().and((*sig, rs::List::empty()))).unwrap();
+
+            Type::Ptr(PtrType::FnPtr(translate_calling_convention(abi.conv)))
+        }
         x => {
             dbg!(x);
             todo!()
