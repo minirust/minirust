@@ -13,9 +13,17 @@ fn alloc_success() {
             next_block: Some(BbName(Name::from_internal(1))),
         },
     );
-    let b1 = block!(exit());
+    let b1 = block!(
+        deallocate(
+            load(local(0)),
+            const_int::<usize>(4),
+            const_int::<usize>(4),
+            2,
+        )
+    );
+    let b2 = block!(exit());
 
-    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
     assert_stop(p);

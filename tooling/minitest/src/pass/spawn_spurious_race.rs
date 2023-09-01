@@ -34,8 +34,16 @@ fn thread_spawn_spurious_race() {
     let b2 = block!(
         join(load(local(1)), 3)
     );
-    let b3 = block!( exit() );
-    let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3]);
+    let b3 = block!(
+        deallocate(
+            load(local(0)),
+            size,
+            align,
+            4,
+        )
+    );
+    let b4 = block!( exit() );
+    let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
 
     let locals = [<()>::get_ptype(), pp_ptype];
     let b0 = block!(

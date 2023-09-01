@@ -96,6 +96,11 @@ impl<M: Memory> AtomicMemory<M> {
     pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
         self.memory.retag_ptr(ptr, ptr_type, fn_entry)
     }
+
+    /// Check if there are any memory leaks.
+    pub fn leak_check(&self) -> Result {
+        self.memory.leak_check()
+    }
 }
 ```
 

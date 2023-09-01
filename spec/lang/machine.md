@@ -170,6 +170,13 @@ impl<M: Memory> Machine<M> {
 
         ret(machine)
     }
+
+    fn exit(&self) -> NdResult<!> {
+        // Check for memory leaks.
+        self.mem.leak_check()?;
+        // No leak found -- good, stop the machine.
+        throw_machine_stop!();
+    }
 }
 ```
 

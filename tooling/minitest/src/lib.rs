@@ -20,6 +20,7 @@ mod pass;
 mod ub;
 mod ill_formed;
 mod deadlock;
+mod memory_leak;
 
 #[track_caller]
 pub fn assert_stop(prog: Program) {
@@ -39,6 +40,11 @@ pub fn assert_ill_formed(prog: Program) {
 #[track_caller]
 pub fn assert_deadlock(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::Deadlock);
+}
+
+#[track_caller]
+pub fn assert_memory_leak(prog: Program) {
+    assert_eq!(run_program(prog), TerminationInfo::MemoryLeak);
 }
 
 

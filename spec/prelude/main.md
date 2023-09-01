@@ -44,6 +44,11 @@ macro_rules! throw_machine_stop {
         do yeet TerminationInfo::MachineStop
     };
 }
+macro_rules! throw_memory_leak {
+    () => {
+        do yeet TerminationInfo::MemoryLeak
+    };
+}
 macro_rules! throw_ill_formed {
     () => {
         do yeet TerminationInfo::IllFormed

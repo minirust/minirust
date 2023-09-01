@@ -100,6 +100,9 @@ pub trait Memory {
     ///
     /// Return the retagged pointer.
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<Self::Provenance>>;
+
+    /// Check if there are any memory leaks.
+    fn leak_check(&self) -> Result;
 }
 ```
 

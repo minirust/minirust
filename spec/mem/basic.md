@@ -259,3 +259,24 @@ impl<T: Target> Memory for BasicMemory<T> {
     }
 }
 ```
+
+The memory leak check checks if there are any heap allocations left.
+Stack allocations are fine; they get automatically cleaned up when a function returns and when the start function calls `exit`, its locals are still around.
+
+```rust
+impl<T: Target> Memory for BasicMemory<T> {
+    fn leak_check(&self) -> Result {
+        for allocation in self.allocations {
+            if allocation.live {
+                match allocation.kind {
+                    // These should all be gone.
+                    AllocationKind::Heap => throw_memory_leak!(),
+                    // These we can still have at the end.
+                    AllocationKind::Global | AllocationKind::Function | AllocationKind::Stack => {}
+                }
+            }
+        }
+        ret(())
+    }
+}
+```

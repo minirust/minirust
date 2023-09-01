@@ -38,7 +38,7 @@ impl<M: Memory> Machine<M> {
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
-        throw_machine_stop!()
+        self.exit()?
     }
 }
 ```
