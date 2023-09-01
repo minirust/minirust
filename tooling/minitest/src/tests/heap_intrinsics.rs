@@ -1,6 +1,155 @@
 use crate::*;
 
 #[test]
+fn dynamic_memory() {
+    let locals = [<*const i32>::get_ptype(), <i32>::get_ptype()];
+    let n = const_int::<usize>(4);
+    let b0 = block!(storage_live(0), storage_live(1), allocate(n, n, local(0), 1)); // alloc ptr
+    let b1 = block!(
+        assign( // write to ptr
+            deref(load(local(0)), <i32>::get_ptype()),
+            const_int::<i32>(42),
+        ),
+        assign( // read from ptr
+            local(1),
+            load(deref(load(local(0)), <i32>::get_ptype())),
+        ),
+        deallocate(load(local(0)), n, n, 2)
+    );
+    let b2 = block!(exit());
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
+    let p = program(&[f]);
+    assert_stop(p);
+}
+
+#[test]
+fn alloc_argcount() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            arguments: list![],
+            ret: local(0),
+            next_block: None,
+        },
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid number of arguments for `Intrinsic::Allocate`");
+}
+
+#[test]
+fn alloc_align_err() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            arguments: list![const_int::<usize>(4), const_int::<usize>(13)], // 13 is no power of two! hence error!
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid alignment for `Intrinsic::Allocate`: not a power of 2");
+}
+
+#[test]
+fn alloc_size_err() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            arguments: list![const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid size for `Intrinsic::Allocate`: negative size");
+}
+
+#[test]
+fn alloc_wrongarg1() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            // First argument should be an int, so bool is unexpected here!
+            arguments: list![const_bool(true), const_int::<usize>(4)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid first argument to `Intrinsic::Allocate`, not an integer");
+}
+
+#[test]
+fn alloc_wrongarg2() {
+    let locals = [ <*const i32>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            // Second argument should be an int, so bool is unexpected here!
+            arguments: list![const_int::<usize>(4), const_bool(true)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid second argument to `Intrinsic::Allocate`, not an integer");
+}
+
+#[test]
+fn alloc_wrongreturn() {
+    let locals = [ <()>::get_ptype() ];
+
+    let b0 = block!(
+        storage_live(0),
+        Terminator::CallIntrinsic {
+            intrinsic: Intrinsic::Allocate,
+            arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "invalid return type for `Intrinsic::Allocate`");
+}
+
+#[test]
 fn dealloc_success() {
     let locals = [ <*const i32>::get_ptype() ];
 
@@ -313,6 +462,26 @@ fn double_free() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
     assert_ub(p, "double-free");
+}
+
+#[test]
+fn memory_leak() {
+    let locals = [<*mut i32>::get_ptype()];
+
+    let b0 = block!(
+        storage_live(0),
+        allocate(
+            const_int::<usize>(1), // size
+            const_int::<usize>(1), // align
+            local(0),
+            1,
+        )
+    );
+    let b1 = block!(exit());
+    let main = function(Ret::No, 0, &locals, &[b0, b1]);
+
+    let p = program(&[main]);
+    assert_memory_leak(p);
 }
 
 #[test]

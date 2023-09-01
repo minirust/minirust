@@ -16,11 +16,7 @@ pub use minirust_rs::prelude::NdResult;
 pub use std::format;
 pub use std::string::String;
 
-mod pass;
-mod ub;
-mod ill_formed;
-mod deadlock;
-mod memory_leak;
+mod tests;
 
 #[track_caller]
 pub fn assert_stop(prog: Program) {
