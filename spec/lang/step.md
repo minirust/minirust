@@ -196,8 +196,6 @@ impl<M: Memory> Machine<M> {
         let (place, _ty) = self.eval_place(target)?;
         // Make sure the new pointer has a valid address.
         // Remember that places are basically raw pointers so this is not guaranteed!
-        // FIXME: test that this is UB when the pointer requires more alignment than the place,
-        // and *not* UB the other way around.
         if !ptr_ty.addr_valid(place.ptr.addr) {
             throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
         }
