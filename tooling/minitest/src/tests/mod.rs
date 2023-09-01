@@ -9,6 +9,7 @@ mod heap_intrinsics;
 mod ill_formed;
 mod invalid_offset;
 mod locks;
+mod main;
 mod negative_index;
 mod no_preserve_padding;
 mod no_preserve_prov;

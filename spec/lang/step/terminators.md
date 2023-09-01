@@ -257,8 +257,10 @@ The callee should probably start with a bunch of `Validate` statements to ensure
 impl<M: Memory> Machine<M> {
     fn terminate_active_thread(&mut self) -> NdResult {
         let active = self.active_thread;
-        // We would habe reached UB before the main thread terminates.
-        assert!(active != 0, "the main thread cannot terminate");
+        // The main thread may not terminate, it must call the `Exit` intrinsic.
+        if active == 0 {
+            throw_ub!("the start function must not return");
+        }
 
         self.threads.mutate_at(active, |thread| {
             assert!(thread.stack.len() == 0);
