@@ -439,30 +439,13 @@ impl<M: Memory> AtomicMemory<M> {
 One way we *could* also use the value representation (and the author thinks this is exceedingly elegant) is to define the validity invariant.
 Certainly, it is the case that if a list of bytes is not related to any value for a given type `T`, then that list of bytes is *invalid* for `T` and it should be UB to produce such a list of bytes at type `T`.
 We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
-
-```rust
-#[allow(unused)]
-fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provenance>>) -> Result {
-    if ty.decode::<M>(bytes).is_none() {
-        throw_ub!("data violates validity invariant of type {ty:?}"); // FIXME use Display instead of Debug for `ty`
-    }
-
-    ret(())
-}
-```
-
-Note that there is a second, different, kind of validity invariant:
-the invariant satisfied by any possible *encoding* of a value of a given type.
-The way things are defined above, `encode` is more strict than `decode` (in the sense that there are valid inputs to `decode` that `encode` will never produce).
-For example, `encode` makes padding between struct fields always `Uninit`, but `decode` accepts *any* data there.
-So after a typed assignment, the compiler can actually know that this stricter kind of validity is satisfied.
-The programmer, on the other hand, only ever has to ensure the weaker kind of validity defined above.
+`bytes` is valid for `ty` if `ty.decode::<M>(bytes).is_some()` returns `true`.
 
 For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
 The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
-This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything juts falls out of how a "typed copy" applies the value representation twice.
+This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything just falls out of how a "typed copy" applies the value representation.
 
-## Validity of pointers
+### Validity of pointers
 
 For pointers, validity just says that `ptr_ty.addr_valid` holds for the address.
 However, we often also want to ensure that safe pointers are dereferenceable and respect the desired aliasing discipline.
@@ -479,7 +462,6 @@ More precisely:
 
 ```rust
 /// Transmutes `val` from `type1` to `type2`.
-#[allow(unused)]
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
     let bytes = type1.encode::<M>(val);
     ret(type2.decode::<M>(bytes)?)

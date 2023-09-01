@@ -230,6 +230,11 @@ impl ValueExpr {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)
                     }
+                    Transmute(new_ty) => {
+                        // Transmutation requires the sizes to match.
+                        ensure(operand.size::<T>() == new_ty.size::<T>());
+                        new_ty
+                    }
                 }
             }
             BinOp { operator, left, right } => {

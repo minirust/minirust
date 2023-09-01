@@ -100,6 +100,8 @@ pub enum UnOp {
     PtrAddr,
     /// Integer-to-pointer cast (uses previously exposed provenance)
     PtrFromExposed(PtrType),
+    /// Transmute the value to a different type.
+    Transmute(Type),
 }
 
 pub enum BinOpInt {
