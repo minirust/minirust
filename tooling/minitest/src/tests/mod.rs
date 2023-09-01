@@ -14,6 +14,7 @@ mod locks;
 mod negative_index;
 mod no_preserve_padding;
 mod no_preserve_prov;
+mod packed;
 mod print;
 mod ptr_offset;
 mod ptr_partial_overwrite;

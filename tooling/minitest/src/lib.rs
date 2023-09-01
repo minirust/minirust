@@ -29,6 +29,24 @@ pub fn assert_ub(prog: Program, msg: &str) {
 }
 
 #[track_caller]
+pub fn assert_ub_eventually(prog: Program, attempts: usize, msg: &str) {
+    let msg = minirust_rs::prelude::String::from_internal(msg.to_string());
+    for _ in 0..attempts {
+        match run_program(prog) {
+            TerminationInfo::MachineStop => continue,
+            TerminationInfo::Ub(res) if res == msg => {
+                // Got the expected result.
+                return
+            }
+            termination_info => {
+                panic!("unexpected outcome in `assert_ub_eventually`: {:?}", termination_info);
+            }
+        }
+    }
+    panic!("did not get expected output after {} attempts", attempts);
+}
+
+#[track_caller]
 pub fn assert_ill_formed(prog: Program) {
     assert_eq!(run_program(prog), TerminationInfo::IllFormed);
 }
