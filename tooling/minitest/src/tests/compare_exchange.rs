@@ -46,7 +46,7 @@ fn compare_exchange_success() {
         Ok(out) => out,
         Err(err) => panic!("{:?}", err),
     };
-    assert_eq!(&out[..4], &["1", "0", "1", "1"]);
+    assert_eq!(out, &["1", "0", "1", "1"]);
 }
 
 #[test]

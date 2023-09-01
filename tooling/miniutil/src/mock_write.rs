@@ -20,9 +20,7 @@ impl MockWrite {
 
         let string = from_utf8(&slice).unwrap().to_string();
 
-        string.split("\n").map(
-            |str| str.to_string()
-        ).collect()
+        string.lines().map(|s| s.to_string()).collect()
     }
 }
 
