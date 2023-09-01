@@ -51,13 +51,13 @@ impl<M: Memory> AtomicMemory<M> {
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
-    pub fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<M::Provenance>> {
-        self.memory.allocate(size, align)
+    pub fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<M::Provenance>> {
+        self.memory.allocate(kind, size, align)
     }
 
     /// Remove an allocation.
-    pub fn deallocate(&mut self, ptr: Pointer<M::Provenance>, size: Size, align: Align) -> Result {
-        self.memory.deallocate(ptr, size, align)
+    pub fn deallocate(&mut self, ptr: Pointer<M::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
+        self.memory.deallocate(ptr, kind, size, align)
     }
 
     /// Write some bytes to memory and check for data races.

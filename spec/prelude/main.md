@@ -23,6 +23,8 @@ pub enum TerminationInfo {
     IllFormed,
     /// The program did not terminate but no thread can make progress.
     Deadlock,
+    /// The program terminated successfully but memory was leaked.
+    MemoryLeak,
 }
 
 /// Some macros for convenient yeeting, i.e., return an error from a

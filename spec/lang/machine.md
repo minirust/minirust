@@ -119,7 +119,7 @@ impl<M: Memory> Machine<M> {
         // Allocate every global.
         for (global_name, global) in prog.globals {
             let size = Size::from_bytes(global.bytes.len()).unwrap();
-            let alloc = mem.allocate(size, global.align)?;
+            let alloc = mem.allocate(AllocationKind::Global, size, global.align)?;
             global_ptrs.insert(global_name, alloc);
         }
 
@@ -142,7 +142,7 @@ impl<M: Memory> Machine<M> {
 
         // Allocate functions.
         for (fn_name, _function) in prog.functions {
-            let alloc = mem.allocate(Size::ZERO, Align::ONE)?;
+            let alloc = mem.allocate(AllocationKind::Function, Size::ZERO, Align::ONE)?;
             let addr = alloc.addr;
             // Ensure that no two functions lie on the same address.
             assert!(!fn_addrs.values().any(|fn_addr| addr == fn_addr));

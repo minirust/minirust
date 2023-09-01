@@ -32,6 +32,8 @@ struct Allocation {
     /// The alignment that was requested for this allocation.
     /// `addr` will be a multiple of this.
     align: Align,
+    /// The kind of this allocation.
+    kind: AllocationKind,
     /// Whether this allocation is still live.
     live: bool,
 }
@@ -85,7 +87,7 @@ Then we implement creating and removing allocations.
 
 ```rust
 impl<T: Target> Memory for BasicMemory<T> {
-    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
         if !T::valid_size(size) {
             throw_ub!("asking for a too large allocation");
@@ -116,6 +118,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         let allocation = Allocation {
             addr,
             align,
+            kind,
             live: true,
             data: list![AbstractByte::Uninit; size.bytes()],
         };
@@ -128,7 +131,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         ret(Pointer { addr, provenance: Some(id) })
     }
 
-    fn deallocate(&mut self, ptr: Pointer<AllocId>, size: Size, align: Align) -> Result {
+    fn deallocate(&mut self, ptr: Pointer<AllocId>, kind: AllocationKind, size: Size, align: Align) -> Result {
         let Some(id) = ptr.provenance else {
             throw_ub!("deallocating invalid pointer")
         };
@@ -141,6 +144,9 @@ impl<T: Target> Memory for BasicMemory<T> {
         }
         if ptr.addr != allocation.addr {
             throw_ub!("deallocating with pointer not to the beginning of its allocation");
+        }
+        if kind != allocation.kind {
+            throw_ub!("deallocating {:?} memory with {:?} deallocation operation", allocation.kind, kind);
         }
         if size != allocation.size() {
             throw_ub!("deallocating with incorrect size information");

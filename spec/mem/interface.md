@@ -47,6 +47,18 @@ impl<Provenance> AbstractByte<Provenance> {
 The MiniRust memory interface is described by the following (not-yet-complete) trait definition:
 
 ```rust
+/// The "kind" of an allocation is used to distinguish, for instance, stack from heap memory.
+pub enum AllocationKind {
+    /// Memory for a stack variable.
+    Stack,
+    /// Memory allocated with the AM heap intrinsics.
+    Heap,
+    /// Memory for a global variable.
+    Global,
+    /// Memory for a function.
+    Function,
+}
+
 /// *Note*: All memory operations can be non-deterministic, which means that
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
@@ -64,10 +76,10 @@ pub trait Memory {
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
-    fn allocate(&mut self, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
 
     /// Remove an allocation.
-    fn deallocate(&mut self, ptr: Pointer<Self::Provenance>, size: Size, align: Align) -> Result;
+    fn deallocate(&mut self, ptr: Pointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result;

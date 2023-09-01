@@ -127,7 +127,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::Allocate`")
         }
 
-        let alloc = self.mem.allocate(size, align)?;
+        let alloc = self.mem.allocate(AllocationKind::Heap, size, align)?;
 
         ret(Value::Ptr(alloc))
     }
@@ -164,7 +164,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::Deallocate`")
         }
 
-        self.mem.deallocate(ptr, size, align)?;
+        self.mem.deallocate(ptr, AllocationKind::Heap, size, align)?;
 
         ret(unit_value())
     }
