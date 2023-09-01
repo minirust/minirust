@@ -1,4 +1,4 @@
-# Machine Locks
+# Lockss
 
 This file describes how system locks work in MiniRust.
 This does not match the actual lock implementations in Rust, it serves more as a specification for idealized locks.
@@ -11,7 +11,7 @@ pub enum LockState {
     LockedBy(ThreadId),
 }
 
-type LockId = Int;
+pub type LockId = Int;
 ```
 
 ## Lock operations
@@ -112,8 +112,6 @@ impl<M: Memory> Machine<M> {
 
 This exposes the Machine operations for locks to the language as intrinsics.
 
-The `Create` intrinsic. Used to create locks.
-
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
@@ -134,13 +132,7 @@ impl<M: Memory> Machine<M> {
 
         ret(Value::Int(lock_id))
     }
-}
-```
 
-The `Acquire` intrinsic.
-
-```rust
-impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Acquire): Intrinsic,
@@ -163,13 +155,7 @@ impl<M: Memory> Machine<M> {
 
         ret(unit_value())
     }
-}
-```
 
-The `Release` intrinsic.
-
-```rust
-impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Lock(LockIntrinsic::Release): Intrinsic,

@@ -108,11 +108,14 @@ But we also need to ensure the entire document stays coherent, and I already hav
   * [Representation relation](spec/lang/representation.md): how types (de)serialize values into/from memory
   * [Syntax](spec/lang/syntax.md): the abstract syntax of MiniRust programs
   * [Well-formedness](spec/lang/well-formed.md): the requirements for well-formed types and programs
-  * [Abstract Machine](spec/lang/machine.md): the state that makes up a MiniRust Abstract Machine
-  * [Semantics](spec/lang/step.md): the operational semantics ("`step` function") of the Abstract Machine
-    * [Operator semantics](spec/lang/operator.md): the operational semantics of unary and binary operators
-    * [Intrinsics](spec/lang/intrinsic.md): the operational semantics of intrinsics
-    * [Locks](spec/lang/locks.md): the operational semantics of locks
+  * [Abstract Machine](spec/lang/machine.md): the state that makes up a MiniRust Abstract Machine as well as the definitionf of the initial state and the state transition
+  * The definition of how to evaluate a single machine step is of course the heart of MiniRust, and spread across multiple files
+    * [Statement evaluation](spec/lang/step/statements.md)
+    * [Terminator evaluation](spec/lang/step/terminators.md)
+    * [Expression evaluation](spec/lang/step/expressions.md)
+    * [Operator evaluation](spec/lang/step/operators.md)
+    * [General intrinsics](spec/lang/step/intrinsics.md)
+    * [Lock intrinsics](spec/lang/step/locks.md)
 
 ## Relation to other efforts
 

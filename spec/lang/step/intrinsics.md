@@ -1,5 +1,7 @@
 # Intrinsics
 
+This file defines the generic machine intrinsics.
+
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(intrinsic)]
@@ -12,7 +14,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-This helper functions simplifies unit-returning intrinsics.
+These helper functions simplify unit-returning intrinsics.
 
 ```rust
 fn unit_value<M: Memory>() -> Value<M> {
@@ -24,10 +26,19 @@ fn unit_type() -> Type {
 }
 ```
 
+## Machine primitives
+
 We start with the `Exit` intrinsic.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn exit(&self) -> NdResult<!> {
+        // Check for memory leaks.
+        self.mem.leak_check()?;
+        // No leak found -- good, stop the machine.
+        throw_machine_stop!();
+    }
+
     fn eval_intrinsic(
         &mut self,
         Intrinsic::Exit: Intrinsic,
@@ -39,7 +50,9 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-And there are the `PrintStdout` and `PrintStderr` intrinsics.
+## Input and output
+
+These are the `PrintStdout` and `PrintStderr` intrinsics.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -91,7 +104,9 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-Next, the intrinsics used for memory allocation and deallocation.
+## Heap memory management
+
+These intrinsics can be used for dynamic memory allocation and deallocation.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -167,7 +182,9 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-The intrinsics for spawning and joining threads.
+## Threads
+
+These intrinsics let the program spawn and join threads.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -251,7 +268,9 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-These are the intrinsics for atomic memory accesses:
+## Atomic accesses
+
+These intrinsics provide atomic accesses.
 
 ```rust
 impl<M: Memory> Machine<M> {

@@ -103,7 +103,8 @@ pub enum ThreadState {
 }
 ```
 
-Next, we define how to create a machine.
+Next, we define the core operations of every (state) machine: the initial state, and the transition function.
+The transition function simply dispatches to evaluating the next statement/terminator.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -171,19 +172,61 @@ impl<M: Memory> Machine<M> {
         ret(machine)
     }
 
-    fn exit(&self) -> NdResult<!> {
-        // Check for memory leaks.
-        self.mem.leak_check()?;
-        // No leak found -- good, stop the machine.
-        throw_machine_stop!();
+    /// To run a MiniRust program, call this in a loop until it throws an `Err` (UB or termination).
+    pub fn step(&mut self) -> NdResult {
+        if !self.threads.any( |thread| thread.state == ThreadState::Enabled ) {
+            throw_deadlock!();
+        }
+
+        // Reset the data race tracking *before* we change `active_thread`.
+        let prev_step_information = self.reset_data_race_tracking();
+
+        // Update current thread.
+        let distr = libspecr::IntDistribution {
+            start: Int::ZERO,
+            end: Int::from(self.threads.len()),
+            divisor: Int::ONE,
+        };
+        self.active_thread = pick(distr, |id: ThreadId| {
+            let Some(thread) = self.threads.get(id) else {
+                return false;
+            };
+
+            thread.state == ThreadState::Enabled
+        })?;
+
+        // Execute this step.
+        let frame = self.cur_frame();
+        let block = &frame.func.blocks[frame.next_block];
+        if frame.next_stmt == block.statements.len() {
+            // It is the terminator. Evaluating it will update `frame.next_block` and `frame.next_stmt`.
+            self.eval_terminator(block.terminator)?;
+        } else {
+            // Bump up PC, evaluate this statement.
+            let stmt = block.statements[frame.next_stmt];
+            self.eval_statement(stmt)?;
+            self.mutate_cur_frame(|frame, _mem| {
+                frame.next_stmt += 1;
+                ret(())
+            })?;
+        }
+
+        // Check for data races with the previous step.
+        self.mem.check_data_races(self.active_thread, prev_step_information)?;
+
+        ret(())
     }
 }
 ```
 
-We also define some helper functions that will be useful later.
+We also define some general helper functions for working with threads and stack frames.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn active_thread(&self) -> Thread<M> {
+        self.threads[self.active_thread]
+    }
+
     fn cur_frame(&self) -> StackFrame<M> {
         self.active_thread().cur_frame()
     }
@@ -195,15 +238,20 @@ impl<M: Memory> Machine<M> {
     fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
         self.threads.mutate_at(self.active_thread, |thread| f(&mut thread.stack))
     }
+}
 
-    fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
-        let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
-        let Some((func_name, _)) = funcs.next() else {
-            throw_ub!("Dereferencing function pointer where there is no function.");
-        };
-        let func = self.prog.functions[func_name];
+impl<M: Memory> Thread<M> {
+    fn cur_frame(&self) -> StackFrame<M> {
+        self.stack.last().unwrap()
+    }
 
-        ret(func)
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
+        if self.stack.is_empty() {
+            panic!("`mutate_cur_frame` called on empty stack!");
+        }
+
+        let last_idx = self.stack.len() - 1;
+        self.stack.try_mutate_at(last_idx, f)
     }
 }
 
@@ -216,10 +264,11 @@ impl<M: Memory> StackFrame<M> {
 }
 ```
 
-Next, we define how to create a thread.
+Some higher-level helper functions that do not have a better location.
 
 ```rust
 impl<M: Memory> Machine<M> {
+    /// Create a new thread where the first frame calls the given function with the given arguments.
     fn new_thread(&mut self, func: Function, args: List<(Value<M>, Type)>) -> NdResult<ThreadId> {
         // The bottom of a stack must have a 1-ZST return type.
         // This way it cannot assume there is actually a return place to write anything to.
@@ -239,30 +288,36 @@ impl<M: Memory> Machine<M> {
         self.threads.push(thread);
         ret(thread_id)
     }
-}
-```
 
-Some functionality of the threads and the thread management in the machine.
-
-```rust
-impl<M: Memory> Thread<M> {
-    fn cur_frame(&self) -> StackFrame<M> {
-        self.stack.last().unwrap()
-    }
-
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
-        if self.stack.is_empty() {
-            panic!("`mutate_cur_frame` called on empty stack!");
+    /// Look up a function given its address.
+    fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
+        let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
+        let Some((func_name, _)) = funcs.next() else {
+            throw_ub!("Dereferencing function pointer where there is no function.");
+        };
+        if let Some(_) = funcs.next() {
+            panic!("There's more than one function with the same address!");
         }
+        let func = self.prog.functions[func_name];
 
-        let last_idx = self.stack.len() - 1;
-        self.stack.try_mutate_at(last_idx, f)
+        ret(func)
     }
-}
 
-impl<M: Memory> Machine<M> {
-    fn active_thread(&self) -> Thread<M> {
-        self.threads[self.active_thread]
+    /// Reset the data race tracking for the next step, and return the information from the previous step.
+    ///
+    /// The first component of the return value is the set of threads that were synchronized by the previous step,
+    /// the second is the list of accesses in the previous step.
+    fn reset_data_race_tracking(&mut self) -> (Set<ThreadId>, List<Access>) {
+        // Remember threads synchronized by the previous step for data race detection
+        // after this step.
+        let mut prev_sync = self.synchronized_threads;
+        // Every thread is always synchronized with itself.
+        prev_sync.insert(self.active_thread);
+
+        // Reset access tracking list.
+        let prev_accesses = self.mem.reset_accesses();
+
+        (prev_sync, prev_accesses)
     }
 }
 ```

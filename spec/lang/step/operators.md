@@ -1,6 +1,6 @@
-# MiniRust operators
+# Operators
 
-Here we define the part of the [`step` function](step.md) that is concerned with unary and binary operators.
+Here we define the evaluation of unary and binary operators.
 
 ## Unary operators
 
