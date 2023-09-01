@@ -129,7 +129,6 @@ pub fn translate_rvalue<'cx, 'tcx>(
             // as slices are unsupported as of now, we only need to care for arrays.
             let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
             let Type::Array { elem: _, count } = translate_ty(ty, fcx.cx.tcx) else { panic!() };
-            use build::TypeConv;
             ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
         }
         rs::Rvalue::Cast(rs::CastKind::IntToInt, operand, ty) => {
@@ -146,10 +145,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
             let operand = translate_operand(operand, fcx);
             let expose = Statement::Expose { value: operand };
-            let addr = ValueExpr::UnOp {
-                operator: UnOp::PtrAddr,
-                operand: GcCow::new(operand),
-            };
+            let addr = build::ptr_addr(operand);
 
             return Some((
                 vec![expose],
@@ -171,7 +167,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let Type::Ptr(ptr_ty) = translate_ty(*ty, fcx.cx.tcx) else { panic!() };
 
             ValueExpr::UnOp {
-                operator: UnOp::PtrCast(ptr_ty),
+                operator: UnOp::Transmute(Type::Ptr(ptr_ty)),
                 operand: GcCow::new(operand),
             }
         }

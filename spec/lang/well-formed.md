@@ -218,14 +218,6 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
-                    PtrCast(ptr_ty) => {
-                        ensure(matches!(operand, Type::Ptr(_)))?;
-                        Type::Ptr(ptr_ty)
-                    }
-                    PtrAddr => {
-                        ensure(matches!(operand, Type::Ptr(_)))?;
-                        Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })
-                    }
                     PtrFromExposed(ptr_ty) => {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)

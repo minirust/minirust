@@ -106,7 +106,7 @@ fn mk_start_fn(entry: u32) -> Function {
     blocks.insert(b1_name, b1);
 
     let mut locals = Map::new();
-    locals.insert(l0_name, <() as build::TypeConv>::get_type());
+    locals.insert(l0_name, <()>::get_type());
 
     Function {
         locals,

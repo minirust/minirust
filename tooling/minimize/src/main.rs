@@ -32,7 +32,7 @@ pub use minirust_rs::prelude::NdResult;
 pub use std::format;
 pub use std::string::String;
 
-pub use miniutil::build;
+pub use miniutil::build::{self, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::DefaultTarget;

@@ -85,20 +85,14 @@ pub fn int_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
 }
 
 pub fn ptr_addr(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp {
-        operator: UnOp::PtrAddr,
-        operand: GcCow::new(v),
-    }
+    transmute(v, <usize>::get_type())
 }
 
 pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
-    let Type::Ptr(ptr_ty) = t else {
+    let Type::Ptr(_) = t else {
         panic!("ptr_to_ptr requires Type::Ptr argument!");
     };
-    ValueExpr::UnOp {
-        operator: UnOp::PtrCast(ptr_ty),
-        operand: GcCow::new(v),
-    }
+    transmute(v, t)
 }
 
 pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {

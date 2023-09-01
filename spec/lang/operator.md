@@ -34,23 +34,10 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Pointer-related casts
+### Integer-to-pointer cast
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::PtrCast(ptr_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
-        if !matches!(operand, Value::Ptr(_)) {
-            panic!("non-pointer input to ptr2ptr cast")
-        };
-
-        ret((operand, Type::Ptr(ptr_ty)))
-    }
-    fn eval_un_op(&mut self, UnOp::PtrAddr: UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
-        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to ptr2int cast") };
-        let int_ty = Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE });
-
-        ret((Value::Int(ptr.addr), int_ty))
-    }
     fn eval_un_op(&mut self, UnOp::PtrFromExposed(ptr_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
         let result = self.intptrcast.int2ptr(addr)?;

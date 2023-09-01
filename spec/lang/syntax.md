@@ -93,14 +93,9 @@ pub enum UnOpInt {
 pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
-    /// Pointer-to-pointer cast
-    PtrCast(PtrType),
-    /// Integer-to-pointer cast *without expose side-effect*.
-    /// If you want to cast back, you better expose this pointer!
-    PtrAddr,
-    /// Integer-to-pointer cast (uses previously exposed provenance)
+    /// Integer-to-pointer cast (uses previously exposed provenance).
     PtrFromExposed(PtrType),
-    /// Transmute the value to a different type.
+    /// Transmute the value to a different type (must have the same size).
     Transmute(Type),
 }
 
