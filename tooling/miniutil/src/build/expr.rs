@@ -1,10 +1,14 @@
 use crate::build::*;
 
 // Example usage:
-// `const_int::<usize>(42)`
-pub fn const_int<T: TypeConv>(int: impl Into<Int>) -> ValueExpr {
+// `const_int(42usize)`
+pub fn const_int<T: TypeConv + Into<Int>>(int: T) -> ValueExpr {
     ValueExpr::Constant(Constant::Int(int.into()), T::get_type())
 }
+pub fn const_int_typed<T: TypeConv>(int: Int) -> ValueExpr {
+    ValueExpr::Constant(Constant::Int(int), T::get_type())
+}
+
 
 pub fn const_bool(b: bool) -> ValueExpr {
     ValueExpr::Constant(Constant::Bool(b), Type::Bool)

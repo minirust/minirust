@@ -24,6 +24,13 @@ pub fn assert_stop(prog: Program) {
 }
 
 #[track_caller]
+pub fn assert_stop_always(prog: Program, attempts: usize) {
+    for _ in 0..attempts {
+        assert_eq!(run_program(prog), TerminationInfo::MachineStop);
+    }
+}
+
+#[track_caller]
 pub fn assert_ub(prog: Program, msg: &str) {
     assert_eq!(run_program(prog), TerminationInfo::Ub(minirust_rs::prelude::String::from_internal(msg.to_string())));
 }
@@ -71,13 +78,12 @@ pub fn has_data_race(prog: Program) -> bool {
     for _ in 0..20 {
         match run_program(prog) {
             TerminationInfo::MachineStop => {},
-            TerminationInfo::Ub(ub) => {
-                if ub == data_race_string {
-                    return true;
-                }
-                panic!("Non data race undefined behavior");
-            },
-            termination_info => panic!("{:?}", termination_info)
+            TerminationInfo::Ub(ub) if ub == data_race_string => {
+                return true;
+            }
+            termination_info => {
+                panic!("unexpected outcome in `has_data_race`: {:?}", termination_info);
+            }
         }
     }
 

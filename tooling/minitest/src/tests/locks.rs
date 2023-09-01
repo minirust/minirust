@@ -53,7 +53,7 @@ fn lock_handover() {
     let globals = [global_int::<u32>()];
 
     let p = program_with_globals(&[main, second, critical], &globals);
-    assert_eq!(run_program(p), TerminationInfo::MachineStop);
+    assert_stop(p);
 }
 
 
@@ -123,7 +123,7 @@ fn lock_handover_data_race() {
     let globals = [global_int::<u32>(), global_ptr::<u32>()];
 
     let p = program_with_globals(&[main, second, critical], &globals);
-    assert_eq!(run_program(p), TerminationInfo::MachineStop);
+    assert_stop_always(p, 10);
 }
 
 

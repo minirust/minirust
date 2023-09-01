@@ -15,7 +15,7 @@ fn packed_works() {
         storage_live(0),
         assign(
             field(local(0), 0),
-            const_int::<i32>(0i32),
+            const_int(0i32),
         ),
         storage_live(1),
         assign(
@@ -36,7 +36,7 @@ fn packed_is_not_aligned() {
         storage_live(0),
         assign(
             field(local(0), 0),
-            const_int::<i32>(0i32),
+            const_int(0i32),
         ),
         storage_live(1),
         assign(

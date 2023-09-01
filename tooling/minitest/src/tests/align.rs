@@ -20,13 +20,13 @@ fn manual_align() {
             local(1),
             sub::<usize>(
                 add::<usize>(
-                    const_int::<usize>(8),
+                    const_int(8usize),
                     mul::<usize>(
                         div::<usize>(
                             load(local(1)),
-                            const_int::<usize>(8)
+                            const_int(8usize)
                         ),
-                        const_int::<usize>(8)
+                        const_int(8usize)
                     ),
                 ),
                 load(local(1))
@@ -41,7 +41,7 @@ fn manual_align() {
                 ),
                 <u64>::get_type()
             ),
-            const_int::<u64>(42)
+            const_int(42u64)
         ),
     ];
 
@@ -88,7 +88,7 @@ fn load_place_misaligned() {
         storage_live(1),
         assign(
             field(local(0), 0),
-            const_int::<usize>(1) // nullptr + 1
+            const_int(1usize) // nullptr + 1
         ),
         assign(
             local(1),
@@ -117,7 +117,7 @@ fn store_place_misaligned() {
         storage_live(1),
         assign(
             field(local(0), 0),
-            const_int::<usize>(1) // nullptr + 1
+            const_int(1usize) // nullptr + 1
         ),
         assign(
             deref(load(field(local(0), 1)), <[i32; 0]>::get_type()),
@@ -138,17 +138,17 @@ fn deref_misaligned_ref() {
     let b0 = block!(
         storage_live(0),
         allocate(
-            const_int::<usize>(4),
-            const_int::<usize>(4),
+            const_int(4usize),
+            const_int(4usize),
             local(0),
             1,
         )
     );
     let u8ptr = ptr_to_ptr(load(local(0)), <*const u8>::get_type());
     // make the pointer definitely not 2-aligned
-    let nonaligned = ptr_offset(u8ptr, const_int::<usize>(1), InBounds::Yes);
+    let nonaligned = ptr_offset(u8ptr, const_int(1usize), InBounds::Yes);
     let u16ptr = ptr_to_ptr(nonaligned, <*const u16>::get_type());
-    let u16ref = transmute(u16ptr, <&'static u16>::get_type());
+    let u16ref = transmute(u16ptr, <&u16>::get_type());
     let b1 = block!(
         storage_live(1),
         assign(
@@ -170,7 +170,7 @@ fn deref_overaligned() {
         storage_live(0),
         assign(
             local(0),
-            const_int::<i32>(0),
+            const_int(0i32),
         ),
         storage_live(1),
         assign(
@@ -196,12 +196,12 @@ fn deref_overaligned() {
 
 #[test]
 fn addr_of_misaligned_ref() {
-    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <&'static u16>::get_type() ];
+    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <&u16>::get_type() ];
     let b0 = block!(
         storage_live(0),
         assign(
             local(0),
-            const_int::<i32>(0),
+            const_int(0i32),
         ),
         storage_live(1),
         assign(
@@ -212,14 +212,14 @@ fn addr_of_misaligned_ref() {
     );
     let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());
     // make the pointer definitely not 2-aligned
-    let nonaligned = ptr_offset(u8ptr, const_int::<usize>(1), InBounds::Yes);
+    let nonaligned = ptr_offset(u8ptr, const_int(1usize), InBounds::Yes);
     let u16ptr = ptr_to_ptr(nonaligned, <*const u16>::get_type());
     let b1 = block!(
         storage_live(2),
         assign(
             local(2),
             // We deref to `u8` but the type of the reference matters!
-            addr_of(deref(u16ptr, <u8>::get_type()), <&'static u16>::get_type()),
+            addr_of(deref(u16ptr, <u8>::get_type()), <&u16>::get_type()),
         ),
         exit(),
     );
@@ -236,7 +236,7 @@ fn addr_of_misaligned_ptr() {
         storage_live(0),
         assign(
             local(0),
-            const_int::<i32>(0),
+            const_int(0i32),
         ),
         storage_live(1),
         assign(
@@ -247,7 +247,7 @@ fn addr_of_misaligned_ptr() {
     );
     let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());
     // make the pointer definitely not 2-aligned
-    let nonaligned = ptr_offset(u8ptr, const_int::<usize>(1), InBounds::Yes);
+    let nonaligned = ptr_offset(u8ptr, const_int(1usize), InBounds::Yes);
     let u16ptr = ptr_to_ptr(nonaligned, <*const u16>::get_type());
     let b1 = block!(
         storage_live(2),
