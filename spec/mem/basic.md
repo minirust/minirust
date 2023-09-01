@@ -174,6 +174,11 @@ impl<T: Target> BasicMemory<T> {
     /// length. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
     fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size) -> Result<Option<(AllocId, Size)>> {
+        // We do reject null pointers, even for zero-sized accesses.
+        // FIXME: Do we really want/need that?
+        if ptr.addr == 0 {
+            throw_ub!("memory access with null pointer");
+        }
         // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)

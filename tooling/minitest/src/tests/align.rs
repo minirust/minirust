@@ -253,8 +253,8 @@ fn addr_of_misaligned_ptr() {
         storage_live(2),
         assign(
             local(2),
-            // We even addr_of to `u32` here which requires even more alignment,
-            // but it's all raw so it's fine.
+            // This ptr is not aligned to `u16`, and then we even addr_of to `u32` here which
+            // requires even more alignment, but it's all raw so it's fine.
             addr_of(deref(u16ptr, <u16>::get_type()), <*const u32>::get_type()),
         ),
         exit(),

@@ -1,7 +1,6 @@
 mod align;
 mod atomic;
 mod call;
-mod check_ptr;
 mod compare_exchange;
 mod concurrency;
 mod data_race;
@@ -14,6 +13,7 @@ mod locks;
 mod negative_index;
 mod no_preserve_padding;
 mod no_preserve_prov;
+mod null;
 mod packed;
 mod print;
 mod ptr_offset;
