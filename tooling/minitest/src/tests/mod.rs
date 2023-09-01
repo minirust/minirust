@@ -4,6 +4,7 @@ mod call;
 mod compare_exchange;
 mod concurrency;
 mod data_race;
+mod dereferenceable;
 mod div_zero;
 mod heap_intrinsics;
 mod ill_formed;
