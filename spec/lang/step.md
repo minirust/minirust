@@ -537,8 +537,8 @@ fn check_abi_compatibility(
     ) -> bool {
         match (caller_ty, callee_ty) {
             (Type::Int(caller_ty), Type::Int(callee_ty)) =>
-                // Signedness does not matter for ABI
-                caller_ty.size == callee_ty.size,
+                // The sign *does* matter for some ABIs, so we compare it as well.
+                caller_ty == callee_ty,
             (Type::Bool, Type::Bool) =>
                 true,
             (Type::Ptr(_), Type::Ptr(_)) =>
