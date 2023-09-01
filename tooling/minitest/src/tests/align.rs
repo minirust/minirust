@@ -73,3 +73,65 @@ fn impossible_align() {
     dump_program(p);
     assert_stop(p); // will panic!
 }
+
+#[test]
+fn deref_misaligned_ref() {
+    let locals = [ <*const i32>::get_type(), <*const u8>::get_type() ];
+    let b0 = block!(
+        storage_live(0),
+        allocate(
+            const_int::<usize>(4),
+            const_int::<usize>(4),
+            local(0),
+            1,
+        )
+    );
+    let u8ptr = ptr_to_ptr(load(local(0)), <*const u8>::get_type());
+    // make the pointer definitely not 2-aligned
+    let u8ptr = ptr_offset(u8ptr, const_int::<usize>(1), InBounds::Yes);
+    let u16ptr = ptr_to_ptr(u8ptr, <*const u16>::get_type());
+    let u16ref = transmute(u16ptr, <&'static u16>::get_type());
+    let b1 = block!(
+        storage_live(1),
+        assign(
+            local(1),
+            // We deref to type `u8`, but the alignment of the reference matters!
+            addr_of(deref(u16ref, u8::get_type()), <*const u8>::get_type()),
+        ),
+        exit(),
+    );
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    assert_ub(p, "transmuted value is not valid at new type");
+}
+
+#[test]
+fn deref_overaligned() {
+    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <u32>::get_type() ];
+    let b0 = block!(
+        storage_live(0),
+        assign(
+            local(0),
+            const_int::<i32>(0),
+        ),
+        storage_live(1),
+        assign(
+            local(1),
+            addr_of(local(1), <*const i32>::get_type()),
+        ),
+        goto(1),
+    );
+    let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());
+    let b1 = block!(
+        storage_live(2),
+        assign(
+            local(2),
+            // We deref a `*const u8` to a `u32` and load that but it's fine since it actually is u32-aligned.
+            load(deref(u8ptr, u32::get_type())),
+        ),
+        exit(),
+    );
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f]);
+    assert_stop(p);
+}

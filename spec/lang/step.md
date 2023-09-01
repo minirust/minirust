@@ -282,9 +282,8 @@ impl<M: Memory> Machine<M> {
         };
         // We know the pointer is valid for its type, but make sure safe pointers are also dereferenceable.
         // (We don't do a full retag here, this is not considered creating a new pointer.)
-        // FIXME: test that this is UB when the pointer requires more alignment than the place,
-        // and *not* UB the other way around.
         if let Some(layout) = ptr_type.safe_pointee() {
+            assert!(layout.align.is_aligned(ptr.addr)); // this was already checked when the value got created
             self.mem.dereferenceable(ptr, layout.size)?;
         }
         // Check whether this pointer is sufficiently aligned.

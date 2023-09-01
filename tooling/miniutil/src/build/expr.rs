@@ -97,6 +97,13 @@ pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     }
 }
 
+pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
+    ValueExpr::UnOp {
+        operator: UnOp::Transmute(t),
+        operand: GcCow::new(v),
+    }
+}
+
 fn int_binop<T: TypeConv>(op: BinOpInt, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     let Type::Int(t) = T::get_type() else {
         panic!("int operator received non-int type!");
