@@ -30,6 +30,7 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let a = rs::ParamEnv::empty().and(ty);
             let layout = tcx.layout_of(a).unwrap().layout;
             let size = translate_size(layout.size());
+            let align = translate_align(layout.align().abi);
 
             let fields = ts
                 .iter()
@@ -43,20 +44,21 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
                 })
                 .collect();
 
-            Type::Tuple { fields, size }
+            Type::Tuple { fields, size, align }
         }
         rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
-            let (fields, size) = translate_adt_fields(ty, *adt_def, sref, tcx);
+            let (fields, size, align) = translate_adt_fields(ty, *adt_def, sref, tcx);
 
-            Type::Tuple { fields, size }
+            Type::Tuple { fields, size, align }
         }
         rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
-            let (fields, size) = translate_adt_fields(ty, *adt_def, sref, tcx);
+            let (fields, size, align) = translate_adt_fields(ty, *adt_def, sref, tcx);
             let chunks = calc_chunks(fields, size);
 
             Type::Union {
                 fields,
                 size,
+                align,
                 chunks,
             }
         }
@@ -95,7 +97,7 @@ fn translate_adt_fields<'tcx>(
     adt_def: rs::AdtDef<'tcx>,
     sref: rs::SubstsRef<'tcx>,
     tcx: rs::TyCtxt<'tcx>,
-) -> (Fields, Size) {
+) -> (Fields, Size, Align) {
     let a = rs::ParamEnv::empty().and(ty);
     let layout = tcx.layout_of(a).unwrap().layout;
     let fields = adt_def
@@ -111,8 +113,9 @@ fn translate_adt_fields<'tcx>(
         })
         .collect();
     let size = translate_size(layout.size());
+    let align = translate_align(layout.align().abi);
 
-    (fields, size)
+    (fields, size, align)
 }
 
 fn translate_int_ty(int_ty: &rs::IntTy) -> IntType {

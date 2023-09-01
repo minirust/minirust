@@ -144,11 +144,7 @@ fn translate_call<'cx, 'tcx>(
 
         let args: List<_> = args.iter().map(|op| match op {
             rs::Operand::Move(place) => ArgumentExpr::InPlace(translate_place(place, fcx)),
-            op => {
-                let ty = op.ty(&fcx.body, fcx.cx.tcx);
-                let align = layout_of(ty, fcx.cx.tcx).align;
-                ArgumentExpr::ByValue(translate_operand(op, fcx), align)
-            },
+            op => ArgumentExpr::ByValue(translate_operand(op, fcx)),
         }).collect();
 
         

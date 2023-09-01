@@ -20,20 +20,18 @@ fn no_preserve_padding() {
     let pair_ty = tuple_ty(&[
             (size(0), u8::get_type()),
             (size(2), u16::get_type())
-        ], size(4));
-    let pair_pty = ptype(pair_ty, align(2));
+        ], size(4), align(2));
 
     let union_ty = union_ty(&[
             (size(0), pair_ty),
             (size(0), u32::get_type()),
-        ], size(4));
-    let union_pty = ptype(union_ty, align(4));
+        ], size(4), align(4));
 
     let locals = vec![
-        union_pty,
-        pair_pty,
-        <*const u8>::get_ptype(),
-        <u8>::get_ptype(),
+        union_ty,
+        pair_ty,
+        <*const u8>::get_type(),
+        <u8>::get_type(),
     ];
 
     let stmts = vec![
@@ -66,11 +64,11 @@ fn no_preserve_padding() {
         ),
         assign(
             local(3),
-            load(deref(load(local(2)), <u8>::get_ptype())),
+            load(deref(load(local(2)), <u8>::get_type())),
         ),
     ];
 
     let p = small_program(&locals, &stmts);
     dump_program(p);
-    assert_ub(p, "load at type PlaceType { ty: Int(IntType { signed: Unsigned, size: Size(1 bytes) }), align: Align(1 bytes) } but the data in memory violates the validity invariant");
+    assert_ub(p, "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant");
 }

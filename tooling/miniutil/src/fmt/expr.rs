@@ -36,8 +36,8 @@ impl FmtExpr {
 pub(super) fn fmt_place_expr(p: PlaceExpr, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match p {
         PlaceExpr::Local(l) => FmtExpr::Atomic(fmt_local_name(l)),
-        PlaceExpr::Deref { operand, ptype } => {
-            let ptype = fmt_ptype(ptype, comptypes).to_string();
+        PlaceExpr::Deref { operand, ty } => {
+            let ptype = fmt_type(ty, comptypes).to_string();
             let expr = fmt_value_expr(operand.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("deref<{ptype}>({expr})"))
         }
@@ -160,6 +160,10 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 UnOp::PtrFromExposed(ptr_ty) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
                     FmtExpr::Atomic(format!("from_exposed<{ptr_ty}>({operand})"))
+                }
+                UnOp::Transmute(new_ty) => {
+                    let new_ty = fmt_type(new_ty, comptypes).to_string();
+                    FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))
                 }
             }
         }

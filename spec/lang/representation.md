@@ -139,7 +139,7 @@ when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there 
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Tuple { fields, size }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Tuple { fields, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
@@ -148,7 +148,7 @@ impl Type {
             })?
         ))
     }
-    fn encode<M: Memory>(Type::Tuple { fields, size }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Tuple { fields, size, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
@@ -392,31 +392,34 @@ We also use this to lift retagging from pointers to compound values.
 
 ```rust
 impl<M: Memory> AtomicMemory<M> {
-    fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, pty: PlaceType, atomicity: Atomicity) -> Result {
-        assert!(val.check_wf(pty.ty).is_some(), "trying to store {val:?} which is ill-formed for {:#?}", pty.ty);
-        let bytes = pty.ty.encode::<M>(val);
-        self.store(ptr, bytes, pty.align, atomicity)?;
+    fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
+        assert!(val.check_wf(ty).is_some(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
+        let bytes = ty.encode::<M>(val);
+        self.store(ptr, bytes, align, atomicity)?;
 
         ret(())
     }
 
-    fn typed_load(&mut self, ptr: Pointer<M::Provenance>, pty: PlaceType, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, pty.ty.size::<M::T>(), pty.align, atomicity)?;
-        ret(match pty.ty.decode::<M>(bytes) {
+    fn typed_load(&mut self, ptr: Pointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
+        let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
+        ret(match ty.decode::<M>(bytes) {
             Some(val) => {
-                assert!(val.check_wf(pty.ty).is_some(), "decode returned {val:?} which is ill-formed for {:#?}", pty.ty);
+                assert!(val.check_wf(ty).is_some(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
                 val
             }
-            None => throw_ub!("load at type {pty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `pty`
+            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
         })
     }
 
+    /// Find all pointers in this value, ensure they are valid, and retag them.
     fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
-            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) => val,
+            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
+                val,
             // base case
-            (Value::Ptr(ptr), Type::Ptr(ptr_type)) => Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
+                Value::Ptr(self.retag_ptr(ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
@@ -424,7 +427,8 @@ impl<M: Memory> AtomicMemory<M> {
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
                 Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
-            _ => panic!("this value does not have that type"),
+            _ =>
+                panic!("this value does not have that type"),
         })
     }
 }
@@ -435,47 +439,18 @@ impl<M: Memory> AtomicMemory<M> {
 One way we *could* also use the value representation (and the author thinks this is exceedingly elegant) is to define the validity invariant.
 Certainly, it is the case that if a list of bytes is not related to any value for a given type `T`, then that list of bytes is *invalid* for `T` and it should be UB to produce such a list of bytes at type `T`.
 We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
-
-```rust
-#[allow(unused)]
-fn bytes_valid_for_type<M: Memory>(ty: Type, bytes: List<AbstractByte<M::Provenance>>) -> Result {
-    if ty.decode::<M>(bytes).is_none() {
-        throw_ub!("data violates validity invariant of type {ty:?}"); // FIXME use Display instead of Debug for `ty`
-    }
-
-    ret(())
-}
-```
-
-Note that there is a second, different, kind of validity invariant:
-the invariant satisfied by any possible *encoding* of a value of a given type.
-The way things are defined above, `encode` is more strict than `decode` (in the sense that there are valid inputs to `decode` that `encode` will never produce).
-For example, `encode` makes padding between struct fields always `Uninit`, but `decode` accepts *any* data there.
-So after a typed assignment, the compiler can actually know that this stricter kind of validity is satisfied.
-The programmer, on the other hand, only ever has to ensure the weaker kind of validity defined above.
+`bytes` is valid for `ty` if `ty.decode::<M>(bytes).is_some()` returns `true`.
 
 For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
 The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
-This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything juts falls out of how a "typed copy" applies the value representation twice.
+This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything just falls out of how a "typed copy" applies the value representation.
 
-## Validity of pointers
+### Validity of pointers
 
-For pointers, we often want properties that go a bit beyond what can be encoded in the representation relation.
-For instance, we want to ensure references and boxes are dereferenceable.
-This does not apply at each and every typed copy (so maybe it shouldn't be called "validity"), but at least when constructing a reference (via `AddrOf`) or when using it (via `Deref`), these things should be true.
-
-```rust
-impl<M: Memory> AtomicMemory<M> {
-    fn check_pointer_dereferenceable(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
-        if let Some(pointee) = ptr_ty.safe_pointee() {
-            self.dereferenceable(ptr, pointee)?;
-        }
-        ret(())
-    }
-}
-```
-
-We expect retagging to do *at least* this check as well.
+For pointers, validity just says that `ptr_ty.addr_valid` holds for the address.
+However, we often also want to ensure that safe pointers are dereferenceable and respect the desired aliasing discipline.
+This does not apply at each and every typed copy, so it is not really part of validity, but we do ensure these properties by performing retagging (which also checks dereferencability) on each `AddrOf` and `Validate`.
+Additionally, on `Deref` of a safe pointer we double-check that it is indeed dereferenceable.
 
 ## Transmutation
 
@@ -487,7 +462,6 @@ More precisely:
 
 ```rust
 /// Transmutes `val` from `type1` to `type2`.
-#[allow(unused)]
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
     let bytes = type1.encode::<M>(val);
     ret(type2.decode::<M>(bytes)?)

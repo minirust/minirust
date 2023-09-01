@@ -3,9 +3,9 @@ use crate::*;
 #[test]
 fn pointer_partial_overwrite() {
     let locals = &[
-        <i32>::get_ptype(),
-        <&i32>::get_ptype(),
-        <i32>::get_ptype(),
+        <i32>::get_type(),
+        <&i32>::get_type(),
+        <i32>::get_type(),
     ];
 
     let stmts = &[
@@ -20,7 +20,7 @@ fn pointer_partial_overwrite() {
         assign( // this corrupts one u8 of the pointer, stripping its provenance
             deref(
                 addr_of(local(1), <*mut u8>::get_type()),
-                <u8>::get_ptype(),
+                <u8>::get_type(),
             ),
             const_int::<u8>(12)
         ),
@@ -28,7 +28,7 @@ fn pointer_partial_overwrite() {
             local(2),
             load(deref(
                 load(local(1)),
-                <i32>::get_ptype(),
+                <i32>::get_type(),
             ))
         )
     ];

@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn div_zero() {
-    let locals = [<i32>::get_ptype()];
+    let locals = [<i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),

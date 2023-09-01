@@ -100,6 +100,8 @@ pub enum UnOp {
     PtrAddr,
     /// Integer-to-pointer cast (uses previously exposed provenance)
     PtrFromExposed(PtrType),
+    /// Transmute the value to a different type.
+    Transmute(Type),
 }
 
 pub enum BinOpInt {
@@ -155,7 +157,7 @@ pub enum PlaceExpr {
         #[specr::indirection]
         operand: ValueExpr,
         // The type of the newly created place.
-        ptype: PlaceType,
+        ty: Type,
     },
     /// Project to a field.
     Field {
@@ -256,11 +258,10 @@ pub enum Terminator {
 /// Function arguments can be passed by-value or in-place.
 pub enum ArgumentExpr {
     /// Pass a copy of this value to the function.
-    /// The alignment must match the one that the callee expects the argument to be passed at.
     ///
     /// Technically this could be encoded by generating a fresh temporary, copying the value there, and doing in-place passing.
     /// FIXME: is it worth providing this mode anyway?
-    ByValue(ValueExpr, Align),
+    ByValue(ValueExpr),
     /// Pass the argument value in-place; the contents of this place may be altered arbitrarily by the callee.
     InPlace(PlaceExpr),
 }
@@ -313,7 +314,7 @@ pub struct BbName(pub libspecr::Name);
 /// A MiniRust function.
 pub struct Function {
     /// The locals of this function, and their type.
-    pub locals: Map<LocalName, PlaceType>,
+    pub locals: Map<LocalName, Type>,
     /// A list of locals that are initially filled with the function arguments.
     pub args: List<LocalName>,
     /// The name of a local that holds the return value when the function returns.
@@ -341,7 +342,7 @@ pub struct Global {
     /// together with an offset, expressing where this allocation should put the pointer.
     /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
     pub relocations: List<(Size, Relocation)>,
-    /// The align with which this global shall be allocated.
+    /// The alignment with which this global shall be allocated.
     pub align: Align,
 }
 

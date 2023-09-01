@@ -1,7 +1,7 @@
 use crate::*;
 
 fn dummy_function() -> Function {
-    let locals = [<*const ()>::get_ptype()];
+    let locals = [<*const ()>::get_type()];
 
     let b0 = block!(exit());
 
@@ -11,7 +11,7 @@ fn dummy_function() -> Function {
 // Duplication of `spawn::spawn_success` for consistency.
 #[test]
 fn join_success() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -30,7 +30,7 @@ fn join_success() {
 
 #[test]
 fn join_arg_count() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let b0 = block!(
         Terminator::CallIntrinsic {
@@ -50,7 +50,7 @@ fn join_arg_count() {
 
 #[test]
 fn join_arg_value() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -66,7 +66,7 @@ fn join_arg_value() {
 
 #[test]
 fn join_wrongreturn() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -87,7 +87,7 @@ fn join_wrongreturn() {
 
 #[test]
 fn join_no_thread() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),

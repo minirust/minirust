@@ -1,14 +1,14 @@
 use crate::*;
 
 fn dummy_function() -> Function {
-    let locals = [<*const ()>::get_ptype()];
+    let locals = [<*const ()>::get_type()];
     let b0 = block!(exit());
     function(Ret::No, 1, &locals, &[b0])
 }
 
 #[test]
 fn spawn_success() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -40,8 +40,8 @@ fn spawn_success() {
 /// we do a trace based search it could have one. This is the reason we track synchronized threads.
 #[test]
 fn thread_spawn_spurious_race() {
-    let pp_ptype = <*const *const ()>::get_ptype(); // Pointer pointer place type.
-    let locals = [pp_ptype, <u32>::get_ptype()];
+    let pp_ptype = <*const *const ()>::get_type(); // Pointer pointer place type.
+    let locals = [pp_ptype, <u32>::get_type()];
 
     let size = const_int::<usize>(<*const ()>::get_size().bytes());
     let align = const_int::<usize>(<*const ()>::get_align().bytes());
@@ -69,7 +69,7 @@ fn thread_spawn_spurious_race() {
     let b4 = block!( exit() );
     let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
 
-    let locals = [<()>::get_ptype(), pp_ptype];
+    let locals = [<()>::get_type(), pp_ptype];
     let b0 = block!(
         assign(deref(load(local(1)), pp_ptype), null()),
         return_(),
@@ -104,7 +104,7 @@ fn spawn_arg_count() {
 
 #[test]
 fn spawn_arg_value() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -127,7 +127,7 @@ fn no_args() -> Function {
 
 #[test]
 fn spawn_func_no_args() {
-    let locals = [<i32>::get_ptype()];
+    let locals = [<i32>::get_type()];
     let b0 = block!(
         storage_live(0),
         spawn(fn_ptr(1), null(), local(0), 1),
@@ -141,7 +141,7 @@ fn spawn_func_no_args() {
 
 
 fn returns() -> Function {
-    let locals = [<u32>::get_ptype(), <*const ()>::get_ptype()];
+    let locals = [<u32>::get_type(), <*const ()>::get_type()];
     let b0 = block!(
         assign(local(0), const_int::<u32>(0)),
         return_()
@@ -151,7 +151,7 @@ fn returns() -> Function {
 
 #[test]
 fn spawn_func_returns() {
-    let locals = [<i32>::get_ptype()];
+    let locals = [<i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -166,7 +166,7 @@ fn spawn_func_returns() {
 
 #[test]
 fn spawn_wrongreturn() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -184,7 +184,7 @@ fn spawn_wrongreturn() {
 
 #[test]
 fn spawn_data_ptr() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -201,14 +201,14 @@ fn spawn_data_ptr() {
 }
 
 fn wrongarg() -> Function {
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
     let b0 = block!(exit());
     function(Ret::No, 1, &locals, &[b0])
 }
 
 #[test]
 fn spawn_wrongarg() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),

@@ -20,11 +20,7 @@ fn unit_value<M: Memory>() -> Value<M> {
 }
 
 fn unit_type() -> Type {
-    Type::Tuple { fields: list![], size: Size::ZERO }
-}
-
-fn unit_ptype() -> PlaceType {
-    PlaceType { ty: unit_type(), align: Align::ONE }
+    Type::Tuple { fields: list![], size: Size::ZERO, align: Align::ONE }
 }
 ```
 
@@ -177,7 +173,7 @@ The intrinsics for spawning and joining threads.
 impl<M: Memory> Machine<M> {
     fn spawn(&mut self, func: Function, data_pointer: Value<M>, data_ptr_ty: Type) -> NdResult<ThreadId> {
         // Create the thread.
-        let args = list![(data_pointer, PlaceType::new(data_ptr_ty, M::T::PTR_ALIGN))];
+        let args = list![(data_pointer, data_ptr_ty)];
         let thread_id = self.new_thread(func, args)?;
 
         // This thread got synchronized because its existence startet with this.
@@ -286,8 +282,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::AtomicStore`")
         }
 
-        let pty = PlaceType { ty, align };
-        self.mem.typed_store(ptr, val, pty, Atomicity::Atomic)?;
+        self.mem.typed_store(ptr, val, ty, align, Atomicity::Atomic)?;
         ret(unit_value())
     }
 
@@ -313,8 +308,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinsic::AtomicLoad`, size too big");
         }
 
-        let pty = PlaceType { ty: ret_ty, align };
-        let val = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;
+        let val = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
         ret(val)
     }
 
@@ -352,17 +346,15 @@ impl<M: Memory> Machine<M> {
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size to big");
         }
-        
-        let pty = PlaceType { ty: ret_ty, align };
 
         // The value at the location right now.
-        let before = self.mem.typed_load(ptr, pty, Atomicity::Atomic)?;
+        let before = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
 
         // This is the central part of the operation. If the expected before value at ptr is the current value,
         // then we exchange it for the next value.
         // FIXME: The memory model might have to know that this is a compare-exchange.
         if current == before {
-            self.mem.typed_store(ptr, next, pty, Atomicity::Atomic)?;
+            self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
         } else {
             // We do *not* do a store on a failing AtomicCompareExchange. This means that races between
             // a non-atomic read and a failing AtomicCompareExchange are not considered UB!

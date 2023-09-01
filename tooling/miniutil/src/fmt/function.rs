@@ -44,15 +44,15 @@ fn fmt_function(
     };
 
     // Format locals
-    let mut locals: Vec<(LocalName, PlaceType)> = f.locals.iter().collect();
+    let mut locals: Vec<(LocalName, Type)> = f.locals.iter().collect();
 
     // The locals are formatted in the order of their names.
-    locals.sort_by_key(|(LocalName(name), _place_ty)| *name);
+    locals.sort_by_key(|(LocalName(name), _ty)| *name);
 
-    for (l, pty) in locals {
+    for (l, ty) in locals {
         let local = fmt_local_name(l).to_string();
-        let ptype = fmt_ptype(pty, comptypes).to_string();
-        out += &format!("  let {local}: {ptype};\n");
+        let ty = fmt_type(ty, comptypes).to_string();
+        out += &format!("  let {local}: {ty};\n");
     }
 
     // Format basic blocks
@@ -181,8 +181,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             let args: Vec<_> = arguments
                 .iter()
                 .map(|arg| match arg {
-                    ArgumentExpr::ByValue(value, align) =>
-                        format!("by-value({})@align({})", fmt_value_expr(value, comptypes).to_string(), align.bytes()),
+                    ArgumentExpr::ByValue(value) =>
+                        format!("by-value({})", fmt_value_expr(value, comptypes).to_string()),
                     ArgumentExpr::InPlace(place) =>
                         format!("in-place({})", fmt_place_expr(place, comptypes).to_string()),
                 })

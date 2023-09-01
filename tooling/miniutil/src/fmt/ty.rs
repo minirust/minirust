@@ -1,11 +1,5 @@
 use super::*;
 
-pub(super) fn fmt_ptype(place_ty: PlaceType, comptypes: &mut Vec<CompType>) -> String {
-    let ty_str = fmt_type(place_ty.ty, comptypes).to_atomic_string();
-    let align = place_ty.align.bytes();
-    format!("{ty_str}@align({align})")
-}
-
 pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match t {
         Type::Int(int_ty) => FmtExpr::Atomic(fmt_int_type(int_ty)),
@@ -127,18 +121,20 @@ pub(super) fn fmt_comptypes(mut comptypes: Vec<CompType>) -> String {
 }
 
 fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) -> String {
-    let (keyword, fields, opt_chunks, size) = match t.0 {
-        Type::Tuple { fields, size } => ("tuple", fields, None, size),
+    let (keyword, fields, opt_chunks, size, align) = match t.0 {
+        Type::Tuple { fields, size, align } => ("tuple", fields, None, size, align),
         Type::Union {
             chunks,
             fields,
             size,
-        } => ("union", fields, Some(chunks), size),
+            align,
+        } => ("union", fields, Some(chunks), size, align),
         _ => panic!("not a supported composite type!"),
     };
     let ct = fmt_comptype_index(i).to_string();
     let size = size.bytes();
-    let mut s = format!("{keyword} {ct} ({size} bytes) {{\n");
+    let align = align.bytes();
+    let mut s = format!("{keyword} {ct} ({size} bytes, aligned {align} bytes) {{\n");
     for (offset, f) in fields {
         let offset = offset.bytes();
         let ty = fmt_type(f, comptypes).to_string();

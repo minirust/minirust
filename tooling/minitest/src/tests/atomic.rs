@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn atomic_write_success() {
-    let locals = [<u32>::get_ptype()];
+    let locals = [<u32>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -61,7 +61,7 @@ fn atomic_write_arg_type1() {
 
 #[test]
 fn atomic_write_arg_type_pow() {
-    let locals = [<[u8; 3]>::get_ptype()];
+    let locals = [<[u8; 3]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
     let arr = const_array(&[
@@ -89,7 +89,7 @@ fn atomic_write_arg_type_pow() {
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
 #[test]
 fn atomic_write_arg_type_size() {
-    let locals = [<[u64; 2]>::get_ptype()];
+    let locals = [<[u64; 2]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
     let arr = const_array(&[
@@ -115,7 +115,7 @@ fn atomic_write_arg_type_size() {
 
 #[test]
 fn atomic_write_ret_type() {
-    let locals = [<u64>::get_ptype()];
+    let locals = [<u64>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -138,7 +138,7 @@ fn atomic_write_ret_type() {
 
 #[test]
 fn atomic_read_success() {
-    let locals = [<u32>::get_ptype(); 2];
+    let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -163,7 +163,7 @@ fn atomic_read_success() {
 
 #[test]
 fn atomic_read_arg_count() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -183,7 +183,7 @@ fn atomic_read_arg_count() {
 
 #[test]
 fn atomic_read_arg_type() {
-    let locals = [ <u32>::get_ptype() ];
+    let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
         storage_live(0),
@@ -203,7 +203,7 @@ fn atomic_read_arg_type() {
 
 #[test]
 fn atomic_read_ret_type_pow() {
-    let locals = [ <()>::get_ptype() ];
+    let locals = [ <()>::get_type() ];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -221,7 +221,7 @@ fn atomic_read_ret_type_pow() {
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
 #[test]
 fn atomic_read_ret_type_size() {
-    let locals = [ <[u64; 2]>::get_ptype() ];
+    let locals = [ <[u64; 2]>::get_type() ];
 
     let ptr_ty = raw_ptr_ty();
 

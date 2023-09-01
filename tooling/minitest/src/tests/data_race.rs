@@ -40,7 +40,7 @@ fn access_block(access: AccessPattern, support_global: u32, next: u32) -> BasicB
 
 fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program {
     // The main thread.
-    let main_locals = [<u32>::get_ptype()];
+    let main_locals = [<u32>::get_type()];
 
     let main_b0 = block!(
         storage_live(0),
@@ -54,7 +54,7 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     let main = function(Ret::No, 0, &main_locals, &[main_b0, main_b1, main_b2, main_b3]);
 
     // The second thread.
-    let s_locals = [<()>::get_ptype(), <*const ()>::get_ptype()];
+    let s_locals = [<()>::get_type(), <*const ()>::get_type()];
     let s_b0 = access_block(s_access, 2, 1);
     let s_b1 = block!(
         return_()

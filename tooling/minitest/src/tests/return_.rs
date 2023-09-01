@@ -3,13 +3,13 @@ use crate::*;
 #[test]
 fn return_success() {
     let other_f = {
-        let locals = [<()>::get_ptype()];
+        let locals = [<()>::get_type()];
         let b0 = block!(return_());
 
         function(Ret::Yes, 0, &locals, &[b0])
     };
 
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -26,13 +26,13 @@ fn return_success() {
 #[test]
 fn return_no_next() {
     let other_f = {
-        let locals = [<()>::get_ptype()];
+        let locals = [<()>::get_type()];
         let b0 = block!(return_());
 
         function(Ret::Yes, 0, &locals, &[b0])
     };
 
-    let locals = [<()>::get_ptype()];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -48,7 +48,7 @@ fn return_no_next() {
 
 #[test]
 fn return_intrinsic_no_next() {
-    let locals = [<*const i32>::get_ptype()];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),

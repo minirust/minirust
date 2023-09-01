@@ -12,18 +12,12 @@ For pointer types (references and raw pointers), types also contain a "mutabilit
 (We might want to organize this differently in the future, and remove mutability from types.)
 Union types know the types of their fields solely to support union field place projections.
 
-MiniRust has types `Type` for values, and `PlaceType` for places.
-Place types combine a value type with an alignment; places of that type are guaranteed to be suitably aligned.
-Rust types correspond to place types.
-This distinction allows us to elegantly encode `repr(packed)` and `repr(align)` by varying the `align` field of the place type.
-It also elegantly avoids having to define a function that computes the alignment for any `Type` -- that is almost entirely target-dependent anyway, and not at all related to how values of that type get (de)serialized.
-
 Note that for now, we make the exact offsets of each field part of the type.
 As always, this definition is incomplete.
 In the future, we might want to separate a type from its layout, and consider these separate components -- we will have to see what works best.
 
 ```rust
-/// "Value" types -- these have a size, but not an alignment.
+/// The types of MiniRust.
 pub enum Type {
     Int(IntType),
     Bool,
@@ -32,14 +26,18 @@ pub enum Type {
     Tuple {
         /// Fields must not overlap.
         fields: Fields,
-        /// The total size of the type can indicate trailing padding.
+        /// The total size of the tuple can indicate trailing padding.
         /// Must be large enough to contain all fields.
         size: Size,
+        /// Total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
+        /// this is independent of the fields' alignment.
+        align: Align,
     },
     Array {
         #[specr::indirection]
         elem: Type,
         count: Int,
+        // TODO: store whether this is a (SIMD) vector, and something about alignment?
     },
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
@@ -52,6 +50,9 @@ pub enum Type {
         chunks: List<(Size, Size)>, // (offset, length) for each chunk.
         /// The total size of the union, can indicate padding after the last chunk.
         size: Size,
+        /// Total alignment of the union. Due to `repr(packed)` and `repr(align)`,
+        /// this is independent of the fields' alignment.
+        align: Align,
     },
     Enum {
         /// Each variant is given by a type. All types are thought to "start at offset 0";
@@ -64,13 +65,14 @@ pub enum Type {
         /// This contains all the tricky details of how to encode the active variant
         /// at runtime.
         tag_encoding: TagEncoding,
-        /// The total size of the type can indicate trailing padding.
+        /// The total size of the enum can indicate trailing padding.
         /// Must be large enough to contain all variants.
         size: Size,
+        /// Total alignment of the enum. Due to `repr(packed)` and `repr(align)`,
+        /// this is independent of the fields' alignment.
+        align: Align,
     },
 }
-
-
 
 pub struct IntType {
     pub signed: Signedness,
@@ -83,12 +85,6 @@ pub type Fields = List<(Size, Type)>; // (offset, type) pair for each field
 /// (We might want to extend the "variants" field of `Enum` to also have a
 /// discriminant for each variant. We will see.)
 pub enum TagEncoding { /* ... */ }
-
-/// "Place" types are laid out in memory and thus also have an alignment requirement.
-pub struct PlaceType {
-    pub ty: Type,
-    pub align: Align,
-}
 ```
 
 Note that references have no lifetime, since the lifetime is irrelevant for their representation in memory!
@@ -111,6 +107,23 @@ impl Type {
         }
     }
 
+    pub fn align<T: Target>(self) -> Align {
+        use Type::*;
+        match self {
+            Int(int_type) => {
+                let size = int_type.size.bytes();
+                // The size is a power of two, so we can use it as alignment.
+                let natural_align = Align::from_bytes(size).unwrap();
+                // Integer alignment is capped by the target.
+                natural_align.min(T::INT_MAX_ALIGN)
+            }
+            Bool => Align::ONE,
+            Ptr(_) => T::PTR_ALIGN,
+            Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
+            Array { elem, .. } => elem.align::<T>(),
+        }
+    }
+
     pub fn inhabited(self) -> bool {
         use Type::*;
         match self {
@@ -122,18 +135,12 @@ impl Type {
             Enum { variants, .. } => variants.any(|ty| ty.inhabited()),
         }
     }
-}
-
-impl PlaceType {
-    pub fn new(ty: Type, align: Align) -> Self {
-        PlaceType { ty, align }
-    }
 
     pub fn layout<T: Target>(self) -> Layout {
         Layout {
-            size: self.ty.size::<T>(),
-            align: self.align,
-            inhabited: self.ty.inhabited(),
+            size: self.size::<T>(),
+            align: self.align::<T>(),
+            inhabited: self.inhabited(),
         }
     }
 }

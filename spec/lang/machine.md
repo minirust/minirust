@@ -51,8 +51,8 @@ struct StackFrame<M: Memory> {
     /// The function this stack frame belongs to.
     func: Function,
 
-    /// For each live local, the place in memory where its value is stored.
-    locals: Map<LocalName, Place<M>>,
+    /// For each live local, the location in memory where its value is stored.
+    locals: Map<LocalName, Pointer<M::Provenance>>,
 
     /// Expresses what happens after the callee (this function) returns.
     return_action: ReturnAction<M>,
@@ -75,8 +75,8 @@ enum ReturnAction<M: Memory> {
         /// If `None`, UB will be raised when the callee returns.
         next_block: Option<BbName>,
         /// The location where the caller wants to see the return value.
-        /// Has already been checked to be suitably compatible with the callee return type.
-        ret_place: Place<M>,
+        /// The caller type already been checked to be suitably compatible with the callee return type.
+        ret_val_ptr: Pointer<M::Provenance>,
     }
 }
 ```
@@ -220,14 +220,14 @@ Next, we define how to create a thread.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn new_thread(&mut self, func: Function, args: List<(Value<M>, PlaceType)>) -> NdResult<ThreadId> {
+    fn new_thread(&mut self, func: Function, args: List<(Value<M>, Type)>) -> NdResult<ThreadId> {
         // The bottom of a stack must have a 1-ZST return type.
         // This way it cannot assume there is actually a return place to write anything to.
         let init_frame = self.create_frame(
             func,
             ReturnAction::BottomOfStack,
             CallingConvention::C,
-            unit_ptype(),
+            unit_type(),
             args,
         )?;
         // Push the new thread, return the index.

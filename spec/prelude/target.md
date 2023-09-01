@@ -11,6 +11,10 @@ pub trait Target {
     const PTR_SIZE: Size;
     const PTR_ALIGN: Align;
 
+    /// The maximum alignment of integer types.
+    /// Smaller types are aligned to their size.
+    const INT_MAX_ALIGN: Align;
+
     /// The endianess used for encoding multi-byte integer values (and pointers).
     const ENDIANNESS: Endianness;
 
@@ -31,6 +35,7 @@ pub struct x86_64;
 impl Target for x86_64 {
     const PTR_SIZE: Size = Size::from_bits_const(64).unwrap();
     const PTR_ALIGN: Align = Align::from_bits_const(64).unwrap();
+    const INT_MAX_ALIGN: Align = Align::from_bits_const(64).unwrap();
     const ENDIANNESS: Endianness = LittleEndian;
 
     const MAX_ATOMIC_SIZE: Size = Size::from_bits_const(64).unwrap();
