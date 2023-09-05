@@ -383,3 +383,69 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
+
+We also implement the atomic fetch operations. First we define a helper function to decide which operations can be in a fetch operation.
+
+```rust
+/// Predicate to indicate if integer bin-op can be used for atomic fetch operations.
+fn is_atomic_binop(op: BinOpInt) -> bool {
+    use BinOpInt as B;
+    match op {
+        B::Add | B::Sub => true,
+        _ => false
+    }
+}
+
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::AtomicFetch(op): Intrinsic,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 2 {
+            throw_ub!("invalid number of arguments for `Intrinsic::AtomicFetch`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Intrinsic::AtomicFetch`, not a pointer");
+        };
+
+        let (other, other_ty) = arguments[1];
+        if other_ty != ret_ty {
+            throw_ub!("invalid second argument to `Intrinsic::AtomicFetch`, not same type as return value");
+        }
+
+        if !matches!(ret_ty, Type::Int(_)) {
+            throw_ub!("invalid return type for `Intrinis::AtomicFetch`, only works with integers");
+        }
+
+        let size = ret_ty.size::<M::T>();
+        // All integer sizes are powers of two.
+        let align = Align::from_bytes(size.bytes()).unwrap();
+        if size > M::T::MAX_ATOMIC_SIZE {
+            throw_ub!("invalid return type for `Intrinsic::AtomicFetch`, size to big");
+        }
+
+        if !is_atomic_binop(op) {
+            throw_ub!("invalid bin op for `Intrinsic::AtomicFetch`");
+        }
+
+        // The value at the location right now.
+        let previous = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
+
+        // Convert to integers
+        let Value::Int(other_int) = other else { unreachable!() };
+        let Value::Int(previous_int) = previous else { unreachable!() };
+
+        // Perform operation.
+        let next_int = self.eval_bin_op_int(op, previous_int, other_int)?;
+        let next = Value::Int(next_int);
+
+        // Store it again.
+        self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
+
+        ret(previous)
+    }
+}
+```
