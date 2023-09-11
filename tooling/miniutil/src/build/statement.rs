@@ -141,6 +141,25 @@ pub fn atomic_load(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
     }
 }
 
+pub enum FetchBinOp {
+    Add,
+    Sub,
+}
+
+pub fn atomic_fetch(binop: FetchBinOp, dest: PlaceExpr, ptr: ValueExpr, other: ValueExpr, next: u32) -> Terminator {
+    let binop = match binop {
+        FetchBinOp::Add => BinOpInt::Add,
+        FetchBinOp::Sub => BinOpInt::Sub,
+    };
+
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::AtomicFetch(binop),
+        arguments: list!(ptr, other),
+        ret: dest,
+        next_block: Some(BbName(Name::from_internal(next)))
+    }
+}
+
 pub fn compare_exchange(dest: PlaceExpr, ptr: ValueExpr, current: ValueExpr, next_val: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic { 
         intrinsic: Intrinsic::AtomicCompareExchange,
