@@ -129,6 +129,8 @@ fn translate_call<'cx, 'tcx>(
             "atomic_store" => Intrinsic::AtomicStore,
             "atomic_load" => Intrinsic::AtomicLoad,
             "compare_exchange" => Intrinsic::AtomicCompareExchange,
+            "atomic_add" => Intrinsic::AtomicFetch(BinOpInt::Add),
+            "atomic_sub" => Intrinsic::AtomicFetch(BinOpInt::Sub),
             name => panic!("unsupported intrinsic `{}`", name),
         };
         Terminator::CallIntrinsic {

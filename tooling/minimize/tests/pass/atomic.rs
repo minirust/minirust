@@ -19,4 +19,12 @@ fn main() {
     let v = unsafe { compare_exchange(ptr, 2, 4) };
     print(x);
     print(v);
+
+    let v = unsafe { atomic_add(ptr, 3) };
+    print(x);
+    print(v);
+    
+    let v = unsafe { atomic_sub(ptr, 4) };
+    print(x);
+    print(v);
 }
