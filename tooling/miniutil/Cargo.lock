@@ -67,9 +67,9 @@ checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
 name = "libspecr"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c084dcc6ac3eccf5ecb061e634e022cdcbfcc4f4de8c3f5f7e7c78ce1159c116"
+checksum = "1b9255eb7bc7a0a3dd770abcd2da8d4d6940c684fcd01f74ed62d2007b842d9a"
 dependencies = [
  "gccompat-derive",
  "im",

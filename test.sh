@@ -2,7 +2,7 @@
 set -ex
 
 # Fixed specr-transpile version
-SPECR_VERSION="0.1.25"
+SPECR_VERSION="0.1.26"
 
 # Stricter checks on CI
 if [ -n "$CI" ]; then
