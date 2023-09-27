@@ -229,16 +229,58 @@ impl Type {
 
 ### Enums
 
-TODO: implement Enum decoding & encoding.
+Enum encoding and decoding.
+Should we let the type decoding throw UB?
 
 ```rust
+fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
+    let mut disc = discriminator;
+    loop {
+        match disc {
+            Discriminator::Known(val) => break Some(val),
+            Discriminator::Unknown { offset, children } => {
+                if offset < 0 || offset >= bytes.len() { throw!(); }
+                let AbstractByte::Init(val, _) = bytes.get(offset).unwrap()
+                    else { break None };
+                    // else { throw_ub!("Encountered uninitialized byte while computing enum discriminant.") };
+                let Some(new_disc) = children.get(val)
+                    else { break None };
+                    // else { throw_ub!("Encountered invalid discriminant value.") };
+                disc = new_disc;
+            }
+        }
+    }
+}
+
 impl Type {
-    fn decode<M: Memory>(Type::Enum { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        todo!()
+    fn decode<M: Memory>(Type::Enum { variants, tag_encoding, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        if bytes.len() != size.bytes() { throw!(); }
+        let disc = compute_discriminant::<M>(bytes, tag_encoding.discriminator)?;
+
+        // The discriminator does the discriminant check and as such should not be able to return an invalid value.
+        if disc < Int::ZERO || disc >= variants.len() { throw!(); }
+        variants.get(disc).unwrap().decode(bytes)
     }
 
-    fn encode<M: Memory>(Type::Enum { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        todo!()
+    fn encode<M: Memory>(Type::Enum { variants, tag_encoding, size, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        let Value::Variant { idx, data } = val else { panic!() };
+        assert_eq!(variants.len(), tag_encoding.tagger.len());
+
+        let mut bytes = list![AbstractByte::Uninit; size.bytes()];
+
+        // idx is to be guaranteed in bounds by the well-formed check in the typed store.
+        let variant = variants.get(idx).unwrap();
+        let encoded_data = variant.encode(data.extract());
+        assert!(encoded_data.len() <= size.bytes());
+        bytes.write_subslice_at_index(Int::ZERO, encoded_data);
+
+        let tagger = tag_encoding.tagger.get(idx).unwrap();
+
+        // TODO: is there a nicer way instead of all these temporary lists?
+        for (offset, value) in tagger.iter() {
+            bytes.set(offset, value);
+        }
+        bytes
     }
 }
 ```

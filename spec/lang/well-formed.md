@@ -108,11 +108,16 @@ impl Type {
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
             }
-            Enum { variants, size, tag_encoding: _, align: _ } => {
+            Enum { variants, size, tag_encoding, align: _ } => {
+                // All the variants need to be well-formed and fit in the enum.
                 for variant in variants {
                     variant.check_wf::<T>()?;
                     ensure(size >= variant.size::<T>())?;
                 }
+                // And we need a tagger for each variant (even if they are empty).
+                ensure(variants.len() == tag_encoding.tagger.len())?;
+                // TODO: should we ensure that the discriminator can reach a) all idx and b) only valid idx?
+                // not all idx need to be reachable, but tagger & discriminator need to be in bounds
             }
         }
 
@@ -564,8 +569,9 @@ impl<M: Memory> Value<M> {
                 }
             }
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) => {
-                ensure(idx < variants.len())?;
-                data.check_wf(variants[idx])?;
+                // TODO: check if enum is uninhabited
+                let variant = variants.get(idx)?;
+                data.check_wf(variant)?;
             }
             _ => throw!()
         }

@@ -84,7 +84,18 @@ pub type Fields = List<(Offset, Type)>;
 /// We leave the details of enum tags to the future.
 /// (We might want to extend the "variants" field of `Enum` to also have a
 /// discriminant for each variant. We will see.)
-pub enum TagEncoding { /* ... */ }
+pub struct TagEncoding {
+    discriminator: Discriminator,
+    tagger: List<Map<Int, u8>>, // TODO: move to Variant struct
+}
+
+pub enum Discriminator {
+    Known(Int),
+    Unknown { // Branch
+        offset: Int,
+        children: Map<u8, Discriminator>,
+    },
+}
 ```
 
 Note that references have no lifetime, since the lifetime is irrelevant for their representation in memory!
