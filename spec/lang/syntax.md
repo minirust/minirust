@@ -32,6 +32,17 @@ pub enum ValueExpr {
         union_ty: Type,
     },
 
+    /// A variant of an enum type.
+    Variant {
+        /// The variant index.
+        idx: Int,
+        /// The `ValueExpr` for the variant.
+        #[specr::indirection]
+        data: ValueExpr,
+        /// The enum type, needs to be `Type::Enum``.
+        enum_ty: Type,
+    },
+
     /// Load a value from memory.
     Load {
         /// The place to load from.
@@ -75,13 +86,6 @@ pub enum Constant {
     FnPointer(FnName),
     /// A constant pointer, not pointing into any allocation.
     InvalidPointer(Address),
-    /// A variant of a sum type, used for enums.
-    // TODO Variant shouldn't be a Constant, but rather a ValueExpr.
-    Variant {
-        idx: Int,
-        #[specr::indirection]
-        data: Constant,
-    },
 }
 
 pub enum UnOpInt {
