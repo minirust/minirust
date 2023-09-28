@@ -1,18 +1,18 @@
 use crate::*;
 
 #[test]
-fn atomic_write_success() {
+fn atomic_store_success() {
     let locals = [<u32>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
 
-    // We show that atomic write actually writes by writing 1 to local(0)
+    // We show that atomic store actually writes by writing 1 to local(0)
 
     let b0 = block!(
         storage_live(0),
         assign(local(0), const_int::<u32>(0)),
 
-        atomic_write(addr_of(local(0), ptr_ty), const_int::<u32>(1), 1)
+        atomic_store(addr_of(local(0), ptr_ty), const_int::<u32>(1), 1)
     );
     let b1 = block!(
         if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3)
@@ -26,7 +26,7 @@ fn atomic_write_success() {
 }
 
 #[test]
-fn atomic_write_arg_count() {
+fn atomic_store_arg_count() {
     let b0 = block!(
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
@@ -43,7 +43,7 @@ fn atomic_write_arg_count() {
 }
 
 #[test]
-fn atomic_write_arg_type1() {
+fn atomic_store_arg_type1() {
     let b0 = block!(
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
@@ -60,7 +60,7 @@ fn atomic_write_arg_type1() {
 }
 
 #[test]
-fn atomic_write_arg_type_pow() {
+fn atomic_store_arg_type_pow() {
     let locals = [<[u8; 3]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
@@ -88,7 +88,7 @@ fn atomic_write_arg_type_pow() {
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
 #[test]
-fn atomic_write_arg_type_size() {
+fn atomic_store_arg_type_size() {
     let locals = [<[u64; 2]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
@@ -114,7 +114,7 @@ fn atomic_write_arg_type_size() {
 }
 
 #[test]
-fn atomic_write_ret_type() {
+fn atomic_store_ret_type() {
     let locals = [<u64>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
@@ -137,18 +137,18 @@ fn atomic_write_ret_type() {
 }
 
 #[test]
-fn atomic_read_success() {
+fn atomic_load_success() {
     let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
 
-    // We show that atomic read actually reads by reading 1 from local(1).
+    // We show that atomic load actually reads by reading 1 from local(1).
     let b0 = block!(
         storage_live(0),
         storage_live(1),
         assign(local(1), const_int::<u32>(1)),
 
-        atomic_read(local(0), addr_of(local(1), ptr_ty), 1)
+        atomic_load(local(0), addr_of(local(1), ptr_ty), 1)
     );
     let b1 = block!(
         if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3)
@@ -162,7 +162,7 @@ fn atomic_read_success() {
 }
 
 #[test]
-fn atomic_read_arg_count() {
+fn atomic_load_arg_count() {
     let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
@@ -182,7 +182,7 @@ fn atomic_read_arg_count() {
 }
 
 #[test]
-fn atomic_read_arg_type() {
+fn atomic_load_arg_type() {
     let locals = [ <u32>::get_type() ];
 
     let b0 = block!(
@@ -202,14 +202,14 @@ fn atomic_read_arg_type() {
 }
 
 #[test]
-fn atomic_read_ret_type_pow() {
+fn atomic_load_ret_type_pow() {
     let locals = [ <()>::get_type() ];
 
     let ptr_ty = raw_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
-        atomic_read(local(0), addr_of(local(0), ptr_ty), 1)
+        atomic_load(local(0), addr_of(local(0), ptr_ty), 1)
     );
     let b1 = block!(exit());
 
@@ -220,14 +220,14 @@ fn atomic_read_ret_type_pow() {
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
 #[test]
-fn atomic_read_ret_type_size() {
+fn atomic_load_ret_type_size() {
     let locals = [ <[u64; 2]>::get_type() ];
 
     let ptr_ty = raw_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
-        atomic_read(local(0), addr_of(local(0), ptr_ty), 1)
+        atomic_load(local(0), addr_of(local(0), ptr_ty), 1)
     );
     let b1 = block!(exit());
 

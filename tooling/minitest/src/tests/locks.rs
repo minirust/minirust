@@ -66,7 +66,7 @@ fn lock_handover() {
 /// 
 /// fn critical() {
 ///     acquire(global_0);
-///     atomic_write(global_1, &global_0);
+///     atomic_store(global_1, &global_0);
 ///     release(*global_1)
 /// }
 /// 
@@ -93,7 +93,7 @@ fn lock_handover_data_race() {
     let b0 = block!(
         acquire(load(global::<u32>(0)), 1) 
     );
-    let b1 = block!( atomic_write(addr_of(global::<*const u32>(1), <*const *const u32>::get_type()), addr_of(global::<u32>(0), ptr_ty), 2));
+    let b1 = block!( atomic_store(addr_of(global::<*const u32>(1), <*const *const u32>::get_type()), addr_of(global::<u32>(0), ptr_ty), 2));
     let b2 = block!( release(load(deref(load(global::<*const u32>(1)), p_ptype)), 3) );
     let b3 = block!( return_() );
     let critical = function(Ret::Yes, 0, &locals, &[b0,b1,b2,b3]);

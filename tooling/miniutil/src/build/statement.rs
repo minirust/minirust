@@ -123,7 +123,7 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
     }
 }
 
-pub fn atomic_write(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
+pub fn atomic_store(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::AtomicStore,
         arguments: list!(ptr, src),
@@ -132,7 +132,7 @@ pub fn atomic_write(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
     }
 }
 
-pub fn atomic_read(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
+pub fn atomic_load(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::AtomicLoad,
         arguments: list!(ptr),

@@ -206,12 +206,12 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::Deallocate => "deallocate",
                 Intrinsic::Spawn => "spawn",
                 Intrinsic::Join => "join",
-                Intrinsic::AtomicStore => "atomic-write",
-                Intrinsic::AtomicLoad => "atomic-read",
-                Intrinsic::AtomicCompareExchange => "compare-exchange",
-                Intrinsic::Lock(LockIntrinsic::Acquire) => "lock-acquire",
-                Intrinsic::Lock(LockIntrinsic::Create) => "lock-create",
-                Intrinsic::Lock(LockIntrinsic::Release) => "lock-release",
+                Intrinsic::AtomicStore => "atomic_store",
+                Intrinsic::AtomicLoad => "atomic_load",
+                Intrinsic::AtomicCompareExchange => "atomic_compare_exchange",
+                Intrinsic::Lock(LockIntrinsic::Acquire) => "lock_acquire",
+                Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
+                Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",
             };
             let args: Vec<_> = arguments
                 .iter()

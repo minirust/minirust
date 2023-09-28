@@ -15,7 +15,7 @@ fn access_block(access: AccessPattern, support_global: u32, next: u32) -> BasicB
     match access {
         AccessPattern(AccessType::Load, Atomicity::Atomic) => {
             block!(
-                atomic_read(global::<u32>(support_global), addr, next)
+                atomic_load(global::<u32>(support_global), addr, next)
             )
         },
         AccessPattern(AccessType::Load, Atomicity::None) => {
@@ -26,7 +26,7 @@ fn access_block(access: AccessPattern, support_global: u32, next: u32) -> BasicB
         },
         AccessPattern(AccessType::Store, Atomicity::Atomic) => {
             block!(
-                atomic_write(addr, load(global::<u32>(support_global)), next)
+                atomic_store(addr, load(global::<u32>(support_global)), next)
             )
         },
         AccessPattern(AccessType::Store, Atomicity::None) => {

@@ -376,7 +376,7 @@ impl<M: Memory> Machine<M> {
             self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
         } else {
             // We do *not* do a store on a failing AtomicCompareExchange. This means that races between
-            // a non-atomic read and a failing AtomicCompareExchange are not considered UB!
+            // a non-atomic load and a failing AtomicCompareExchange are not considered UB!
         }
 
         ret(before)
