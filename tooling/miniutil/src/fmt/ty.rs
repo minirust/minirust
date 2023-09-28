@@ -121,7 +121,7 @@ pub(super) fn fmt_comptypes(mut comptypes: Vec<CompType>) -> String {
 
 fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) -> String {
     let (keyword, size, align) = match t.0 {
-        Type::Tuple { fields, size, align } => ("tuple", size, align),
+        Type::Tuple { fields: _, size, align } => ("tuple", size, align),
         Type::Union {
             size,
             align,
