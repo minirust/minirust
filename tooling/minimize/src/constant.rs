@@ -53,7 +53,7 @@ fn translate_const_uneval<'cx, 'tcx>(
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    let Ok(Some(instance)) = rs::Instance::resolve(fcx.cx.tcx, rs::ParamEnv::empty(), uneval.def, uneval.substs) else {
+    let Ok(Some(instance)) = rs::Instance::resolve(fcx.cx.tcx, rs::ParamEnv::empty(), uneval.def, uneval.args) else {
         panic!("can't resolve unevaluated const!")
     };
     let cid = rs::GlobalId {
@@ -63,7 +63,7 @@ fn translate_const_uneval<'cx, 'tcx>(
     let alloc = fcx
         .cx
         .tcx
-        .eval_to_allocation_raw(rs::ParamEnv::empty().with_const().and(cid))
+        .eval_to_allocation_raw(rs::ParamEnv::empty().and(cid))
         .unwrap();
     let name = translate_alloc_id(alloc.alloc_id, fcx);
     let offset = Size::ZERO;

@@ -95,7 +95,7 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
 fn translate_adt_fields<'tcx>(
     ty: rs::Ty<'tcx>,
     adt_def: rs::AdtDef<'tcx>,
-    sref: rs::SubstsRef<'tcx>,
+    sref: rs::GenericArgsRef<'tcx>,
     tcx: rs::TyCtxt<'tcx>,
 ) -> (Fields, Size, Align) {
     let a = rs::ParamEnv::empty().and(ty);
