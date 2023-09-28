@@ -3,6 +3,7 @@
 use crate::*;
 use rustc_driver::{Callbacks, Compilation, RunCompiler};
 use rustc_interface::{interface::Compiler, Queries};
+use rustc_session::EarlyErrorHandler;
 
 pub fn get_mini(file: String, callback: impl FnOnce(Program) + Send + Copy) {
     if !Path::new(&file).exists() {
@@ -39,6 +40,7 @@ struct Cb<F: FnOnce(Program) + Send + Copy> {
 impl<F: FnOnce(Program) + Send + Copy> Callbacks for Cb<F> {
     fn after_analysis<'tcx>(
         &mut self,
+        _handler: &EarlyErrorHandler,
         _compiler: &Compiler,
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {

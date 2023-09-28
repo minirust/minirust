@@ -186,7 +186,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let ls = list![op; c];
             ValueExpr::Tuple(ls, ty)
         }
-        rs::Rvalue::Cast(rs::CastKind::Pointer(rs::adjustment::PointerCast::ReifyFnPointer), func, _) => {
+        rs::Rvalue::Cast(rs::CastKind::PointerCoercion(rs::adjustment::PointerCoercion::ReifyFnPointer), func, _) => {
             let rs::Operand::Constant(box f1) = func else { panic!() };
             let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
             let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };

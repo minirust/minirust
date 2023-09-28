@@ -4,7 +4,7 @@ pub struct Ctxt<'tcx> {
     pub tcx: rs::TyCtxt<'tcx>,
 
     /// maps Rust function calls to MiniRust FnNames.
-    pub fn_name_map: HashMap<(rs::DefId, rs::SubstsRef<'tcx>), FnName>,
+    pub fn_name_map: HashMap<(rs::DefId, rs::GenericArgsRef<'tcx>), FnName>,
 
     /// Stores which AllocId evaluates to which GlobalName.
     /// Note that not every AllocId and not every GlobalName is coming up in this map (for example constants are missing).
@@ -28,7 +28,7 @@ impl<'tcx> Ctxt<'tcx> {
 
     pub fn translate(mut self) -> Program {
         let (entry, _ty) = self.tcx.entry_fn(()).unwrap();
-        let substs_ref: rs::SubstsRef<'tcx> = self.tcx.mk_substs(&[]);
+        let substs_ref: rs::GenericArgsRef<'tcx> = self.tcx.mk_args(&[]);
         let entry_name = FnName(Name::from_internal(0));
 
         self.fn_name_map.insert((entry, substs_ref), entry_name);
@@ -140,7 +140,7 @@ pub struct FnCtxt<'cx, 'tcx> {
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn new(
         def_id: rs::DefId,
-        substs_ref: rs::SubstsRef<'tcx>,
+        substs_ref: rs::GenericArgsRef<'tcx>,
         cx: &'cx mut Ctxt<'tcx>,
     ) -> Self {
         let body = cx.tcx.optimized_mir(def_id);

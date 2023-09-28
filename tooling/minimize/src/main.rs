@@ -10,6 +10,7 @@ extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
 extern crate rustc_target;
+extern crate rustc_session;
 
 mod rs {
     pub use rustc_hir::def_id::DefId;
