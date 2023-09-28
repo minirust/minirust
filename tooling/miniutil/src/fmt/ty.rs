@@ -87,13 +87,6 @@ fn get_comptype_index(ty: CompType, comptypes: &mut Vec<CompType>) -> CompTypeIn
         None => {
             let n = comptypes.len();
             comptypes.push(ty);
-
-            if let Type::Enum { variants, .. } = ty.0 {
-                variants.iter().for_each(|v| {
-                    get_comptype_index(CompType(v), comptypes);
-                });
-            }
-
             n
         }
     };
