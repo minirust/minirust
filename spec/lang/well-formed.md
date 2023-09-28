@@ -135,10 +135,6 @@ impl Constant {
                 ensure(i.in_bounds(int_type.signed, int_type.size))?;
             }
             (Constant::Bool(_), Type::Bool) => (),
-            (Constant::Variant { idx, data }, Type::Enum { variants, .. }) => {
-                let ty = variants.get(idx)?;
-                data.check_wf::<T>(ty, prog)?;
-            }
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
                 relocation.check_wf(prog.globals)?;
             }
@@ -200,6 +196,15 @@ impl ValueExpr {
                 ensure(checked == ty)?;
 
                 union_ty
+            }
+            Variant { idx, data, enum_ty } => {
+                let Type::Enum { variants, .. } = enum_ty else { throw!() };
+                enum_ty.check_wf::<T>()?;
+                let ty = variants.get(idx)?;
+
+                let checked = data.check_wf::<T>(locals, prog)?;
+                ensure(checked == ty);
+                enum_ty
             }
             Load { source } => {
                 source.check_wf::<T>(locals, prog)?

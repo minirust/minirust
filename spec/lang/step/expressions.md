@@ -49,10 +49,6 @@ impl<M: Memory> Machine<M> {
                     provenance: None,
                 })
             }
-            Constant::Variant { idx, data } => {
-                let data = self.eval_constant(data)?;
-                Value::Variant { idx, data }
-            },
         })
     }
 
@@ -84,6 +80,16 @@ impl<M: Memory> Machine<M> {
         let (val, _) = self.eval_value(expr)?;
         data.write_subslice_at_index(offset.bytes(), expr_ty.encode::<M>(val));
         ret((union_ty.decode(data).unwrap(), union_ty))
+    }
+}
+```
+
+### Enums
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::Variant { enum_ty, idx, data } : ValueExpr) -> NdResult<(Value<M>, Type)> {
+        ret((Value::Variant { idx, data: self.eval_value(data)?.0 }, enum_ty))
     }
 }
 ```

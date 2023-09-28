@@ -5,7 +5,7 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
         Type::Int(int_ty) => FmtExpr::Atomic(fmt_int_type(int_ty)),
         Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
         Type::Bool => FmtExpr::Atomic(format!("bool")),
-        Type::Tuple { .. } | Type::Union { .. } => {
+        Type::Tuple { .. } | Type::Union { .. } | Type::Enum { .. } => {
             let comp_ty = CompType(t);
             let comptype_index = get_comptype_index(comp_ty, comptypes);
             FmtExpr::Atomic(fmt_comptype_index(comptype_index))
@@ -14,7 +14,6 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             let elem = fmt_type(elem.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("[{elem}; {count}]"))
         }
-        Type::Enum { .. } => panic!("enums are unsupported!"),
     }
 }
 
@@ -69,7 +68,7 @@ fn fmt_layout(layout: Layout) -> String {
 // composite types
 /////////////////////
 
-// A "composite" type is a union or tuple (enums aren't yet supported).
+// A "composite" type is a union or tuple.
 // Composite types will be printed separately above the functions, as inlining them would be hard to read.
 // During formatting, the list of composite types we encounter will be stored in `comptypes`.
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -121,32 +120,58 @@ pub(super) fn fmt_comptypes(mut comptypes: Vec<CompType>) -> String {
 }
 
 fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) -> String {
-    let (keyword, fields, opt_chunks, size, align) = match t.0 {
-        Type::Tuple { fields, size, align } => ("tuple", fields, None, size, align),
+    let (keyword, size, align) = match t.0 {
+        Type::Tuple { fields: _, size, align } => ("tuple", size, align),
         Type::Union {
-            chunks,
-            fields,
             size,
             align,
-        } => ("union", fields, Some(chunks), size, align),
+            ..
+        } => ("union", size, align),
+        Type::Enum {
+            size,
+            align,
+            ..
+        } => ("enum", size, align),
         _ => panic!("not a supported composite type!"),
     };
     let ct = fmt_comptype_index(i).to_string();
     let size = size.bytes();
     let align = align.bytes();
     let mut s = format!("{keyword} {ct} ({size} bytes, aligned {align} bytes) {{\n");
+    match t.0 {
+        Type::Tuple { fields, .. } => s += &fmt_comptype_fields(fields, comptypes),
+        Type::Union { fields, chunks, .. } => {
+            s += &fmt_comptype_fields(fields, comptypes);
+            s += &fmt_comptype_chunks(chunks);
+        },
+        Type::Enum { variants, .. } => {
+            variants.iter().enumerate().for_each(|(idx, v)| {
+                let typ = fmt_type(v, comptypes).to_string();
+                s += &format!("  Variant {idx}: {typ}");
+            });
+        },
+        _ => panic!("not a supported composite type!"),
+    };
+    s += "}\n\n";
+    s
+}
+
+fn fmt_comptype_fields(fields: Fields, comptypes: &mut Vec<CompType>) -> String {
+    let mut s = String::new();
     for (offset, f) in fields {
         let offset = offset.bytes();
         let ty = fmt_type(f, comptypes).to_string();
         s += &format!("  at byte {offset}: {ty},\n");
     }
-    if let Some(chunks) = opt_chunks {
-        for (offset, size) in chunks {
-            let offset = offset.bytes();
-            let size = size.bytes();
-            s += &format!("  chunk(at={offset}, size={size}),\n");
-        }
+    s
+}
+
+fn fmt_comptype_chunks(chunks: List<(Size, Size)>) -> String {
+    let mut s = String::new();
+    for (offset, size) in chunks {
+        let offset = offset.bytes();
+        let size = size.bytes();
+        s += &format!("  chunk(at={offset}, size={size}),\n");
     }
-    s += "}\n\n";
     s
 }

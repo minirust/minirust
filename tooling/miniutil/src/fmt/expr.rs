@@ -79,7 +79,6 @@ fn fmt_constant(c: Constant) -> FmtExpr {
                 FmtExpr::Atomic(format!("invalid_ptr({addr})"))
             }
         }
-        Constant::Variant { .. } => panic!("enums are unsupported!"),
     }
 }
 
@@ -105,6 +104,15 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let union_ty = fmt_type(union_ty, comptypes).to_string();
             let expr = fmt_value_expr(expr.extract(), comptypes).to_string();
             FmtExpr::NonAtomic(format!("{union_ty} {{ field{field}: {expr} }}"))
+        }
+        ValueExpr::Variant {
+            idx,
+            data,
+            enum_ty,
+        } => {
+            let enum_ty = fmt_type(enum_ty, comptypes).to_string();
+            let expr = fmt_value_expr(data.extract(), comptypes).to_string();
+            FmtExpr::NonAtomic(format!("{enum_ty} {{ variant{idx}: {expr} }}"))
         }
         ValueExpr::Load {
             source,
