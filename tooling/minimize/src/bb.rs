@@ -90,8 +90,7 @@ fn translate_terminator<'cx, 'tcx>(
             Terminator::Goto(fcx.bb_name_map[&target])
         }
         x => {
-            dbg!(x);
-            todo!()
+            unimplemented!("terminator not supported: {x:?}")
         }
     }
 }

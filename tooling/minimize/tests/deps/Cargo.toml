@@ -1,0 +1,10 @@
+[package]
+description = "dependencies that unit tests can have"
+name = "dependencies"
+version = "0.1.0"
+
+[workspace]
+# keeps it out of the `tooling` workspace
+
+[dependencies]
+intrinsics = { path = "../../intrinsics/" }

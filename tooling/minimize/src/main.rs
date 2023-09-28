@@ -60,16 +60,9 @@ mod chunks;
 use chunks::calc_chunks;
 
 use std::collections::HashMap;
-use std::path::Path;
 
 fn main() {
-    let file = std::env::args()
-        .skip(1)
-        .filter(|x| !x.starts_with('-'))
-        .next()
-        .unwrap_or_else(|| String::from("file.rs"));
-
-    get_mini(file, |prog| {
+    get_mini(|prog| {
         let dump = std::env::args().skip(1).any(|x| x == "--dump");
         if dump {
             dump_program(prog);

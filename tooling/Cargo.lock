@@ -364,6 +364,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "minitest"
+version = "0.1.0"
+dependencies = [
+ "minirust-rs",
+ "miniutil",
+]
+
+[[package]]
 name = "miniutil"
 version = "0.1.0"
 dependencies = [
