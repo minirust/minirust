@@ -20,11 +20,11 @@ fn main() {
     print(x);
     print(v);
 
-    let v = unsafe { atomic_add(ptr, 3) };
+    let v = unsafe { atomic_fetch_add(ptr, 3) };
     print(x);
     print(v);
     
-    let v = unsafe { atomic_sub(ptr, 4) };
+    let v = unsafe { atomic_fetch_sub(ptr, 4) };
     print(x);
     print(v);
 }

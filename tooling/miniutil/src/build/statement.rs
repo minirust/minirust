@@ -153,7 +153,7 @@ pub fn atomic_fetch(binop: FetchBinOp, dest: PlaceExpr, ptr: ValueExpr, other: V
     };
 
     Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicFetch(binop),
+        intrinsic: Intrinsic::AtomicFetchAndOp(binop),
         arguments: list!(ptr, other),
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next)))

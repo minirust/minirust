@@ -209,7 +209,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::AtomicStore => "atomic_store",
                 Intrinsic::AtomicLoad => "atomic_load",
                 Intrinsic::AtomicCompareExchange => "atomic_compare_exchange",
-                Intrinsic::AtomicFetch(binop) => fmt_fetch(binop),
+                Intrinsic::AtomicFetchAndOp(binop) => fmt_fetch(binop),
                 Intrinsic::Lock(LockIntrinsic::Acquire) => "lock_acquire",
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",

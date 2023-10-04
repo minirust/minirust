@@ -282,7 +282,7 @@ pub enum Intrinsic {
     AtomicStore,
     AtomicLoad,
     AtomicCompareExchange,
-    AtomicFetch(BinOpInt),
+    AtomicFetchAndOp(BinOpInt),
     Lock(LockIntrinsic),
 }
 ```

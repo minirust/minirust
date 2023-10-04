@@ -363,7 +363,7 @@ impl<M: Memory> Machine<M> {
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size to big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size too big");
         }
 
         // The value at the location right now.
@@ -399,36 +399,36 @@ fn is_atomic_binop(op: BinOpInt) -> bool {
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::AtomicFetch(op): Intrinsic,
+        Intrinsic::AtomicFetchAndOp(op): Intrinsic,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
-            throw_ub!("invalid number of arguments for `Intrinsic::AtomicFetch`");
+            throw_ub!("invalid number of arguments for `Intrinsic::AtomicFetchAndOp`");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicFetch`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::AtomicFetchAndOp`, not a pointer");
         };
 
         let (other, other_ty) = arguments[1];
         if other_ty != ret_ty {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicFetch`, not same type as return value");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicFetchAndOp`, not same type as return value");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `Intrinis::AtomicFetch`, only works with integers");
+            throw_ub!("invalid return type for `Intrinis::AtomicFetchAndOp`, only works with integers");
         }
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicFetch`, size to big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`, size too big");
         }
 
         if !is_atomic_binop(op) {
-            throw_ub!("invalid bin op for `Intrinsic::AtomicFetch`");
+            throw_ub!("invalid bin op for `Intrinsic::AtomicFetchAndOp`");
         }
 
         // The value at the location right now.

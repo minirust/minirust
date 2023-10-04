@@ -146,12 +146,12 @@ pub unsafe fn compare_exchange(ptr: *mut u32, current: u32, new: u32) -> u32 {
     }
 }
 
-pub unsafe fn atomic_add(ptr: *mut u32, delta: u32) -> u32 {
+pub unsafe fn atomic_fetch_add(ptr: *mut u32, delta: u32) -> u32 {
     let atomic = AtomicU32::from_ptr(ptr);
     atomic.fetch_add(delta, Ordering::SeqCst)
 }
 
-pub unsafe fn atomic_sub(ptr: *mut u32, delta: u32) -> u32 {
+pub unsafe fn atomic_fetch_sub(ptr: *mut u32, delta: u32) -> u32 {
     let atomic = AtomicU32::from_ptr(ptr);
     atomic.fetch_sub(delta, Ordering::SeqCst)
 }
