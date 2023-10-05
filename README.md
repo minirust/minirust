@@ -151,7 +151,7 @@ The big problem with that style is that it is very easy to specify rules that co
 (Wishes gone wrong is a fantasy trope for a reason...)
 For example, C/C++ have a notion of "pointer provenance", but the specification does not even mention this crucial fact, and completely fails to say how pointer provenance interacts with many other features of the language.
 Yet, without pointer provenance, one simply [cannot explain](https://www.ralfj.de/blog/2020/12/14/provenance.html) some aspects of these languages.
-That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a [step-by-step process](lang/step.md).
+That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a [step-by-step process](spec/lang/step).
 Operational semantics *have to* make things like pointer provenance explicit, they cannot cheat and entirely omit crucial parts of what is needed to describe program behavior.
 One of the biggest things missing from the C/C++ specification, in my opinion, is the equivalent of the [MiniRust Machine declaration](lang/machine.md): an exhaustive list that makes up everything needed to describe the state of the Abstract Machine.
 
