@@ -377,7 +377,7 @@ The last property might sound surprising, but consider what happens for padding:
 so a bytes-value-bytes roundtrip of some data with padding will reset some bytes to `Uninit`.
 
 Together, these properties ensure that it is okay to optimize away a self-assignment like `tmp = x; x = tmp`.
-The effect of this assignment (as defined [later](step.md)) is to decode the `bytes1` stored at `x`, and then encode the resulting value again into `bytes2` and store that back.
+The effect of this assignment (as defined [later](step/statements.md)) is to decode the `bytes1` stored at `x`, and then encode the resulting value again into `bytes2` and store that back.
 (We ignore the intermediate storage in `tmp`.)
 The second round-trip property ensures that `bytes2 <= bytes1`.
 If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).

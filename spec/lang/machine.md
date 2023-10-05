@@ -3,7 +3,9 @@
 This defines the state that makes up the MiniRust Abstract Machine:
 which components together make up the state of a MiniRust program during its execution?
 This key data structure says a lot about how the Abstract Machine is structured.
-(The "reduction relation" aka operational semantics aka `step` function is defined in [the next file](step.md).)
+
+The "reduction relation" aka operational semantics is defined by the `step` function below,
+which is defined in terms of many [evaluation functions for our various syntactic categories](step/).
 
 ```rust
 /// This type contains everything that needs to be tracked during the execution
