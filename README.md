@@ -153,7 +153,7 @@ For example, C/C++ have a notion of "pointer provenance", but the specification 
 Yet, without pointer provenance, one simply [cannot explain](https://www.ralfj.de/blog/2020/12/14/provenance.html) some aspects of these languages.
 That's why I strongly prefer an *operational* semantics, which describes the behavior of a program in a [step-by-step process](spec/lang/step).
 Operational semantics *have to* make things like pointer provenance explicit, they cannot cheat and entirely omit crucial parts of what is needed to describe program behavior.
-One of the biggest things missing from the C/C++ specification, in my opinion, is the equivalent of the [MiniRust Machine declaration](lang/machine.md): an exhaustive list that makes up everything needed to describe the state of the Abstract Machine.
+One of the biggest things missing from the C/C++ specification, in my opinion, is the equivalent of the [MiniRust Machine declaration](spec/lang/machine.md): an exhaustive list that makes up everything needed to describe the state of the Abstract Machine.
 
 But of course, it is perfectly possible to have *both* an operational and an axiomatic specification.
 And ideally they will say the same thing. :)
