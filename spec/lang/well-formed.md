@@ -358,6 +358,18 @@ impl Statement {
     }
 }
 
+/// Predicate to indicate if integer bin-op can be used for atomic fetch operations.
+/// Needed for atomic fetch operations.
+/// 
+/// We limit the binops that are allowed to be atomic based on current LLVM and Rust API exposures.
+fn is_atomic_binop(op: BinOpInt) -> bool {
+    use BinOpInt as B;
+    match op {
+        B::Add | B::Sub => true,
+        _ => false
+    }
+}
+
 impl Terminator {
     /// Returns the successor basic blocks that need to be checked next.
     fn check_wf<T: Target>(
@@ -393,11 +405,21 @@ impl Terminator {
                     None => list![],
                 }
             }
-            CallIntrinsic { intrinsic: _, arguments, ret, next_block } => {
+            CallIntrinsic { intrinsic, arguments, ret, next_block } => {
                 // Return and argument expressions must all typecheck with some type.
                 ret.check_wf::<T>(live_locals, prog)?;
                 for arg in arguments {
                     arg.check_wf::<T>(live_locals, prog)?;
+                }
+
+                // Currently only AtomicFetchAndOp has special well-formedness requirements.
+                match intrinsic {
+                    Intrinsic::AtomicFetchAndOp(op) => {
+                        if !is_atomic_binop(op) {
+                            throw!();
+                        }
+                    }
+                    _ => {}
                 }
 
                 match next_block {

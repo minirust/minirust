@@ -171,5 +171,5 @@ fn atomic_fetch_op() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     
-    assert_ub(p, "invalid bin op for `Intrinsic::AtomicFetchAndOp`");
+    assert_ill_formed(p);
 }

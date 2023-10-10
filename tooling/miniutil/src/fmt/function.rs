@@ -226,9 +226,9 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
 fn fmt_fetch(binop: BinOpInt) -> &'static str {
     use BinOpInt as B;
     match binop {
-        B::Add => "atomic-fetch-add",
-        B::Sub => "atomic-fetch-sub",
-        _ => "atomic-fetch-BAD",
+        B::Add => "atomic_fetch_add",
+        B::Sub => "atomic_fetch_sub",
+        _ => "atomic_fetch_ILL_FORMED",
     }
 }
 

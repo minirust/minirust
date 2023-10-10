@@ -381,22 +381,7 @@ impl<M: Memory> Machine<M> {
 
         ret(before)
     }
-}
-```
 
-We also implement the atomic fetch operations. First we define a helper function to decide which operations can be in a fetch operation.
-
-```rust
-/// Predicate to indicate if integer bin-op can be used for atomic fetch operations.
-fn is_atomic_binop(op: BinOpInt) -> bool {
-    use BinOpInt as B;
-    match op {
-        B::Add | B::Sub => true,
-        _ => false
-    }
-}
-
-impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
         Intrinsic::AtomicFetchAndOp(op): Intrinsic,
@@ -425,10 +410,6 @@ impl<M: Memory> Machine<M> {
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`, size too big");
-        }
-
-        if !is_atomic_binop(op) {
-            throw_ub!("invalid bin op for `Intrinsic::AtomicFetchAndOp`");
         }
 
         // The value at the location right now.
