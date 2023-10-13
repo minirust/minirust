@@ -209,6 +209,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::AtomicStore => "atomic_store",
                 Intrinsic::AtomicLoad => "atomic_load",
                 Intrinsic::AtomicCompareExchange => "atomic_compare_exchange",
+                Intrinsic::AtomicFetchAndOp(binop) => fmt_fetch(binop),
                 Intrinsic::Lock(LockIntrinsic::Acquire) => "lock_acquire",
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",
@@ -219,6 +220,15 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 .collect();
             fmt_call(callee, args.join(", "), ret, next_block, comptypes)
         }
+    }
+}
+
+fn fmt_fetch(binop: BinOpInt) -> &'static str {
+    use BinOpInt as B;
+    match binop {
+        B::Add => "atomic_fetch_add",
+        B::Sub => "atomic_fetch_sub",
+        _ => "atomic_fetch_ILL_FORMED",
     }
 }
 

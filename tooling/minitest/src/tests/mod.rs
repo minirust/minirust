@@ -25,3 +25,4 @@ mod too_large_alloc;
 mod uninit_read;
 mod unreachable;
 mod zst;
+mod atomic_fetch;

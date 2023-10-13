@@ -363,7 +363,7 @@ impl<M: Memory> Machine<M> {
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size to big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size too big");
         }
 
         // The value at the location right now.
@@ -380,6 +380,53 @@ impl<M: Memory> Machine<M> {
         }
 
         ret(before)
+    }
+
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::AtomicFetchAndOp(op): Intrinsic,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 2 {
+            throw_ub!("invalid number of arguments for `Intrinsic::AtomicFetchAndOp`");
+        }
+
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Intrinsic::AtomicFetchAndOp`, not a pointer");
+        };
+
+        let (other, other_ty) = arguments[1];
+        if other_ty != ret_ty {
+            throw_ub!("invalid second argument to `Intrinsic::AtomicFetchAndOp`, not same type as return value");
+        }
+
+        if !matches!(ret_ty, Type::Int(_)) {
+            throw_ub!("invalid return type for `Intrinis::AtomicFetchAndOp`, only works with integers");
+        }
+
+        let size = ret_ty.size::<M::T>();
+        // All integer sizes are powers of two.
+        let align = Align::from_bytes(size.bytes()).unwrap();
+        if size > M::T::MAX_ATOMIC_SIZE {
+            throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`, size too big");
+        }
+
+        // The value at the location right now.
+        let previous = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
+
+        // Convert to integers
+        let Value::Int(other_int) = other else { unreachable!() };
+        let Value::Int(previous_int) = previous else { unreachable!() };
+
+        // Perform operation.
+        let next_int = self.eval_bin_op_int(op, previous_int, other_int)?;
+        let next = Value::Int(next_int);
+
+        // Store it again.
+        self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
+
+        ret(previous)
     }
 }
 ```

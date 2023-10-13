@@ -167,5 +167,5 @@ fn compare_exchange_arg_size_max() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicCompareExchange`, size to big");
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicCompareExchange`, size too big");
 }
