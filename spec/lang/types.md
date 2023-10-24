@@ -55,16 +55,15 @@ pub enum Type {
         align: Align,
     },
     Enum {
-        /// Each variant is given by a type. All types are thought to "start at offset 0";
-        /// if the discriminant is encoded as an explicit tag, then that will be put
-        /// into the padding of the active variant. (This means it is *not* safe to hand
-        /// out mutable references to a variant at that type, as then the tag might be
-        /// overwritten!)
+        /// Each variant is given by a type and its tag description. All variants are thought
+        /// to "start at offset 0"; if the discriminant is encoded as an explicit tag,
+        /// then that will be put into the padding of the active variant. (This means it
+        /// is *not* safe to hand out mutable references to a variant at that type, as
+        /// then the tag might be overwritten!)
         /// The Rust type `!` is encoded as an `Enum` with an empty list of variants.
-        variants: List<Type>,
-        /// This contains all the tricky details of how to encode the active variant
-        /// at runtime.
-        tag_encoding: TagEncoding,
+        variants: List<Variant>,
+        /// This contains the decision tree to decode the variant at runtime.
+        discriminator: Discriminator,
         /// The total size of the enum can indicate trailing padding.
         /// Must be large enough to contain all variants.
         size: Size,
@@ -81,18 +80,32 @@ pub struct IntType {
 
 pub type Fields = List<(Offset, Type)>;
 
-/// We leave the details of enum tags to the future.
-/// (We might want to extend the "variants" field of `Enum` to also have a
-/// discriminant for each variant. We will see.)
-pub struct TagEncoding {
-    discriminator: Discriminator,
-    tagger: List<Map<Int, u8>>, // TODO: move to Variant struct
+pub struct Variant {
+    /// The actual type of the variant.
+    pub ty: Type,
+    /// The information on where to store which bytes to write the tag.
+    /// MUST NOT touch any bytes written by the actual type of the variant and vice
+    /// versa. This is because we allow references/pointers to (enum) fields which
+    /// should be able to dereference without having to deal with the tag.
+    /// FIXME(essickmango): Int should be `Offset`
+    pub tagger: Map<Int, u8>,
 }
 
+/// The decision tree that computes the discriminant out of the tag for a specific
+/// enum type.
 pub enum Discriminator {
+    /// We know the discriminant.
     Known(Int),
-    Unknown { // Branch
+    /// Tag decoding failed, there is no valid discriminant.
+    Invalid,
+    /// We don't know the discriminant, so we branch on the value of a specific byte.
+    /// The fallback is for readability, as we often are only interested in a couple
+    /// of values.
+    /// FIXME(essickmango): change offset to `Offset`
+    Unknown {
         offset: Int,
+        #[specr::indirection]
+        fallback: Discriminator,
         children: Map<u8, Discriminator>,
     },
 }
@@ -143,7 +156,7 @@ impl Type {
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => variants.any(|ty| ty.inhabited()),
+            Enum { variants, .. } => variants.any(|variant| variant.ty.inhabited()),
         }
     }
 

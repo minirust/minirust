@@ -146,7 +146,7 @@ fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) ->
         },
         Type::Enum { variants, .. } => {
             variants.iter().enumerate().for_each(|(idx, v)| {
-                let typ = fmt_type(v, comptypes).to_string();
+                let typ = fmt_type(v.ty, comptypes).to_string();
                 s += &format!("  Variant {idx}: {typ}");
             });
         },

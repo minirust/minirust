@@ -230,55 +230,51 @@ impl Type {
 ### Enums
 
 Enum encoding and decoding.
-Should we let the type decoding throw UB?
+Note that the discriminant setting and reading does not modify any bytes.
+This is does not allow types like `Result<bool, bool>` to be stored in one byte.
+However this is fine as Rust currently does not do any optimizations like that
+and doing it here will introduce more questions.
 
 ```rust
 fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
-    let mut disc = discriminator;
-    loop {
-        match disc {
-            Discriminator::Known(val) => break Some(val),
-            Discriminator::Unknown { offset, children } => {
-                if offset < 0 || offset >= bytes.len() { throw!(); }
-                let AbstractByte::Init(val, _) = bytes.get(offset).unwrap()
-                    else { break None };
-                    // else { throw_ub!("Encountered uninitialized byte while computing enum discriminant.") };
-                let Some(new_disc) = children.get(val)
-                    else { break None };
-                    // else { throw_ub!("Encountered invalid discriminant value.") };
-                disc = new_disc;
-            }
+    // FIXME: we have multiple quite different fail sources,
+    // it would be nice to return more error information.
+    match discriminator {
+        Discriminator::Known(val) => Some(val),
+        Discriminator::Invalid => None,
+        Discriminator::Unknown { offset, children, fallback } => {
+            let AbstractByte::Init(val, _) = bytes[offset]
+                else { return None };
+            let next_discriminator = children.get(val).unwrap_or(fallback);
+            compute_discriminant::<M>(bytes, next_discriminator)
         }
     }
 }
 
 impl Type {
-    fn decode<M: Memory>(Type::Enum { variants, tag_encoding, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
-        let disc = compute_discriminant::<M>(bytes, tag_encoding.discriminator)?;
+        let disc = compute_discriminant::<M>(bytes, discriminator)?;
 
-        // The discriminator does the discriminant check and as such should not be able to return an invalid value.
-        if disc < Int::ZERO || disc >= variants.len() { throw!(); }
-        variants.get(disc).unwrap().decode(bytes)
+        // Decode into the variant.
+        // Because the variant is the same size as the enum we don't need to pass a subslice.
+        let Some(value) = variants[disc].ty.decode(bytes)
+            else { return None };
+
+        Some(Value::Variant { idx: disc, data: value })
     }
 
-    fn encode<M: Memory>(Type::Enum { variants, tag_encoding, size, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Enum { variants, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Variant { idx, data } = val else { panic!() };
-        assert_eq!(variants.len(), tag_encoding.tagger.len());
 
-        let mut bytes = list![AbstractByte::Uninit; size.bytes()];
+        // idx is to be guaranteed in bounds by the well-formed check in the type.
+        let Variant { ty: variant, tagger } = variants[idx];
+        let mut bytes = variant.encode(data.extract());
 
-        // idx is to be guaranteed in bounds by the well-formed check in the typed store.
-        let variant = variants.get(idx).unwrap();
-        let encoded_data = variant.encode(data.extract());
-        assert!(encoded_data.len() <= size.bytes());
-        bytes.write_subslice_at_index(Int::ZERO, encoded_data);
-
-        let tagger = tag_encoding.tagger.get(idx).unwrap();
-
-        // TODO: is there a nicer way instead of all these temporary lists?
+        // write tag afterwards into the encoded bytes. This is fine as we don't allow
+        // encoded data and the tag to overlap at the moment.
         for (offset, value) in tagger.iter() {
-            bytes.set(offset, value);
+            bytes.set(offset, AbstractByte::Init(value, None));
         }
         bytes
     }
@@ -466,7 +462,7 @@ impl<M: Memory> AtomicMemory<M> {
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
+                Value::Variant { idx, data: self.retag_val(data, variants[idx].ty, fn_entry)? },
             _ =>
                 panic!("this value does not have that type"),
         })
