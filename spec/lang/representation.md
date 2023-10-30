@@ -152,7 +152,6 @@ impl Type {
         let Value::Tuple(values) = val else { panic!() };
         assert_eq!(values.len(), fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
-        // FIXME: can we do this in a single mutation, and avoid creating all those temporary objects?
         for ((offset, ty), value) in fields.zip(values) {
             bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
@@ -219,7 +218,6 @@ impl Type {
         assert_eq!(chunk_data.len(), chunks.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
         // Restore the data from each chunk.
-        // FIXME: can we do this in a single mutation, and avoid creating all those temporary objects?
         for ((offset, size), data) in chunks.zip(chunk_data) {
             assert_eq!(size.bytes(), data.len());
             bytes.write_subslice_at_index(offset.bytes(), data);
