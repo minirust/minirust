@@ -341,7 +341,7 @@ pub struct Global {
     /// Cross-references pointing to other global allocations,
     /// together with an offset, expressing where this allocation should put the pointer.
     /// Note that the pointers created due to relocations overwrite the data given by `bytes`.
-    pub relocations: List<(Size, Relocation)>,
+    pub relocations: List<(Offset, Relocation)>,
     /// The alignment with which this global shall be allocated.
     pub align: Align,
 }
@@ -351,6 +351,6 @@ pub struct Relocation {
     /// The name of the global allocation we are pointing into.
     pub name: GlobalName,
     /// The offset within that allocation.
-    pub offset: Size,
+    pub offset: Offset,
 }
 ```

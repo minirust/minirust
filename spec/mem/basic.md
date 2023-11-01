@@ -204,7 +204,7 @@ impl<T: Target> BasicMemory<T> {
             throw_ub!("out-of-bounds memory access");
         }
         // All is good!
-        ret(Some((id, Size::from_bytes(offset_in_alloc).unwrap())))
+        ret(Some((id, Offset::from_bytes(offset_in_alloc).unwrap())))
     }
 }
 

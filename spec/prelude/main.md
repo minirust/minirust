@@ -9,6 +9,8 @@ pub use libspecr::prelude::*;
 /// Make the two main modules available.
 pub use crate::{lang, mem};
 
+pub type Offset = Size;
+
 /// All operations are fallible, so they return `Result`.  If they fail, that
 /// means the program caused UB or put the machine to a halt.
 pub type Result<T=()> = std::result::Result<T, TerminationInfo>;

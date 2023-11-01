@@ -38,7 +38,7 @@ pub fn raw_ptr_ty() -> Type {
     Type::Ptr(PtrType::Raw)
 }
 
-pub fn tuple_ty(f: &[(Size, Type)], size: Size, align: Align) -> Type {
+pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
     Type::Tuple {
         fields: f.iter().copied().collect(),
         size,
@@ -46,7 +46,7 @@ pub fn tuple_ty(f: &[(Size, Type)], size: Size, align: Align) -> Type {
     }
 }
 
-pub fn union_ty(f: &[(Size, Type)], size: Size, align: Align) -> Type {
+pub fn union_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
     let chunks = list![(Size::ZERO, size)];
     Type::Union {
         fields: f.iter().copied().collect(),
