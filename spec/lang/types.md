@@ -47,7 +47,7 @@ pub enum Type {
         /// preserved, and data between chunks is lost (like padding in a struct).
         /// This is necessary to model the behavior of some `repr(C)` unions, see
         /// <https://github.com/rust-lang/unsafe-code-guidelines/issues/156> for details.
-        chunks: List<(Size, Size)>, // (offset, length) for each chunk.
+        chunks: List<(Offset, Size)>,
         /// The total size of the union, can indicate padding after the last chunk.
         size: Size,
         /// Total alignment of the union. Due to `repr(packed)` and `repr(align)`,
@@ -79,7 +79,7 @@ pub struct IntType {
     pub size: Size,
 }
 
-pub type Fields = List<(Size, Type)>; // (offset, type) pair for each field
+pub type Fields = List<(Offset, Type)>;
 
 /// We leave the details of enum tags to the future.
 /// (We might want to extend the "variants" field of `Enum` to also have a

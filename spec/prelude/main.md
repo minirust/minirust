@@ -9,6 +9,11 @@ pub use libspecr::prelude::*;
 /// Make the two main modules available.
 pub use crate::{lang, mem};
 
+/// When a non-negative integer is used as an offset into an allocation or type
+/// rather than to describe the size of an object or type, use this type instead
+/// of `Size` for extra clarity.
+pub type Offset = Size;
+
 /// All operations are fallible, so they return `Result`.  If they fail, that
 /// means the program caused UB or put the machine to a halt.
 pub type Result<T=()> = std::result::Result<T, TerminationInfo>;

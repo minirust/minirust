@@ -66,7 +66,7 @@ fn translate_const_uneval<'cx, 'tcx>(
         .eval_to_allocation_raw(rs::ParamEnv::empty().and(cid))
         .unwrap();
     let name = translate_alloc_id(alloc.alloc_id, fcx);
-    let offset = Size::ZERO;
+    let offset = Offset::ZERO;
 
     let rel = Relocation { name, offset };
     relocation_to_value_expr(rel, ty, fcx)

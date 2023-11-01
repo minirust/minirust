@@ -166,7 +166,7 @@ fn fmt_comptype_fields(fields: Fields, comptypes: &mut Vec<CompType>) -> String 
     s
 }
 
-fn fmt_comptype_chunks(chunks: List<(Size, Size)>) -> String {
+fn fmt_comptype_chunks(chunks: List<(Offset, Size)>) -> String {
     let mut s = String::new();
     for (offset, size) in chunks {
         let offset = offset.bytes();
