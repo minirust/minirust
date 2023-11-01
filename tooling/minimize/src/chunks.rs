@@ -3,7 +3,7 @@ use crate::*;
 /// Calculates the Chunks for a union type.
 /// This works roughly as described here:
 /// https://github.com/rust-lang/unsafe-code-guidelines/issues/354#issuecomment-1297545313
-pub fn calc_chunks(fields: Fields, size: Size) -> List<(Size, Size)> {
+pub fn calc_chunks(fields: Fields, size: Size) -> List<(Offset, Size)> {
     let s = size.bytes().try_to_usize().unwrap();
     let mut markers = vec![false; s];
     for (offset, ty) in fields {
@@ -24,7 +24,7 @@ pub fn calc_chunks(fields: Fields, size: Size) -> List<(Size, Size)> {
                 current_chunk_start = Some(i);
             }
             (false, Some(s)) => {
-                let start = Size::from_bytes(*s).unwrap();
+                let start = Offset::from_bytes(*s).unwrap();
                 let length = Size::from_bytes(i - *s).unwrap();
                 chunks.push((start, length));
                 current_chunk_start = None;
