@@ -87,8 +87,7 @@ pub struct Variant {
     /// MUST NOT touch any bytes written by the actual type of the variant and vice
     /// versa. This is because we allow references/pointers to (enum) fields which
     /// should be able to dereference without having to deal with the tag.
-    /// FIXME(essickmango): Int should be `Offset`
-    pub tagger: Map<Int, u8>,
+    pub tagger: Map<Offset, u8>,
 }
 
 /// The decision tree that computes the discriminant out of the tag for a specific
@@ -101,9 +100,8 @@ pub enum Discriminator {
     /// We don't know the discriminant, so we branch on the value of a specific byte.
     /// The fallback is for readability, as we often are only interested in a couple
     /// of values.
-    /// FIXME(essickmango): change offset to `Offset`
     Unknown {
-        offset: Int,
+        offset: Offset,
         #[specr::indirection]
         fallback: Discriminator,
         children: Map<u8, Discriminator>,

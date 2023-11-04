@@ -243,7 +243,7 @@ fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, dis
         Discriminator::Known(val) => Some(val),
         Discriminator::Invalid => None,
         Discriminator::Unknown { offset, children, fallback } => {
-            let AbstractByte::Init(val, _) = bytes[offset]
+            let AbstractByte::Init(val, _) = bytes[offset.bytes()]
                 else { return None };
             let next_discriminator = children.get(val).unwrap_or(fallback);
             compute_discriminant::<M>(bytes, next_discriminator)
@@ -274,7 +274,7 @@ impl Type {
         // write tag afterwards into the encoded bytes. This is fine as we don't allow
         // encoded data and the tag to overlap at the moment.
         for (offset, value) in tagger.iter() {
-            bytes.set(offset, AbstractByte::Init(value, None));
+            bytes.set(offset.bytes(), AbstractByte::Init(value, None));
         }
         bytes
     }
