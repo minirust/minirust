@@ -117,7 +117,7 @@ impl Type {
                 }
 
                 // check that all variants reached by the discriminator are valid and
-                // that it never accesses out-of-bounds area.
+                // that it never performs out-of-bounds accesses.
                 discriminator.check_wf::<T>(size, variants.len())?;
             }
         }

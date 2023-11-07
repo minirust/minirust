@@ -98,8 +98,8 @@ pub enum Discriminator {
     /// Tag decoding failed, there is no valid discriminant.
     Invalid,
     /// We don't know the discriminant, so we branch on the value of a specific byte.
-    /// The fallback is for readability, as we often are only interested in a couple
-    /// of values.
+    /// The fallback keeps the representation more compact, as we often are only
+    /// interested in a couple of values and we don't want to always have 256 branches.
     Unknown {
         offset: Offset,
         #[specr::indirection]
