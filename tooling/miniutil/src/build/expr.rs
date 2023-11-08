@@ -27,6 +27,10 @@ pub fn const_array(args: &[ValueExpr], elem_ty: Type) -> ValueExpr {
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 
+pub fn const_variant(idx: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr {
+    ValueExpr::Variant { idx: idx.into(), data: GcCow::new(data), enum_ty}
+}
+
 // Returns () or [].
 pub fn const_unit() -> ValueExpr {
     ValueExpr::Tuple(Default::default(), <()>::get_type())

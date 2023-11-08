@@ -62,3 +62,19 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
         count: count.into(),
     }
 }
+
+pub fn enum_variant(ty: Type, tagger: &[(Offset, u8)]) -> Variant {
+    Variant {
+        ty,
+        tagger: tagger.iter().copied().collect()
+    }
+}
+
+pub fn enum_ty(variants: &[Variant], discriminator: Discriminator, size: Size, align: Align) -> Type {
+    Type::Enum {
+        variants: variants.iter().copied().collect(),
+        discriminator,
+        size,
+        align,
+    }
+}
