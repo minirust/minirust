@@ -20,7 +20,7 @@ fn print_fail() {
     let locals = [];
 
     let b0 = block!(
-        print(const_unit(), 1), // tuples cannot be printed
+        print(unit(), 1), // tuples cannot be printed
     );
     let b1 = block!(exit());
 

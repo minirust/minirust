@@ -15,7 +15,7 @@ fn invalid_offset() {
         storage_live(0),
         storage_live(1),
         assign(local(0),
-            const_array(&[
+            array(&[
                 const_int::<i32>(42),
                 const_int::<i32>(24),
             ], <i32>::get_type()),

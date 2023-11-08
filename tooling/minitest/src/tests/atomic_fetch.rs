@@ -104,7 +104,7 @@ fn atomic_fetch_ret_ty() {
 
     let ptr_ty = raw_ptr_ty();
 
-    let const_arr = const_array(&[const_int::<u8>(0); 3], <u8>::get_type());
+    let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type());
 
     let b0 = block!(
         storage_live(0),

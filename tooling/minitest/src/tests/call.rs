@@ -15,7 +15,7 @@ fn call_success() {
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value(const_unit())],
+            arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
@@ -36,7 +36,7 @@ fn call_non_exist() {
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value(const_unit())],
+            arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }
@@ -99,7 +99,7 @@ fn call_ret_abi() {
         storage_live(0),
         Terminator::Call {
             callee: fn_ptr(1),
-            arguments: list![by_value(const_unit())],
+            arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
         }

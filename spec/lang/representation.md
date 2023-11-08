@@ -230,15 +230,13 @@ impl Type {
 ### Enums
 
 Enum encoding and decoding.
-Note that the discriminant setting and reading does not modify any bytes.
-This is does not allow types like `Result<bool, bool>` to be stored in one byte.
-However this is fine as Rust currently does not do any optimizations like that
-and doing it here will introduce more questions.
+Note that the discriminant may not be written into bytes that contain encoded data.
+This is to ensure that pointers to the data always contain valid values.
 
 ```rust
-fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
-    // FIXME: we have multiple quite different fail sources,
-    // it would be nice to return more error information.
+/// Reads the discriminant from the value's bytes using the given `Discriminator`.
+/// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
+fn decode_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
     match discriminator {
         Discriminator::Known(val) => Some(val),
         Discriminator::Invalid => None,
@@ -246,7 +244,7 @@ fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, dis
             let AbstractByte::Init(val, _) = bytes[offset.bytes()]
                 else { return None };
             let next_discriminator = children.get(val).unwrap_or(fallback);
-            compute_discriminant::<M>(bytes, next_discriminator)
+            decode_discriminant::<M>(bytes, next_discriminator)
         }
     }
 }
@@ -254,7 +252,7 @@ fn compute_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, dis
 impl Type {
     fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
-        let disc = compute_discriminant::<M>(bytes, discriminator)?;
+        let disc = decode_discriminant::<M>(bytes, discriminator)?;
 
         // Decode into the variant.
         // Because the variant is the same size as the enum we don't need to pass a subslice.
@@ -267,13 +265,15 @@ impl Type {
     fn encode<M: Memory>(Type::Enum { variants, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Variant { idx, data } = val else { panic!() };
 
-        // idx is to be guaranteed in bounds by the well-formed check in the type.
+        // `idx` is guaranteed to be in bounds by the well-formed check in the type.
         let Variant { ty: variant, tagger } = variants[idx];
         let mut bytes = variant.encode(data.extract());
 
-        // write tag afterwards into the encoded bytes. This is fine as we don't allow
-        // encoded data and the tag to overlap at the moment.
+        // Write tag into the bytes around the data.
+        // This is fine as we don't allow encoded data and the tag to overlap.
         for (offset, value) in tagger.iter() {
+            // If this enum type is "reasonable", we'll only overwrite `Uninit` here`.
+            // However check_wf cannot ensure this, so we do not have an assertion.
             bytes.set(offset.bytes(), AbstractByte::Init(value, None));
         }
         bytes

@@ -65,3 +65,16 @@ fn zst_tuple2() {
     dump_program(p);
     assert_stop(p);
 }
+
+#[test]
+fn zst_enum() {
+    let empty_var_ty = enum_variant(<()>::get_type(), &[]);
+    let locals = &[enum_ty(&[empty_var_ty], Discriminator::Known(Int::from(0)), size(0), Align::ONE)];
+    let stmts = &[
+        storage_live(0),
+        assign(local(0), load(local(0))),
+    ];
+    let p = small_program(locals, stmts);
+    dump_program(p);
+    assert_stop(p);
+}

@@ -95,7 +95,7 @@ fn compare_exchange_ret_type() {
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
-    let const_arr = const_array(&[const_int::<u8>(0); 3], <u8>::get_type() );
+    let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type() );
 
     let b0 = block!(
         storage_live(0),
