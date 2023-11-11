@@ -229,16 +229,54 @@ impl Type {
 
 ### Enums
 
-TODO: implement Enum decoding & encoding.
+Enum encoding and decoding.
+Note that the discriminant may not be written into bytes that contain encoded data.
+This is to ensure that pointers to the data always contain valid values.
 
 ```rust
+/// Reads the discriminant from the value's bytes using the given `Discriminator`.
+/// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
+fn decode_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
+    match discriminator {
+        Discriminator::Known(val) => Some(val),
+        Discriminator::Invalid => None,
+        Discriminator::Unknown { offset, children, fallback } => {
+            let AbstractByte::Init(val, _) = bytes[offset.bytes()]
+                else { return None };
+            let next_discriminator = children.get(val).unwrap_or(fallback);
+            decode_discriminant::<M>(bytes, next_discriminator)
+        }
+    }
+}
+
 impl Type {
-    fn decode<M: Memory>(Type::Enum { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        todo!()
+    fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        if bytes.len() != size.bytes() { throw!(); }
+        let disc = decode_discriminant::<M>(bytes, discriminator)?;
+
+        // Decode into the variant.
+        // Because the variant is the same size as the enum we don't need to pass a subslice.
+        let Some(value) = variants[disc].ty.decode(bytes)
+            else { return None };
+
+        Some(Value::Variant { idx: disc, data: value })
     }
 
-    fn encode<M: Memory>(Type::Enum { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        todo!()
+    fn encode<M: Memory>(Type::Enum { variants, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        let Value::Variant { idx, data } = val else { panic!() };
+
+        // `idx` is guaranteed to be in bounds by the well-formed check in the type.
+        let Variant { ty: variant, tagger } = variants[idx];
+        let mut bytes = variant.encode(data.extract());
+
+        // Write tag into the bytes around the data.
+        // This is fine as we don't allow encoded data and the tag to overlap.
+        for (offset, value) in tagger.iter() {
+            // If this enum type is "reasonable", we'll only overwrite `Uninit` here`.
+            // However check_wf cannot ensure this, so we do not have an assertion.
+            bytes.set(offset.bytes(), AbstractByte::Init(value, None));
+        }
+        bytes
     }
 }
 ```
@@ -424,7 +462,7 @@ impl<M: Memory> AtomicMemory<M> {
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { idx, data: self.retag_val(data, variants[idx], fn_entry)? },
+                Value::Variant { idx, data: self.retag_val(data, variants[idx].ty, fn_entry)? },
             _ =>
                 panic!("this value does not have that type"),
         })

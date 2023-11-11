@@ -14,7 +14,7 @@ pub fn const_bool(b: bool) -> ValueExpr {
     ValueExpr::Constant(Constant::Bool(b), Type::Bool)
 }
 
-pub fn const_tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
+pub fn tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
     let Type::Tuple { fields, .. } = ty else {
         panic!("const_tuple received non-tuple type!");
     };
@@ -22,13 +22,17 @@ pub fn const_tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 
-pub fn const_array(args: &[ValueExpr], elem_ty: Type) -> ValueExpr {
+pub fn array(args: &[ValueExpr], elem_ty: Type) -> ValueExpr {
     let ty = array_ty(elem_ty, args.len());
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 
+pub fn variant(idx: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr {
+    ValueExpr::Variant { idx: idx.into(), data: GcCow::new(data), enum_ty}
+}
+
 // Returns () or [].
-pub fn const_unit() -> ValueExpr {
+pub fn unit() -> ValueExpr {
     ValueExpr::Tuple(Default::default(), <()>::get_type())
 }
 

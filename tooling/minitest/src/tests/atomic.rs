@@ -64,7 +64,7 @@ fn atomic_store_arg_type_pow() {
     let locals = [<[u8; 3]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
-    let arr = const_array(&[
+    let arr = array(&[
         const_int::<u8>(0),
         const_int::<u8>(1),
         const_int::<u8>(69),
@@ -92,7 +92,7 @@ fn atomic_store_arg_type_size() {
     let locals = [<[u64; 2]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
-    let arr = const_array(&[
+    let arr = array(&[
         const_int::<u64>(0),
         const_int::<u64>(1),
     ], <u64>::get_type());
@@ -189,7 +189,7 @@ fn atomic_load_arg_type() {
         storage_live(0),
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicLoad,
-            arguments: list!(const_unit()),
+            arguments: list!(unit()),
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1)))
         }

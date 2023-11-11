@@ -108,15 +108,38 @@ impl Type {
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
             }
-            Enum { variants, size, tag_encoding: _, align: _ } => {
+            Enum { variants, size, discriminator, align: _ } => {
+                // All the variants need to be well-formed and be the size of the enum so
+                // we don't have to handle different sizes in the memory representation.
                 for variant in variants {
-                    variant.check_wf::<T>()?;
-                    ensure(size >= variant.size::<T>())?;
+                    variant.ty.check_wf::<T>()?;
+                    ensure(size == variant.ty.size::<T>())?;
                 }
+
+                // check that all variants reached by the discriminator are valid and
+                // that it never performs out-of-bounds accesses.
+                discriminator.check_wf::<T>(size, variants.len())?;
             }
         }
 
         ret(())
+    }
+}
+
+impl Discriminator {
+    fn check_wf<T: Target>(self, size: Size, n_variants: Int) -> Option<()> {
+        match self {
+            Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants),
+            Discriminator::Invalid => ret(()),
+            Discriminator::Unknown { offset, fallback, children } => {
+                ensure(offset < size)?;
+                fallback.check_wf::<T>(size, n_variants)?;
+                for discriminator in children.values() {
+                    discriminator.check_wf::<T>(size, n_variants)?;
+                }
+                ret(())
+            }
+        }
     }
 }
 ```
@@ -200,7 +223,7 @@ impl ValueExpr {
             Variant { idx, data, enum_ty } => {
                 let Type::Enum { variants, .. } = enum_ty else { throw!() };
                 enum_ty.check_wf::<T>()?;
-                let ty = variants.get(idx)?;
+                let ty = variants.get(idx)?.ty;
 
                 let checked = data.check_wf::<T>(locals, prog)?;
                 ensure(checked == ty);
@@ -564,8 +587,8 @@ impl<M: Memory> Value<M> {
                 }
             }
             (Value::Variant { idx, data }, Type::Enum { variants, .. }) => {
-                ensure(idx < variants.len())?;
-                data.check_wf(variants[idx])?;
+                let variant = variants.get(idx)?.ty;
+                data.check_wf(variant)?;
             }
             _ => throw!()
         }
