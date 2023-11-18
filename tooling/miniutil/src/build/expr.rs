@@ -216,6 +216,14 @@ pub fn index(root: PlaceExpr, index: ValueExpr) -> PlaceExpr {
     }
 }
 
+/// An enum downcast into the variant at the specified index.
+pub fn downcast(root: PlaceExpr, variantIdx: impl Into<Int>) -> PlaceExpr {
+    PlaceExpr::Downcast {
+        root: GcCow::new(root),
+        variantIdx: variantIdx.into(),
+    }
+}
+
 /// A place suited for zero-sized accesses.
 pub fn zst_place() -> PlaceExpr {
     let ptr = ValueExpr::Constant(Constant::InvalidPointer(1.into()), <*const ()>::get_type());

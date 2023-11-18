@@ -313,6 +313,14 @@ impl PlaceExpr {
                     _ => throw!(),
                 }
             }
+            Downcast { root, variantIdx } => {
+                let root = root.check_wf::<T>(locals, prog)?;
+                match root {
+                    // A valid downcast points to an existing variant.
+                    Type::Enum { variants, .. } => variants.get(variantIdx)?.ty,
+                    _ => throw!(),
+                }
+            }
         })
     }
 }
