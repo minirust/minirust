@@ -15,13 +15,13 @@ pub struct Machine<M: Memory> {
     /// The program we are executing.
     prog: Program,
 
-    /// The state of memory.
+    /// The contents of memory.
     mem: AtomicMemory<M>,
 
     /// The state of the integer-pointer cast subsystem.
     intptrcast: IntPtrCast<M::Provenance>,
 
-    /// The Threads
+    /// The threads (in particular, their stacks).
     threads: List<Thread<M>>,
 
     /// The currently / most recently active thread.
@@ -87,10 +87,13 @@ This defines the internal representation of a thread of execution.
 
 ```rust
 pub struct Thread<M: Memory> {
-    state: ThreadState,
-
-    /// The stack.
+    /// The stack. This is only the "control" part of the stack; the "data" part
+    /// lives in memory (and stack and memory are completely disjoint concepts
+    /// in the Abstract Machine).
     stack: List<StackFrame<M>>,
+
+    /// Stores whether the thread is ready to run, blocked, or terminated.
+    state: ThreadState,
 }
 
 pub enum ThreadState {
