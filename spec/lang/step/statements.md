@@ -57,6 +57,34 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+## Setting a discriminant
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_statement(&mut self, Statement::SetDiscriminant { destination, value }: Statement) -> NdResult {
+        let (Place { ptr, aligned: true }, Type::Enum { variants, size, align, .. }) = self.eval_place(destination)? else {
+            panic!("Setting the discriminant type of a non-enum contradicts well-formedness.");
+        };
+        let (Value::Int(idx), _int_ty) = self.eval_value(value)? else {
+            panic!("Setting the discriminant to a non-int type contradicts well-formedness.");
+        };
+        let tagger = match variants.get(idx) {
+            Some(Variant { tagger, .. }) => tagger,
+            None => throw_ub!("Setting an invalid discriminant ({idx})"),
+        };
+
+        // Load the bytes from memory, store tag into the bytes and write the bytes back to memory.
+        // This should be fine as we don't allow encoded data and the tag to overlap for valid enum variants.
+        let mut bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
+        for (offset, value) in tagger.iter() {
+            bytes.set(offset.bytes(), AbstractByte::Init(value, None));
+        }
+        self.mem.store(ptr, bytes, align, Atomicity::None)?;
+        ret(())
+    }
+}
+```
+
 ## Validating a value
 
 This statement asserts that a value satisfies its validity invariant, and performs retagging for the aliasing model.

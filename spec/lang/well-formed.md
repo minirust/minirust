@@ -370,6 +370,15 @@ impl Statement {
                 ensure(matches!(v, Type::Ptr(_)));
                 live_locals
             }
+            SetDiscriminant { destination, value } => {
+                let Type::Enum { .. } = destination.check_wf::<T>(live_locals, prog)? else {
+                    throw!();
+                };
+                let val_ty = value.check_wf::<T>(live_locals, prog)?;
+                // TODOT: ensure int size matches when we defined its size.
+                ensure(matches!(val_ty, Type::Int(_)));
+                live_locals
+            }
             Validate { place, fn_entry: _ } => {
                 place.check_wf::<T>(live_locals, prog)?;
                 live_locals

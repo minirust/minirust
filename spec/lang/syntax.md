@@ -210,6 +210,11 @@ pub enum Statement {
     Expose {
         value: ValueExpr,
     },
+    /// Set the discriminant of the variant at `destination` to `value`.
+    SetDiscriminant {
+        destination: PlaceExpr,
+        value: ValueExpr,
+    },
     /// Ensure that `place` contains a valid value of its type (else UB).
     /// Also perform retagging and ensure safe pointers are dereferenceable.
     ///
