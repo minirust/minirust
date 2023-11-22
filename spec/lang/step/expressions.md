@@ -265,13 +265,13 @@ impl<M: Memory> Machine<M> {
         ret((Place { ptr, ..root }, field_ty))
     }
 
-    fn eval_place(&mut self, PlaceExpr::Downcast { root, variantIdx }: PlaceExpr) -> NdResult<(Place<M>, Type)> {
+    fn eval_place(&mut self, PlaceExpr::Downcast { root, variant_idx }: PlaceExpr) -> NdResult<(Place<M>, Type)> {
         let (root, ty) = self.eval_place(root)?;
         // We only need to downcast the enum type into the variant data type
         // since all the enum data must have the same size with offset 0 (invariant).
         let var_ty = match ty {
-            Type::Enum { variants, .. } => variants[variantIdx].ty,
-            _ => throw_ub!("enum downcast to invalid variant"),
+            Type::Enum { variants, .. } => variants[variant_idx].ty,
+            _ => panic!("enum downcast on non-enum"),
         };
         ret((root, var_ty))
     }

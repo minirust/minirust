@@ -24,7 +24,7 @@ fn valid_downcast() {
     let stmts = &[
         storage_live(0),
         storage_live(1),
-        assign(downcast(local(0), 0), const_int_typed::<u8>(42.into())),
+        assign(downcast(local(0), 0), const_int(42u8)),
         assign(local(1), load(downcast(local(0), 0))),
     ];
     let prog = small_program(locals, stmts);
@@ -37,21 +37,21 @@ fn valid_downcast() {
 fn downcasts_give_different_place() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(3), align(2)), &[(size(2), 0)]);
+    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(4), align(2)), &[(size(2), 0u8)]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(3), align(2)), &[(size(2), 1)]);
+    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(4), align(2)), &[(size(2), 1u8)]);
     let discriminator = Discriminator::Unknown {
         offset: size(2),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
-    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(3), align(2));
+    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(4), align(2));
 
     let locals = &[enum_ty, u16_t];
     let stmts = &[
         storage_live(0),
         storage_live(1),
-        assign(field(downcast(local(0), 0), 0), const_int_typed::<u8>(42.into())),
+        assign(field(downcast(local(0), 0), 0), const_int(42u8)),
         assign(local(1), load(field(downcast(local(0), 1), 0))), // UB here, only the lower byte is initialized
     ];
     let prog = small_program(locals, stmts);
@@ -63,21 +63,21 @@ fn downcasts_give_different_place() {
 fn downcasts_give_different_place2() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(3), align(2)), &[(size(2), 0)]);
+    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(4), align(2)), &[(size(2), 0)]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(3), align(2)), &[(size(2), 1)]);
+    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(4), align(2)), &[(size(2), 1)]);
     let discriminator = Discriminator::Unknown {
         offset: size(2),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
-    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(3), align(2));
+    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(4), align(2));
 
     let locals = &[enum_ty, u8_t];
     let stmts = &[
         storage_live(0),
         storage_live(1),
-        assign(field(downcast(local(0), 1), 0), const_int_typed::<u16>(42.into())),
+        assign(field(downcast(local(0), 1), 0), const_int(42u16)),
         assign(local(1), load(field(downcast(local(0), 0), 0))),
     ];
     let prog = small_program(locals, stmts);

@@ -181,7 +181,7 @@ pub enum PlaceExpr {
         #[specr::indirection]
         root: PlaceExpr,
         /// The variant index to project to.
-        variantIdx: Int,
+        variant_idx: Int,
     },
 }
 ```

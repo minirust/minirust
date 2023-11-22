@@ -217,10 +217,10 @@ pub fn index(root: PlaceExpr, index: ValueExpr) -> PlaceExpr {
 }
 
 /// An enum downcast into the variant at the specified index.
-pub fn downcast(root: PlaceExpr, variantIdx: impl Into<Int>) -> PlaceExpr {
+pub fn downcast(root: PlaceExpr, variant_idx: impl Into<Int>) -> PlaceExpr {
     PlaceExpr::Downcast {
         root: GcCow::new(root),
-        variantIdx: variantIdx.into(),
+        variant_idx: variant_idx.into(),
     }
 }
 
