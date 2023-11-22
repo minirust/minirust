@@ -105,14 +105,15 @@ fn check_abi_compatibility(
             caller_chunks == callee_chunks &&
             caller_size == callee_size &&
             caller_align == callee_align,
-        (Type::Enum { variants: caller_variants, discriminator: caller_discriminator, size: caller_size, align: caller_align },
-         Type::Enum { variants: callee_variants, discriminator: callee_discriminator, size: callee_size, align: callee_align }) =>
+        (Type::Enum { variants: caller_variants, discriminator: caller_discriminator, discriminant_ty: caller_discriminant_ty, size: caller_size, align: caller_align },
+         Type::Enum { variants: callee_variants, discriminator: callee_discriminator, discriminant_ty: callee_discriminant_ty, size: callee_size, align: callee_align }) =>
             caller_variants.len() == callee_variants.len() &&
             caller_variants.zip(callee_variants).all(|(caller_variant, callee_variant)|
                 check_abi_compatibility(caller_variant.ty, callee_variant.ty) &&
                 caller_variant.tagger == callee_variant.tagger
             ) &&
             caller_discriminator == callee_discriminator &&
+            caller_discriminant_ty == callee_discriminant_ty &&
             caller_size == callee_size &&
             caller_align == callee_align,
         // Different kind of type, definitely incompatible.

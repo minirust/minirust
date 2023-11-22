@@ -70,10 +70,11 @@ pub fn enum_variant(ty: Type, tagger: &[(Offset, u8)]) -> Variant {
     }
 }
 
-pub fn enum_ty(variants: &[Variant], discriminator: Discriminator, size: Size, align: Align) -> Type {
+pub fn enum_ty(variants: &[Variant], discriminator: Discriminator, discriminant_bytes: impl Into<Int>, size: Size, align: Align) -> Type {
     Type::Enum {
         variants: variants.iter().copied().collect(),
         discriminator,
+        discriminant_ty: IntType { signed: Signedness::Unsigned, size: Size::from_bytes(discriminant_bytes).unwrap() },
         size,
         align,
     }

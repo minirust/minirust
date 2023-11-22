@@ -108,7 +108,7 @@ impl Type {
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
             }
-            Enum { variants, size, discriminator, align: _ } => {
+            Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
                 for variant in variants {
@@ -119,6 +119,7 @@ impl Type {
                 // check that all variants reached by the discriminator are valid and
                 // that it never performs out-of-bounds accesses.
                 discriminator.check_wf::<T>(size, variants.len())?;
+                ensure(libspecr::Int::ONE << discriminant_ty.size.bits() >= variants.len())?;
             }
         }
 
@@ -230,11 +231,10 @@ impl ValueExpr {
                 enum_ty
             }
             Discriminant { place } => {
-                let Some(Type::Enum { .. }) = place.check_wf::<T>(locals, prog) else {
+                let Some(Type::Enum { discriminant_ty, .. }) = place.check_wf::<T>(locals, prog) else {
                     throw!();
                 };
-                // TODOT: find right type (see eval_value)
-                Type::Int(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(4).unwrap() })
+                Type::Int(discriminant_ty)
             }
             Load { source } => {
                 source.check_wf::<T>(locals, prog)?
@@ -371,12 +371,12 @@ impl Statement {
                 live_locals
             }
             SetDiscriminant { destination, value } => {
-                let Type::Enum { .. } = destination.check_wf::<T>(live_locals, prog)? else {
+                let Type::Enum { discriminant_ty, .. } = destination.check_wf::<T>(live_locals, prog)? else {
                     throw!();
                 };
                 let val_ty = value.check_wf::<T>(live_locals, prog)?;
-                // TODOT: ensure int size matches when we defined its size.
-                ensure(matches!(val_ty, Type::Int(_)));
+                // Ensure the type we set the discriminant to matches the type of the discriminant.
+                ensure(val_ty == Type::Int(discriminant_ty));
                 live_locals
             }
             Validate { place, fn_entry: _ } => {

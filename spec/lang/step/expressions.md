@@ -102,7 +102,7 @@ impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Discriminant { place } : ValueExpr) -> NdResult<(Value<M>, Type)> {
         // Get the place of the enum and its information.
         let (place, ty) = self.eval_place(place)?;
-        let Type::Enum { size, align, discriminator, .. } = ty else {
+        let Type::Enum { size, align, discriminator, discriminant_ty, .. } = ty else {
             throw_ill_formed!();
         };
 
@@ -112,9 +112,8 @@ impl<M: Memory> Machine<M> {
         let Some(discriminant) = decode_discriminant::<M>(bytes, discriminator) else {
             throw_ub!("`get_discriminant` encountered invalid discriminant.");
         };
-        // TODOT: What actually should the discriminant be? Do we save the discriminant type in the enum?
-        //        Is it the smallest possible?
-        ret((Value::Int(discriminant), Type::Int(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(4).unwrap() })))
+
+        ret((Value::Int(discriminant), Type::Int(discriminant_ty)))
     }
 }
 ```

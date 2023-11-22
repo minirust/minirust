@@ -64,6 +64,8 @@ pub enum Type {
         variants: List<Variant>,
         /// This contains the decision tree to decode the variant at runtime.
         discriminator: Discriminator,
+        /// The `IntType` to represent the discriminant.
+        discriminant_ty: IntType,
         /// The total size of the enum can indicate trailing padding.
         /// Must be large enough to contain all variants.
         size: Size,
