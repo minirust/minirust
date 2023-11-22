@@ -94,6 +94,31 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+Read the discriminant of an Enum.
+The well-formedness checks already ensured that the type is an enum.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::Discriminant { place } : ValueExpr) -> NdResult<(Value<M>, Type)> {
+        // Get the place of the enum and its information.
+        let (place, ty) = self.eval_place(place)?;
+        let Type::Enum { size, align, discriminator, .. } = ty else {
+            throw_ill_formed!();
+        };
+
+        // Load the bytes and decode the discriminant. We don't want to load the full value of the variant
+        // as this would require valid data which is *NOT* required by Rust.
+        let bytes = self.mem.load(place.ptr, size, align, Atomicity::None)?;
+        let Some(discriminant) = decode_discriminant::<M>(bytes, discriminator) else {
+            throw_ub!("`get_discriminant` encountered invalid discriminant.");
+        };
+        // TODOT: What actually should the discriminant be? Do we save the discriminant type in the enum?
+        //        Is it the smallest possible?
+        ret((Value::Int(discriminant), Type::Int(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(4).unwrap() })))
+    }
+}
+```
+
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").

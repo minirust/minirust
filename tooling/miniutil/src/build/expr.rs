@@ -31,6 +31,10 @@ pub fn variant(idx: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr
     ValueExpr::Variant { idx: idx.into(), data: GcCow::new(data), enum_ty}
 }
 
+pub fn get_discriminant(place: PlaceExpr) -> ValueExpr {
+    ValueExpr::Discriminant { place: GcCow::new(place) }
+}
+
 // Returns () or [].
 pub fn unit() -> ValueExpr {
     ValueExpr::Tuple(Default::default(), <()>::get_type())

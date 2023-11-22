@@ -229,6 +229,13 @@ impl ValueExpr {
                 ensure(checked == ty);
                 enum_ty
             }
+            Discriminant { place } => {
+                let Some(Type::Enum { .. }) = place.check_wf::<T>(locals, prog) else {
+                    throw!();
+                };
+                // TODOT: find right type (see eval_value)
+                Type::Int(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(4).unwrap() })
+            }
             Load { source } => {
                 source.check_wf::<T>(locals, prog)?
             }

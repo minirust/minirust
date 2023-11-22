@@ -39,8 +39,17 @@ pub enum ValueExpr {
         /// The `ValueExpr` for the variant.
         #[specr::indirection]
         data: ValueExpr,
-        /// The enum type, needs to be `Type::Enum``.
+        /// The enum type, needs to be `Type::Enum`.
         enum_ty: Type,
+    },
+
+    /// Read the discriminant of an enum type.
+    /// As we don't need to know the validity of the inner data
+    /// we don't fully load the variant value.
+    Discriminant {
+        /// The place where the enum is located.
+        #[specr::indirection]
+        place: PlaceExpr,
     },
 
     /// Load a value from memory.
