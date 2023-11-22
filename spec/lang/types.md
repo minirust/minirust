@@ -80,6 +80,12 @@ pub struct IntType {
     pub size: Size,
 }
 
+impl IntType {
+    pub fn can_represent(&self, i: Int) -> bool {
+        i.in_bounds(self.signed, self.size)
+    }
+}
+
 pub type Fields = List<(Offset, Type)>;
 
 pub struct Variant {

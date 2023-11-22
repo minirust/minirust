@@ -213,7 +213,7 @@ pub enum Statement {
     /// Set the discriminant of the variant at `destination` to `value`.
     SetDiscriminant {
         destination: PlaceExpr,
-        value: ValueExpr,
+        value: Int,
     },
     /// Ensure that `place` contains a valid value of its type (else UB).
     /// Also perform retagging and ensure safe pointers are dereferenceable.

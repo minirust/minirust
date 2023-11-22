@@ -102,15 +102,19 @@ impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Discriminant { place } : ValueExpr) -> NdResult<(Value<M>, Type)> {
         // Get the place of the enum and its information.
         let (place, ty) = self.eval_place(place)?;
-        let Type::Enum { size, align, discriminator, discriminant_ty, .. } = ty else {
-            throw_ill_formed!();
+        let Type::Enum { discriminator, discriminant_ty, .. } = ty else {
+            panic!();
         };
 
-        // Load the bytes and decode the discriminant. We don't want to load the full value of the variant
-        // as this would require valid data which is *NOT* required by Rust.
-        let bytes = self.mem.load(place.ptr, size, align, Atomicity::None)?;
-        let Some(discriminant) = decode_discriminant::<M>(bytes, discriminator) else {
-            throw_ub!("`get_discriminant` encountered invalid discriminant.");
+        // We don't require the variant to be valid,
+        // we are only interested in the bytes that the discriminator actually touches.
+        let mut accessor = |idx| {
+            let ptr = self.ptr_offset_inbounds(place.ptr, idx)?;
+            let byte = self.mem.load(ptr, Size::from_bytes(1).unwrap(), Align::ONE, Atomicity::None)?;
+            ret(byte[Int::ZERO])
+        };
+        let Some(discriminant) = decode_discriminant::<M>(&mut accessor, discriminator)? else {
+            throw_ub!("Discriminant expression encountered invalid discriminant.");
         };
 
         ret((Value::Int(discriminant), Type::Int(discriminant_ty)))

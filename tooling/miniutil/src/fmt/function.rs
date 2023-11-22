@@ -109,8 +109,7 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             value
         } => {
             let left = fmt_place_expr(destination, comptypes).to_string();
-            let right = fmt_value_expr(value, comptypes).to_string();
-            format!("    discriminant({left}) = {right};")
+            format!("    discriminant({left}) = {value};")
         }
         Statement::Validate { place, fn_entry } => {
             let place = fmt_place_expr(place, comptypes).to_string();

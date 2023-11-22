@@ -62,24 +62,26 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::SetDiscriminant { destination, value }: Statement) -> NdResult {
-        let (Place { ptr, aligned: true }, Type::Enum { variants, size, align, .. }) = self.eval_place(destination)? else {
+        let (place, Type::Enum { variants, .. }) = self.eval_place(destination)? else {
             panic!("Setting the discriminant type of a non-enum contradicts well-formedness.");
         };
-        let (Value::Int(idx), _int_ty) = self.eval_value(value)? else {
-            panic!("Setting the discriminant to a non-int type contradicts well-formedness.");
-        };
-        let tagger = match variants.get(idx) {
+        if !place.aligned {
+            throw_ub!("Setting the discriminant based on a misaligned pointer");
+        }
+
+        let tagger = match variants.get(value) {
             Some(Variant { tagger, .. }) => tagger,
-            None => throw_ub!("Setting an invalid discriminant ({idx})"),
+            // guaranteed unreachable by the well-formedness checks
+            None => panic!("Setting an invalid discriminant ({value})"),
         };
 
-        // Load the bytes from memory, store tag into the bytes and write the bytes back to memory.
+        // Write the tag directly into memory.
         // This should be fine as we don't allow encoded data and the tag to overlap for valid enum variants.
-        let mut bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
-        for (offset, value) in tagger.iter() {
-            bytes.set(offset.bytes(), AbstractByte::Init(value, None));
-        }
-        self.mem.store(ptr, bytes, align, Atomicity::None)?;
+        let mut accessor = |offset, value| {
+            let ptr = self.ptr_offset_inbounds(place.ptr, offset)?;
+            self.mem.store(ptr, [value].into_iter().collect(), Align::ONE, Atomicity::None)
+        };
+        encode_discriminant::<M>(&mut accessor, tagger)?;
         ret(())
     }
 }

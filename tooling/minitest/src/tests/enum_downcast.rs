@@ -4,7 +4,7 @@ use crate::*;
 #[test]
 fn out_of_bounds_downcast() {
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let enum_ty = enum_ty(&[enum_variant(u8_t, &[])], Discriminator::Known(0.into()), size(1), align(1));
+    let enum_ty = enum_ty(&[enum_variant(u8_t, &[])], Discriminator::Known(0.into()), 1, size(1), align(1));
     let locals = &[enum_ty, u8_t];
     let stmts = &[
         storage_live(0),
@@ -19,7 +19,7 @@ fn out_of_bounds_downcast() {
 #[test]
 fn valid_downcast() {
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let enum_ty = enum_ty(&[enum_variant(u8_t, &[])], Discriminator::Known(0.into()), size(1), align(1));
+    let enum_ty = enum_ty(&[enum_variant(u8_t, &[])], Discriminator::Known(0.into()), 1, size(1), align(1));
     let locals = &[enum_ty, u8_t];
     let stmts = &[
         storage_live(0),
@@ -45,7 +45,7 @@ fn downcasts_give_different_place() {
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
-    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(4), align(2));
+    let enum_ty = enum_ty(&[variant1, variant2], discriminator, 1, size(4), align(2));
 
     let locals = &[enum_ty, u16_t];
     let stmts = &[
@@ -71,7 +71,7 @@ fn downcasts_give_different_place2() {
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
-    let enum_ty = enum_ty(&[variant1, variant2], discriminator, size(4), align(2));
+    let enum_ty = enum_ty(&[variant1, variant2], discriminator, 1, size(4), align(2));
 
     let locals = &[enum_ty, u8_t];
     let stmts = &[

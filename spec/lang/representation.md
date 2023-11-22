@@ -236,23 +236,30 @@ This is to ensure that pointers to the data always contain valid values.
 ```rust
 /// Reads the discriminant from the value's bytes using the given `Discriminator`.
 /// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
-fn decode_discriminant<M: Memory>(bytes: List<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Option<Int> {
+fn decode_discriminant<M: Memory>(accessor: &mut dyn FnMut(Int) -> Result<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Result<Option<Int>> {
     match discriminator {
-        Discriminator::Known(val) => Some(val),
-        Discriminator::Invalid => None,
+        Discriminator::Known(val) => ret(Some(val)),
+        Discriminator::Invalid => ret(None),
         Discriminator::Unknown { offset, children, fallback } => {
-            let AbstractByte::Init(val, _) = bytes[offset.bytes()]
-                else { return None };
+            let AbstractByte::Init(val, _) = accessor(offset.bytes())?
+                else { return ret(None) };
             let next_discriminator = children.get(val).unwrap_or(fallback);
-            decode_discriminant::<M>(bytes, next_discriminator)
+            decode_discriminant::<M>(accessor, next_discriminator)
         }
     }
+}
+
+fn encode_discriminant<M: Memory>(accessor: &mut dyn FnMut(Int, AbstractByte<M::Provenance>) -> Result, tagger: Map<Offset, u8>) -> Result<()> {
+    for (offset, value) in tagger.iter() {
+        accessor(offset.bytes(), AbstractByte::Init(value, None))?;
+    }
+    ret(())
 }
 
 impl Type {
     fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
-        let disc = decode_discriminant::<M>(bytes, discriminator)?;
+        let disc = decode_discriminant::<M>(&mut |idx| ret(bytes[idx]), discriminator).unwrap()?;
 
         // Decode into the variant.
         // Because the variant is the same size as the enum we don't need to pass a subslice.
@@ -271,11 +278,7 @@ impl Type {
 
         // Write tag into the bytes around the data.
         // This is fine as we don't allow encoded data and the tag to overlap.
-        for (offset, value) in tagger.iter() {
-            // If this enum type is "reasonable", we'll only overwrite `Uninit` here`.
-            // However check_wf cannot ensure this, so we do not have an assertion.
-            bytes.set(offset.bytes(), AbstractByte::Init(value, None));
-        }
+        encode_discriminant::<M>(&mut |offset, value| { bytes.set(offset, value); ret(()) }, tagger).unwrap();
         bytes
     }
 }
