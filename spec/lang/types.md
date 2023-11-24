@@ -108,7 +108,7 @@ pub enum Discriminator {
     /// We don't know the discriminant, so we branch on the value of a specific byte.
     /// The fallback keeps the representation more compact, as we often are only
     /// interested in a couple of values and we don't want to always have 256 branches.
-    Unknown {
+    Branch {
         offset: Offset,
         #[specr::indirection]
         fallback: Discriminator,

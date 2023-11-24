@@ -132,7 +132,7 @@ impl Discriminator {
         match self {
             Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants && discriminant_ty.can_represent(variant)),
             Discriminator::Invalid => ret(()),
-            Discriminator::Unknown { offset, fallback, children } => {
+            Discriminator::Branch { offset, fallback, children } => {
                 ensure(offset < size)?;
                 fallback.check_wf::<T>(size, n_variants, discriminant_ty)?;
                 for discriminator in children.values() {

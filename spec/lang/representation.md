@@ -240,7 +240,7 @@ fn decode_discriminant<M: Memory>(accessor: &mut dyn FnMut(Int) -> Result<Abstra
     match discriminator {
         Discriminator::Known(val) => ret(Some(val)),
         Discriminator::Invalid => ret(None),
-        Discriminator::Unknown { offset, children, fallback } => {
+        Discriminator::Branch { offset, children, fallback } => {
             let AbstractByte::Init(val, _) = accessor(offset.bytes())?
                 else { return ret(None) };
             let next_discriminator = children.get(val).unwrap_or(fallback);

@@ -39,7 +39,7 @@ fn simple_two_variant_works() {
     let bool_var_ty = enum_variant(Type::Bool, &[]);
     let empty_var_data_ty = tuple_ty(&[], size(1), align(1)); // unit with size 1
     let empty_var_ty = enum_variant(empty_var_data_ty, &[(size(0), 2)]);
-    let discriminator = Discriminator::Unknown {
+    let discriminator = Discriminator::Branch {
         offset: size(0),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [
