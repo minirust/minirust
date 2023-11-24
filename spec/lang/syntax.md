@@ -175,6 +175,14 @@ pub enum PlaceExpr {
         #[specr::indirection]
         index: ValueExpr,
     },
+    /// Enum variant downcast.
+    Downcast {
+        /// The base enum to project to the specific variant.
+        #[specr::indirection]
+        root: PlaceExpr,
+        /// The variant index to project to.
+        variant_idx: Int,
+    },
 }
 ```
 
