@@ -14,8 +14,8 @@ fn ill_sized_enum_variant() {
 #[test]
 fn inconsistently_sized_enum_variants() {
     let enum_ty = enum_ty(&[
-            enum_variant(<()>::get_type(), &[(size(1), 2)]), // size 0
-            enum_variant(<bool>::get_type(), &[]),           // size 1
+            enum_variant(<()>::get_type(), &[(offset(1), 2)]),  // size 0
+            enum_variant(<bool>::get_type(), &[]),              // size 1
         ], Discriminator::Invalid, 1, size(1), align(1));       // size 1
     let locals = &[enum_ty];
     let stmts = &[];
@@ -38,9 +38,9 @@ fn ill_formed_discriminator() {
 fn simple_two_variant_works() {
     let bool_var_ty = enum_variant(Type::Bool, &[]);
     let empty_var_data_ty = tuple_ty(&[], size(1), align(1)); // unit with size 1
-    let empty_var_ty = enum_variant(empty_var_data_ty, &[(size(0), 2)]);
+    let empty_var_ty = enum_variant(empty_var_data_ty, &[(offset(0), 2)]);
     let discriminator = Discriminator::Branch {
-        offset: size(0),
+        offset: offset(0),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [
             (0, Discriminator::Known(0.into())),

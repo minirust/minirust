@@ -108,12 +108,12 @@ impl<M: Memory> Machine<M> {
 
         // We don't require the variant to be valid,
         // we are only interested in the bytes that the discriminator actually touches.
-        let mut accessor = |idx| {
+        let accessor = |idx| {
             let ptr = self.ptr_offset_inbounds(place.ptr, idx)?;
             let byte = self.mem.load(ptr, Size::from_bytes(1).unwrap(), Align::ONE, Atomicity::None)?;
             ret(byte[Int::ZERO])
         };
-        let Some(discriminant) = decode_discriminant::<M>(&mut accessor, discriminator)? else {
+        let Some(discriminant) = decode_discriminant::<M>(accessor, discriminator)? else {
             throw_ub!("Discriminant expression encountered invalid discriminant.");
         };
 

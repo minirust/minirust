@@ -77,11 +77,11 @@ impl<M: Memory> Machine<M> {
 
         // Write the tag directly into memory.
         // This should be fine as we don't allow encoded data and the tag to overlap for valid enum variants.
-        let mut accessor = |offset, value| {
+        let accessor = |offset, value| {
             let ptr = self.ptr_offset_inbounds(place.ptr, offset)?;
             self.mem.store(ptr, [value].into_iter().collect(), Align::ONE, Atomicity::None)
         };
-        encode_discriminant::<M>(&mut accessor, tagger)?;
+        encode_discriminant::<M>(accessor, tagger)?;
         ret(())
     }
 }

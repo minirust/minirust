@@ -37,11 +37,11 @@ fn valid_downcast() {
 fn downcasts_give_different_place() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(4), align(2)), &[(size(2), 0u8)]);
+    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), 0u8)]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(4), align(2)), &[(size(2), 1u8)]);
+    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), 1u8)]);
     let discriminator = Discriminator::Branch {
-        offset: size(2),
+        offset: offset(2),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
@@ -63,11 +63,11 @@ fn downcasts_give_different_place() {
 fn downcasts_give_different_place2() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(size(1), u8_t)], size(4), align(2)), &[(size(2), 0)]);
+    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), 0)]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(size(0), u16_t)], size(4), align(2)), &[(size(2), 1)]);
+    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), 1)]);
     let discriminator = Discriminator::Branch {
-        offset: size(2),
+        offset: offset(2),
         fallback: GcCow::new(Discriminator::Invalid),
         children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
     };
