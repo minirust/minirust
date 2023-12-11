@@ -235,6 +235,8 @@ This is to ensure that pointers to the data always contain valid values.
 
 ```rust
 /// Uses the `Discriminator` to decode the discriminant from the tag read out of the value's bytes using the accessor.
+/// The accessor is given an offset relative to the beginning of the encoded enum value,
+/// and it should return the abstract byte at that offset.
 /// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
 fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Int) -> Result<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Result<Option<Int>> {
     match discriminator {
@@ -250,6 +252,8 @@ fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Int) -> Result<Abstra
 }
 
 /// Writes the tag described by the tagger into the bytes accessed using the accessor.
+/// The accessor is given an offset relative to the beginning of the encoded enum value
+/// and the abstract byte to store at that offset.
 fn encode_discriminant<M: Memory>(mut accessor: impl FnMut(Int, AbstractByte<M::Provenance>) -> Result, tagger: Map<Offset, u8>) -> Result<()> {
     for (offset, value) in tagger.iter() {
         accessor(offset.bytes(), AbstractByte::Init(value, None))?;
@@ -260,7 +264,8 @@ fn encode_discriminant<M: Memory>(mut accessor: impl FnMut(Int, AbstractByte<M::
 impl Type {
     fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { throw!(); }
-        // We can unwrap the decoded discriminant as the result would come from the accessor which in this case cannot fail.
+        // We can unwrap the decoded discriminant as our accessor never fails, and
+        // decode_discriminant only fails if the accessor fails.
         let disc = decode_discriminant::<M>(|idx| ret(bytes[idx]), discriminator).unwrap()?;
 
         // Decode into the variant.
@@ -280,7 +285,8 @@ impl Type {
 
         // Write tag into the bytes around the data.
         // This is fine as we don't allow encoded data and the tag to overlap.
-        // We can unwrap the `Result` as the Result would come from the accessor which in this case cannot fail.
+        // We can unwrap the `Result` as our accessor never fails, and
+        // encode_discriminant only fails if the accessor fails.
         encode_discriminant::<M>(|offset, value| { bytes.set(offset, value); ret(()) }, tagger).unwrap();
         bytes
     }

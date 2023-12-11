@@ -103,7 +103,7 @@ impl<M: Memory> Machine<M> {
         // Get the place of the enum and its information.
         let (place, ty) = self.eval_place(place)?;
         let Type::Enum { discriminator, discriminant_ty, .. } = ty else {
-            panic!();
+            panic!("ValueExpr::Discriminant requires enum type");
         };
 
         // We don't require the variant to be valid,
