@@ -3,7 +3,7 @@ use crate::*;
 /// It is ill-formed to write an invalid discriminant.
 #[test]
 fn ill_formed_invalid_discriminant_set() {
-    let enum_ty = enum_ty(&[], Discriminator::Invalid, 1, size(0), align(1));
+    let enum_ty = enum_ty::<u8>(&[], Discriminator::Invalid, size(0), align(1));
     let locals = [enum_ty];
     let stmts = [
         storage_live(0),
@@ -17,10 +17,9 @@ fn ill_formed_invalid_discriminant_set() {
 #[test]
 fn discriminant_get_and_set_work() {
     // single-variant enum without data and the tag 4 for the only variant
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 4)])],
         Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(4, Discriminator::Known(0.into()))].into_iter().collect() },
-        1,
         size(1),
         align(1)
     );
@@ -45,13 +44,12 @@ fn discriminant_get_and_set_work() {
 #[test]
 fn discriminant_setting_right_value() {
     // multi-variant enum without data and the tags 4 and 2.
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[
             enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 4)]),
             enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 2)]),
         ],
         Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(4, Discriminator::Known(0.into()))].into_iter().collect() },
-        1,
         size(1),
         align(1)
     );
@@ -83,10 +81,10 @@ fn discriminant_leaves_data_alone() {
     let u16_t = int_ty(Signedness::Unsigned, size(2));
 
     // single-variant enum with layout <u8 data, u8 tag, u16 data> and tag 1
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[enum_variant(tuple_ty(&[(offset(0), u8_t), (offset(2), u16_t)], size(4), align(2)), &[(offset(1), 1)])],
         Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [].into_iter().collect() },
-        1, size(4), align(2)
+        size(4), align(2)
     );
     // the only local is a union of the enum and all its field seperately
     let locals = [union_ty(&[(offset(0), enum_ty), (offset(0), u8_t), (offset(1), u8_t), (offset(2), u16_t)], size(4), align(2))];
@@ -115,10 +113,10 @@ fn discriminant_leaves_data_alone() {
 #[test]
 fn ub_discriminant_does_not_init() {
     // single variant enum with layout (u8 data, u8 tag) and tag 1
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), 1u8)])],
         Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
-        1, size(2), align(1)
+        size(2), align(1)
     );
     let locals = [enum_ty];
     let blocks = [
@@ -138,10 +136,10 @@ fn ub_discriminant_does_not_init() {
 #[test]
 fn ub_cannot_read_uninit_discriminant() {
     // single variant enum with layout (u8 data, u8 tag) and tag 1
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), 1u8)])],
         Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
-        1, size(2), align(1)
+        size(2), align(1)
     );
     let locals = [enum_ty];
     let blocks = [
@@ -162,10 +160,10 @@ fn ub_cannot_read_uninit_discriminant() {
 fn ub_cannot_read_invalid_discriminant() {
     let u8_t = int_ty(Signedness::Unsigned, size(1));
     // single variant enum without data and tag 1
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 1u8)])],
         Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
-        1, size(1), align(1)
+        size(1), align(1)
     );
     let locals = [union_ty(&[(offset(0), enum_ty), (offset(0), u8_t)], size(1), align(1))];
     let blocks = [
@@ -186,13 +184,13 @@ fn ub_cannot_read_invalid_discriminant() {
 fn space_optimized_enum_works() {
     let u8_t = int_ty(Signedness::Unsigned, size(1));
     // a space-optimized version of `Option<NonZeroU8>` based on an actual u8
-    let enum_ty = enum_ty(
+    let enum_ty = enum_ty::<u8>(
         &[
             enum_variant(u8_t, &[]),
             enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 0u8)]),
         ],
         Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Known(0.into())), children: [(0u8, Discriminator::Known(1.into()))].into_iter().collect() },
-        1, size(1), align(1)
+        size(1), align(1)
     );
     let locals = [union_ty(&[(offset(0), enum_ty), (offset(0), u8_t)], size(1), align(1))];
     let blocks = [

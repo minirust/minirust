@@ -238,12 +238,12 @@ This is to ensure that pointers to the data always contain valid values.
 /// The accessor is given an offset relative to the beginning of the encoded enum value,
 /// and it should return the abstract byte at that offset.
 /// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
-fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Int) -> Result<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Result<Option<Int>> {
+fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset) -> Result<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Result<Option<Int>> {
     match discriminator {
         Discriminator::Known(val) => ret(Some(val)),
         Discriminator::Invalid => ret(None),
         Discriminator::Branch { offset, children, fallback } => {
-            let AbstractByte::Init(val, _) = accessor(offset.bytes())?
+            let AbstractByte::Init(val, _) = accessor(offset)?
                 else { return ret(None) };
             let next_discriminator = children.get(val).unwrap_or(fallback);
             decode_discriminant::<M>(accessor, next_discriminator)
@@ -254,9 +254,9 @@ fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Int) -> Result<Abstra
 /// Writes the tag described by the tagger into the bytes accessed using the accessor.
 /// The accessor is given an offset relative to the beginning of the encoded enum value
 /// and the abstract byte to store at that offset.
-fn encode_discriminant<M: Memory>(mut accessor: impl FnMut(Int, AbstractByte<M::Provenance>) -> Result, tagger: Map<Offset, u8>) -> Result<()> {
+fn encode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, AbstractByte<M::Provenance>) -> Result, tagger: Map<Offset, u8>) -> Result<()> {
     for (offset, value) in tagger.iter() {
-        accessor(offset.bytes(), AbstractByte::Init(value, None))?;
+        accessor(offset, AbstractByte::Init(value, None))?;
     }
     ret(())
 }
@@ -266,7 +266,7 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         // We can unwrap the decoded discriminant as our accessor never fails, and
         // decode_discriminant only fails if the accessor fails.
-        let disc = decode_discriminant::<M>(|idx| ret(bytes[idx]), discriminator).unwrap()?;
+        let disc = decode_discriminant::<M>(|idx| ret(bytes[idx.bytes()]), discriminator).unwrap()?;
 
         // Decode into the variant.
         // Because the variant is the same size as the enum we don't need to pass a subslice.
@@ -287,7 +287,7 @@ impl Type {
         // This is fine as we don't allow encoded data and the tag to overlap.
         // We can unwrap the `Result` as our accessor never fails, and
         // encode_discriminant only fails if the accessor fails.
-        encode_discriminant::<M>(|offset, value| { bytes.set(offset, value); ret(()) }, tagger).unwrap();
+        encode_discriminant::<M>(|offset, value| { bytes.set(offset.bytes(), value); ret(()) }, tagger).unwrap();
         bytes
     }
 }

@@ -77,8 +77,8 @@ impl<M: Memory> Machine<M> {
 
         // Write the tag directly into memory.
         // This should be fine as we don't allow encoded data and the tag to overlap for valid enum variants.
-        let accessor = |offset, value| {
-            let ptr = self.ptr_offset_inbounds(place.ptr, offset)?;
+        let accessor = |offset: Offset, value| {
+            let ptr = self.ptr_offset_inbounds(place.ptr, offset.bytes())?;
             // We have ensured that the place is aligned, so no alignment requirement here
             self.mem.store(ptr, [value].into_iter().collect(), Align::ONE, Atomicity::None)
         };
