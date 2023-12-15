@@ -70,10 +70,14 @@ pub fn enum_variant(ty: Type, tagger: &[(Offset, u8)]) -> Variant {
     }
 }
 
-pub fn enum_ty(variants: &[Variant], discriminator: Discriminator, size: Size, align: Align) -> Type {
+pub fn enum_ty<DiscriminantTy: TypeConv>(variants: &[Variant], discriminator: Discriminator, size: Size, align: Align) -> Type {
+    let Type::Int(discriminant_ty) = DiscriminantTy::get_type() else {
+        panic!("Discriminant Type needs to be an integer type.");
+    };
     Type::Enum {
         variants: variants.iter().copied().collect(),
         discriminator,
+        discriminant_ty,
         size,
         align,
     }

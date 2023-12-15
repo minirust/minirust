@@ -94,6 +94,36 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+Read the discriminant of an Enum.
+The well-formedness checks already ensured that the type is an enum.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::Discriminant { place } : ValueExpr) -> NdResult<(Value<M>, Type)> {
+        // Get the place of the enum and its information.
+        let (place, ty) = self.eval_place(place)?;
+        let Type::Enum { discriminator, discriminant_ty, .. } = ty else {
+            panic!("ValueExpr::Discriminant requires enum type");
+        };
+
+        // We don't require the variant to be valid,
+        // we are only interested in the bytes that the discriminator actually touches.
+        let accessor = |idx: Offset| {
+            let ptr = self.ptr_offset_inbounds(place.ptr, idx.bytes())?;
+            // FIXME: is this the right alignment? rustc has alignment requirements for
+            // discriminant reads, we need to check for that UB somewhere.
+            let byte = self.mem.load(ptr, Size::from_bytes(1).unwrap(), Align::ONE, Atomicity::None)?;
+            ret(byte[Int::ZERO])
+        };
+        let Some(discriminant) = decode_discriminant::<M>(accessor, discriminator)? else {
+            throw_ub!("Discriminant expression encountered invalid discriminant.");
+        };
+
+        ret((Value::Int(discriminant), Type::Int(discriminant_ty)))
+    }
+}
+```
+
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").

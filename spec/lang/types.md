@@ -64,6 +64,8 @@ pub enum Type {
         variants: List<Variant>,
         /// This contains the decision tree to decode the variant at runtime.
         discriminator: Discriminator,
+        /// The `IntType` to represent the discriminant.
+        discriminant_ty: IntType,
         /// The total size of the enum can indicate trailing padding.
         /// Must be large enough to contain all variants.
         size: Size,
@@ -76,6 +78,12 @@ pub enum Type {
 pub struct IntType {
     pub signed: Signedness,
     pub size: Size,
+}
+
+impl IntType {
+    pub fn can_represent(&self, i: Int) -> bool {
+        i.in_bounds(self.signed, self.size)
+    }
 }
 
 pub type Fields = List<(Offset, Type)>;
@@ -100,7 +108,7 @@ pub enum Discriminator {
     /// We don't know the discriminant, so we branch on the value of a specific byte.
     /// The fallback keeps the representation more compact, as we often are only
     /// interested in a couple of values and we don't want to always have 256 branches.
-    Unknown {
+    Branch {
         offset: Offset,
         #[specr::indirection]
         fallback: Discriminator,

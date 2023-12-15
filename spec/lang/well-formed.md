@@ -108,7 +108,7 @@ impl Type {
                 // And they must all fit into the size.
                 ensure(size >= last_end)?;
             }
-            Enum { variants, size, discriminator, align: _ } => {
+            Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
                 for variant in variants {
@@ -116,9 +116,10 @@ impl Type {
                     ensure(size == variant.ty.size::<T>())?;
                 }
 
-                // check that all variants reached by the discriminator are valid and
-                // that it never performs out-of-bounds accesses.
-                discriminator.check_wf::<T>(size, variants.len())?;
+                // check that all variants reached by the discriminator are valid,
+                // that it never performs out-of-bounds accesses and all discriminant values
+                // can be represented by the discriminant type.
+                discriminator.check_wf::<T>(size, variants.len(), discriminant_ty)?;
             }
         }
 
@@ -127,15 +128,15 @@ impl Type {
 }
 
 impl Discriminator {
-    fn check_wf<T: Target>(self, size: Size, n_variants: Int) -> Option<()> {
+    fn check_wf<T: Target>(self, size: Size, n_variants: Int, discriminant_ty: IntType) -> Option<()> {
         match self {
-            Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants),
+            Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants && discriminant_ty.can_represent(variant)),
             Discriminator::Invalid => ret(()),
-            Discriminator::Unknown { offset, fallback, children } => {
+            Discriminator::Branch { offset, fallback, children } => {
                 ensure(offset < size)?;
-                fallback.check_wf::<T>(size, n_variants)?;
+                fallback.check_wf::<T>(size, n_variants, discriminant_ty)?;
                 for discriminator in children.values() {
-                    discriminator.check_wf::<T>(size, n_variants)?;
+                    discriminator.check_wf::<T>(size, n_variants, discriminant_ty)?;
                 }
                 ret(())
             }
@@ -155,7 +156,7 @@ impl Constant {
         // TODO: add more.
         match (self, ty) {
             (Constant::Int(i), Type::Int(int_type)) => {
-                ensure(i.in_bounds(int_type.signed, int_type.size))?;
+                ensure(int_type.can_represent(i))?;
             }
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
@@ -228,6 +229,12 @@ impl ValueExpr {
                 let checked = data.check_wf::<T>(locals, prog)?;
                 ensure(checked == ty);
                 enum_ty
+            }
+            Discriminant { place } => {
+                let Some(Type::Enum { discriminant_ty, .. }) = place.check_wf::<T>(locals, prog) else {
+                    throw!();
+                };
+                Type::Int(discriminant_ty)
             }
             Load { source } => {
                 source.check_wf::<T>(locals, prog)?
@@ -361,6 +368,20 @@ impl Statement {
             Expose { value } => {
                 let v = value.check_wf::<T>(live_locals, prog)?;
                 ensure(matches!(v, Type::Ptr(_)));
+                live_locals
+            }
+            SetDiscriminant { destination, value } => {
+                let Type::Enum { variants, .. } = destination.check_wf::<T>(live_locals, prog)? else {
+                    throw!();
+                };
+                // We don't ensure that we can actually represent the discriminant.
+                // The well-formedness checks for the type just ensure that every discriminant
+                // reached by the discriminator is valid, however there we don't require that every
+                // variant is represented. Setting such an unrepresented discriminant would probably
+                // result in an invalid value as either the discriminator returns
+                // `Discriminator::Invalid` or another variant.
+                // This is fine as SetDiscriminant does not guarantee that the enum is a valid value.
+                variants.get(value)?;
                 live_locals
             }
             Validate { place, fn_entry: _ } => {
@@ -569,7 +590,7 @@ impl<M: Memory> Value<M> {
     fn check_wf(self, ty: Type) -> Option<()> {
         match (self, ty) {
             (Value::Int(i), Type::Int(ity)) => {
-                ensure(i.in_bounds(ity.signed, ity.size))?;
+                ensure(ity.can_represent(i))?;
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {

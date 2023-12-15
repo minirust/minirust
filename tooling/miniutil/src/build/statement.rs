@@ -11,6 +11,10 @@ pub fn expose(value: ValueExpr) -> Statement {
     Statement::Expose { value }
 }
 
+pub fn set_discriminant(destination: PlaceExpr, value: impl Into<Int>) -> Statement {
+    Statement::SetDiscriminant { destination, value: value.into() }
+}
+
 pub fn validate(place: PlaceExpr, fn_entry: bool) -> Statement {
     Statement::Validate { place, fn_entry }
 }

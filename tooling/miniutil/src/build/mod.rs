@@ -45,6 +45,10 @@ pub fn size(bytes: impl Into<Int>) -> Size {
     Size::from_bytes(bytes).unwrap()
 }
 
+pub fn offset(bytes: impl Into<Int>) -> Offset {
+    size(bytes)
+}
+
 // The first function in `fns` is the start function of the program.
 pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
     let functions: Map<FnName, Function> = fns
