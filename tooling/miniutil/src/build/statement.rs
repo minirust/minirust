@@ -39,6 +39,14 @@ pub fn if_(condition: ValueExpr, then_blk: u32, else_blk: u32) -> Terminator {
     }
 }
 
+pub fn switch_int<T: Clone + Into<Int>>(value: ValueExpr, cases: &[(T, u32)], fallback: u32) -> Terminator {
+    Terminator::Switch {
+        value,
+        cases: cases.into_iter().map(|(case, successor)| (Constant::Int(case.clone().into()), BbName(Name::from_internal(*successor)))).collect(),
+        fallback: BbName(Name::from_internal(fallback))
+    }
+}
+
 pub fn unreachable() -> Terminator {
     Terminator::Unreachable
 }

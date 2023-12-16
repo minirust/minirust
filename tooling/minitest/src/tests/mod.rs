@@ -24,6 +24,7 @@ mod ptr_offset;
 mod ptr_partial_overwrite;
 mod return_;
 mod spawn_join;
+mod switch;
 mod too_large_alloc;
 mod uninit_read;
 mod unreachable;

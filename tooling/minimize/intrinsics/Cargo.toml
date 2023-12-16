@@ -7,3 +7,6 @@ edition = "2021"
 
 [lib]
 crate-type = ["staticlib", "lib"]
+
+[workspace]
+members = ["."]
