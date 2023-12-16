@@ -32,10 +32,10 @@ pub fn goto(x: u32) -> Terminator {
 }
 
 pub fn if_(condition: ValueExpr, then_blk: u32, else_blk: u32) -> Terminator {
-    Terminator::If {
-        condition,
-        then_block: BbName(Name::from_internal(then_blk)),
-        else_block: BbName(Name::from_internal(else_blk)),
+    Terminator::Switch {
+        value: condition,
+        cases: [(Constant::Bool(true), BbName(Name::from_internal(then_blk)))].into_iter().collect(),
+        fallback: BbName(Name::from_internal(else_blk)),
     }
 }
 

@@ -72,7 +72,7 @@ pub(super) fn fmt_global_name(g: GlobalName) -> String {
     format!("global({id})")
 }
 
-fn fmt_constant(c: Constant) -> FmtExpr {
+pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
     match c {
         Constant::Int(int) => FmtExpr::Atomic(int.to_string()),
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),

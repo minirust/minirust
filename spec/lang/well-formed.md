@@ -434,10 +434,21 @@ impl Terminator {
             Goto(block_name) => {
                 list![block_name]
             }
-            If { condition, then_block, else_block } => {
-                let ty = condition.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(ty, Type::Bool))?;
-                list![then_block, else_block]
+            Switch { value, cases, fallback } => {
+                let ty = value.check_wf::<T>(live_locals, prog)?;
+                ensure(matches!(ty, Type::Int(_) | Type::Bool))?;
+
+                // gets the successor blocks of all cases that are valid.
+                let mut next_blocks = cases.iter().filter_map(|(case, block)| {
+                    case.check_wf::<T>(ty, prog)?;
+                    Some(block)
+                }).collect::<List<BbName>>();
+
+                // ensures that all cases were valid.
+                ensure(next_blocks.len() == cases.len())?;
+
+                next_blocks.push(fallback);
+                next_blocks
             }
             Unreachable => {
                 list![]

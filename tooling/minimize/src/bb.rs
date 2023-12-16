@@ -70,19 +70,25 @@ fn translate_terminator<'cx, 'tcx>(
             ..
         } => translate_call(fcx, func, args, destination, target),
         rs::TerminatorKind::SwitchInt { discr, targets } => {
-            assert!(discr.ty(&fcx.body, fcx.cx.tcx).is_bool()); // for now we only support bool branching.
+            let ty = discr.ty(&fcx.body, fcx.cx.tcx);
+            assert!(ty.is_bool() || ty.is_integral()); // for now we only support bool and int branching.
 
-            let condition = translate_operand(discr, fcx);
-            let then_block = targets.target_for_value(1);
-            let then_block = fcx.bb_name_map[&then_block];
+            let value = translate_operand(discr, fcx);
 
-            let else_block = targets.target_for_value(0);
-            let else_block = fcx.bb_name_map[&else_block];
+            let case_constructor = if ty.is_bool() {
+                |value: u128| Constant::Bool(value != 0)
+            } else {
+                |value: u128| Constant::Int(value.into())
+            };
+            let cases = targets.iter().map(|(value, target)| (case_constructor(value), fcx.bb_name_map[&target])).collect();
 
-            Terminator::If {
-                condition,
-                then_block,
-                else_block,
+            let fallback_block = targets.otherwise();
+            let fallback = fcx.bb_name_map[&fallback_block];
+
+            Terminator::Switch {
+                value,
+                cases,
+                fallback,
             }
         }
         // those are IGNORED currently.

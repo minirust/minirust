@@ -159,20 +159,21 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             let bb = fmt_bb_name(bb);
             format!("    goto -> {bb};")
         }
-        Terminator::If {
-            condition,
-            then_block,
-            else_block,
+        Terminator::Switch {
+            value,
+            cases,
+            fallback,
         } => {
-            let branch_expr = fmt_value_expr(condition, comptypes).to_string();
-            let then_bb = fmt_bb_name(then_block).to_string();
-            let else_bb = fmt_bb_name(else_block).to_string();
+            let branch_expr = fmt_value_expr(value, comptypes).to_string();
+            let mut case_strs = cases.iter()
+                                     .map(|(constant, successor)| format!("{}: {}", fmt_constant(constant).to_string(), fmt_bb_name(successor)))
+                                     .collect::<Vec<String>>();
+            case_strs.push(format!("otherwise: {}", fmt_bb_name(fallback)));
+            let cases_fmt = case_strs.join(",\n    ");
             format!(
-                "    if {branch_expr} {{
-      goto -> {then_bb};
-    }} else {{
-      goto -> {else_bb};
-    }}"
+                "    switch({branch_expr}) -> [
+        {cases_fmt}
+    ];"
             )
         }
         Terminator::Unreachable => {
