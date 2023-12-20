@@ -15,6 +15,7 @@ fn if_int_ill_formed() {
 }
 
 /// tests that the if case can be reached.
+/// Also tests that BoolToIntCast converts true to 1.
 #[test]
 fn if_works() {
     let locals = [];
@@ -29,6 +30,7 @@ fn if_works() {
 }
 
 /// tests that the else case can be reached.
+/// Also tests that BoolToIntCast converts false to 0.
 #[test]
 fn else_works() {
     let locals = [];
@@ -68,27 +70,6 @@ fn switch_int_works() {
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(program);
-}
-
-/// tests that a switch terminator with mixed cases fails.
-#[test]
-fn switch_mixed_cases_is_ill_formed() {
-    let locals = [];
-    let blocks = [
-        block!(Terminator::Switch {
-            value: const_int(1u8),
-            cases: [ // ill-formed here: cannot have both boolean cases and int cases (the boolean case is invalid since value is int)
-                (Constant::Bool(false), BbName(Name::from_internal(1))),
-                (Constant::Int(1.into()), BbName(Name::from_internal(1))),
-            ].into_iter().collect(),
-            fallback: BbName(Name::from_internal(2))
-        }),
-        block!(exit()),
-        block!(unreachable()),
-    ];
-
-    let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ill_formed(program);
 }
 
 /// tests that switching on a enum discriminant is possible

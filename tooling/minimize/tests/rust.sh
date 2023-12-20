@@ -16,7 +16,7 @@ wd="$(pwd)"
 
 [ ! -d "$TEST_PATH" ] && mkdir "$TEST_PATH"
 [ -f "$TEST_PATH/out" ] && rm "$TEST_PATH/out"
-cp "$wd/../../../rust-toolchain.toml" "$TEST_PATH"
+cp "$wd/../../rust-toolchain.toml" "$TEST_PATH"
 cd "$TEST_PATH"
 
 rustc "$arg" -o out -L "$wd/../intrinsics/target/debug" -l intrinsics -Zalways-encode-mir -Zmir-emit-retag -Zmir-opt-level=0 --cfg=miri -Zextra-const-ub-checks -Cdebug-assertions=off

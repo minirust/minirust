@@ -71,16 +71,23 @@ fn translate_terminator<'cx, 'tcx>(
         } => translate_call(fcx, func, args, destination, target),
         rs::TerminatorKind::SwitchInt { discr, targets } => {
             let ty = discr.ty(&fcx.body, fcx.cx.tcx);
-            assert!(ty.is_bool() || ty.is_integral()); // for now we only support bool and int branching.
 
-            let value = translate_operand(discr, fcx);
+            // For now we only support bool and int branching.
+            // FIXME: add support for switching on `char`
+            assert!(ty.is_bool() || ty.is_integral());
 
-            let case_constructor = if ty.is_bool() {
-                |value: u128| Constant::Bool(value != 0)
+            // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
+            let discr_op = translate_operand(discr, fcx);
+            let value = if ty.is_bool() {
+                ValueExpr::UnOp {
+                    operator: UnOp::BoolToIntCast(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(1).unwrap() }),
+                    operand: GcCow::new(discr_op),
+                }
             } else {
-                |value: u128| Constant::Int(value.into())
+                discr_op
             };
-            let cases = targets.iter().map(|(value, target)| (case_constructor(value), fcx.bb_name_map[&target])).collect();
+
+            let cases = targets.iter().map(|(value, target)| (Int::from(value), fcx.bb_name_map[&target])).collect();
 
             let fallback_block = targets.otherwise();
             let fallback = fcx.bb_name_map[&fallback_block];

@@ -103,6 +103,16 @@ pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     transmute(v, t)
 }
 
+pub fn bool_to_int<T: TypeConv + Into<Int>>(v: ValueExpr) -> ValueExpr {
+    let Type::Int(int_ty) = T::get_type() else {
+        panic!("bool_to_int needs <T> to be converted to Type::Int!");
+    };
+    ValueExpr::UnOp {
+        operator: UnOp::BoolToIntCast(int_ty),
+        operand: GcCow::new(v),
+    }
+}
+
 pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
     ValueExpr::UnOp {
         operator: UnOp::Transmute(t),

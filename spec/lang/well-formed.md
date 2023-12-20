@@ -253,6 +253,10 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
+                    BoolToIntCast(int_ty) => {
+                        ensure(matches!(operand, Type::Bool))?;
+                        Type::Int(int_ty)
+                    }
                     PtrFromExposed(ptr_ty) => {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)
@@ -436,11 +440,16 @@ impl Terminator {
             }
             Switch { value, cases, fallback } => {
                 let ty = value.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(ty, Type::Int(_) | Type::Bool))?;
+                let Type::Int(switch_ty) = ty else {
+                    // We only switch on integers.
+                    // This is in contrast to Rust MIR where switch can work on `char`s and booleans as well.
+                    // However since those are trivial casts we chose to only accept integers.
+                    throw!()
+                };
 
                 // gets the successor blocks of all cases that are valid.
                 let mut next_blocks = cases.iter().filter_map(|(case, block)| {
-                    case.check_wf::<T>(ty, prog)?;
+                    ensure(switch_ty.can_represent(case))?;
                     Some(block)
                 }).collect::<List<BbName>>();
 

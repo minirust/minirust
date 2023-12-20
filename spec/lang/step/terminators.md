@@ -36,12 +36,10 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Switch { value, cases, fallback }: Terminator) -> NdResult {
-        let constant = match self.eval_value(value)?.0 {
-            Value::Bool(b) => Constant::Bool(b),
-            Value::Int(i) => Constant::Int(i),
-            _ => panic!("switch on a non-boolean"),
+        let Value::Int(value) = self.eval_value(value)?.0 else {
+            panic!("switch on a non-boolean");
         };
-        let next = cases.get(constant).unwrap_or(fallback);
+        let next = cases.get(value).unwrap_or(fallback);
         self.jump_to_block(next)?;
 
         ret(())

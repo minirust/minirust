@@ -172,7 +172,7 @@ impl<M: Memory> Machine<M> {
 
 ### Unary and binary operators
 
-The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](operator.md).
+The functions `eval_un_op` and `eval_bin_op` are defined in [a separate file](operators.md).
 
 ```rust
 impl<M: Memory> Machine<M> {

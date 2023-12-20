@@ -166,7 +166,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         } => {
             let branch_expr = fmt_value_expr(value, comptypes).to_string();
             let mut case_strs = cases.iter()
-                                     .map(|(constant, successor)| format!("{}: {}", fmt_constant(constant).to_string(), fmt_bb_name(successor)))
+                                     .map(|(constant, successor)| format!("{}: {}", constant, fmt_bb_name(successor)))
                                      .collect::<Vec<String>>();
             case_strs.push(format!("otherwise: {}", fmt_bb_name(fallback)));
             let cases_fmt = case_strs.join(",\n    ");
