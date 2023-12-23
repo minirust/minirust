@@ -447,15 +447,14 @@ impl Terminator {
                     throw!()
                 };
 
-                // gets the successor blocks of all cases that are valid.
-                let mut next_blocks = cases.iter().filter_map(|(case, block)| {
+                // ensures that all cases are valid and therefore can be reached from this block.
+                let mut next_blocks = List::new();
+                for (case, block) in cases.iter() {
                     ensure(switch_ty.can_represent(case))?;
-                    Some(block)
-                }).collect::<List<BbName>>();
+                    next_blocks.push(block);
+                }
 
-                // ensures that all cases were valid.
-                ensure(next_blocks.len() == cases.len())?;
-
+                // we can also reach the fallback block.
                 next_blocks.push(fallback);
                 next_blocks
             }

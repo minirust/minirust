@@ -79,8 +79,9 @@ fn translate_terminator<'cx, 'tcx>(
             // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
             let discr_op = translate_operand(discr, fcx);
             let value = if ty.is_bool() {
+                let Type::Int(u8_inttype) = <u8>::get_type() else { unreachable!() };
                 ValueExpr::UnOp {
-                    operator: UnOp::BoolToIntCast(IntType { signed: Signedness::Unsigned, size: Size::from_bytes(1).unwrap() }),
+                    operator: UnOp::BoolToIntCast(u8_inttype),
                     operand: GcCow::new(discr_op),
                 }
             } else {

@@ -37,7 +37,7 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::Switch { value, cases, fallback }: Terminator) -> NdResult {
         let Value::Int(value) = self.eval_value(value)?.0 else {
-            panic!("switch on a non-boolean");
+            panic!("switch on a non-integer");
         };
         let next = cases.get(value).unwrap_or(fallback);
         self.jump_to_block(next)?;
