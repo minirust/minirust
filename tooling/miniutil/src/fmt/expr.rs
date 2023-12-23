@@ -72,7 +72,7 @@ pub(super) fn fmt_global_name(g: GlobalName) -> String {
     format!("global({id})")
 }
 
-fn fmt_constant(c: Constant) -> FmtExpr {
+pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
     match c {
         Constant::Int(int) => FmtExpr::Atomic(int.to_string()),
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
@@ -169,6 +169,10 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 UnOp::Int(UnOpInt::Cast, int_ty) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
+                }
+                UnOp::BoolToIntCast(int_ty) => {
+                    let int_ty = fmt_int_type(int_ty);
+                    FmtExpr::Atomic(format!("bool2int<{int_ty}>({operand})"))
                 }
                 UnOp::PtrFromExposed(ptr_ty) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();

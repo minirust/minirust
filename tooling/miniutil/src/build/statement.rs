@@ -32,10 +32,18 @@ pub fn goto(x: u32) -> Terminator {
 }
 
 pub fn if_(condition: ValueExpr, then_blk: u32, else_blk: u32) -> Terminator {
-    Terminator::If {
-        condition,
-        then_block: BbName(Name::from_internal(then_blk)),
-        else_block: BbName(Name::from_internal(else_blk)),
+    Terminator::Switch {
+        value: bool_to_int::<u8>(condition),
+        cases: [(Int::from(1), BbName(Name::from_internal(then_blk)))].into_iter().collect(),
+        fallback: BbName(Name::from_internal(else_blk)),
+    }
+}
+
+pub fn switch_int<T: Clone + Into<Int>>(value: ValueExpr, cases: &[(T, u32)], fallback: u32) -> Terminator {
+    Terminator::Switch {
+        value,
+        cases: cases.into_iter().map(|(case, successor)| (case.clone().into(), BbName(Name::from_internal(*successor)))).collect(),
+        fallback: BbName(Name::from_internal(fallback))
     }
 }
 

@@ -253,6 +253,10 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
+                    BoolToIntCast(int_ty) => {
+                        ensure(matches!(operand, Type::Bool))?;
+                        Type::Int(int_ty)
+                    }
                     PtrFromExposed(ptr_ty) => {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
                         Type::Ptr(ptr_ty)
@@ -434,10 +438,25 @@ impl Terminator {
             Goto(block_name) => {
                 list![block_name]
             }
-            If { condition, then_block, else_block } => {
-                let ty = condition.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(ty, Type::Bool))?;
-                list![then_block, else_block]
+            Switch { value, cases, fallback } => {
+                let ty = value.check_wf::<T>(live_locals, prog)?;
+                let Type::Int(switch_ty) = ty else {
+                    // We only switch on integers.
+                    // This is in contrast to Rust MIR where switch can work on `char`s and booleans as well.
+                    // However since those are trivial casts we chose to only accept integers.
+                    throw!()
+                };
+
+                // ensures that all cases are valid and therefore can be reached from this block.
+                let mut next_blocks = List::new();
+                for (case, block) in cases.iter() {
+                    ensure(switch_ty.can_represent(case))?;
+                    next_blocks.push(block);
+                }
+
+                // we can also reach the fallback block.
+                next_blocks.push(fallback);
+                next_blocks
             }
             Unreachable => {
                 list![]

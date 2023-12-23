@@ -106,6 +106,9 @@ pub enum UnOpInt {
 pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
+    /// Boolean-to-integer cast producing the given `IntType`.
+    /// True becomes `Int::ONE` and false `Int::ZERO`.
+    BoolToIntCast(IntType),
     /// Integer-to-pointer cast (uses previously exposed provenance).
     PtrFromExposed(PtrType),
     /// Transmute the value to a different type (must have the same size).
@@ -239,12 +242,13 @@ pub enum Statement {
 pub enum Terminator {
     /// Just jump to the next block.
     Goto(BbName),
-    /// `condition` must evaluate to a `Value::Bool`.
-    /// If it is `true`, jump to `then_block`; else jump to `else_block`.
-    If {
-        condition: ValueExpr,
-        then_block: BbName,
-        else_block: BbName,
+    /// `value` needs to evaluate to a `Value::Int`.
+    /// `cases` map those values to blocks to jump to and therefore have to have the equivalent type.
+    /// If no value matches we fall back to the block given in `fallback`.
+    Switch {
+        value: ValueExpr,
+        cases: Map<Int, BbName>,
+        fallback: BbName,
     },
     /// If this is ever executed, we have UB.
     Unreachable,
