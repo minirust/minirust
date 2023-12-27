@@ -55,8 +55,11 @@ impl Type {
     fn check_wf<T: Target>(self) -> Option<()> {
         use Type::*;
 
+        // Ensure that the size is valid and a multiple of the alignment.
         let size = self.size::<T>();
         ensure(T::valid_size(size))?;
+        let align = self.align::<T>();
+        ensure(size.bytes() % align.bytes() == 0)?;
 
         match self {
             Int(int_type) => {
@@ -111,9 +114,11 @@ impl Type {
             Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
+                // Also their alignment may not be larger than the total enum alignment.
                 for variant in variants {
                     variant.ty.check_wf::<T>()?;
                     ensure(size == variant.ty.size::<T>())?;
+                    ensure(variant.ty.align::<T>().bytes() <= align.bytes())?;
                 }
 
                 // check that all variants reached by the discriminator are valid,
@@ -230,7 +235,7 @@ impl ValueExpr {
                 ensure(checked == ty);
                 enum_ty
             }
-            Discriminant { place } => {
+            GetDiscriminant { place } => {
                 let Some(Type::Enum { discriminant_ty, .. }) = place.check_wf::<T>(locals, prog) else {
                     throw!();
                 };

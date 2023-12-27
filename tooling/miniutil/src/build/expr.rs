@@ -32,7 +32,7 @@ pub fn variant(idx: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr
 }
 
 pub fn get_discriminant(place: PlaceExpr) -> ValueExpr {
-    ValueExpr::Discriminant { place: GcCow::new(place) }
+    ValueExpr::GetDiscriminant { place: GcCow::new(place) }
 }
 
 // Returns () or [].
