@@ -46,7 +46,7 @@ pub enum ValueExpr {
     /// Read the discriminant of an enum type.
     /// As we don't need to know the validity of the inner data
     /// we don't fully load the variant value.
-    Discriminant {
+    GetDiscriminant {
         /// The place where the enum is located.
         #[specr::indirection]
         place: PlaceExpr,

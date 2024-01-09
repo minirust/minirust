@@ -152,7 +152,7 @@ fn ub_cannot_read_uninit_discriminant() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "Discriminant expression encountered invalid discriminant.");
+    assert_ub(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
 }
 
 /// Tests that reading from an invalid discriminant is UB.
@@ -176,7 +176,38 @@ fn ub_cannot_read_invalid_discriminant() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "Discriminant expression encountered invalid discriminant.");
+    assert_ub(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
+}
+
+/// Reading discriminant from mis-aligned enum (ptr) is UB.
+#[test]
+fn ub_get_discriminant_on_misaligned_enum() {
+    let enum_t = enum_ty::<u8>(&[enum_variant(<u16>::get_type(), &[])], Discriminator::Known(0.into()), size(2), align(2));
+    let raw_ptr_t = <*const [u16;2]>::get_type();
+    let locals = [<[u16;2]>::get_type(), <u8>::get_type()];
+    let stmts = [
+        storage_live(0),
+        storage_live(1),
+        assign(local(0), array(&[const_int(0u16), const_int(0u16)], <u16>::get_type())),
+        assign(local(1), get_discriminant(deref(ptr_offset(addr_of(local(0), raw_ptr_t), const_int(1u8), InBounds::Yes), enum_t))),
+    ];
+    let prog = small_program(&locals, &stmts);
+    assert_ub(prog, "Getting the discriminant of a place based on a misaligned pointer");
+}
+
+/// Setting discriminant of mis-aligned enum (ptr) is UB.
+#[test]
+fn ub_set_discriminant_on_misaligned_enum() {
+    let enum_t = enum_ty::<u8>(&[enum_variant(<u16>::get_type(), &[])], Discriminator::Known(0.into()), size(2), align(2));
+    let raw_ptr_t = <*const [u16;2]>::get_type();
+    let locals = [<[u16;2]>::get_type()];
+    let stmts = [
+        storage_live(0),
+        assign(local(0), array(&[const_int(0u16), const_int(0u16)], <u16>::get_type())),
+        set_discriminant(deref(ptr_offset(addr_of(local(0), raw_ptr_t), const_int(1u8), InBounds::Yes), enum_t), 0),
+    ];
+    let prog = small_program(&locals, &stmts);
+    assert_ub(prog, "Setting the discriminant of a place based on a misaligned pointer");
 }
 
 /// Ensures that the behaviour of an `Option<NonZeroU8>` of Rust is possible in MiniRust.

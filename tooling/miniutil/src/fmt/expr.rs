@@ -120,7 +120,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let expr = fmt_value_expr(data.extract(), comptypes).to_string();
             FmtExpr::NonAtomic(format!("{enum_ty} {{ variant{idx}: {expr} }}"))
         }
-        ValueExpr::Discriminant {
+        ValueExpr::GetDiscriminant {
             place
         } => {
             let place = fmt_place_expr(place.extract(), comptypes).to_string();

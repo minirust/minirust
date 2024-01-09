@@ -103,3 +103,13 @@ fn ill_formed_variant_constant_data() {
     assert_ill_formed(prog);
 }
 
+
+/// Ill-formed: Ensures that the enum alignment is at least as big as all the variant alignments.
+#[test]
+fn ill_formed_enum_must_have_maximal_alignment_of_inner() {
+    let enum_ty = enum_ty::<u8>(&[enum_variant(<u16>::get_type(), &[])], Discriminator::Known(0.into()), size(2), align(1));
+    let locals = [enum_ty];
+    let stmts = [];
+    let prog = small_program(&locals, &stmts);
+    assert_ill_formed(prog);
+}
