@@ -1,5 +1,7 @@
 use crate::*;
 
+const U8_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(1) };
+
 /// Ill-formed: Downcasting to an out-of-bounds variant.
 #[test]
 fn out_of_bounds_downcast() {
@@ -37,13 +39,14 @@ fn valid_downcast() {
 fn downcasts_give_different_place() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), 0u8)]);
+    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), (U8_INTTYPE, 0.into()))]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), 1u8)]);
+    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), (U8_INTTYPE, 1.into()))]);
     let discriminator = Discriminator::Branch {
         offset: offset(2),
         fallback: GcCow::new(Discriminator::Invalid),
-        children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
+        value_type: U8_INTTYPE,
+        children: [(0.into(), Discriminator::Known(0.into())), (1.into(), Discriminator::Known(1.into()))].into_iter().collect()
     };
     let enum_ty = enum_ty::<u8>(&[variant1, variant2], discriminator, size(4), align(2));
 
@@ -63,13 +66,14 @@ fn downcasts_give_different_place() {
 fn downcasts_give_different_place2() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), 0)]);
+    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(offset(2), (U8_INTTYPE, 0.into()))]);
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), 1)]);
+    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(offset(2), (U8_INTTYPE, 1.into()))]);
     let discriminator = Discriminator::Branch {
         offset: offset(2),
         fallback: GcCow::new(Discriminator::Invalid),
-        children: [(0, Discriminator::Known(0.into())), (1, Discriminator::Known(1.into()))].into_iter().collect()
+        value_type: U8_INTTYPE,
+        children: [(0.into(), Discriminator::Known(0.into())), (1.into(), Discriminator::Known(1.into()))].into_iter().collect()
     };
     let enum_ty = enum_ty::<u8>(&[variant1, variant2], discriminator, size(4), align(2));
 

@@ -114,11 +114,18 @@ impl Type {
             Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
-                // Also their alignment may not be larger than the total enum alignment.
+                // Also their alignment may not be larger than the total enum alignment and
+                // all the values written by the tagger must fit into the variant.
+                // FIXME (Timon): should we require alignment checks for the values written in the taggers?
                 for variant in variants {
                     variant.ty.check_wf::<T>()?;
                     ensure(size == variant.ty.size::<T>())?;
                     ensure(variant.ty.align::<T>().bytes() <= align.bytes())?;
+                    ensure(variant.tagger.iter().all(|(offset, (value_type, value))|
+                        value_type.check_wf().is_some() &&
+                        value_type.can_represent(value) &&
+                        offset + value_type.size <= size
+                    ))?;
                 }
 
                 // check that all variants reached by the discriminator are valid,
@@ -137,10 +144,14 @@ impl Discriminator {
         match self {
             Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants && discriminant_ty.can_represent(variant)),
             Discriminator::Invalid => ret(()),
-            Discriminator::Branch { offset, fallback, children } => {
-                ensure(offset < size)?;
+            Discriminator::Branch { offset, value_type, fallback, children } => {
+                // FIXME (Timon): Do we require a alignment check on the branching value?
+                // Ensure that the value we branch on is in bounds and that all children all valid.
+                value_type.check_wf()?;
+                ensure(offset + value_type.size <= size)?;
                 fallback.check_wf::<T>(size, n_variants, discriminant_ty)?;
-                for discriminator in children.values() {
+                for (value, discriminator) in children.into_iter() {
+                    ensure(value_type.can_represent(value))?;
                     discriminator.check_wf::<T>(size, n_variants, discriminant_ty)?;
                 }
                 ret(())

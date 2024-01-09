@@ -63,7 +63,7 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
     }
 }
 
-pub fn enum_variant(ty: Type, tagger: &[(Offset, u8)]) -> Variant {
+pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {
     Variant {
         ty,
         tagger: tagger.iter().copied().collect()

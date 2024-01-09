@@ -1,5 +1,7 @@
 use crate::*;
 
+const U8_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(1) };
+
 /// Ill-formed: the only variant has size 0, but the enum is size 1
 #[test]
 fn ill_sized_enum_variant() {
@@ -14,7 +16,7 @@ fn ill_sized_enum_variant() {
 #[test]
 fn inconsistently_sized_enum_variants() {
     let enum_ty = enum_ty::<u8>(&[
-            enum_variant(<()>::get_type(), &[(offset(1), 2)]),  // size 0
+            enum_variant(<()>::get_type(), &[(offset(1), (U8_INTTYPE, 2.into()))]),  // size 0
             enum_variant(<bool>::get_type(), &[]),              // size 1
         ], Discriminator::Invalid, size(1), align(1));       // size 1
     let locals = &[enum_ty];
@@ -38,14 +40,15 @@ fn ill_formed_discriminator() {
 fn simple_two_variant_works() {
     let bool_var_ty = enum_variant(Type::Bool, &[]);
     let empty_var_data_ty = tuple_ty(&[], size(1), align(1)); // unit with size 1
-    let empty_var_ty = enum_variant(empty_var_data_ty, &[(offset(0), 2)]);
+    let empty_var_ty = enum_variant(empty_var_data_ty, &[(offset(0), (U8_INTTYPE, 2.into()))]);
     let discriminator = Discriminator::Branch {
         offset: offset(0),
         fallback: GcCow::new(Discriminator::Invalid),
+        value_type: U8_INTTYPE,
         children: [
-            (0, Discriminator::Known(0.into())),
-            (1, Discriminator::Known(0.into())),
-            (2, Discriminator::Known(1.into())),
+            (0.into(), Discriminator::Known(0.into())),
+            (1.into(), Discriminator::Known(0.into())),
+            (2.into(), Discriminator::Known(1.into())),
         ].into_iter().collect()
     };
     let enum_ty = enum_ty::<u8>(&[bool_var_ty, empty_var_ty], discriminator, size(1), align(1));
@@ -112,4 +115,60 @@ fn ill_formed_enum_must_have_maximal_alignment_of_inner() {
     let stmts = [];
     let prog = small_program(&locals, &stmts);
     assert_ill_formed(prog);
+}
+
+const U32_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(4) };
+
+/// Works: Tests that using a tag other than u8 works, here using a u32.
+#[test]
+fn larger_sized_tag_works() {
+    let variant_0_tuple_ty = tuple_ty(&[(offset(0), <u32>::get_type())], size(8), align(4));
+    let enum_ty = enum_ty::<u8>(
+        &[enum_variant(variant_0_tuple_ty, &[(offset(4), (U32_INTTYPE, 1048576.into()))])],
+        Discriminator::Branch {
+            offset: offset(4),
+            value_type: U32_INTTYPE,
+            fallback: GcCow::new(Discriminator::Invalid),
+            children: [(1048576.into(), Discriminator::Known(0.into()))].into_iter().collect()
+        },
+        size(8),
+        align(4)
+    );
+
+    let locals = &[enum_ty];
+    let statements = &[
+        storage_live(0),
+        assign(local(0), variant(0, tuple(&[const_int(2774879812u32)], variant_0_tuple_ty), enum_ty)),
+        assign(local(0), load(local(0))),
+        storage_dead(0)
+    ];
+    let prog = small_program(locals, statements);
+    assert_stop(prog)
+}
+
+/// Works: Tests that using a tag larger than u8 has no alignment requirements.
+#[test]
+fn larger_tag_has_no_alignment() {
+    let variant_0_tuple_ty = tuple_ty(&[(offset(0), <u32>::get_type())], size(12), align(4));
+    let enum_ty = enum_ty::<u8>(
+        &[enum_variant(variant_0_tuple_ty, &[(offset(6), (U32_INTTYPE, 1048576.into()))])],
+        Discriminator::Branch {
+            offset: offset(6),
+            value_type: U32_INTTYPE,
+            fallback: GcCow::new(Discriminator::Invalid),
+            children: [(1048576.into(), Discriminator::Known(0.into()))].into_iter().collect()
+        },
+        size(12),
+        align(4)
+    );
+
+    let locals = &[enum_ty];
+    let statements = &[
+        storage_live(0),
+        assign(local(0), variant(0, tuple(&[const_int(2774879812u32)], variant_0_tuple_ty), enum_ty)),
+        assign(local(0), load(local(0))),
+        storage_dead(0)
+    ];
+    let prog = small_program(locals, statements);
+    assert_stop(prog)
 }

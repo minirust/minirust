@@ -87,11 +87,11 @@ pub type Fields = List<(Offset, Type)>;
 pub struct Variant {
     /// The actual type of the variant.
     pub ty: Type,
-    /// The information on where to store which bytes to write the tag.
+    /// The information on where to store which values to write the tag.
     /// MUST NOT touch any bytes written by the actual type of the variant and vice
     /// versa. This is because we allow references/pointers to (enum) fields which
     /// should be able to dereference without having to deal with the tag.
-    pub tagger: Map<Offset, u8>,
+    pub tagger: Map<Offset, (IntType, Int)>,
 }
 
 /// The decision tree that computes the discriminant out of the tag for a specific
@@ -101,14 +101,15 @@ pub enum Discriminator {
     Known(Int),
     /// Tag decoding failed, there is no valid discriminant.
     Invalid,
-    /// We don't know the discriminant, so we branch on the value of a specific byte.
+    /// We don't know the discriminant, so we branch on the value of a specific value.
     /// The fallback keeps the representation more compact, as we often are only
-    /// interested in a couple of values and we don't want to always have 256 branches.
+    /// interested in a couple of values and don't want to always have > 256 branches.
     Branch {
         offset: Offset,
+        value_type: IntType,
         #[specr::indirection]
         fallback: Discriminator,
-        children: Map<u8, Discriminator>,
+        children: Map<Int, Discriminator>,
     },
 }
 ```

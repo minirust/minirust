@@ -106,15 +106,15 @@ impl<M: Memory> Machine<M> {
             panic!("ValueExpr::GetDiscriminant requires enum type");
         };
         if !place.aligned {
-            throw_ub!("Getting the discriminant of a place based on a misaligned pointer");
+            throw_ub!("Getting the discriminant of a place based on a misaligned pointer.");
         }
 
         // We don't require the variant to be valid,
         // we are only interested in the bytes that the discriminator actually touches.
-        let accessor = |idx: Offset| {
+        let accessor = |idx: Offset, value_type: IntType| {
             let ptr = self.ptr_offset_inbounds(place.ptr, idx.bytes())?;
-            let byte = self.mem.load(ptr, Size::from_bytes(1).unwrap(), Align::ONE, Atomicity::None)?;
-            ret(byte[Int::ZERO])
+            // FIXME (Timon): Do we need an alignment check on the tag values?
+            self.mem.load(ptr, value_type.size, Align::ONE, Atomicity::None)
         };
         let Some(discriminant) = decode_discriminant::<M>(accessor, discriminator)? else {
             throw_ub!("ValueExpr::GetDiscriminant encountered invalid discriminant.");
