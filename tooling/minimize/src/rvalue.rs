@@ -118,7 +118,15 @@ pub fn translate_rvalue<'cx, 'tcx>(
                     let ops: List<_> = operands.iter().map(|x| translate_operand(x, fcx)).collect();
                     ValueExpr::Tuple(ops, ty)
                 }
-                Type::Enum { .. } => todo!(),
+                Type::Enum { variants, .. } => {
+                    let rs::AggregateKind::Adt(_, variant_idx, _, _, _) = agg else { panic!() };
+                    let discriminant = discriminant_for_variant(rv.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx, *variant_idx);
+                    let ops: List<_> = operands.iter().map(|x| translate_operand(x, fcx)).collect();
+
+                    // We have a guaranteed tuple as data when the type was minified from Rust.
+                    let data = GcCow::new(ValueExpr::Tuple(ops, variants.get(discriminant).unwrap().ty));
+                    ValueExpr::Variant { discriminant, data, enum_ty: ty }
+                }
                 _ => panic!("invalid aggregate type!"),
             }
         }
@@ -130,7 +138,10 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
             let Type::Array { elem: _, count } = translate_ty(ty, fcx.cx.tcx) else { panic!() };
             ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
-        }
+        },
+        rs::Rvalue::Discriminant(place) => ValueExpr::GetDiscriminant {
+            place: GcCow::new(translate_place(place, fcx))
+        },
         rs::Rvalue::Cast(rs::CastKind::IntToInt, operand, ty) => {
             let operand = translate_operand(operand, fcx);
             let Type::Int(int_ty) = translate_ty(*ty, fcx.cx.tcx) else {
@@ -141,7 +152,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 operator: UnOp::Int(UnOpInt::Cast, int_ty),
                 operand: GcCow::new(operand),
             }
-        }
+        },
         rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
             let operand = translate_operand(operand, fcx);
             let expose = Statement::Expose { value: operand };
@@ -260,6 +271,17 @@ pub fn translate_place<'cx, 'tcx>(
                 let i = GcCow::new(i);
                 let root = GcCow::new(expr);
                 expr = PlaceExpr::Index { root, index: i };
+            }
+            rs::ProjectionElem::Downcast(_variant_name, variant_idx) => {
+                let root = GcCow::new(expr);
+                let ty = rs::Place::ty_from(
+                    place.local,
+                    &place.projection[..(i + 1)],
+                    &fcx.body,
+                    fcx.cx.tcx,
+                ).ty;
+                let discriminant = discriminant_for_variant(ty, fcx.cx.tcx, variant_idx);
+                expr = PlaceExpr::Downcast { root, discriminant };
             }
             x => todo!("{:?}", x),
         }

@@ -108,11 +108,14 @@ fn check_abi_compatibility(
         (Type::Enum { variants: caller_variants, discriminator: caller_discriminator, discriminant_ty: caller_discriminant_ty, size: caller_size, align: caller_align },
          Type::Enum { variants: callee_variants, discriminator: callee_discriminator, discriminant_ty: callee_discriminant_ty, size: callee_size, align: callee_align }) =>
             caller_variants.len() == callee_variants.len() &&
-            caller_variants.iter().zip(callee_variants.iter()).all(|((caller_discriminant, caller_variant), (callee_discriminant, callee_variant))|
-                caller_discriminant == callee_discriminant &&
+            // Checking only one side is enough as we checked that they have the same amount of key-value pairs.
+            caller_variants.iter().all(|(caller_discriminant, caller_variant)| {
+                let Some(callee_variant) = callee_variants.get(caller_discriminant) else {
+                    return false;
+                };
                 check_abi_compatibility(caller_variant.ty, callee_variant.ty) &&
                 caller_variant.tagger == callee_variant.tagger
-            ) &&
+            }) &&
             caller_discriminator == callee_discriminator &&
             caller_discriminant_ty == callee_discriminant_ty &&
             caller_size == callee_size &&
