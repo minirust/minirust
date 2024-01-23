@@ -62,10 +62,12 @@ pub enum Type {
         /// then the tag might be overwritten!)
         /// The Rust type `!` is encoded as an `Enum` with an empty list of variants.
         variants: List<Variant>,
-        /// This contains the decision tree to decode the variant at runtime.
-        discriminator: Discriminator,
-        /// The `IntType` to represent the discriminant.
+        /// The `IntType` for the discriminant. This is used for the type of
+        /// `GetDiscriminant` and `SetDiscriminant`. It is entirely independent of how
+        /// the discriminant is represented in memory (the "tag").
         discriminant_ty: IntType,
+        /// The decision tree to decode the discriminant from the tag at runtime.
+        discriminator: Discriminator,
         /// The total size of the enum can indicate trailing padding.
         /// Must be large enough to contain all variants.
         size: Size,
@@ -78,12 +80,6 @@ pub enum Type {
 pub struct IntType {
     pub signed: Signedness,
     pub size: Size,
-}
-
-impl IntType {
-    pub fn can_represent(&self, i: Int) -> bool {
-        i.in_bounds(self.signed, self.size)
-    }
 }
 
 pub type Fields = List<(Offset, Type)>;
