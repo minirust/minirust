@@ -74,7 +74,7 @@ fn loading_uninhabited_enum_is_ub() {
         assign(local(0), load(local(0))), // UB here.
     ];
     let prog = small_program(locals, stmts);
-    assert_ub(prog, "load at type Enum { variants: List([]), discriminator: Invalid, discriminant_ty: IntType { signed: Unsigned, size: Size(1 bytes) }, size: Size(0 bytes), align: Align(1 bytes) } but the data in memory violates the validity invariant");
+    assert_ub(prog, "load at type Enum { variants: List([]), discriminant_ty: IntType { signed: Unsigned, size: Size(1 bytes) }, discriminator: Invalid, size: Size(0 bytes), align: Align(1 bytes) } but the data in memory violates the validity invariant");
 }
 
 /// Ill-formed: trying to build a variant value of an uninhabited enum
