@@ -108,7 +108,8 @@ fn check_abi_compatibility(
         (Type::Enum { variants: caller_variants, discriminator: caller_discriminator, discriminant_ty: caller_discriminant_ty, size: caller_size, align: caller_align },
          Type::Enum { variants: callee_variants, discriminator: callee_discriminator, discriminant_ty: callee_discriminant_ty, size: callee_size, align: callee_align }) =>
             caller_variants.len() == callee_variants.len() &&
-            caller_variants.zip(callee_variants).all(|(caller_variant, callee_variant)|
+            caller_variants.iter().zip(callee_variants.iter()).all(|((caller_discriminant, caller_variant), (callee_discriminant, callee_variant))|
+                caller_discriminant == callee_discriminant &&
                 check_abi_compatibility(caller_variant.ty, callee_variant.ty) &&
                 caller_variant.tagger == callee_variant.tagger
             ) &&

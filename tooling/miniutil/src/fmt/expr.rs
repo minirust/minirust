@@ -53,11 +53,11 @@ pub(super) fn fmt_place_expr(p: PlaceExpr, comptypes: &mut Vec<CompType>) -> Fmt
             // This can be considered atomic due to the same reasoning as for PlaceExpr::Field, see above.
             FmtExpr::Atomic(format!("{root}[{index}]"))
         }
-        PlaceExpr::Downcast { root, variant_idx } => {
+        PlaceExpr::Downcast { root, discriminant } => {
             let root = fmt_place_expr(root.extract(), comptypes).to_atomic_string();
             // This is not atomic as `local(1) as variant 3.0` illustrates. (Field 0 of downcast)
             // We can't do it nicely like in the Rust MIR ({root} as {variant name}) since we have no variant names.
-            FmtExpr::NonAtomic(format!("{root} as variant {variant_idx}"))
+            FmtExpr::NonAtomic(format!("{root} as variant {discriminant}"))
         }
     }
 }
@@ -112,13 +112,13 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             FmtExpr::NonAtomic(format!("{union_ty} {{ field{field}: {expr} }}"))
         }
         ValueExpr::Variant {
-            idx,
+            discriminant,
             data,
             enum_ty,
         } => {
             let enum_ty = fmt_type(enum_ty, comptypes).to_string();
             let expr = fmt_value_expr(data.extract(), comptypes).to_string();
-            FmtExpr::NonAtomic(format!("{enum_ty} {{ variant{idx}: {expr} }}"))
+            FmtExpr::NonAtomic(format!("{enum_ty} {{ variant{discriminant}: {expr} }}"))
         }
         ValueExpr::GetDiscriminant {
             place

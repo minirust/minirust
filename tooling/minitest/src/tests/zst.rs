@@ -69,7 +69,7 @@ fn zst_tuple2() {
 #[test]
 fn zst_enum() {
     let empty_var_ty = enum_variant(<()>::get_type(), &[]);
-    let locals = &[enum_ty::<u8>(&[empty_var_ty], Discriminator::Known(Int::from(0)), size(0), Align::ONE)];
+    let locals = &[enum_ty::<u8>(&[(0, empty_var_ty)], discriminator_known(0), size(0), Align::ONE)];
     let stmts = &[
         storage_live(0),
         assign(local(0), load(local(0))),

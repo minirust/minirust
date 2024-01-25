@@ -79,18 +79,14 @@ const U8_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::
 fn switch_enum_works() {
     let enum_ty = enum_ty::<u8>(
         &[
-            enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))]),
-            enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 2.into()))]),
+            (0, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))])),
+            (1, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 2.into()))])),
         ],
-        Discriminator::Branch {
-            offset: offset(0),
-            fallback: GcCow::new(Discriminator::Invalid),
-            value_type: U8_INTTYPE,
-            children: [
-                (2.into(), Discriminator::Known(1.into())),
-                (4.into(), Discriminator::Known(0.into())),
-            ].into_iter().collect()
-        },
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_invalid(),
+            &[(2, discriminator_known(1)), (4, discriminator_known(0))]
+        ),
         size(1),
         align(1)
     );

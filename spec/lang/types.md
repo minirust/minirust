@@ -55,13 +55,13 @@ pub enum Type {
         align: Align,
     },
     Enum {
-        /// Each variant is given by a type and its tag description. All variants are thought
-        /// to "start at offset 0"; if the discriminant is encoded as an explicit tag,
-        /// then that will be put into the padding of the active variant. (This means it
-        /// is *not* safe to hand out mutable references to a variant at that type, as
-        /// then the tag might be overwritten!)
+        /// The map variants, each identified by a discriminant. Each variant is given by a type and its
+        /// tag description. All variants are thought to "start at offset 0"; if the
+        /// discriminant is encoded as an explicit tag, then that will be put into the
+        /// padding of the active variant. (This means it is *not* safe to hand out mutable
+        /// references to a variant at that type, as then the tag might be overwritten!)
         /// The Rust type `!` is encoded as an `Enum` with an empty list of variants.
-        variants: List<Variant>,
+        variants: Map<Int, Variant>,
         /// The `IntType` for the discriminant. This is used for the type of
         /// `GetDiscriminant` and `SetDiscriminant`. It is entirely independent of how
         /// the discriminant is represented in memory (the "tag").
@@ -102,8 +102,6 @@ pub enum Discriminator {
     /// Tag decoding failed, there is no valid discriminant.
     Invalid,
     /// We don't know the discriminant, so we branch on the value of a specific value.
-    /// The fallback keeps the representation more compact, as we often are only
-    /// interested in a couple of values and don't want to always have > 256 branches.
     Branch {
         offset: Offset,
         value_type: IntType,
@@ -159,7 +157,7 @@ impl Type {
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => variants.any(|variant| variant.ty.inhabited()),
+            Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }
     }
 

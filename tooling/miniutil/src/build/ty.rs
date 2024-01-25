@@ -70,15 +70,36 @@ pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {
     }
 }
 
-pub fn enum_ty<DiscriminantTy: TypeConv>(variants: &[Variant], discriminator: Discriminator, size: Size, align: Align) -> Type {
+pub fn enum_ty<DiscriminantTy: TypeConv + Into<Int> + Copy>(variants: &[(DiscriminantTy, Variant)], discriminator: Discriminator, size: Size, align: Align) -> Type {
     let Type::Int(discriminant_ty) = DiscriminantTy::get_type() else {
         panic!("Discriminant Type needs to be an integer type.");
     };
     Type::Enum {
-        variants: variants.iter().copied().collect(),
+        variants: variants.iter().copied().map(|(disc, variant)| (disc.into(), variant)).collect(),
         discriminator,
         discriminant_ty,
         size,
         align,
+    }
+}
+
+pub fn discriminator_invalid() -> Discriminator {
+    Discriminator::Invalid
+}
+
+pub fn discriminator_known(discriminant: impl Into<Int>) -> Discriminator {
+    Discriminator::Known(discriminant.into())
+}
+
+/// Builds a branching discriminator on the type given by the generic which has to be an integer type.
+pub fn discriminator_branch<T: ToInt + TypeConv + Copy>(offset: Offset, fallback: Discriminator, children: &[(T, Discriminator)]) -> Discriminator {
+    let Type::Int(value_type) = T::get_type() else {
+        unreachable!()
+    };
+    Discriminator::Branch {
+        offset,
+        value_type,
+        fallback: GcCow::new(fallback),
+        children: children.into_iter().copied().map(|(value, disc)| (value.into(), disc)).collect()
     }
 }

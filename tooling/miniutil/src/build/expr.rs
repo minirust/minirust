@@ -27,8 +27,8 @@ pub fn array(args: &[ValueExpr], elem_ty: Type) -> ValueExpr {
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 
-pub fn variant(idx: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr {
-    ValueExpr::Variant { idx: idx.into(), data: GcCow::new(data), enum_ty}
+pub fn variant(discriminant: impl Into<Int>, data: ValueExpr, enum_ty: Type) -> ValueExpr {
+    ValueExpr::Variant { discriminant: discriminant.into(), data: GcCow::new(data), enum_ty}
 }
 
 pub fn get_discriminant(place: PlaceExpr) -> ValueExpr {
@@ -231,10 +231,10 @@ pub fn index(root: PlaceExpr, index: ValueExpr) -> PlaceExpr {
 }
 
 /// An enum downcast into the variant at the specified index.
-pub fn downcast(root: PlaceExpr, variant_idx: impl Into<Int>) -> PlaceExpr {
+pub fn downcast(root: PlaceExpr, discriminant: impl Into<Int>) -> PlaceExpr {
     PlaceExpr::Downcast {
         root: GcCow::new(root),
-        variant_idx: variant_idx.into(),
+        discriminant: discriminant.into(),
     }
 }
 
