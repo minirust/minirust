@@ -88,8 +88,8 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::Variant { enum_ty, idx, data } : ValueExpr) -> NdResult<(Value<M>, Type)> {
-        ret((Value::Variant { idx, data: self.eval_value(data)?.0 }, enum_ty))
+    fn eval_value(&mut self, ValueExpr::Variant { enum_ty, discriminant, data } : ValueExpr) -> NdResult<(Value<M>, Type)> {
+        ret((Value::Variant { discriminant, data: self.eval_value(data)?.0 }, enum_ty))
     }
 }
 ```
@@ -106,15 +106,15 @@ impl<M: Memory> Machine<M> {
             panic!("ValueExpr::GetDiscriminant requires enum type");
         };
         if !place.aligned {
-            throw_ub!("Getting the discriminant of a place based on a misaligned pointer");
+            throw_ub!("Getting the discriminant of a place based on a misaligned pointer.");
         }
 
         // We don't require the variant to be valid,
         // we are only interested in the bytes that the discriminator actually touches.
-        let accessor = |idx: Offset| {
+        let accessor = |idx: Offset, size: Size| {
             let ptr = self.ptr_offset_inbounds(place.ptr, idx.bytes())?;
-            let byte = self.mem.load(ptr, Size::from_bytes(1).unwrap(), Align::ONE, Atomicity::None)?;
-            ret(byte[Int::ZERO])
+            // We have ensured that the place is aligned, so no alignment requirement here.
+            self.mem.load(ptr, size, Align::ONE, Atomicity::None)
         };
         let Some(discriminant) = decode_discriminant::<M>(accessor, discriminator)? else {
             throw_ub!("ValueExpr::GetDiscriminant encountered invalid discriminant.");
@@ -296,12 +296,12 @@ impl<M: Memory> Machine<M> {
         ret((Place { ptr, ..root }, field_ty))
     }
 
-    fn eval_place(&mut self, PlaceExpr::Downcast { root, variant_idx }: PlaceExpr) -> NdResult<(Place<M>, Type)> {
+    fn eval_place(&mut self, PlaceExpr::Downcast { root, discriminant }: PlaceExpr) -> NdResult<(Place<M>, Type)> {
         let (root, ty) = self.eval_place(root)?;
         // We only need to downcast the enum type into the variant data type
         // since all the enum data must have the same size with offset 0 (invariant).
         let var_ty = match ty {
-            Type::Enum { variants, .. } => variants[variant_idx].ty,
+            Type::Enum { variants, .. } => variants[discriminant].ty,
             _ => panic!("enum downcast on non-enum"),
         };
         ret((root, var_ty))

@@ -15,7 +15,7 @@ enum Value<M: Memory> {
     Tuple(List<Value<M>>),
     /// A variant of a sum type, used for enums.
     Variant {
-        idx: Int,
+        discriminant: Int,
         #[specr::indirection]
         data: Value<M>,
     },

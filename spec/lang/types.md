@@ -55,13 +55,13 @@ pub enum Type {
         align: Align,
     },
     Enum {
-        /// Each variant is given by a type and its tag description. All variants are thought
-        /// to "start at offset 0"; if the discriminant is encoded as an explicit tag,
-        /// then that will be put into the padding of the active variant. (This means it
-        /// is *not* safe to hand out mutable references to a variant at that type, as
-        /// then the tag might be overwritten!)
+        /// The map variants, each identified by a discriminant. Each variant is given by a type and its
+        /// tag description. All variants are thought to "start at offset 0"; if the
+        /// discriminant is encoded as an explicit tag, then that will be put into the
+        /// padding of the active variant. (This means it is *not* safe to hand out mutable
+        /// references to a variant at that type, as then the tag might be overwritten!)
         /// The Rust type `!` is encoded as an `Enum` with an empty list of variants.
-        variants: List<Variant>,
+        variants: Map<Int, Variant>,
         /// The `IntType` for the discriminant. This is used for the type of
         /// `GetDiscriminant` and `SetDiscriminant`. It is entirely independent of how
         /// the discriminant is represented in memory (the "tag").
@@ -87,11 +87,11 @@ pub type Fields = List<(Offset, Type)>;
 pub struct Variant {
     /// The actual type of the variant.
     pub ty: Type,
-    /// The information on where to store which bytes to write the tag.
+    /// The information on where to store which values to write the tag.
     /// MUST NOT touch any bytes written by the actual type of the variant and vice
     /// versa. This is because we allow references/pointers to (enum) fields which
     /// should be able to dereference without having to deal with the tag.
-    pub tagger: Map<Offset, u8>,
+    pub tagger: Map<Offset, (IntType, Int)>,
 }
 
 /// The decision tree that computes the discriminant out of the tag for a specific
@@ -101,14 +101,13 @@ pub enum Discriminator {
     Known(Int),
     /// Tag decoding failed, there is no valid discriminant.
     Invalid,
-    /// We don't know the discriminant, so we branch on the value of a specific byte.
-    /// The fallback keeps the representation more compact, as we often are only
-    /// interested in a couple of values and we don't want to always have 256 branches.
+    /// We don't know the discriminant, so we branch on the value of a specific value.
     Branch {
         offset: Offset,
+        value_type: IntType,
         #[specr::indirection]
         fallback: Discriminator,
-        children: Map<u8, Discriminator>,
+        children: Map<Int, Discriminator>,
     },
 }
 ```
@@ -158,7 +157,7 @@ impl Type {
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
-            Enum { variants, .. } => variants.any(|variant| variant.ty.inhabited()),
+            Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }
     }
 

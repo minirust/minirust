@@ -114,17 +114,26 @@ impl Type {
             Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
-                // Also their alignment may not be larger than the total enum alignment.
-                for variant in variants {
+                // Also their alignment may not be larger than the total enum alignment and
+                // all the values written by the tagger must fit into the variant.
+                for (discriminant, variant) in variants {
+                    ensure(discriminant_ty.can_represent(discriminant))?;
+
                     variant.ty.check_wf::<T>()?;
                     ensure(size == variant.ty.size::<T>())?;
                     ensure(variant.ty.align::<T>().bytes() <= align.bytes())?;
+                    ensure(variant.tagger.iter().all(|(offset, (value_type, value))|
+                        value_type.check_wf().is_some() &&
+                        value_type.can_represent(value) &&
+                        offset + value_type.size <= size
+                    ))?;
+                    // FIXME: check that the values written by the tagger do not overlap.
                 }
 
                 // check that all variants reached by the discriminator are valid,
                 // that it never performs out-of-bounds accesses and all discriminant values
                 // can be represented by the discriminant type.
-                discriminator.check_wf::<T>(size, variants.len(), discriminant_ty)?;
+                discriminator.check_wf::<T>(size, variants)?;
             }
         }
 
@@ -133,15 +142,18 @@ impl Type {
 }
 
 impl Discriminator {
-    fn check_wf<T: Target>(self, size: Size, n_variants: Int, discriminant_ty: IntType) -> Option<()> {
+    fn check_wf<T: Target>(self, size: Size, variants: Map<Int, Variant>) -> Option<()> {
         match self {
-            Discriminator::Known(variant) => ensure(variant >= Int::ZERO && variant < n_variants && discriminant_ty.can_represent(variant)),
+            Discriminator::Known(discriminant) => ensure(variants.get(discriminant).is_some()),
             Discriminator::Invalid => ret(()),
-            Discriminator::Branch { offset, fallback, children } => {
-                ensure(offset < size)?;
-                fallback.check_wf::<T>(size, n_variants, discriminant_ty)?;
-                for discriminator in children.values() {
-                    discriminator.check_wf::<T>(size, n_variants, discriminant_ty)?;
+            Discriminator::Branch { offset, value_type, fallback, children } => {
+                // Ensure that the value we branch on is stored in bounds and that all children all valid.
+                value_type.check_wf()?;
+                ensure(offset + value_type.size <= size)?;
+                fallback.check_wf::<T>(size, variants)?;
+                for (value, discriminator) in children.into_iter() {
+                    ensure(value_type.can_represent(value))?;
+                    discriminator.check_wf::<T>(size, variants)?;
                 }
                 ret(())
             }
@@ -226,10 +238,10 @@ impl ValueExpr {
 
                 union_ty
             }
-            Variant { idx, data, enum_ty } => {
+            Variant { discriminant, data, enum_ty } => {
                 let Type::Enum { variants, .. } = enum_ty else { throw!() };
                 enum_ty.check_wf::<T>()?;
-                let ty = variants.get(idx)?.ty;
+                let ty = variants.get(discriminant)?.ty;
 
                 let checked = data.check_wf::<T>(locals, prog)?;
                 ensure(checked == ty);
@@ -329,11 +341,11 @@ impl PlaceExpr {
                     _ => throw!(),
                 }
             }
-            Downcast { root, variant_idx } => {
+            Downcast { root, discriminant } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 match root {
                     // A valid downcast points to an existing variant.
-                    Type::Enum { variants, .. } => variants.get(variant_idx)?.ty,
+                    Type::Enum { variants, .. } => variants.get(discriminant)?.ty,
                     _ => throw!(),
                 }
             }
@@ -639,8 +651,8 @@ impl<M: Memory> Value<M> {
                     ensure(data.len() == size.bytes())?;
                 }
             }
-            (Value::Variant { idx, data }, Type::Enum { variants, .. }) => {
-                let variant = variants.get(idx)?.ty;
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
+                let variant = variants.get(discriminant)?.ty;
                 data.check_wf(variant)?;
             }
             _ => throw!()

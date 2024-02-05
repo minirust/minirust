@@ -241,16 +241,21 @@ This is to ensure that pointers to the data always contain valid values.
 
 ```rust
 /// Uses the `Discriminator` to decode the discriminant from the tag read out of the value's bytes using the accessor.
+/// Returns `Ok(None)` when reaching `Discriminator::Invalid` and when any of the reads
+/// for `Discriminator::Branch` encounters uninitialized memory.
+/// Returns `Err` only if `accessor` returns `Err`.
+///
 /// The accessor is given an offset relative to the beginning of the encoded enum value,
 /// and it should return the abstract byte at that offset.
 /// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
-fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset) -> Result<AbstractByte<M::Provenance>>, discriminator: Discriminator) -> Result<Option<Int>> {
+fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, Size) -> Result<List<AbstractByte<M::Provenance>>>, discriminator: Discriminator) -> Result<Option<Int>> {
     match discriminator {
         Discriminator::Known(val) => ret(Some(val)),
         Discriminator::Invalid => ret(None),
-        Discriminator::Branch { offset, children, fallback } => {
-            let AbstractByte::Init(val, _) = accessor(offset)?
-                else { return ret(None) };
+        Discriminator::Branch { offset, value_type, children, fallback } => {
+            let bytes = accessor(offset, value_type.size)?;
+            let Some(Value::Int(val)) = Type::Int(value_type).decode::<M>(bytes)
+                else { return ret(None); };
             let next_discriminator = children.get(val).unwrap_or(fallback);
             decode_discriminant::<M>(accessor, next_discriminator)
         }
@@ -258,11 +263,17 @@ fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset) -> Result<Abs
 }
 
 /// Writes the tag described by the tagger into the bytes accessed using the accessor.
+/// Returns `Err` only if `accessor` returns `Err`.
+///
 /// The accessor is given an offset relative to the beginning of the encoded enum value
-/// and the abstract byte to store at that offset.
-fn encode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, AbstractByte<M::Provenance>) -> Result, tagger: Map<Offset, u8>) -> Result<()> {
-    for (offset, value) in tagger.iter() {
-        accessor(offset, AbstractByte::Init(value, None))?;
+/// and the integer value and type to store at that offset.
+fn encode_discriminant<M: Memory>(
+    mut accessor: impl FnMut(Offset, List<AbstractByte<M::Provenance>>) -> Result,
+    tagger: Map<Offset, (IntType, Int)>
+) -> Result<()> {
+    for (offset, (value_type, value)) in tagger.iter() {
+        let bytes = Type::Int(value_type).encode::<M>(Value::Int(value));
+        accessor(offset, bytes)?;
     }
     ret(())
 }
@@ -272,28 +283,34 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         // We can unwrap the decoded discriminant as our accessor never fails, and
         // decode_discriminant only fails if the accessor fails.
-        let disc = decode_discriminant::<M>(|idx| ret(bytes[idx.bytes()]), discriminator).unwrap()?;
+        let discriminant = decode_discriminant::<M>(
+            |offset, size| ret(bytes.subslice_with_length(offset.bytes(), size.bytes())),
+            discriminator
+        ).unwrap()?;
 
         // Decode into the variant.
         // Because the variant is the same size as the enum we don't need to pass a subslice.
-        let Some(value) = variants[disc].ty.decode(bytes)
+        let Some(value) = variants[discriminant].ty.decode(bytes)
             else { return None };
 
-        Some(Value::Variant { idx: disc, data: value })
+        Some(Value::Variant { discriminant, data: value })
     }
 
     fn encode<M: Memory>(Type::Enum { variants, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        let Value::Variant { idx, data } = val else { panic!() };
+        let Value::Variant { discriminant, data } = val else { panic!() };
 
         // `idx` is guaranteed to be in bounds by the well-formed check in the type.
-        let Variant { ty: variant, tagger } = variants[idx];
+        let Variant { ty: variant, tagger } = variants[discriminant];
         let mut bytes = variant.encode(data.extract());
 
         // Write tag into the bytes around the data.
         // This is fine as we don't allow encoded data and the tag to overlap.
         // We can unwrap the `Result` as our accessor never fails, and
         // encode_discriminant only fails if the accessor fails.
-        encode_discriminant::<M>(|offset, value| { bytes.set(offset.bytes(), value); ret(()) }, tagger).unwrap();
+        encode_discriminant::<M>(|offset, value_bytes| {
+            bytes.write_subslice_at_index(offset.bytes(), value_bytes);
+            ret(())
+        }, tagger).unwrap();
         bytes
     }
 }
@@ -385,8 +402,8 @@ impl<M: Memory> DefinedRelation for Value<M> {
                 p1.le_defined(p2),
             (Tuple(vals1), Tuple(vals2)) =>
                 vals1.le_defined(vals2),
-            (Variant { idx: idx1, data: data1 }, Variant { idx: idx2, data: data2 }) =>
-                idx1 == idx2 && data1.le_defined(data2),
+            (Variant { discriminant: discriminant1, data: data1 }, Variant { discriminant: discriminant2, data: data2 }) =>
+                discriminant1 == discriminant2 && data1.le_defined(data2),
             (Union(chunks1), Union(chunks2)) => chunks1.le_defined(chunks2),
             _ => false
         }
@@ -479,8 +496,8 @@ impl<M: Memory> AtomicMemory<M> {
                 Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
-            (Value::Variant { idx, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { idx, data: self.retag_val(data, variants[idx].ty, fn_entry)? },
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
+                Value::Variant { discriminant, data: self.retag_val(data, variants[discriminant].ty, fn_entry)? },
             _ =>
                 panic!("this value does not have that type"),
         })

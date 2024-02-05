@@ -34,8 +34,8 @@ pub enum ValueExpr {
 
     /// A variant of an enum type.
     Variant {
-        /// The variant index.
-        idx: Int,
+        /// The discriminant of the variant.
+        discriminant: Int,
         /// The `ValueExpr` for the variant.
         #[specr::indirection]
         data: ValueExpr,
@@ -192,8 +192,8 @@ pub enum PlaceExpr {
         /// The base enum to project to the specific variant.
         #[specr::indirection]
         root: PlaceExpr,
-        /// The variant index to project to.
-        variant_idx: Int,
+        /// The discriminant of the variant to project to.
+        discriminant: Int,
     },
 }
 ```

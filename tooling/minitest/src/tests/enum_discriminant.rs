@@ -1,9 +1,11 @@
 use crate::*;
 
+const U8_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(1) };
+
 /// It is ill-formed to write an invalid discriminant.
 #[test]
 fn ill_formed_invalid_discriminant_set() {
-    let enum_ty = enum_ty::<u8>(&[], Discriminator::Invalid, size(0), align(1));
+    let enum_ty = enum_ty::<u8>(&[], discriminator_invalid(), size(0), align(1));
     let locals = [enum_ty];
     let stmts = [
         storage_live(0),
@@ -18,8 +20,12 @@ fn ill_formed_invalid_discriminant_set() {
 fn discriminant_get_and_set_work() {
     // single-variant enum without data and the tag 4 for the only variant
     let enum_ty = enum_ty::<u8>(
-        &[enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 4)])],
-        Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(4, Discriminator::Known(0.into()))].into_iter().collect() },
+        &[(0, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))]))],
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_invalid(),
+            &[(4, discriminator_known(0))]
+        ),
         size(1),
         align(1)
     );
@@ -46,10 +52,14 @@ fn discriminant_setting_right_value() {
     // multi-variant enum without data and the tags 4 and 2.
     let enum_ty = enum_ty::<u8>(
         &[
-            enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 4)]),
-            enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 2)]),
+            (0, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))])),
+            (1, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 2.into()))])),
         ],
-        Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(4, Discriminator::Known(0.into()))].into_iter().collect() },
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_invalid(),
+            &[(4, discriminator_known(0)), (2, discriminator_known(1))]
+        ),
         size(1),
         align(1)
     );
@@ -82,8 +92,12 @@ fn discriminant_leaves_data_alone() {
 
     // single-variant enum with layout <u8 data, u8 tag, u16 data> and tag 1
     let enum_ty = enum_ty::<u8>(
-        &[enum_variant(tuple_ty(&[(offset(0), u8_t), (offset(2), u16_t)], size(4), align(2)), &[(offset(1), 1)])],
-        Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [].into_iter().collect() },
+        &[(0, enum_variant(tuple_ty(&[(offset(0), u8_t), (offset(2), u16_t)], size(4), align(2)), &[(offset(1), (U8_INTTYPE, 1.into()))]))],
+        discriminator_branch::<u8>(
+            offset(1),
+            discriminator_invalid(),
+            &[(1, discriminator_known(0))]
+        ),
         size(4), align(2)
     );
     // the only local is a union of the enum and all its field seperately
@@ -114,8 +128,12 @@ fn discriminant_leaves_data_alone() {
 fn ub_discriminant_does_not_init() {
     // single variant enum with layout (u8 data, u8 tag) and tag 1
     let enum_ty = enum_ty::<u8>(
-        &[enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), 1u8)])],
-        Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
+        &[(0, enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), (U8_INTTYPE, 1.into()))]))],
+        discriminator_branch::<u8>(
+            offset(1),
+            discriminator_invalid(),
+            &[(1, discriminator_known(0))]
+        ),
         size(2), align(1)
     );
     let locals = [enum_ty];
@@ -137,8 +155,12 @@ fn ub_discriminant_does_not_init() {
 fn ub_cannot_read_uninit_discriminant() {
     // single variant enum with layout (u8 data, u8 tag) and tag 1
     let enum_ty = enum_ty::<u8>(
-        &[enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), 1u8)])],
-        Discriminator::Branch { offset: offset(1), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
+        &[(0, enum_variant(tuple_ty(&[(offset(0), int_ty(Signedness::Unsigned, size(1)))], size(2), align(1)), &[(offset(1), (U8_INTTYPE, 1.into()))]))],
+        discriminator_branch::<u8>(
+            offset(1),
+            discriminator_invalid(),
+            &[(1, discriminator_known(0))]
+        ),
         size(2), align(1)
     );
     let locals = [enum_ty];
@@ -161,8 +183,12 @@ fn ub_cannot_read_invalid_discriminant() {
     let u8_t = int_ty(Signedness::Unsigned, size(1));
     // single variant enum without data and tag 1
     let enum_ty = enum_ty::<u8>(
-        &[enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 1u8)])],
-        Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Invalid), children: [(1u8, Discriminator::Known(0.into()))].into_iter().collect() },
+        &[(0, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 1.into()))]))],
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_invalid(),
+            &[(1, discriminator_known(0))]
+        ),
         size(1), align(1)
     );
     let locals = [union_ty(&[(offset(0), enum_ty), (offset(0), u8_t)], size(1), align(1))];
@@ -182,7 +208,7 @@ fn ub_cannot_read_invalid_discriminant() {
 /// Reading discriminant from mis-aligned enum (ptr) is UB.
 #[test]
 fn ub_get_discriminant_on_misaligned_enum() {
-    let enum_t = enum_ty::<u8>(&[enum_variant(<u16>::get_type(), &[])], Discriminator::Known(0.into()), size(2), align(2));
+    let enum_t = enum_ty::<u8>(&[(0, enum_variant(<u16>::get_type(), &[]))], discriminator_known(0), size(2), align(2));
     let raw_ptr_t = <*const [u16;2]>::get_type();
     let locals = [<[u16;2]>::get_type(), <u8>::get_type()];
     let stmts = [
@@ -192,13 +218,13 @@ fn ub_get_discriminant_on_misaligned_enum() {
         assign(local(1), get_discriminant(deref(ptr_offset(addr_of(local(0), raw_ptr_t), const_int(1u8), InBounds::Yes), enum_t))),
     ];
     let prog = small_program(&locals, &stmts);
-    assert_ub(prog, "Getting the discriminant of a place based on a misaligned pointer");
+    assert_ub(prog, "Getting the discriminant of a place based on a misaligned pointer.");
 }
 
 /// Setting discriminant of mis-aligned enum (ptr) is UB.
 #[test]
 fn ub_set_discriminant_on_misaligned_enum() {
-    let enum_t = enum_ty::<u8>(&[enum_variant(<u16>::get_type(), &[])], Discriminator::Known(0.into()), size(2), align(2));
+    let enum_t = enum_ty::<u8>(&[(0, enum_variant(<u16>::get_type(), &[]))], discriminator_known(0), size(2), align(2));
     let raw_ptr_t = <*const [u16;2]>::get_type();
     let locals = [<[u16;2]>::get_type()];
     let stmts = [
@@ -217,10 +243,14 @@ fn space_optimized_enum_works() {
     // a space-optimized version of `Option<NonZeroU8>` based on an actual u8
     let enum_ty = enum_ty::<u8>(
         &[
-            enum_variant(u8_t, &[]),
-            enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), 0u8)]),
+            (0, enum_variant(u8_t, &[])),
+            (1, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 0.into()))])),
         ],
-        Discriminator::Branch { offset: offset(0), fallback: GcCow::new(Discriminator::Known(0.into())), children: [(0u8, Discriminator::Known(1.into()))].into_iter().collect() },
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_known(0),
+            &[(0, discriminator_known(1))]
+        ),
         size(1), align(1)
     );
     let locals = [union_ty(&[(offset(0), enum_ty), (offset(0), u8_t)], size(1), align(1))];
