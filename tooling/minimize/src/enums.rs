@@ -72,7 +72,7 @@ pub fn translate_enum<'tcx>(
                         // Since the niche type is at the moment directly used for the tag by the compiler this should be no issue.
                         let niche = variants[variant_idx].largest_niche.expect("Untagged variant has no Niche in a multiple variant enum!");
                         assert!(niche.offset.bytes() == tag_offset.bytes().try_to_usize().unwrap() as u64, "Untagged variant has niche at different offset than tag.");
-                        let niche_ty = translate_int_primitive(niche.value);
+                        let niche_ty = translate_tag_primitive(niche.value, &tcx);
                         assert!(niche_ty == tag_ty, "Niche of untagged variant is of different type");
 
                         // Insert the discriminator children if the range wraps or the single child otherwise.
@@ -135,13 +135,6 @@ fn translate_fields<'tcx>(
 
                 (offset, ty)
     }).collect()
-}
-
-fn translate_int_primitive(primitive: rs::Primitive) -> IntType {
-    match primitive {
-        rs::Primitive::Int(ity, signed) => IntType { signed: if signed { Signedness::Signed } else { Signedness::Unsigned }, size: translate_size(ity.size()) },
-        _ => panic!("Enum tag/niche primitive is not an integer!"),
-    }
 }
 
 pub fn int_from_bits(bits: u128, ity: IntType) -> Int {

@@ -39,6 +39,28 @@ fn print_outer(o: Outer) {
     }
 }
 
+fn print_option_nonzero(o: Option<std::num::NonZeroU8>) {
+    match o {
+        Some(x) => print(x.get()),
+        None => print(0)
+    }
+}
+
+fn print_bool_result(r: Result<bool, ()>) {
+    match r {
+        Ok(false) => print(0),
+        Ok(true) => print(1),
+        Err(_) => print(2),
+    }
+}
+
+fn print_option_ref(o: Option<&u8>) {
+    match o {
+        Some(v) => print(*v),
+        None => print(-1),
+    }
+}
+
 fn main() {
     print_opt_bool(Some(true));
     print_opt_bool(Some(false));
@@ -48,4 +70,14 @@ fn main() {
     print_outer(Outer::V1(8888, Inner::V2, 127));
     print_outer(Outer::V2);
     print_outer(Outer::V3);
+
+    print_option_nonzero(None);
+    print_option_nonzero(std::num::NonZeroU8::new(12));
+
+    print_bool_result(Ok(true));
+    print_bool_result(Ok(false));
+    print_bool_result(Err(()));
+
+    print_option_ref(Some(&42));
+    print_option_ref(None);
 }
