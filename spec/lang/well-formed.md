@@ -151,8 +151,12 @@ impl Discriminator {
                 value_type.check_wf()?;
                 ensure(offset + value_type.size <= size)?;
                 fallback.check_wf::<T>(size, variants)?;
-                for (value, discriminator) in children.into_iter() {
-                    ensure(value_type.can_represent(value))?;
+                for (idx, ((start, end), discriminator)) in children.into_iter().enumerate() {
+                    ensure(value_type.can_represent(start))?;
+                    ensure(value_type.can_represent(end))?;
+                    ensure(start <= end)?;
+                    // Ensure that the ranges don't overlap.
+                    ensure(children.keys().enumerate().all(|(other_idx, (other_start, other_end))| other_end < start || other_start > end || idx == other_idx))?;
                     discriminator.check_wf::<T>(size, variants)?;
                 }
                 ret(())

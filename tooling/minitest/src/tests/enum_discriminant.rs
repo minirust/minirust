@@ -24,7 +24,7 @@ fn discriminant_get_and_set_work() {
         discriminator_branch::<u8>(
             offset(0),
             discriminator_invalid(),
-            &[(4, discriminator_known(0))]
+            &[((4, 4), discriminator_known(0))]
         ),
         size(1),
         align(1)
@@ -58,7 +58,7 @@ fn discriminant_setting_right_value() {
         discriminator_branch::<u8>(
             offset(0),
             discriminator_invalid(),
-            &[(4, discriminator_known(0)), (2, discriminator_known(1))]
+            &[((4, 4), discriminator_known(0)), ((2, 2), discriminator_known(1))]
         ),
         size(1),
         align(1)
@@ -96,7 +96,7 @@ fn discriminant_leaves_data_alone() {
         discriminator_branch::<u8>(
             offset(1),
             discriminator_invalid(),
-            &[(1, discriminator_known(0))]
+            &[((1, 1), discriminator_known(0))]
         ),
         size(4), align(2)
     );
@@ -132,7 +132,7 @@ fn ub_discriminant_does_not_init() {
         discriminator_branch::<u8>(
             offset(1),
             discriminator_invalid(),
-            &[(1, discriminator_known(0))]
+            &[((1, 1), discriminator_known(0))]
         ),
         size(2), align(1)
     );
@@ -159,7 +159,7 @@ fn ub_cannot_read_uninit_discriminant() {
         discriminator_branch::<u8>(
             offset(1),
             discriminator_invalid(),
-            &[(1, discriminator_known(0))]
+            &[((1, 1), discriminator_known(0))]
         ),
         size(2), align(1)
     );
@@ -187,7 +187,7 @@ fn ub_cannot_read_invalid_discriminant() {
         discriminator_branch::<u8>(
             offset(0),
             discriminator_invalid(),
-            &[(1, discriminator_known(0))]
+            &[((1, 1), discriminator_known(0))]
         ),
         size(1), align(1)
     );
@@ -249,7 +249,7 @@ fn space_optimized_enum_works() {
         discriminator_branch::<u8>(
             offset(0),
             discriminator_known(0),
-            &[(0, discriminator_known(1))]
+            &[((0, 0), discriminator_known(1))]
         ),
         size(1), align(1)
     );
