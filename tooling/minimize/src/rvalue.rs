@@ -123,7 +123,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
                     let discriminant = discriminant_for_variant(rv.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx, *variant_idx);
                     let ops: List<_> = operands.iter().map(|x| translate_operand(x, fcx)).collect();
 
-                    // We have a guaranteed tuple as data when the type was minified from Rust.
+                    // We represent the multiple fields of an enum variant as a MiniRust tuple.
                     let data = GcCow::new(ValueExpr::Tuple(ops, variants.get(discriminant).unwrap().ty));
                     ValueExpr::Variant { discriminant, data, enum_ty: ty }
                 }

@@ -4,6 +4,8 @@ mod rs {
     pub use crate::rustc_target::abi::{Variants, FieldsShape, Primitive, TagEncoding, VariantIdx};
 }
 
+use crate::rustc_middle::ty::layout::PrimitiveExt;
+
 pub fn translate_enum<'tcx>(
     ty: rs::Ty<'tcx>,
     adt_def: rs::AdtDef<'tcx>,
@@ -22,7 +24,9 @@ pub fn translate_enum<'tcx>(
     let (variants, discriminator) = match layout.variants() {
         rs::Variants::Single { index } => {
             let fields = translate_fields(layout.fields(), adt_def.variant(*index), sref, tcx);
-            ([(Int::ZERO, Variant { ty: Type::Tuple { fields, size, align }, tagger: Map::new() })].into_iter().collect(), Discriminator::Known(0.into()))
+            let variants = [(Int::ZERO, Variant { ty: Type::Tuple { fields, size, align }, tagger: Map::new() })];
+            let discriminator = Discriminator::Known(Int::ZERO);
+            (variants.into_iter().collect::<Map<Int, Variant>>(), discriminator)
         },
         rs::Variants::Multiple {
             tag,
@@ -33,9 +37,8 @@ pub fn translate_enum<'tcx>(
 
             // compute the offset of the tag for the tagger and discriminator construction
             let tag_offset: Offset = translate_size(layout.fields().offset(*tag_field));
-            let tag_ty = match tag.primitive() {
-                rs::Primitive::Int(ity, signed) => IntType { signed: if signed { Signedness::Signed } else { Signedness::Unsigned }, size: translate_size(ity.size()) },
-                _ => panic!("enum tag has invalid primitive type"),
+            let Type::Int(tag_ty) = translate_ty(tag.primitive().to_int_ty(tcx), tcx) else {
+                panic!("enum tag has invalid primitive type")
             };
 
             // translate the variants
@@ -45,16 +48,16 @@ pub fn translate_enum<'tcx>(
                 let fields = translate_fields(&variants[variant_idx].fields, &variant_def, sref, tcx);
                 let discr = adt_def.discriminant_for_variant(tcx, variant_idx);
                 let discr_int = int_from_bits(discr.val, discriminant_ty);
-                let (tagger, tag) = match tag_encoding {
-                    rs::TagEncoding::Direct => (
+                match tag_encoding {
+                    rs::TagEncoding::Direct => {
                         // direct tagging places the discriminant in the tag for all variants
-                        [(tag_offset, (tag_ty, discr_int))].into_iter().collect(),
-                        discr_int
-                    ),
+                        let tagger = [(tag_offset, (tag_ty, discr_int))].into_iter().collect::<Map<_, _>>();
+                        let variant = Variant { ty: Type::Tuple { fields, size, align }, tagger };
+                        translated_variants.insert(discr_int, variant);
+                        discriminator_children.insert(discr_int, Discriminator::Known(discr_int));
+                    },
                     rs::TagEncoding::Niche { .. } => todo!("Implement Niche-encoded tags for enums (Timon)"),
                 };
-                translated_variants.insert(discr_int, Variant { ty: Type::Tuple { fields, size, align }, tagger });
-                discriminator_children.insert(tag, Discriminator::Known(discr_int));
             }
 
             // build the discriminator.
@@ -98,13 +101,12 @@ fn translate_fields<'tcx>(
 }
 
 pub fn int_from_bits(bits: u128, ity: IntType) -> Int {
-    let n_bits = ity.size.bits().try_to_u8().unwrap();
-    let rs_size = rs::Size::from_bits(n_bits);
-    let sign_extended = rs_size.sign_extend(bits);
-    if ity.signed == Signedness::Signed && sign_extended >> (n_bits - 1) != 0 {
-        -Int::from(rs_size.truncate((!sign_extended).wrapping_add(1)))
+    let rs_size = rs::Size::from_bits(ity.size.bits().try_to_u8().unwrap());
+    if ity.signed == Signedness::Unsigned {
+        Int::from(rs_size.truncate(bits))
     } else {
-        Int::from(rs_size.truncate(sign_extended))
+        let signed_val = rs_size.sign_extend(bits) as i128;
+        Int::from(signed_val)
     }
 }
 

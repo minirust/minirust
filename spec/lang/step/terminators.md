@@ -108,7 +108,8 @@ fn check_abi_compatibility(
         (Type::Enum { variants: caller_variants, discriminator: caller_discriminator, discriminant_ty: caller_discriminant_ty, size: caller_size, align: caller_align },
          Type::Enum { variants: callee_variants, discriminator: callee_discriminator, discriminant_ty: callee_discriminant_ty, size: callee_size, align: callee_align }) =>
             caller_variants.len() == callee_variants.len() &&
-            // Checking only one side is enough as we checked that they have the same amount of key-value pairs.
+            // Both sides must have the same discriminants. Checking only one direction
+            // of the mutual inclusion enough as we checked that they have the same number of key-value pairs.
             caller_variants.iter().all(|(caller_discriminant, caller_variant)| {
                 let Some(callee_variant) = callee_variants.get(caller_discriminant) else {
                     return false;
