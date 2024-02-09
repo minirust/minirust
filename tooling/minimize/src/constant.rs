@@ -37,8 +37,9 @@ fn translate_const_val<'cx, 'tcx>(
             };
 
             // special case for bits = 0 which can be indicative of a None constant.
-            // FIXME: allow for other constant values by using the offset and value type.
-            // However this is probably going to require machine information for the value encoding which we don't have here.
+            // FIXME: Allow for other constant values by using the offset and value type.
+            //        However this is probably going to require machine information for
+            //        the value encoding which we don't have here.
             if bits == 0 {
                 let discriminant = match discriminator {
                     Discriminator::Known(discriminant) => discriminant,
@@ -60,10 +61,10 @@ fn translate_const_val<'cx, 'tcx>(
                 match variant.ty {
                     Type::Tuple { fields, .. } if fields.is_empty() =>
                         return ValueExpr::Variant { discriminant, data: GcCow::new(ValueExpr::Tuple(List::new(), variant.ty)), enum_ty: ty },
-                    _ => panic!("Cannot create constant enum variant {:?} with data from bits", variant),
+                    _ => panic!("Unsupported constant enum variant {:?} with data.", variant),
                 }
             } else {
-                panic!("Cannot create constant enum from non-zero bits.")
+                panic!("Unsupported constant enum with non-zero bits.")
             }
         }
         // A `static`
