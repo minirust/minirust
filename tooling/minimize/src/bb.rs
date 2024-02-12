@@ -130,7 +130,6 @@ fn translate_call<'cx, 'tcx>(
     let rs::Operand::Constant(box f1) = func else { panic!() };
     let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
     let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-    let key = (f, substs_ref);
     let instance = rs::Instance::resolve(
         fcx.cx.tcx,
         rs::ParamEnv::reveal_all(),
@@ -175,7 +174,7 @@ fn translate_call<'cx, 'tcx>(
         
         Terminator::Call {
             callee: build::fn_ptr_conv(
-                fcx.cx.get_fn_name(key).0.get_internal(),
+                fcx.cx.get_fn_name(instance).0.get_internal(),
                 conv
             ),
             arguments: args,

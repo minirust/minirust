@@ -4,7 +4,7 @@ pub struct Ctxt<'tcx> {
     pub tcx: rs::TyCtxt<'tcx>,
 
     /// maps Rust function calls to MiniRust FnNames.
-    pub fn_name_map: HashMap<(rs::DefId, rs::GenericArgsRef<'tcx>), FnName>,
+    pub fn_name_map: HashMap<rs::Instance<'tcx>, FnName>,
 
     /// Stores which AllocId evaluates to which GlobalName.
     /// Note that not every AllocId and not every GlobalName is coming up in this map (for example constants are missing).
@@ -28,10 +28,10 @@ impl<'tcx> Ctxt<'tcx> {
 
     pub fn translate(mut self) -> Program {
         let (entry, _ty) = self.tcx.entry_fn(()).unwrap();
-        let substs_ref: rs::GenericArgsRef<'tcx> = self.tcx.mk_args(&[]);
+        let entry_instance = rs::Instance::mono(self.tcx, entry);
         let entry_name = FnName(Name::from_internal(0));
 
-        self.fn_name_map.insert((entry, substs_ref), entry_name);
+        self.fn_name_map.insert(entry_instance, entry_name);
 
         // This is the main monomorphization loop.
         // take any not-yet-implemented function:
@@ -41,14 +41,14 @@ impl<'tcx> Ctxt<'tcx> {
             .find(|k| !self.functions.contains_key(**k))
             .copied()
         {
-            let (def_id, substs_ref) = self
+            let instance = self
                 .fn_name_map
                 .iter()
                 .find(|(_, f)| **f == fn_name)
                 .map(|(r, _)| r)
                 .unwrap();
 
-            let f = FnCtxt::new(*def_id, substs_ref, &mut self).translate();
+            let f = FnCtxt::new(*instance, &mut self).translate();
             self.functions.insert(fn_name, f);
         }
 
@@ -66,7 +66,7 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     // Returns FnName associated with some key. If it does not exist it creates a new one.
-    pub fn get_fn_name(&mut self, key: (rs::DefId, &'tcx rs::List<rs::GenericArg<'tcx>>)) -> FnName {
+    pub fn get_fn_name(&mut self, key: rs::Instance<'tcx>) -> FnName {
         // Used as the fn name if it is not named yet.
         let len = self.fn_name_map.len();
 
@@ -139,22 +139,17 @@ pub struct FnCtxt<'cx, 'tcx> {
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn new(
-        def_id: rs::DefId,
-        substs_ref: rs::GenericArgsRef<'tcx>,
+        instance: rs::Instance<'tcx>,
         cx: &'cx mut Ctxt<'tcx>,
     ) -> Self {
-        let body = cx.tcx.optimized_mir(def_id);
+        let body = cx.tcx.optimized_mir(instance.def_id());
+        // We eagerly instantiate everything upfront once.
+        // Then nothing else has to worry about generics.
         let body = cx.tcx.subst_and_normalize_erasing_regions(
-            substs_ref,
+            instance.args,
             rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
         );
-        let instance = rs::Instance::resolve(
-            cx.tcx,
-            rs::ParamEnv::reveal_all(),
-            def_id,
-            substs_ref,
-        ).unwrap().unwrap();
 
         FnCtxt {
             body,
