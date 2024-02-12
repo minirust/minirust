@@ -133,7 +133,7 @@ fn translate_call<'cx, 'tcx>(
     let key = (f, substs_ref);
     let instance = rs::Instance::resolve(
         fcx.cx.tcx,
-        rs::ParamEnv::empty(),
+        rs::ParamEnv::reveal_all(),
         f,
         substs_ref,
     ).unwrap().unwrap();
@@ -164,7 +164,7 @@ fn translate_call<'cx, 'tcx>(
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
-        let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((instance, rs::List::empty()))).unwrap();
+        let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty()))).unwrap();
         let conv = translate_calling_convention(abi.conv);
 
         let args: List<_> = args.iter().map(|op| match op {

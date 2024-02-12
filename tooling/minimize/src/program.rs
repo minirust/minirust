@@ -146,12 +146,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let body = cx.tcx.optimized_mir(def_id);
         let body = cx.tcx.subst_and_normalize_erasing_regions(
             substs_ref,
-            rs::ParamEnv::empty(),
+            rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
         );
         let instance = rs::Instance::resolve(
             cx.tcx,
-            rs::ParamEnv::empty(),
+            rs::ParamEnv::reveal_all(),
             def_id,
             substs_ref,
         ).unwrap().unwrap();
@@ -170,7 +170,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// translates a function body.
     /// Any fn calls occuring during this translation will be added to the `FnNameMap`.
     pub fn translate(mut self) -> Function {
-        let abi = self.cx.tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((self.instance, rs::List::empty()))).unwrap();
+        let abi = self.cx.tcx.fn_abi_of_instance(rs::ParamEnv::reveal_all().and((self.instance, rs::List::empty()))).unwrap();
 
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {

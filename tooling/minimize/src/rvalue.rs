@@ -183,7 +183,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             }
         }
         rs::Rvalue::Repeat(op, c) => {
-            let c = c.try_eval_target_usize(fcx.cx.tcx, rs::ParamEnv::empty()).unwrap();
+            let c = c.try_eval_target_usize(fcx.cx.tcx, rs::ParamEnv::reveal_all()).unwrap();
             let c = Int::from(c);
 
             let elem_ty = translate_ty(op.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx);
