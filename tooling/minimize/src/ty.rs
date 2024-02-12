@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn layout_of<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Layout {
-    let a = rs::ParamEnv::empty().and(ty);
+    let a = rs::ParamEnv::reveal_all().and(ty);
     let layout = tcx.layout_of(a).unwrap().layout;
     let size = translate_size(layout.size());
     let align = translate_align(layout.align().abi);
@@ -27,7 +27,7 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
         rs::TyKind::Int(int_ty) => Type::Int(translate_int_ty(int_ty)),
         rs::TyKind::Uint(uint_ty) => Type::Int(translate_uint_ty(uint_ty)),
         rs::TyKind::Tuple(ts) => {
-            let a = rs::ParamEnv::empty().and(ty);
+            let a = rs::ParamEnv::reveal_all().and(ty);
             let layout = tcx.layout_of(a).unwrap().layout;
             let size = translate_size(layout.size());
             let align = translate_align(layout.align().abi);
@@ -79,12 +79,12 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             Type::Ptr(PtrType::Raw)
         }
         rs::TyKind::Array(ty, c) => {
-            let count = Int::from(c.eval_target_usize(tcx, rs::ParamEnv::empty()));
+            let count = Int::from(c.eval_target_usize(tcx, rs::ParamEnv::reveal_all()));
             let elem = GcCow::new(translate_ty(*ty, tcx));
             Type::Array { elem, count }
         }
         rs::TyKind::FnPtr(sig) => {
-            let abi = tcx.fn_abi_of_fn_ptr(rs::ParamEnv::empty().and((*sig, rs::List::empty()))).unwrap();
+            let abi = tcx.fn_abi_of_fn_ptr(rs::ParamEnv::reveal_all().and((*sig, rs::List::empty()))).unwrap();
 
             Type::Ptr(PtrType::FnPtr(translate_calling_convention(abi.conv)))
         }
@@ -104,7 +104,7 @@ fn translate_adt_fields<'tcx>(
     sref: rs::GenericArgsRef<'tcx>,
     tcx: rs::TyCtxt<'tcx>,
 ) -> (Fields, Size, Align) {
-    let a = rs::ParamEnv::empty().and(ty);
+    let a = rs::ParamEnv::reveal_all().and(ty);
     let layout = tcx.layout_of(a).unwrap().layout;
     let fields = adt_def
         .all_fields()

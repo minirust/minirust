@@ -12,7 +12,7 @@ pub fn translate_enum<'tcx>(
     sref: rs::GenericArgsRef<'tcx>,
     tcx: rs::TyCtxt<'tcx>,
 ) -> Type {
-    let a = rs::ParamEnv::empty().and(ty);
+    let a = rs::ParamEnv::reveal_all().and(ty);
     let layout = tcx.layout_of(a).unwrap().layout;
     let size = translate_size(layout.size());
     let align = translate_align(layout.align().abi);

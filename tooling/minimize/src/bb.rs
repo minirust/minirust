@@ -130,10 +130,9 @@ fn translate_call<'cx, 'tcx>(
     let rs::Operand::Constant(box f1) = func else { panic!() };
     let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
     let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-    let key = (f, substs_ref);
     let instance = rs::Instance::resolve(
         fcx.cx.tcx,
-        rs::ParamEnv::empty(),
+        rs::ParamEnv::reveal_all(),
         f,
         substs_ref,
     ).unwrap().unwrap();
@@ -164,7 +163,7 @@ fn translate_call<'cx, 'tcx>(
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
     } else {
-        let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::empty().and((instance, rs::List::empty()))).unwrap();
+        let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty()))).unwrap();
         let conv = translate_calling_convention(abi.conv);
 
         let args: List<_> = args.iter().map(|op| match op {
@@ -175,7 +174,7 @@ fn translate_call<'cx, 'tcx>(
         
         Terminator::Call {
             callee: build::fn_ptr_conv(
-                fcx.cx.get_fn_name(key).0.get_internal(),
+                fcx.cx.get_fn_name(instance).0.get_internal(),
                 conv
             ),
             arguments: args,
