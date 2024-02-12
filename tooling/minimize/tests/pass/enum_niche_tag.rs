@@ -45,6 +45,24 @@ enum Inner {
     V2 = -32768,
 }
 
+struct RepeatN {
+    val: u8,
+    repetitions: u8,
+}
+
+impl Iterator for RepeatN {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.repetitions > 0 {
+            self.repetitions -= 1;
+            Some(self.val)
+        } else {
+            None
+        }
+    }
+}
+
 /// Checks that negative niches work.
 fn print_outer(o: Outer) {
     match o {
@@ -93,6 +111,11 @@ fn main() {
 
     print_option_ref(Some(&42));
     print_option_ref(None);
+
+    let iter = RepeatN { val: 3, repetitions: 2 };
+    for i in iter {
+        print(i);
+    }
 
     print_outer(Outer::V1(12, Inner::V1, 42));
     print_outer(Outer::V1(8888, Inner::V2, 127));
