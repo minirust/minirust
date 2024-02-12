@@ -144,10 +144,12 @@ fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) ->
             s += &fmt_comptype_fields(fields, comptypes);
             s += &fmt_comptype_chunks(chunks);
         },
-        Type::Enum { variants, .. } => {
+        Type::Enum { variants, discriminant_ty, .. } => {
+            let discr = fmt_int_type(discriminant_ty);
+            s += &format!("  Discriminant: {discr}\n");
             variants.iter().for_each(|(discriminant, v)| {
                 let typ = fmt_type(v.ty, comptypes).to_string();
-                s += &format!("  Variant {discriminant}: {typ}");
+                s += &format!("  Variant {discriminant}: {typ}\n");
             });
         },
         _ => panic!("not a supported composite type!"),

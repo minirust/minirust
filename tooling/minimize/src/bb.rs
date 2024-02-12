@@ -48,6 +48,16 @@ fn translate_stmt<'cx, 'tcx>(
             let place = translate_place(place, fcx);
             vec![Statement::Deinit { place }]
         }
+        rs::StatementKind::SetDiscriminant { place, variant_index } => {
+            let place_ty = rs::Place::ty_from(
+                place.local,
+                place.projection,
+                &fcx.body,
+                fcx.cx.tcx,
+            ).ty;
+            let discriminant = discriminant_for_variant(place_ty, fcx.cx.tcx, *variant_index);
+            vec![Statement::SetDiscriminant { destination: translate_place(place, fcx), value: discriminant }]
+        }
         x => {
             dbg!(x);
             todo!()
@@ -70,25 +80,24 @@ fn translate_terminator<'cx, 'tcx>(
             ..
         } => translate_call(fcx, func, args, destination, target),
         rs::TerminatorKind::SwitchInt { discr, targets } => {
-            let ty = discr.ty(&fcx.body, fcx.cx.tcx);
+            let ty = translate_ty(discr.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx);
 
-            // For now we only support bool and int branching.
-            // FIXME: add support for switching on `char`
-            assert!(ty.is_bool() || ty.is_integral());
-
-            // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
             let discr_op = translate_operand(discr, fcx);
-            let value = if ty.is_bool() {
-                let Type::Int(u8_inttype) = <u8>::get_type() else { unreachable!() };
-                ValueExpr::UnOp {
-                    operator: UnOp::BoolToIntCast(u8_inttype),
-                    operand: GcCow::new(discr_op),
-                }
-            } else {
-                discr_op
+            let (value, int_ty) = match ty {
+                Type::Bool => {
+                    // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
+                    let Type::Int(u8_inttype) = <u8>::get_type() else { unreachable!() };
+                    (ValueExpr::UnOp {
+                        operator: UnOp::BoolToIntCast(u8_inttype),
+                        operand: GcCow::new(discr_op),
+                    }, u8_inttype)
+                },
+                Type::Int(ity) => (discr_op, ity),
+                // FIXME: add support for switching on `char`
+                _ => panic!("SwitchInt terminator currently only supports int and bool.")
             };
 
-            let cases = targets.iter().map(|(value, target)| (Int::from(value), fcx.bb_name_map[&target])).collect();
+            let cases = targets.iter().map(|(value, target)| (int_from_bits(value, int_ty), fcx.bb_name_map[&target])).collect();
 
             let fallback_block = targets.otherwise();
             let fallback = fcx.bb_name_map[&fallback_block];
@@ -99,6 +108,7 @@ fn translate_terminator<'cx, 'tcx>(
                 fallback,
             }
         }
+        rs::TerminatorKind::Unreachable => Terminator::Unreachable,
         // those are IGNORED currently.
         rs::TerminatorKind::Drop { target, .. } | rs::TerminatorKind::Assert { target, .. } => {
             Terminator::Goto(fcx.bb_name_map[&target])

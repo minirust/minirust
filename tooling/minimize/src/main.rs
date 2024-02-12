@@ -59,6 +59,9 @@ use get::get_mini;
 mod chunks;
 use chunks::calc_chunks;
 
+mod enums;
+use enums::{translate_enum, discriminant_for_variant, int_from_bits};
+
 use std::collections::HashMap;
 
 fn main() {

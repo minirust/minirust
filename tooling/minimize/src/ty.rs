@@ -62,6 +62,9 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
                 chunks,
             }
         }
+        rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() => {
+            translate_enum(ty, *adt_def, sref, tcx)
+        }
         rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
             let ty = ty.boxed_ty();
             let pointee = layout_of(ty, tcx);
@@ -84,6 +87,9 @@ pub fn translate_ty<'tcx>(ty: rs::Ty<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
             let abi = tcx.fn_abi_of_fn_ptr(rs::ParamEnv::empty().and((*sig, rs::List::empty()))).unwrap();
 
             Type::Ptr(PtrType::FnPtr(translate_calling_convention(abi.conv)))
+        }
+        rs::TyKind::Never => {
+            build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1))
         }
         x => {
             dbg!(x);
