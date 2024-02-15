@@ -85,7 +85,7 @@ fn switch_enum_works() {
         discriminator_branch::<u8>(
             offset(0),
             discriminator_invalid(),
-            &[((2, 2), discriminator_known(1)), ((4, 4), discriminator_known(0))]
+            &[((2, 3), discriminator_known(1)), ((4, 5), discriminator_known(0))]
         ),
         size(1),
         align(1)

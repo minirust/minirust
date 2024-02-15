@@ -47,7 +47,7 @@ fn ill_formed_discriminator_branch() {
             offset: offset(0),
             value_type: U8_INTTYPE,
             fallback: GcCow::new(discriminator_known(0)),
-            children: [((Int::from(-1), Int::from(-1)), discriminator_known(1))].into_iter().collect() // ill-formed here
+            children: [((Int::from(-1), Int::ZERO), discriminator_known(1))].into_iter().collect() // ill-formed here
         },
         size(1),
         align(1)
@@ -66,15 +66,14 @@ fn ill_formed_discriminator_overlaps() {
             (0, enum_variant(dataless_ty, &[])),
             (1, enum_variant(dataless_ty, &[])),
         ],
-        Discriminator::Branch {
-            offset: offset(0),
-            value_type: U8_INTTYPE,
-            fallback: GcCow::new(discriminator_known(0)),
-            children: [
-                ((2.into(), 3.into()), discriminator_known(1)),
-                ((1.into(), 4.into()), discriminator_known(0))  // ill-formed here
-            ].into_iter().collect()
-        },
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_known(0),
+            &[
+                ((2.into(), 4.into()), discriminator_known(1)),
+                ((1.into(), 5.into()), discriminator_known(0))  // ill-formed here
+            ]
+        ),
         size(1),
         align(1)
     );
@@ -92,15 +91,14 @@ fn ill_formed_discriminator_overlaps_2() {
             (0, enum_variant(dataless_ty, &[])),
             (1, enum_variant(dataless_ty, &[])),
         ],
-        Discriminator::Branch {
-            offset: offset(0),
-            value_type: U8_INTTYPE,
-            fallback: GcCow::new(discriminator_known(0)),
-            children: [
-                ((2.into(), 3.into()), discriminator_known(1)),
-                ((1.into(), 2.into()), discriminator_known(0))  // ill-formed here
-            ].into_iter().collect()
-        },
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_known(0),
+            &[
+                ((2, 4), discriminator_known(1)),
+                ((1, 3), discriminator_known(0))  // ill-formed here
+            ]
+        ),
         size(1),
         align(1)
     );
@@ -136,9 +134,9 @@ fn simple_two_variant_works() {
         offset(0),
         discriminator_invalid(),
         &[
-            ((0, 0), discriminator_known(0)),
-            ((1, 1), discriminator_known(0)),
-            ((2, 2), discriminator_known(1)),
+            ((0, 1), discriminator_known(0)),
+            ((1, 2), discriminator_known(0)),
+            ((2, 3), discriminator_known(1)),
         ]
     );
     let enum_ty = enum_ty::<u8>(&[(0, bool_var_ty), (1, empty_var_ty)], discriminator, size(1), align(1));
@@ -218,7 +216,7 @@ fn larger_sized_tag_works() {
         discriminator_branch::<u32>(
             offset(4),
             discriminator_invalid(),
-            &[((1048576, 1048576), discriminator_known(1048576))]
+            &[((1048576, 1048577), discriminator_known(1048576))]
         ),
         size(8),
         align(4)
@@ -244,7 +242,7 @@ fn larger_tag_has_no_alignment() {
         discriminator_branch::<u32>(
             offset(6),
             discriminator_invalid(),
-            &[((1048576, 1048576), discriminator_known(1048576))]
+            &[((1048576, 1048577), discriminator_known(1048576))]
         ),
         size(12),
         align(4)
@@ -271,7 +269,7 @@ fn negative_discriminants_work() {
         discriminator_branch::<i16>(
             offset(4),
             discriminator_invalid(),
-            &[((-12989, -12989), discriminator_known(i16::MAX))]
+            &[((-12989, -12988), discriminator_known(i16::MAX))]
         ),
         size(8),
         align(4)

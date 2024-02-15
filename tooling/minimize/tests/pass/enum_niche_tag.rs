@@ -2,34 +2,34 @@
 extern crate intrinsics;
 use intrinsics::*;
 
-/// Basic checks that niches work.
-fn print_opt_bool(b: Option<bool>) {
+fn assert(b: bool) {
     match b {
-        None => print(-1),
-        Some(false) => print(0),
-        Some(true) => print(1),
+        false => print(-1),
+        true => {}
     }
 }
 
-fn print_option_nonzero(o: Option<std::num::NonZeroU8>) {
-    match o {
-        Some(x) => print(x.get()),
-        None => print(0)
+/// Basic checks that niches work.
+fn convert_opt_bool(b: Option<bool>) -> i8 {
+    match b {
+        None => -1,
+        Some(false) => 0,
+        Some(true) => 1,
     }
 }
 
-fn print_bool_result(r: Result<bool, ()>) {
+fn convert_bool_result(r: Result<bool, ()>) -> i8 {
     match r {
-        Ok(false) => print(0),
-        Ok(true) => print(1),
-        Err(_) => print(2),
+        Err(_) => -1,
+        Ok(false) => 0,
+        Ok(true) => 1,
     }
 }
 
-fn print_option_ref(o: Option<&u8>) {
+fn convert_option_ref(o: Option<&u8>) -> u8 {
     match o {
-        Some(v) => print(*v),
-        None => print(-1),
+        Some(v) => *v,
+        None => 0,
     }
 }
 
@@ -45,39 +45,13 @@ enum Inner {
     V2 = -32768,
 }
 
-struct RepeatN {
-    val: u8,
-    repetitions: u8,
-}
-
-impl Iterator for RepeatN {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.repetitions > 0 {
-            self.repetitions -= 1;
-            Some(self.val)
-        } else {
-            None
-        }
-    }
-}
-
 /// Checks that negative niches work.
-fn print_outer(o: Outer) {
+fn convert_outer(o: Outer) -> u8 {
     match o {
-        Outer::V1(x, Inner::V1, y) => {
-            print(0);
-            print(x);
-            print(y);
-        },
-        Outer::V1(x, Inner::V2, y) => {
-            print(1);
-            print(x);
-            print(y);
-        },
-        Outer::V2 => print(2),
-        Outer::V3 => print(3),
+        Outer::V1(_x, Inner::V1, _y) => 0,
+        Outer::V1(_x, Inner::V2, _y) => 1,
+        Outer::V2 => 2,
+        Outer::V3 => 3,
     }
 }
 
@@ -89,39 +63,27 @@ struct WeirdNicheAlign {
 }
 
 /// Checks that enums with tag alignment smaller than its size work.
-fn print_option_weird_niche_align(instance: Option<WeirdNicheAlign>) {
-    if instance.is_some() {
-        print(1)
-    } else {
-        print(0)
-    }
+fn convert_option_weird_niche_align(instance: Option<WeirdNicheAlign>) -> u8 {
+    if instance.is_some() { 1 } else { 0 }
 }
 
 fn main() {
-    print_opt_bool(Some(true));
-    print_opt_bool(Some(false));
-    print_opt_bool(None);
+    assert(convert_opt_bool(Some(true)) == 1);
+    assert(convert_opt_bool(Some(false)) == 0);
+    assert(convert_opt_bool(None) == -1);
 
-    print_option_nonzero(None);
-    print_option_nonzero(std::num::NonZeroU8::new(12));
+    assert(convert_bool_result(Ok(true)) == 1);
+    assert(convert_bool_result(Ok(false)) == 0);
+    assert(convert_bool_result(Err(())) == -1);
 
-    print_bool_result(Ok(true));
-    print_bool_result(Ok(false));
-    print_bool_result(Err(()));
+    assert(convert_option_ref(Some(&42)) == 42);
+    assert(convert_option_ref(None) == 0);
 
-    print_option_ref(Some(&42));
-    print_option_ref(None);
+    assert(convert_outer(Outer::V1(12, Inner::V1, 42)) == 0);
+    assert(convert_outer(Outer::V1(8888, Inner::V2, 127)) == 1);
+    assert(convert_outer(Outer::V2) == 2);
+    assert(convert_outer(Outer::V3) == 3);
 
-    let iter = RepeatN { val: 3, repetitions: 2 };
-    for i in iter {
-        print(i);
-    }
-
-    print_outer(Outer::V1(12, Inner::V1, 42));
-    print_outer(Outer::V1(8888, Inner::V2, 127));
-    print_outer(Outer::V2);
-    print_outer(Outer::V3);
-
-    print_option_weird_niche_align(None);
-    print_option_weird_niche_align(Some(WeirdNicheAlign { x: 42, inner: Inner::V1 }));
+    assert(convert_option_weird_niche_align(None) == 0);
+    assert(convert_option_weird_niche_align(Some(WeirdNicheAlign { x: 42, inner: Inner::V1 })) == 1);
 }

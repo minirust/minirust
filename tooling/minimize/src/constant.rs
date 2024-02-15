@@ -31,42 +31,6 @@ fn translate_const_val<'cx, 'tcx>(
         Type::Tuple { fields, .. } if fields.is_empty() => {
             return ValueExpr::Tuple(List::new(), ty);
         }
-        Type::Enum { size, discriminator, variants, .. } => {
-            let Some(bits) = val.try_to_bits(rs::Size::from_bits(size.bits().try_to_u8().unwrap())) else {
-                panic!("Can only create constant enum from bits. Got {:?}", val);
-            };
-
-            // special case for bits = 0 which can be indicative of a None constant.
-            // FIXME: Allow for other constant values by using the offset and value type.
-            //        However this is probably going to require machine information for
-            //        the value encoding which we don't have here.
-            if bits == 0 {
-                let discriminant = match discriminator {
-                    Discriminator::Known(discriminant) => discriminant,
-                    Discriminator::Branch { fallback, children, .. } => {
-                        let child = children.into_iter()
-                                    .find_map(|((start, end), d)| if start <= Int::ZERO && Int::ZERO <= end { Some(d) } else { None })
-                                    .unwrap_or(fallback.extract());
-                        let Discriminator::Known(discriminant) = child else {
-                            unreachable!("Enums minimized from Rust have no nested or invalid discriminators in children.");
-                        };
-                        discriminant
-                    },
-                    Discriminator::Invalid => {
-                        panic!("Trying to build constant uninhabited enum.")
-                    }
-                };
-
-                let variant = variants.get(discriminant).unwrap();
-                match variant.ty {
-                    Type::Tuple { fields, .. } if fields.is_empty() =>
-                        return ValueExpr::Variant { discriminant, data: GcCow::new(ValueExpr::Tuple(List::new(), variant.ty)), enum_ty: ty },
-                    _ => panic!("Unsupported constant enum variant {:?} with data.", variant),
-                }
-            } else {
-                panic!("Unsupported constant enum with non-zero bits.")
-            }
-        }
         // A `static`
         Type::Ptr(_) => {
             let (alloc_id, offset) = val

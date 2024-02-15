@@ -257,8 +257,8 @@ fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, Size) -> Resu
             let Some(Value::Int(val)) = Type::Int(value_type).decode::<M>(bytes)
                 else { return ret(None); };
             let next_discriminator = children.iter()
-                                             .find_map(|((start, end), child)| if start <= val && val <= end { Some(child) } else { None })
-                                             .unwrap_or(fallback);
+                .find_map(|((start, end), child)| if start <= val && val < end { Some(child) } else { None })
+                .unwrap_or(fallback);
             decode_discriminant::<M>(accessor, next_discriminator)
         }
     }

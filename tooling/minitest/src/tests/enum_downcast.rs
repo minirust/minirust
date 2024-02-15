@@ -45,7 +45,7 @@ fn downcasts_give_different_place() {
     let discriminator = discriminator_branch::<u8>(
         offset(2),
         discriminator_invalid(),
-        &[((0, 0), discriminator_known(0)), ((1, 1), discriminator_known(1))]
+        &[((0, 1), discriminator_known(0)), ((1, 2), discriminator_known(1))]
     );
     let enum_ty = enum_ty::<u8>(&[(0.into(), variant1), (1.into(), variant2)], discriminator, size(4), align(2));
 
@@ -71,7 +71,7 @@ fn downcasts_give_different_place2() {
     let discriminator = discriminator_branch::<u8>(
         offset(2),
         discriminator_invalid(),
-        &[((0, 0), discriminator_known(0)), ((1, 1), discriminator_known(1))]
+        &[((0, 1), discriminator_known(0)), ((1, 2), discriminator_known(1))]
     );
     let enum_ty = enum_ty::<u8>(&[(0.into(), variant1), (1.into(), variant2)], discriminator, size(4), align(2));
 
