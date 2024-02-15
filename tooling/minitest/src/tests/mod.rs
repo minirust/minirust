@@ -1,5 +1,6 @@
 mod align;
 mod atomic;
+mod bool;
 mod call;
 mod compare_exchange;
 mod concurrency;

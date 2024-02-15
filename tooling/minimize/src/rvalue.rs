@@ -78,7 +78,20 @@ pub fn translate_rvalue<'cx, 'tcx>(
                     operand: GcCow::new(operand),
                 }
             }
-            _ => panic!("unsupported UnOp!"),
+            rs::UnOp::Not => {
+                let ty = operand.ty(&fcx.body, fcx.cx.tcx);
+                let ty = fcx.translate_ty(ty);
+                let Type::Bool = ty else {
+                        panic!("Not operation with non-boolean type!");
+                    };
+
+                let operand = translate_operand(operand, fcx);
+
+                ValueExpr::UnOp {
+                    operator: UnOp::Bool(UnOpBool::Not),
+                    operand: GcCow::new(operand)
+                }
+            }
         },
         rs::Rvalue::Ref(_, bkind, place) => {
             let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
@@ -143,13 +156,19 @@ pub fn translate_rvalue<'cx, 'tcx>(
             place: GcCow::new(translate_place(place, fcx))
         },
         rs::Rvalue::Cast(rs::CastKind::IntToInt, operand, ty) => {
+            let operand_ty = fcx.translate_ty(operand.ty(&fcx.body.local_decls, fcx.cx.tcx));
             let operand = translate_operand(operand, fcx);
             let Type::Int(int_ty) = fcx.translate_ty(*ty) else {
                 panic!("attempting to IntToInt-Cast to non-int type!");
             };
 
+            let unop = match operand_ty {
+                Type::Int(_) => UnOp::Int(UnOpInt::Cast, int_ty),
+                Type::Bool => UnOp::Bool(UnOpBool::IntCast(int_ty)),
+                _ => panic!("Attempting to cast non-int or boolean type to int!")
+            };
             ValueExpr::UnOp {
-                operator: UnOp::Int(UnOpInt::Cast, int_ty),
+                operator: unop,
                 operand: GcCow::new(operand),
             }
         },

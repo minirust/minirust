@@ -10,6 +10,8 @@ fn main() {
     print(black_box(u8::MAX) as i8); // -1
     print(black_box(-1i8) as u8); // 255
     print(black_box(24u8) as i128); // 24
+    print(black_box(true as u8)); // 1
+    print(black_box(false as i64)); // 0
 
     let x = 2;
     let addr = &x as *const i32 as usize;
