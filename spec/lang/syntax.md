@@ -58,7 +58,7 @@ pub enum ValueExpr {
         #[specr::indirection]
         source: PlaceExpr,
     },
-    /// Create a pointer to a place.
+    /// Create a pointer (raw pointer or reference) to a place.
     AddrOf {
         /// The place to create a pointer to.
         #[specr::indirection]
