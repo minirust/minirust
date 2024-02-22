@@ -150,14 +150,14 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Int(size) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Allocate`, not an integer");
+            throw_ub!("invalid first argument to `Intrinsic::Allocate`: not an integer");
         };
         let Some(size) = Size::from_bytes(size) else {
             throw_ub!("invalid size for `Intrinsic::Allocate`: negative size");
         };
 
         let Value::Int(align) = arguments[1].0 else {
-            throw_ub!("invalid second argument to `Intrinsic::Allocate`, not an integer");
+            throw_ub!("invalid second argument to `Intrinsic::Allocate`: not an integer");
         };
         let Some(align) = Align::from_bytes(align) else {
             throw_ub!("invalid alignment for `Intrinsic::Allocate`: not a power of 2");
@@ -183,18 +183,18 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Deallocate`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::Deallocate`: not a pointer");
         };
 
         let Value::Int(size) = arguments[1].0 else {
-            throw_ub!("invalid second argument to `Intrinsic::Deallocate`, not an integer");
+            throw_ub!("invalid second argument to `Intrinsic::Deallocate`: not an integer");
         };
         let Some(size) = Size::from_bytes(size) else {
             throw_ub!("invalid size for `Intrinsic::Deallocate`: negative size");
         };
 
         let Value::Int(align) = arguments[2].0 else {
-            throw_ub!("invalid third argument to `Intrinsic::Deallocate`, not an integer");
+            throw_ub!("invalid third argument to `Intrinsic::Deallocate`: not an integer");
         };
         let Some(align) = Align::from_bytes(align) else {
             throw_ub!("invalid alignment for `Intrinsic::Deallocate`: not a power of 2");
@@ -239,13 +239,13 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::Spawn`: not a pointer");
         };
         let func = self.fn_from_addr(ptr.addr)?;
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {
-            throw_ub!("invalid second argument to `Intrinsic::Spawn`, not a pointer");
+            throw_ub!("invalid second argument to `Intrinsic::Spawn`: not a pointer");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
@@ -284,7 +284,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Int(thread_id) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Join`, not an integer");
+            throw_ub!("invalid first argument to `Intrinsic::Join`: not an integer");
         };
 
         if ret_ty != unit_type() {
@@ -314,16 +314,16 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicStore`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::AtomicStore`: not a pointer");
         };
 
         let (val, ty) = arguments[1];
         let size = ty.size::<M::T>();
         let Some(align) = Align::from_bytes(size.bytes()) else {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`, size not power of two");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`: size not power of two");
         };
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`, size too big");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`: size too big");
         }
 
         if ret_ty != unit_type() {
@@ -345,15 +345,15 @@ impl<M: Memory> Machine<M> {
         }
     
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicLoad`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::AtomicLoad`: not a pointer");
         };
 
         let size = ret_ty.size::<M::T>();
         let Some(align) = Align::from_bytes(size.bytes()) else {
-            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`, size not power of two");
+            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`: size not power of two");
         };
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`, size too big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`: size too big");
         }
 
         let val = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
@@ -371,28 +371,28 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicCompareExchange`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::AtomicCompareExchange`: not a pointer");
         };
 
         let (current, curr_ty) = arguments[1];
         if curr_ty != ret_ty {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicCompareExchange`, not same type as return value");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
         }
 
         let (next, next_ty) = arguments[2];
         if next_ty != ret_ty {
-            throw_ub!("invalid third argument to `Intrinsic::AtomicCompareExchange`, not same type as return value");
+            throw_ub!("invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `Intrinis::AtomicCompareExchange`, only works with integers");
+            throw_ub!("invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
         }
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`, size too big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`: size too big");
         }
 
         // The value at the location right now.
@@ -422,23 +422,23 @@ impl<M: Memory> Machine<M> {
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicFetchAndOp`, not a pointer");
+            throw_ub!("invalid first argument to `Intrinsic::AtomicFetchAndOp`: not a pointer");
         };
 
         let (other, other_ty) = arguments[1];
         if other_ty != ret_ty {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicFetchAndOp`, not same type as return value");
+            throw_ub!("invalid second argument to `Intrinsic::AtomicFetchAndOp`: not same type as return value");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `Intrinis::AtomicFetchAndOp`, only works with integers");
+            throw_ub!("invalid return type for `Intrinis::AtomicFetchAndOp`: only works with integers");
         }
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`, size too big");
+            throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`: size too big");
         }
 
         // The value at the location right now.

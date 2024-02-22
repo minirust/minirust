@@ -86,7 +86,7 @@ fn compare_exchange_arg_1_value() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicCompareExchange`, not a pointer");
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicCompareExchange`: not a pointer");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn compare_exchange_ret_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinis::AtomicCompareExchange`, only works with integers");
+    assert_ub(p, "invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn compare_exchange_arg_1_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicCompareExchange`, not same type as return value");
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn compare_exchange_arg_2_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid third argument to `Intrinsic::AtomicCompareExchange`, not same type as return value");
+    assert_ub(p, "invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
 }
 
 #[test]
@@ -167,5 +167,5 @@ fn compare_exchange_arg_size_max() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicCompareExchange`, size too big");
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicCompareExchange`: size too big");
 }

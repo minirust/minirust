@@ -115,7 +115,7 @@ fn spawn_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`, not a pointer")
+    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`: not a pointer")
 }
 
 
@@ -197,7 +197,7 @@ fn spawn_data_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`, not a pointer");
+    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`: not a pointer");
 }
 
 fn wrongarg() -> Function {
@@ -257,7 +257,7 @@ fn join_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `Intrinsic::Join`, not an integer");
+    assert_ub(p, "invalid first argument to `Intrinsic::Join`: not an integer");
 }
 
 #[test]

@@ -56,7 +56,7 @@ fn atomic_store_arg_type1() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicStore`, not a pointer")
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicStore`: not a pointer")
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn atomic_store_arg_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`, size not power of two")
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`: size not power of two")
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -110,7 +110,7 @@ fn atomic_store_arg_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`, size too big")
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicStore`: size too big")
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn atomic_load_arg_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicLoad`, not a pointer")
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicLoad`: not a pointer")
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn atomic_load_ret_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`, size not power of two")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`: size not power of two")
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -233,5 +233,5 @@ fn atomic_load_ret_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`, size too big")
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicLoad`: size too big")
 }

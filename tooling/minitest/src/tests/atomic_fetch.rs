@@ -72,7 +72,7 @@ fn atomic_fetch_arg_1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicFetchAndOp`, not a pointer");
+    assert_ub(p, "invalid first argument to `Intrinsic::AtomicFetchAndOp`: not a pointer");
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn atomic_fetch_arg_2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicFetchAndOp`, not same type as return value");
+    assert_ub(p, "invalid second argument to `Intrinsic::AtomicFetchAndOp`: not same type as return value");
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn atomic_fetch_ret_ty() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     
-    assert_ub(p, "invalid return type for `Intrinis::AtomicFetchAndOp`, only works with integers");
+    assert_ub(p, "invalid return type for `Intrinis::AtomicFetchAndOp`: only works with integers");
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn atomic_fetch_int_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicFetchAndOp`, size too big");
+    assert_ub(p, "invalid return type for `Intrinsic::AtomicFetchAndOp`: size too big");
 }
 
 #[test]

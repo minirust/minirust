@@ -103,7 +103,7 @@ fn alloc_wrongarg1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid first argument to `Intrinsic::Allocate`, not an integer");
+    assert_ub(p, "invalid first argument to `Intrinsic::Allocate`: not an integer");
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn alloc_wrongarg2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid second argument to `Intrinsic::Allocate`, not an integer");
+    assert_ub(p, "invalid second argument to `Intrinsic::Allocate`: not an integer");
 }
 
 #[test]
@@ -262,7 +262,7 @@ fn dealloc_wrongarg1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid first argument to `Intrinsic::Deallocate`, not a pointer");
+    assert_ub(p, "invalid first argument to `Intrinsic::Deallocate`: not a pointer");
 }
 
 #[test]
@@ -286,7 +286,7 @@ fn dealloc_wrongarg2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid second argument to `Intrinsic::Deallocate`, not an integer");
+    assert_ub(p, "invalid second argument to `Intrinsic::Deallocate`: not an integer");
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn dealloc_wrongarg3() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid third argument to `Intrinsic::Deallocate`, not an integer");
+    assert_ub(p, "invalid third argument to `Intrinsic::Deallocate`: not an integer");
 }
 
 #[test]
