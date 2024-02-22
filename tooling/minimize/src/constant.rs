@@ -16,7 +16,7 @@ fn translate_const_val<'cx, 'tcx>(
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    let ty = translate_ty(ty, fcx.cx.tcx);
+    let ty = fcx.translate_ty(ty);
 
     let constant = match ty {
         Type::Int(int_ty) => {
@@ -79,7 +79,7 @@ fn relocation_to_value_expr<'cx, 'tcx>(
 ) -> ValueExpr {
     let expr = Constant::GlobalPointer(rel);
 
-    let ty = translate_ty(ty, fcx.cx.tcx);
+    let ty = fcx.translate_ty(ty);
     let ptr_ty = Type::Ptr(PtrType::Raw);
 
     let expr = ValueExpr::Constant(expr, ptr_ty);

@@ -137,6 +137,14 @@ pub struct FnCtxt<'cx, 'tcx> {
     pub blocks: Map<BbName, BasicBlock>,
 }
 
+impl<'cx, 'tcx> std::ops::Deref for FnCtxt<'cx, 'tcx> {
+    type Target = Ctxt<'tcx>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cx
+    }
+}
+
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn new(
         instance: rs::Instance<'tcx>,
@@ -188,7 +196,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         for (id, local_name) in &self.local_name_map {
             let local_decl = &self.body.local_decls[*id];
             self.locals
-                .insert(*local_name, translate_local(local_decl, self.cx.tcx));
+                .insert(*local_name, self.translate_ty(local_decl.ty));
         }
 
         // the number of locals which are implicitly storage live.
@@ -249,10 +257,6 @@ pub fn translate_calling_convention(conv: rs::Conv) -> CallingConvention {
         rs::Conv::Rust => CallingConvention::Rust,
         _ => todo!(),
     }
-}
-
-fn translate_local<'tcx>(local: &rs::LocalDecl<'tcx>, tcx: rs::TyCtxt<'tcx>) -> Type {
-    translate_ty(local.ty, tcx)
 }
 
 pub fn translate_align(align: rs::Align) -> Align {

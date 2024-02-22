@@ -55,7 +55,7 @@ fn translate_stmt<'cx, 'tcx>(
                 &fcx.body,
                 fcx.cx.tcx,
             ).ty;
-            let discriminant = discriminant_for_variant(place_ty, fcx.cx.tcx, *variant_index);
+            let discriminant = fcx.discriminant_for_variant(place_ty, *variant_index);
             vec![Statement::SetDiscriminant { destination: translate_place(place, fcx), value: discriminant }]
         }
         // FIXME: add assume intrinsic statement to MiniRust.
@@ -82,7 +82,7 @@ fn translate_terminator<'cx, 'tcx>(
             ..
         } => translate_call(fcx, func, args, destination, target),
         rs::TerminatorKind::SwitchInt { discr, targets } => {
-            let ty = translate_ty(discr.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx);
+            let ty = fcx.translate_ty(discr.ty(&fcx.body, fcx.cx.tcx));
 
             let discr_op = translate_operand(discr, fcx);
             let (value, int_ty) = match ty {

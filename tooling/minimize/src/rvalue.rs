@@ -27,7 +27,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 // everything else right-now is a int op!
 
                 let op = |x| {
-                    let Type::Int(int_ty) = translate_ty(lty, fcx.cx.tcx) else {
+                    let Type::Int(int_ty) = fcx.translate_ty(lty) else {
                         panic!("arithmetic operation with non-int type unsupported!");
                     };
 
@@ -66,7 +66,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         rs::Rvalue::UnaryOp(unop, operand) => match unop {
             rs::UnOp::Neg => {
                 let ty = operand.ty(&fcx.body, fcx.cx.tcx);
-                let ty = translate_ty(ty, fcx.cx.tcx);
+                let ty = fcx.translate_ty(ty);
                 let Type::Int(int_ty) = ty else {
                         panic!("Neg operation with non-int type!");
                     };
@@ -82,7 +82,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         },
         rs::Rvalue::Ref(_, bkind, place) => {
             let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
-            let pointee = layout_of(ty, fcx.cx.tcx);
+            let pointee = fcx.layout_of(ty);
 
             let place = translate_place(place, fcx);
             let target = GcCow::new(place);
@@ -102,7 +102,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         }
         rs::Rvalue::Aggregate(box agg, operands) => {
             let ty = rv.ty(&fcx.body, fcx.cx.tcx);
-            let ty = translate_ty(ty, fcx.cx.tcx);
+            let ty = fcx.translate_ty(ty);
             match ty {
                 Type::Union { .. } => {
                     let rs::AggregateKind::Adt(_, _, _, _, Some(field_idx)) = agg else { panic!() };
@@ -120,7 +120,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 }
                 Type::Enum { variants, .. } => {
                     let rs::AggregateKind::Adt(_, variant_idx, _, _, _) = agg else { panic!() };
-                    let discriminant = discriminant_for_variant(rv.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx, *variant_idx);
+                    let discriminant = fcx.discriminant_for_variant(rv.ty(&fcx.body, fcx.cx.tcx), *variant_idx);
                     let ops: List<_> = operands.iter().map(|x| translate_operand(x, fcx)).collect();
 
                     // We represent the multiple fields of an enum variant as a MiniRust tuple.
@@ -136,7 +136,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         rs::Rvalue::Len(place) => {
             // as slices are unsupported as of now, we only need to care for arrays.
             let ty = place.ty(&fcx.body, fcx.cx.tcx).ty;
-            let Type::Array { elem: _, count } = translate_ty(ty, fcx.cx.tcx) else { panic!() };
+            let Type::Array { elem: _, count } = fcx.translate_ty(ty) else { panic!() };
             ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
         },
         rs::Rvalue::Discriminant(place) => ValueExpr::GetDiscriminant {
@@ -144,7 +144,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         },
         rs::Rvalue::Cast(rs::CastKind::IntToInt, operand, ty) => {
             let operand = translate_operand(operand, fcx);
-            let Type::Int(int_ty) = translate_ty(*ty, fcx.cx.tcx) else {
+            let Type::Int(int_ty) = fcx.translate_ty(*ty) else {
                 panic!("attempting to IntToInt-Cast to non-int type!");
             };
 
@@ -166,7 +166,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         rs::Rvalue::Cast(rs::CastKind::PointerFromExposedAddress, operand, ty) => {
             // TODO untested so far! (Can't test because of `predict`)
             let operand = translate_operand(operand, fcx);
-            let Type::Ptr(ptr_ty) = translate_ty(*ty, fcx.cx.tcx) else { panic!() };
+            let Type::Ptr(ptr_ty) = fcx.translate_ty(*ty) else { panic!() };
 
             ValueExpr::UnOp {
                 operator: UnOp::PtrFromExposed(ptr_ty),
@@ -175,7 +175,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
         }
         rs::Rvalue::Cast(rs::CastKind::PtrToPtr, operand, ty) => {
             let operand = translate_operand(operand, fcx);
-            let Type::Ptr(ptr_ty) = translate_ty(*ty, fcx.cx.tcx) else { panic!() };
+            let Type::Ptr(ptr_ty) = fcx.translate_ty(*ty) else { panic!() };
 
             ValueExpr::UnOp {
                 operator: UnOp::Transmute(Type::Ptr(ptr_ty)),
@@ -186,7 +186,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             let c = c.try_eval_target_usize(fcx.cx.tcx, rs::ParamEnv::reveal_all()).unwrap();
             let c = Int::from(c);
 
-            let elem_ty = translate_ty(op.ty(&fcx.body, fcx.cx.tcx), fcx.cx.tcx);
+            let elem_ty = fcx.translate_ty(op.ty(&fcx.body, fcx.cx.tcx));
             let op = translate_operand(op, fcx);
 
             let ty = Type::Array {
@@ -263,7 +263,7 @@ pub fn translate_place<'cx, 'tcx>(
                     fcx.cx.tcx,
                 )
                 .ty;
-                let ty = translate_ty(ty, fcx.cx.tcx);
+                let ty = fcx.translate_ty(ty);
 
                 expr = PlaceExpr::Deref { operand: x, ty };
             }
@@ -285,7 +285,7 @@ pub fn translate_place<'cx, 'tcx>(
                     &fcx.body,
                     fcx.cx.tcx,
                 ).ty;
-                let discriminant = discriminant_for_variant(ty, fcx.cx.tcx, variant_idx);
+                let discriminant = fcx.discriminant_for_variant(ty, variant_idx);
                 expr = PlaceExpr::Downcast { root, discriminant };
             }
             x => todo!("{:?}", x),
