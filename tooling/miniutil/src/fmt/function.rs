@@ -207,6 +207,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             next_block,
         } => {
             let callee = match intrinsic {
+                Intrinsic::Assume => "assume",
                 Intrinsic::Exit => "exit",
                 Intrinsic::PrintStdout => "print",
                 Intrinsic::PrintStderr => "eprint",

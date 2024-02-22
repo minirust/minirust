@@ -298,6 +298,7 @@ pub enum LockIntrinsic {
 }
 
 pub enum Intrinsic {
+    Assume,
     Exit,
     PrintStdout,
     PrintStderr,

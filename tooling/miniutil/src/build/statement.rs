@@ -68,6 +68,15 @@ pub fn in_place(arg: PlaceExpr) -> ArgumentExpr {
     ArgumentExpr::InPlace(arg)
 }
 
+pub fn assume(val: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Assume,
+        arguments: list![val],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
+}
+
 pub fn print(arg: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::PrintStdout,

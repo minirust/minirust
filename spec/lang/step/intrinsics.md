@@ -50,6 +50,35 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+## UB control
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        Intrinsic::Assume: Intrinsic,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::Assume`");
+        }
+        let Value::Bool(b) = arguments[0].0 else {
+            throw_ub!("invalid argument for `Intrinsic::Assume`: not a Boolean");
+        };
+        if ret_ty != unit_type() {
+            throw_ub!("invalid return type for `Intrinsic::Assume`")
+        }
+
+        if !b {
+            throw_ub!("`Intrinsic::Assume` called on condition that is violated");
+        }
+
+        ret(unit_value())
+    }
+}
+```
+
 ## Input and output
 
 These are the `PrintStdout` and `PrintStderr` intrinsics.
