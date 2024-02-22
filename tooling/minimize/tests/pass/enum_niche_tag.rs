@@ -1,16 +1,14 @@
 
-extern crate intrinsics;
-use intrinsics::*;
-
 fn assert(b: bool) {
     match b {
-        false => print(-1),
+        // FIXME: once we support panics use the safe macro.
+        false => unsafe { std::hint::unreachable_unchecked() },
         true => {}
     }
 }
 
 /// Basic checks that niches work.
-fn convert_opt_bool(b: Option<bool>) -> i8 {
+fn convert_option_bool(b: Option<bool>) -> i8 {
     match b {
         None => -1,
         Some(false) => 0,
@@ -18,7 +16,7 @@ fn convert_opt_bool(b: Option<bool>) -> i8 {
     }
 }
 
-fn convert_bool_result(r: Result<bool, ()>) -> i8 {
+fn convert_result_bool(r: Result<bool, ()>) -> i8 {
     match r {
         Err(_) => -1,
         Ok(false) => 0,
@@ -68,13 +66,13 @@ fn convert_option_weird_niche_align(instance: Option<WeirdNicheAlign>) -> u8 {
 }
 
 fn main() {
-    assert(convert_opt_bool(Some(true)) == 1);
-    assert(convert_opt_bool(Some(false)) == 0);
-    assert(convert_opt_bool(None) == -1);
+    assert(convert_option_bool(Some(true)) == 1);
+    assert(convert_option_bool(Some(false)) == 0);
+    assert(convert_option_bool(None) == -1);
 
-    assert(convert_bool_result(Ok(true)) == 1);
-    assert(convert_bool_result(Ok(false)) == 0);
-    assert(convert_bool_result(Err(())) == -1);
+    assert(convert_result_bool(Ok(true)) == 1);
+    assert(convert_result_bool(Ok(false)) == 0);
+    assert(convert_result_bool(Err(())) == -1);
 
     assert(convert_option_ref(Some(&42)) == 42);
     assert(convert_option_ref(None) == 0);

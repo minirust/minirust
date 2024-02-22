@@ -1,7 +1,4 @@
 
-extern crate intrinsics;
-use intrinsics::*;
-
 struct RepeatN {
     val: u8,
     repetitions: u8,
@@ -30,6 +27,7 @@ fn main() {
         sum += i;
     }
     if sum != 126 {
-        print(-1)
+        // FIXME: once we support panics use the safe macro.
+        unsafe { std::hint::unreachable_unchecked() }
     }
 }
