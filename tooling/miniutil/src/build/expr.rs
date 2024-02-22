@@ -108,8 +108,15 @@ pub fn bool_to_int<T: TypeConv + Into<Int>>(v: ValueExpr) -> ValueExpr {
         panic!("bool_to_int needs <T> to be converted to Type::Int!");
     };
     ValueExpr::UnOp {
-        operator: UnOp::BoolToIntCast(int_ty),
+        operator: UnOp::Bool(UnOpBool::IntCast(int_ty)),
         operand: GcCow::new(v),
+    }
+}
+
+pub fn not(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp {
+        operator: UnOp::Bool(UnOpBool::Not),
+        operand: GcCow::new(v)
     }
 }
 

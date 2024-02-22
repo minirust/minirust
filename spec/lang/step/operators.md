@@ -34,14 +34,23 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Boolean-to-integer cast
+### Boolean operations
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::BoolToIntCast(int_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
-        let Value::Bool(value) = operand else { panic!("non-boolean input to bool2int cast") };
-        let result = if value { Int::ONE } else { Int::ZERO };
-        ret((Value::Int(result), Type::Int(int_ty)))
+    fn eval_un_op_bool(&mut self, op: UnOpBool, operand: bool) -> (Value<M>, Type) {
+        use UnOpBool::*;
+        match op {
+            IntCast(int_ty) => {
+                let result = if operand { Int::ONE } else { Int::ZERO };
+                (Value::Int(result), Type::Int(int_ty))
+            },
+            Not => (Value::Bool(!operand), Type::Bool)
+        }
+    }
+    fn eval_un_op(&mut self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+        let Value::Bool(value) = operand else { panic!("non-boolean input to boolean unop") };
+        ret(self.eval_un_op_bool(op, value))
     }
 }
 ```

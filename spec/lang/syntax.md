@@ -103,12 +103,18 @@ pub enum UnOpInt {
     /// Cast an integer to another.
     Cast,
 }
+pub enum UnOpBool {
+    /// Boolean-to-integer cast producing the given `IntType`.
+    /// True becomes `Int::ONE` and false `Int::ZERO`.
+    IntCast(IntType),
+    /// Boolean negation.
+    Not,
+}
 pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
-    /// Boolean-to-integer cast producing the given `IntType`.
-    /// True becomes `Int::ONE` and false `Int::ZERO`.
-    BoolToIntCast(IntType),
+    /// An operation on booleans.
+    Bool(UnOpBool),
     /// Integer-to-pointer cast (uses previously exposed provenance).
     PtrFromExposed(PtrType),
     /// Transmute the value to a different type (must have the same size).

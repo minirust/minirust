@@ -275,9 +275,12 @@ impl ValueExpr {
                         ensure(matches!(operand, Type::Int(_)))?;
                         Type::Int(int_ty)
                     }
-                    BoolToIntCast(int_ty) => {
+                    Bool(bool_op) => {
                         ensure(matches!(operand, Type::Bool))?;
-                        Type::Int(int_ty)
+                        match bool_op {
+                            UnOpBool::IntCast(int_ty) => Type::Int(int_ty),
+                            UnOpBool::Not => Type::Bool
+                        }
                     }
                     PtrFromExposed(ptr_ty) => {
                         ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
