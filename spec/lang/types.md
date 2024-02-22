@@ -107,7 +107,8 @@ pub enum Discriminator {
         value_type: IntType,
         #[specr::indirection]
         fallback: Discriminator,
-        children: Map<Int, Discriminator>,
+        /// An left-inclusive right-exclusive range of values that map to some Discriminator.
+        children: Map<(Int, Int), Discriminator>,
     },
 }
 ```

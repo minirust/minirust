@@ -58,6 +58,8 @@ fn translate_stmt<'cx, 'tcx>(
             let discriminant = discriminant_for_variant(place_ty, fcx.cx.tcx, *variant_index);
             vec![Statement::SetDiscriminant { destination: translate_place(place, fcx), value: discriminant }]
         }
+        // FIXME: add assume intrinsic statement to MiniRust.
+        rs::StatementKind::Intrinsic(box rs::NonDivergingIntrinsic::Assume(_)) => vec![],
         x => {
             dbg!(x);
             todo!()

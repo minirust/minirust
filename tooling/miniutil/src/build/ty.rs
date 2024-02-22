@@ -92,7 +92,7 @@ pub fn discriminator_known(discriminant: impl Into<Int>) -> Discriminator {
 }
 
 /// Builds a branching discriminator on the type given by the generic which has to be an integer type.
-pub fn discriminator_branch<T: ToInt + TypeConv + Copy>(offset: Offset, fallback: Discriminator, children: &[(T, Discriminator)]) -> Discriminator {
+pub fn discriminator_branch<T: ToInt + TypeConv + Copy>(offset: Offset, fallback: Discriminator, children: &[((T, T), Discriminator)]) -> Discriminator {
     let Type::Int(value_type) = T::get_type() else {
         unreachable!()
     };
@@ -100,6 +100,6 @@ pub fn discriminator_branch<T: ToInt + TypeConv + Copy>(offset: Offset, fallback
         offset,
         value_type,
         fallback: GcCow::new(fallback),
-        children: children.into_iter().copied().map(|(value, disc)| (value.into(), disc)).collect()
+        children: children.into_iter().copied().map(|((start, end), disc)| ((start.into(), end.into()), disc)).collect()
     }
 }
