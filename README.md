@@ -95,7 +95,8 @@ But we also need to ensure the entire document stays coherent, and I already hav
 
 ## Table of Contents
 
-* [Prelude](spec/prelude.md): common definitions and parameters shared by everything
+* [Prelude](spec/prelude/main.md): common definitions shared by everything
+  * [Target Parameterization](spec/prelude/target.md): defines which parameters are controlled by the target
 * MiniRust memory
   * [Pointer](spec/mem/pointer.md): the definition of what even is a pointer in MiniRust
   * [Memory interface](spec/mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
