@@ -231,6 +231,9 @@ pub fn translate_rvalue<'cx, 'tcx>(
                 fcx.cx.get_fn_name(instance).0.get_internal()
             )
         }
+        rs::Rvalue::NullaryOp(rs::NullOp::DebugAssertions, _ty) => {
+            build::const_bool(false)
+        }
         x => {
             dbg!(x);
             todo!()

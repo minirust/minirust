@@ -4,6 +4,7 @@ impl<'tcx> Ctxt<'tcx> {
     pub fn layout_of(&self, ty: rs::Ty<'tcx>) -> Layout {
         let a = rs::ParamEnv::reveal_all().and(ty);
         let layout = self.tcx.layout_of(a).unwrap().layout;
+        assert!(layout.is_sized(), "encountered unsized type: {ty}");
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
@@ -69,7 +70,8 @@ impl<'tcx> Ctxt<'tcx> {
                 let mutbl = translate_mutbl(*mutbl);
                 Type::Ptr(PtrType::Ref { pointee, mutbl })
             }
-            rs::TyKind::RawPtr(rs::TypeAndMut { ty: _, mutbl: _ }) => {
+            rs::TyKind::RawPtr(rs::TypeAndMut { ty, mutbl: _ }) => {
+                let _pointee = self.layout_of(*ty); // just to make sure that we can translate this type
                 Type::Ptr(PtrType::Raw)
             }
             rs::TyKind::Array(ty, c) => {

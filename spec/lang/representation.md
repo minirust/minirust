@@ -336,6 +336,7 @@ They only serve as internal consistency requirements of the semantics.
 It would be a specification bug if the representation relations defined above violated these properties.
 
 ```rust
+#[allow(unused)]
 trait DefinedRelation {
     /// returns whether `self` is less or as defined as `other`
     fn le_defined(self, other: Self) -> bool;

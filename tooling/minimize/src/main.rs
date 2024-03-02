@@ -11,8 +11,10 @@ extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
 extern crate rustc_target;
 extern crate rustc_session;
+extern crate rustc_span;
 
 mod rs {
+    pub use rustc_span::source_map::Spanned;
     pub use rustc_middle::mir::UnevaluatedConst;
     pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::ty::*;

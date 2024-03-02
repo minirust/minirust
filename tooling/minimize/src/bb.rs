@@ -124,7 +124,7 @@ fn translate_terminator<'cx, 'tcx>(
 fn translate_call<'cx, 'tcx>(
     fcx: &mut FnCtxt<'cx, 'tcx>,
     func: &rs::Operand<'tcx>,
-    args: &[rs::Operand<'tcx>],
+    args: &[rs::Spanned<rs::Operand<'tcx>>],
     destination: &rs::Place<'tcx>,
     target: &Option<rs::BasicBlock>,
 ) -> Terminator {
@@ -160,15 +160,18 @@ fn translate_call<'cx, 'tcx>(
         };
         Terminator::CallIntrinsic {
             intrinsic,
-            arguments: args.iter().map(|x| translate_operand(x, fcx)).collect(),
+            arguments: args.iter().map(|x| translate_operand(&x.node, fcx)).collect(),
             ret: translate_place(&destination, fcx),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
+    } else if instance.to_string() == "core::panicking::panic_nounwind" {
+        // We can't translate this call, it takes a string. So as a special hack we just make this `Unreachable`.
+        Terminator::Unreachable
     } else {
         let abi = fcx.cx.tcx.fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty()))).unwrap();
         let conv = translate_calling_convention(abi.conv);
 
-        let args: List<_> = args.iter().map(|op| match op {
+        let args: List<_> = args.iter().map(|op| match &op.node {
             rs::Operand::Move(place) => ArgumentExpr::InPlace(translate_place(place, fcx)),
             op => ArgumentExpr::ByValue(translate_operand(op, fcx)),
         }).collect();
