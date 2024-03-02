@@ -1,13 +1,13 @@
 use crate::*;
 
 pub fn translate_const<'cx, 'tcx>(
-    c: &rs::Constant<'tcx>,
+    c: &rs::ConstOperand<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    match c.literal {
-        rs::ConstantKind::Ty(_) => panic!("not supported!"),
-        rs::ConstantKind::Unevaluated(uneval, ty) => translate_const_uneval(uneval, ty, fcx),
-        rs::ConstantKind::Val(val, ty) => translate_const_val(val, ty, fcx),
+    match c.const_ {
+        rs::mir::Const::Ty(_) => panic!("not supported!"),
+        rs::mir::Const::Unevaluated(uneval, ty) => translate_const_uneval(uneval, ty, fcx),
+        rs::mir::Const::Val(val, ty) => translate_const_val(val, ty, fcx),
     }
 }
 
@@ -39,7 +39,7 @@ fn translate_const_val<'cx, 'tcx>(
                 .to_pointer(&fcx.cx.tcx)
                 .unwrap()
                 .into_parts();
-            let alloc_id = alloc_id.expect("no alloc id?");
+            let alloc_id = alloc_id.expect("no alloc id?").alloc_id();
             let rel = translate_relocation(alloc_id, offset, fcx);
             Constant::GlobalPointer(rel)
         }
@@ -153,7 +153,7 @@ fn translate_const_allocation<'cx, 'tcx>(
                 inner_offset_bytes.iter().map(|x| x.unwrap()).collect();
             let inner_offset: Int = DefaultTarget::ENDIANNESS.decode(Unsigned, inner_offset_bytes);
             let inner_offset = rs::Size::from_bytes(inner_offset.try_to_usize().unwrap());
-            let relo = translate_relocation(alloc_id, inner_offset, fcx);
+            let relo = translate_relocation(alloc_id.alloc_id(), inner_offset, fcx);
 
             let offset = translate_size(offset);
             (offset, relo)

@@ -1,7 +1,7 @@
 use crate::*;
 mod rs {
     pub use crate::rs::*;
-    pub use crate::rustc_target::abi::{Variants, FieldsShape, Primitive, TagEncoding, VariantIdx};
+    pub use crate::rustc_target::abi::{Variants, FieldsShape, TagEncoding, VariantIdx};
 }
 
 use crate::rustc_middle::ty::layout::PrimitiveExt;
@@ -129,7 +129,7 @@ impl<'tcx> Ctxt<'tcx> {
     /// Constructs the fields of a given variant.
     fn translate_fields(
         &self,
-        shape: &rs::FieldsShape,
+        shape: &rs::FieldsShape<rs::FieldIdx>,
         variant: &rs::VariantDef,
         sref: rs::GenericArgsRef<'tcx>,
     ) -> List<(Offset, Type)> {

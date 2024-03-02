@@ -130,7 +130,7 @@ fn translate_call<'cx, 'tcx>(
 ) -> Terminator {
     // For now we only support calling specific functions, not function pointers.
     let rs::Operand::Constant(box f1) = func else { panic!() };
-    let rs::ConstantKind::Val(_, f2) = f1.literal else { panic!() };
+    let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
     let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
     let instance = rs::Instance::resolve(
         fcx.cx.tcx,

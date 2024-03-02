@@ -13,9 +13,8 @@ extern crate rustc_target;
 extern crate rustc_session;
 
 mod rs {
-    pub use rustc_hir::def_id::DefId;
     pub use rustc_middle::mir::UnevaluatedConst;
-    pub use rustc_middle::mir::{interpret::*, *};
+    pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
     pub use rustc_target::abi::{call::*, Align, Size, FieldIdx};

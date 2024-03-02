@@ -153,7 +153,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let body = cx.tcx.optimized_mir(instance.def_id());
         // We eagerly instantiate everything upfront once.
         // Then nothing else has to worry about generics.
-        let body = cx.tcx.subst_and_normalize_erasing_regions(
+        let body = cx.tcx.instantiate_and_normalize_erasing_regions(
             instance.args,
             rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
