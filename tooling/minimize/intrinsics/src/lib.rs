@@ -2,7 +2,6 @@
 //! The bodies of these functions are mostly used through `tests/rust.sh`.
 
 #![feature(allocator_api)]
-#![feature(atomic_from_ptr)]
 
 use std::fmt::Display;
 use std::alloc::{System, Layout, Allocator};
