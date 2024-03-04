@@ -232,6 +232,7 @@ pub fn translate_rvalue<'cx, 'tcx>(
             )
         }
         rs::Rvalue::NullaryOp(rs::NullOp::DebugAssertions, _ty) => {
+            // Like Miri, since we are able to detect language UB ourselves we can disable these checks.
             build::const_bool(false)
         }
         x => {
