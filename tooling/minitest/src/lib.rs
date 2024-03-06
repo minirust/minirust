@@ -75,7 +75,7 @@ pub fn assert_memory_leak(prog: Program) {
 pub fn has_data_race(prog: Program) -> bool {
     let data_race_string = minirust_rs::prelude::String::from_internal("Data race".to_string());
 
-    for _ in 0..20 {
+    for _ in 0..32 {
         match run_program(prog) {
             TerminationInfo::MachineStop => {},
             TerminationInfo::Ub(ub) if ub == data_race_string => {
