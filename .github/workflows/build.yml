@@ -13,3 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: bash test.sh
+
+  fmt:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cd tooling && cargo fmt --check
