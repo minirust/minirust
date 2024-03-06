@@ -69,11 +69,7 @@ pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
         })
         .collect();
 
-    Program {
-        functions,
-        start: FnName(Name::from_internal(0)),
-        globals,
-    }
+    Program { functions, start: FnName(Name::from_internal(0)), globals }
 }
 
 // The first function in `fns` is the start function of the program.

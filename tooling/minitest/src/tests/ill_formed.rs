@@ -1,9 +1,8 @@
-
 use crate::*;
 
 #[test]
 fn dead_before_live() {
-    let locals = vec![ <bool>::get_type() ];
+    let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_dead(0)];
     let p = small_program(&locals, &stmts);
     assert_ill_formed(p);
@@ -11,7 +10,7 @@ fn dead_before_live() {
 
 #[test]
 fn double_live() {
-    let locals = vec![ <bool>::get_type() ];
+    let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_live(0), storage_live(0)];
     let p = small_program(&locals, &stmts);
     assert_ill_formed(p);
@@ -22,7 +21,7 @@ fn neg_count_array() {
     let ty = array_ty(<()>::get_type(), -1);
     let locals = &[ty];
 
-    let stmts = &[ storage_live(0) ];
+    let stmts = &[storage_live(0)];
 
     let p = small_program(locals, stmts);
     dump_program(p);
@@ -37,7 +36,7 @@ fn no_main() {
 
 #[test]
 fn too_large_local() {
-    let ty = <[u8; usize::MAX/2+1]>::get_type();
+    let ty = <[u8; usize::MAX / 2 + 1]>::get_type();
 
     let locals = &[ty];
     let stmts = &[];
@@ -49,13 +48,7 @@ fn too_large_local() {
 #[test]
 fn type_mismatch() {
     let locals = &[<i32>::get_type()];
-    let stmts = &[
-        storage_live(0),
-        assign(
-            local(0),
-            const_int::<u32>(0),
-        ),
-    ];
+    let stmts = &[storage_live(0), assign(local(0), const_int::<u32>(0))];
     let p = small_program(locals, stmts);
     assert_ill_formed(p);
 }

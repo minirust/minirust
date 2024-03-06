@@ -11,12 +11,9 @@ fn atomic_store_success() {
     let b0 = block!(
         storage_live(0),
         assign(local(0), const_int::<u32>(0)),
-
         atomic_store(addr_of(local(0), ptr_ty), const_int::<u32>(1), 1)
     );
-    let b1 = block!(
-        if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3)
-    );
+    let b1 = block!(if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3));
     let b2 = block!(exit());
     let b3 = block!(unreachable());
 
@@ -27,14 +24,12 @@ fn atomic_store_success() {
 
 #[test]
 fn atomic_store_arg_count() {
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicStore,
-            arguments: list!(),
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::AtomicStore,
+        arguments: list!(),
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
@@ -44,14 +39,12 @@ fn atomic_store_arg_count() {
 
 #[test]
 fn atomic_store_arg_type1() {
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicStore,
-            arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::AtomicStore,
+        arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
@@ -64,11 +57,8 @@ fn atomic_store_arg_type_pow() {
     let locals = [<[u8; 3]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
-    let arr = array(&[
-        const_int::<u8>(0),
-        const_int::<u8>(1),
-        const_int::<u8>(69),
-    ], <u8>::get_type());
+    let arr =
+        array(&[const_int::<u8>(0), const_int::<u8>(1), const_int::<u8>(69)], <u8>::get_type());
 
     let b0 = block!(
         storage_live(0),
@@ -92,10 +82,7 @@ fn atomic_store_arg_type_size() {
     let locals = [<[u64; 2]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
-    let arr = array(&[
-        const_int::<u64>(0),
-        const_int::<u64>(1),
-    ], <u64>::get_type());
+    let arr = array(&[const_int::<u64>(0), const_int::<u64>(1)], <u64>::get_type());
 
     let b0 = block!(
         storage_live(0),
@@ -121,7 +108,6 @@ fn atomic_store_ret_type() {
 
     let b0 = block!(
         storage_live(0),
-
         Terminator::CallIntrinsic {
             intrinsic: Intrinsic::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
@@ -147,12 +133,9 @@ fn atomic_load_success() {
         storage_live(0),
         storage_live(1),
         assign(local(1), const_int::<u32>(1)),
-
         atomic_load(local(0), addr_of(local(1), ptr_ty), 1)
     );
-    let b1 = block!(
-        if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3)
-    );
+    let b1 = block!(if_(eq(load(local(0)), const_int::<u32>(1)), 2, 3));
     let b2 = block!(exit());
     let b3 = block!(unreachable());
 
@@ -163,7 +146,7 @@ fn atomic_load_success() {
 
 #[test]
 fn atomic_load_arg_count() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -183,7 +166,7 @@ fn atomic_load_arg_count() {
 
 #[test]
 fn atomic_load_arg_type() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -203,14 +186,11 @@ fn atomic_load_arg_type() {
 
 #[test]
 fn atomic_load_ret_type_pow() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
 
-    let b0 = block!(
-        storage_live(0),
-        atomic_load(local(0), addr_of(local(0), ptr_ty), 1)
-    );
+    let b0 = block!(storage_live(0), atomic_load(local(0), addr_of(local(0), ptr_ty), 1));
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -221,14 +201,11 @@ fn atomic_load_ret_type_pow() {
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
 #[test]
 fn atomic_load_ret_type_size() {
-    let locals = [ <[u64; 2]>::get_type() ];
+    let locals = [<[u64; 2]>::get_type()];
 
     let ptr_ty = raw_ptr_ty();
 
-    let b0 = block!(
-        storage_live(0),
-        atomic_load(local(0), addr_of(local(0), ptr_ty), 1)
-    );
+    let b0 = block!(storage_live(0), atomic_load(local(0), addr_of(local(0), ptr_ty), 1));
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);

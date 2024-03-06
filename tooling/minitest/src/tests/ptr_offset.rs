@@ -2,27 +2,14 @@ use crate::*;
 
 #[test]
 fn ptr_offset_success() {
-    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
+    let locals = &[<i32>::get_type(), <*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
-        assign(
-            local(0),
-            const_int::<i32>(42),
-        ),
-        assign(
-            local(1),
-            addr_of(local(0), <*const i32>::get_type())
-        ),
-        assign(
-            local(1),
-            ptr_offset(
-                load(local(1)),
-                const_int::<usize>(4),
-                InBounds::Yes,
-            )
-        ),
+        assign(local(0), const_int::<i32>(42),),
+        assign(local(1), addr_of(local(0), <*const i32>::get_type())),
+        assign(local(1), ptr_offset(load(local(1)), const_int::<usize>(4), InBounds::Yes,)),
         exit()
     );
 
@@ -34,26 +21,16 @@ fn ptr_offset_success() {
 
 #[test]
 fn ptr_offset_inbounds() {
-    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
+    let locals = &[<i32>::get_type(), <*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
-        assign(
-            local(0),
-            const_int::<i32>(42),
-        ),
+        assign(local(0), const_int::<i32>(42),),
+        assign(local(1), addr_of(local(0), <*const i32>::get_type())),
         assign(
             local(1),
-            addr_of(local(0), <*const i32>::get_type())
-        ),
-        assign(
-            local(1),
-            ptr_offset(
-                load(local(1)),
-                const_int::<usize>(usize::MAX),
-                InBounds::Yes,
-            )
+            ptr_offset(load(local(1)), const_int::<usize>(usize::MAX), InBounds::Yes,)
         ),
         exit()
     );
@@ -66,19 +43,13 @@ fn ptr_offset_inbounds() {
 
 #[test]
 fn ptr_offset_no_inbounds() {
-    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
+    let locals = &[<i32>::get_type(), <*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
-        assign(
-            local(0),
-            const_int::<i32>(42),
-        ),
-        assign(
-            local(1),
-            addr_of(local(0), <*const i32>::get_type())
-        ),
+        assign(local(0), const_int::<i32>(42),),
+        assign(local(1), addr_of(local(0), <*const i32>::get_type())),
         assign(
             local(1),
             ptr_offset(
@@ -98,12 +69,13 @@ fn ptr_offset_no_inbounds() {
 
 #[test]
 fn ptr_offset_overflow() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const i32>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const i32>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty ];
+    let locals = [union_ty];
 
     let b0 = block!(
         storage_live(0),
@@ -113,7 +85,8 @@ fn ptr_offset_overflow() {
         ),
         assign(
             field(local(0), 1),
-            ptr_offset( // here we add 1 to the largest possible pointer -> overflow.
+            ptr_offset(
+                // here we add 1 to the largest possible pointer -> overflow.
                 load(field(local(0), 1)),
                 const_int::<usize>(1),
                 InBounds::Yes
@@ -128,22 +101,15 @@ fn ptr_offset_overflow() {
     assert_ub(p, "overflowing inbounds pointer arithmetic");
 }
 
-
 #[test]
 fn ptr_offset_out_of_bounds() {
-    let locals = &[ <i32>::get_type(), <*const i32>::get_type() ];
+    let locals = &[<i32>::get_type(), <*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         storage_live(1),
-        assign(
-            local(0),
-            const_int::<i32>(42),
-        ),
-        assign(
-            local(1),
-            addr_of(local(0), <*const i32>::get_type())
-        ),
+        assign(local(0), const_int::<i32>(42),),
+        assign(local(1), addr_of(local(0), <*const i32>::get_type())),
         assign(
             local(1),
             ptr_offset(

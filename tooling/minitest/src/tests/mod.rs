@@ -1,5 +1,6 @@
 mod align;
 mod atomic;
+mod atomic_fetch;
 mod bool;
 mod call;
 mod compare_exchange;
@@ -30,4 +31,3 @@ mod too_large_alloc;
 mod uninit_read;
 mod unreachable;
 mod zst;
-mod atomic_fetch;

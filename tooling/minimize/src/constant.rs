@@ -33,12 +33,8 @@ fn translate_const_val<'cx, 'tcx>(
         }
         // A `static`
         Type::Ptr(_) => {
-            let (alloc_id, offset) = val
-                .try_to_scalar()
-                .unwrap()
-                .to_pointer(&fcx.cx.tcx)
-                .unwrap()
-                .into_parts();
+            let (alloc_id, offset) =
+                val.try_to_scalar().unwrap().to_pointer(&fcx.cx.tcx).unwrap().into_parts();
             let alloc_id = alloc_id.expect("no alloc id?").alloc_id();
             let rel = translate_relocation(alloc_id, offset, fcx);
             Constant::GlobalPointer(rel)
@@ -53,18 +49,13 @@ fn translate_const_uneval<'cx, 'tcx>(
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    let Ok(Some(instance)) = rs::Instance::resolve(fcx.cx.tcx, rs::ParamEnv::reveal_all(), uneval.def, uneval.args) else {
+    let Ok(Some(instance)) =
+        rs::Instance::resolve(fcx.cx.tcx, rs::ParamEnv::reveal_all(), uneval.def, uneval.args)
+    else {
         panic!("can't resolve unevaluated const!")
     };
-    let cid = rs::GlobalId {
-        instance,
-        promoted: uneval.promoted,
-    };
-    let alloc = fcx
-        .cx
-        .tcx
-        .eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid))
-        .unwrap();
+    let cid = rs::GlobalId { instance, promoted: uneval.promoted };
+    let alloc = fcx.cx.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
     let name = translate_alloc_id(alloc.alloc_id, fcx);
     let offset = Offset::ZERO;
 
@@ -83,13 +74,8 @@ fn relocation_to_value_expr<'cx, 'tcx>(
     let ptr_ty = Type::Ptr(PtrType::Raw);
 
     let expr = ValueExpr::Constant(expr, ptr_ty);
-    let expr = PlaceExpr::Deref {
-        operand: GcCow::new(expr),
-        ty,
-    };
-    ValueExpr::Load {
-        source: GcCow::new(expr),
-    }
+    let expr = PlaceExpr::Deref { operand: GcCow::new(expr), ty };
+    ValueExpr::Load { source: GcCow::new(expr) }
 }
 
 fn translate_relocation<'cx, 'tcx>(
@@ -160,23 +146,16 @@ fn translate_const_allocation<'cx, 'tcx>(
         })
         .collect();
     let align = translate_align(allocation.align);
-    let global = Global {
-        bytes: bytes.into_iter().collect(),
-        relocations,
-        align,
-    };
+    let global = Global { bytes: bytes.into_iter().collect(), relocations, align };
 
     fcx.cx.globals.insert(name, global);
 }
 
 fn fresh_global_name<'cx, 'tcx>(fcx: &mut FnCtxt<'cx, 'tcx>) -> GlobalName {
     let name = GlobalName(Name::from_internal(fcx.cx.globals.iter().count() as _)); // TODO use .len() here, if supported
-                                                                                    // the default_global is added so that calling `fresh_global_name` twice returns different names.
-    let default_global = Global {
-        bytes: Default::default(),
-        relocations: Default::default(),
-        align: Align::ONE,
-    };
+    // the default_global is added so that calling `fresh_global_name` twice returns different names.
+    let default_global =
+        Global { bytes: Default::default(), relocations: Default::default(), align: Align::ONE };
     fcx.cx.globals.insert(name, default_global);
     name
 }

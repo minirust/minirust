@@ -19,11 +19,7 @@ fn if_int_ill_formed() {
 #[test]
 fn if_works() {
     let locals = [];
-    let blocks = [
-        block!(if_(const_bool(true), 1, 2)),
-        block!(exit()),
-        block!(unreachable()),
-    ];
+    let blocks = [block!(if_(const_bool(true), 1, 2)), block!(exit()), block!(unreachable())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(program);
@@ -34,11 +30,7 @@ fn if_works() {
 #[test]
 fn else_works() {
     let locals = [];
-    let blocks = [
-        block!(if_(const_bool(false), 1, 2)),
-        block!(unreachable()),
-        block!(exit()),
-    ];
+    let blocks = [block!(if_(const_bool(false), 1, 2)), block!(unreachable()), block!(exit())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(program);
@@ -72,23 +64,36 @@ fn switch_int_works() {
     assert_stop(program);
 }
 
-const U8_INTTYPE: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(1) };
+const U8_INTTYPE: IntType =
+    IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(1) };
 
 /// tests that switching on a enum discriminant is possible
 #[test]
 fn switch_enum_works() {
     let enum_ty = enum_ty::<u8>(
         &[
-            (0, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))])),
-            (1, enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 2.into()))])),
+            (
+                0,
+                enum_variant(
+                    tuple_ty(&[], size(1), align(1)),
+                    &[(offset(0), (U8_INTTYPE, 4.into()))],
+                ),
+            ),
+            (
+                1,
+                enum_variant(
+                    tuple_ty(&[], size(1), align(1)),
+                    &[(offset(0), (U8_INTTYPE, 2.into()))],
+                ),
+            ),
         ],
         discriminator_branch::<u8>(
             offset(0),
             discriminator_invalid(),
-            &[((2, 3), discriminator_known(1)), ((4, 5), discriminator_known(0))]
+            &[((2, 3), discriminator_known(1)), ((4, 5), discriminator_known(0))],
         ),
         size(1),
-        align(1)
+        align(1),
     );
     let locals = [enum_ty];
     let blocks = [

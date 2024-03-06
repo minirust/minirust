@@ -1,10 +1,7 @@
 use crate::build::*;
 
 pub fn assign(destination: PlaceExpr, source: ValueExpr) -> Statement {
-    Statement::Assign {
-        destination,
-        source,
-    }
+    Statement::Assign { destination, source }
 }
 
 pub fn expose(value: ValueExpr) -> Statement {
@@ -39,11 +36,18 @@ pub fn if_(condition: ValueExpr, then_blk: u32, else_blk: u32) -> Terminator {
     }
 }
 
-pub fn switch_int<T: Clone + Into<Int>>(value: ValueExpr, cases: &[(T, u32)], fallback: u32) -> Terminator {
+pub fn switch_int<T: Clone + Into<Int>>(
+    value: ValueExpr,
+    cases: &[(T, u32)],
+    fallback: u32,
+) -> Terminator {
     Terminator::Switch {
         value,
-        cases: cases.into_iter().map(|(case, successor)| (case.clone().into(), BbName(Name::from_internal(*successor)))).collect(),
-        fallback: BbName(Name::from_internal(fallback))
+        cases: cases
+            .into_iter()
+            .map(|(case, successor)| (case.clone().into(), BbName(Name::from_internal(*successor))))
+            .collect(),
+        fallback: BbName(Name::from_internal(fallback)),
     }
 }
 
@@ -131,7 +135,7 @@ pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: PlaceExpr, next: u32) 
         intrinsic: Intrinsic::Spawn,
         arguments: list!(fn_ptr, data_ptr),
         ret,
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -140,7 +144,7 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::Join,
         arguments: list!(thread_id),
         ret: zst_place(),
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -149,7 +153,7 @@ pub fn atomic_store(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::AtomicStore,
         arguments: list!(ptr, src),
         ret: zst_place(),
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -158,7 +162,7 @@ pub fn atomic_load(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::AtomicLoad,
         arguments: list!(ptr),
         ret: dest,
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -167,7 +171,13 @@ pub enum FetchBinOp {
     Sub,
 }
 
-pub fn atomic_fetch(binop: FetchBinOp, dest: PlaceExpr, ptr: ValueExpr, other: ValueExpr, next: u32) -> Terminator {
+pub fn atomic_fetch(
+    binop: FetchBinOp,
+    dest: PlaceExpr,
+    ptr: ValueExpr,
+    other: ValueExpr,
+    next: u32,
+) -> Terminator {
     let binop = match binop {
         FetchBinOp::Add => BinOpInt::Add,
         FetchBinOp::Sub => BinOpInt::Sub,
@@ -177,16 +187,22 @@ pub fn atomic_fetch(binop: FetchBinOp, dest: PlaceExpr, ptr: ValueExpr, other: V
         intrinsic: Intrinsic::AtomicFetchAndOp(binop),
         arguments: list!(ptr, other),
         ret: dest,
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
-pub fn compare_exchange(dest: PlaceExpr, ptr: ValueExpr, current: ValueExpr, next_val: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic { 
+pub fn compare_exchange(
+    dest: PlaceExpr,
+    ptr: ValueExpr,
+    current: ValueExpr,
+    next_val: ValueExpr,
+    next: u32,
+) -> Terminator {
+    Terminator::CallIntrinsic {
         intrinsic: Intrinsic::AtomicCompareExchange,
         arguments: list!(ptr, current, next_val),
         ret: dest,
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -195,7 +211,7 @@ pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
         arguments: list!(),
         ret: ret,
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -204,7 +220,7 @@ pub fn acquire(lock_id: ValueExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
         arguments: list!(lock_id),
         ret: zst_place(),
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }
 
@@ -213,6 +229,6 @@ pub fn release(lock_id: ValueExpr, next: u32) -> Terminator {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
         arguments: list!(lock_id),
         ret: zst_place(),
-        next_block: Some(BbName(Name::from_internal(next)))
+        next_block: Some(BbName(Name::from_internal(next))),
     }
 }

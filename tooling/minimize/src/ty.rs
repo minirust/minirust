@@ -9,11 +9,7 @@ impl<'tcx> Ctxt<'tcx> {
         let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
 
-        Layout {
-            size,
-            align,
-            inhabited,
-        }
+        Layout { size, align, inhabited }
     }
 
     pub fn translate_ty(&self, ty: rs::Ty<'tcx>) -> Type {
@@ -50,16 +46,10 @@ impl<'tcx> Ctxt<'tcx> {
                 let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref);
                 let chunks = calc_chunks(fields, size);
 
-                Type::Union {
-                    fields,
-                    size,
-                    align,
-                    chunks,
-                }
+                Type::Union { fields, size, align, chunks }
             }
-            rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() => {
-                self.translate_enum(ty, *adt_def, sref)
-            }
+            rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
+                self.translate_enum(ty, *adt_def, sref),
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.boxed_ty();
                 let pointee = self.layout_of(ty);
@@ -80,13 +70,15 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Array { elem, count }
             }
             rs::TyKind::FnPtr(sig) => {
-                let abi = self.tcx.fn_abi_of_fn_ptr(rs::ParamEnv::reveal_all().and((*sig, rs::List::empty()))).unwrap();
+                let abi = self
+                    .tcx
+                    .fn_abi_of_fn_ptr(rs::ParamEnv::reveal_all().and((*sig, rs::List::empty())))
+                    .unwrap();
 
                 Type::Ptr(PtrType::FnPtr(translate_calling_convention(abi.conv)))
             }
-            rs::TyKind::Never => {
-                build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1))
-            }
+            rs::TyKind::Never =>
+                build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             x => {
                 dbg!(x);
                 todo!()
@@ -119,7 +111,6 @@ impl<'tcx> Ctxt<'tcx> {
 
         (fields, size, align)
     }
-
 }
 
 pub fn translate_mutbl(mutbl: rs::Mutability) -> Mutability {

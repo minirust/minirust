@@ -35,18 +35,11 @@ impl<'tcx> Ctxt<'tcx> {
 
         // This is the main monomorphization loop.
         // take any not-yet-implemented function:
-        while let Some(fn_name) = self
-            .fn_name_map
-            .values()
-            .find(|k| !self.functions.contains_key(**k))
-            .copied()
+        while let Some(fn_name) =
+            self.fn_name_map.values().find(|k| !self.functions.contains_key(**k)).copied()
         {
-            let instance = self
-                .fn_name_map
-                .iter()
-                .find(|(_, f)| **f == fn_name)
-                .map(|(r, _)| r)
-                .unwrap();
+            let instance =
+                self.fn_name_map.iter().find(|(_, f)| **f == fn_name).map(|(r, _)| r).unwrap();
 
             let f = FnCtxt::new(*instance, &mut self).translate();
             self.functions.insert(fn_name, f);
@@ -58,11 +51,7 @@ impl<'tcx> Ctxt<'tcx> {
         let start = FnName(Name::from_internal(number_of_fns as _));
         self.functions.insert(start, mk_start_fn(0));
 
-        Program {
-            start,
-            functions: self.functions,
-            globals: self.globals,
-        }
+        Program { start, functions: self.functions, globals: self.globals }
     }
 
     // Returns FnName associated with some key. If it does not exist it creates a new one.
@@ -70,9 +59,7 @@ impl<'tcx> Ctxt<'tcx> {
         // Used as the fn name if it is not named yet.
         let len = self.fn_name_map.len();
 
-        *self.fn_name_map.entry(key).or_insert_with(|| {
-            FnName(Name::from_internal(len as _))
-        })
+        *self.fn_name_map.entry(key).or_insert_with(|| FnName(Name::from_internal(len as _)))
     }
 }
 
@@ -146,10 +133,7 @@ impl<'cx, 'tcx> std::ops::Deref for FnCtxt<'cx, 'tcx> {
 }
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
-    pub fn new(
-        instance: rs::Instance<'tcx>,
-        cx: &'cx mut Ctxt<'tcx>,
-    ) -> Self {
+    pub fn new(instance: rs::Instance<'tcx>, cx: &'cx mut Ctxt<'tcx>) -> Self {
         let body = cx.tcx.optimized_mir(instance.def_id());
         // We eagerly instantiate everything upfront once.
         // Then nothing else has to worry about generics.
@@ -173,7 +157,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// translates a function body.
     /// Any fn calls occuring during this translation will be added to the `FnNameMap`.
     pub fn translate(mut self) -> Function {
-        let abi = self.cx.tcx.fn_abi_of_instance(rs::ParamEnv::reveal_all().and((self.instance, rs::List::empty()))).unwrap();
+        let abi = self
+            .cx
+            .tcx
+            .fn_abi_of_instance(rs::ParamEnv::reveal_all().and((self.instance, rs::List::empty())))
+            .unwrap();
 
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {
@@ -195,8 +183,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // convert mirs Local-types to minirust.
         for (id, local_name) in &self.local_name_map {
             let local_decl = &self.body.local_decls[*id];
-            self.locals
-                .insert(*local_name, self.translate_ty(local_decl.ty));
+            self.locals.insert(*local_name, self.translate_ty(local_decl.ty));
         }
 
         // the number of locals which are implicitly storage live.

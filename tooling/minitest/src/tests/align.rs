@@ -2,46 +2,40 @@ use crate::*;
 
 #[test]
 fn manual_align() {
-    let locals = &[
-        <[u8; 64]>::get_type(),
-        <usize>::get_type()
-    ];
+    let locals = &[<[u8; 64]>::get_type(), <usize>::get_type()];
 
     let stmts = &[
         storage_live(0),
         storage_live(1),
-        assign( // _1 = (&raw _0) as usize;
+        assign(
+            // _1 = (&raw _0) as usize;
             local(1),
-            ptr_addr(
-                addr_of(local(0), <*const u8>::get_type()),
-            ),
+            ptr_addr(addr_of(local(0), <*const u8>::get_type())),
         ),
-        assign( // _1 = (8 + (_1 / 8 * 8)) - _1; This guarantees alignment of 8 for (&raw _0) + _1
+        assign(
+            // _1 = (8 + (_1 / 8 * 8)) - _1; This guarantees alignment of 8 for (&raw _0) + _1
             local(1),
             sub::<usize>(
                 add::<usize>(
                     const_int(8usize),
                     mul::<usize>(
-                        div::<usize>(
-                            load(local(1)),
-                            const_int(8usize)
-                        ),
-                        const_int(8usize)
+                        div::<usize>(load(local(1)), const_int(8usize)),
+                        const_int(8usize),
                     ),
                 ),
-                load(local(1))
-            )
+                load(local(1)),
+            ),
         ),
         assign(
             deref(
                 ptr_offset(
                     addr_of(local(0), <*mut u64>::get_type()),
                     load(local(1)),
-                    InBounds::Yes
+                    InBounds::Yes,
                 ),
-                <u64>::get_type()
+                <u64>::get_type(),
             ),
-            const_int(42u64)
+            const_int(42u64),
         ),
     ];
 
@@ -61,12 +55,9 @@ fn impossible_align() {
 
     let ty = tuple_ty(&[], size(0), align);
 
-    let locals = [ ty ];
+    let locals = [ty];
 
-    let b0 = block!(
-        storage_live(0),
-        exit()
-    );
+    let b0 = block!(storage_live(0), exit());
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
@@ -76,12 +67,13 @@ fn impossible_align() {
 
 #[test]
 fn load_place_misaligned() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const [i32; 0]>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const [i32; 0]>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty, <[i32; 0]>::get_type(), ];
+    let locals = [union_ty, <[i32; 0]>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -90,10 +82,7 @@ fn load_place_misaligned() {
             field(local(0), 0),
             const_int(1usize) // nullptr + 1
         ),
-        assign(
-            local(1),
-            load(deref(load(field(local(0), 1)), <[i32; 0]>::get_type()))
-        ),
+        assign(local(1), load(deref(load(field(local(0), 1)), <[i32; 0]>::get_type()))),
         exit()
     );
 
@@ -105,12 +94,13 @@ fn load_place_misaligned() {
 
 #[test]
 fn store_place_misaligned() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const [i32; 0]>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const [i32; 0]>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty, <[i32; 0]>::get_type(), ];
+    let locals = [union_ty, <[i32; 0]>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -119,10 +109,7 @@ fn store_place_misaligned() {
             field(local(0), 0),
             const_int(1usize) // nullptr + 1
         ),
-        assign(
-            deref(load(field(local(0), 1)), <[i32; 0]>::get_type()),
-            load(local(1)),
-        ),
+        assign(deref(load(field(local(0), 1)), <[i32; 0]>::get_type()), load(local(1)),),
         exit()
     );
 
@@ -134,16 +121,8 @@ fn store_place_misaligned() {
 
 #[test]
 fn deref_misaligned_ref() {
-    let locals = [ <*const i32>::get_type(), <*const u8>::get_type() ];
-    let b0 = block!(
-        storage_live(0),
-        allocate(
-            const_int(4usize),
-            const_int(4usize),
-            local(0),
-            1,
-        )
-    );
+    let locals = [<*const i32>::get_type(), <*const u8>::get_type()];
+    let b0 = block!(storage_live(0), allocate(const_int(4usize), const_int(4usize), local(0), 1,));
     let u8ptr = ptr_to_ptr(load(local(0)), <*const u8>::get_type());
     // make the pointer definitely not 2-aligned
     let nonaligned = ptr_offset(u8ptr, const_int(1usize), InBounds::Yes);
@@ -165,18 +144,12 @@ fn deref_misaligned_ref() {
 
 #[test]
 fn deref_overaligned() {
-    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <u32>::get_type() ];
+    let locals = [<i32>::get_type(), <*const i32>::get_type(), <u32>::get_type()];
     let b0 = block!(
         storage_live(0),
-        assign(
-            local(0),
-            const_int(0i32),
-        ),
+        assign(local(0), const_int(0i32),),
         storage_live(1),
-        assign(
-            local(1),
-            addr_of(local(1), <*const i32>::get_type()),
-        ),
+        assign(local(1), addr_of(local(1), <*const i32>::get_type()),),
         goto(1),
     );
     let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());
@@ -196,18 +169,12 @@ fn deref_overaligned() {
 
 #[test]
 fn addr_of_misaligned_ref() {
-    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <&u16>::get_type() ];
+    let locals = [<i32>::get_type(), <*const i32>::get_type(), <&u16>::get_type()];
     let b0 = block!(
         storage_live(0),
-        assign(
-            local(0),
-            const_int(0i32),
-        ),
+        assign(local(0), const_int(0i32),),
         storage_live(1),
-        assign(
-            local(1),
-            addr_of(local(1), <*const i32>::get_type()),
-        ),
+        assign(local(1), addr_of(local(1), <*const i32>::get_type()),),
         goto(1),
     );
     let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());
@@ -231,18 +198,12 @@ fn addr_of_misaligned_ref() {
 /// Same test as above, but with a raw pointer it's fine.
 #[test]
 fn addr_of_misaligned_ptr() {
-    let locals = [ <i32>::get_type(), <*const i32>::get_type(), <*const u16>::get_type() ];
+    let locals = [<i32>::get_type(), <*const i32>::get_type(), <*const u16>::get_type()];
     let b0 = block!(
         storage_live(0),
-        assign(
-            local(0),
-            const_int(0i32),
-        ),
+        assign(local(0), const_int(0i32),),
         storage_live(1),
-        assign(
-            local(1),
-            addr_of(local(1), <*const i32>::get_type()),
-        ),
+        assign(local(1), addr_of(local(1), <*const i32>::get_type()),),
         goto(1),
     );
     let u8ptr = ptr_to_ptr(load(local(1)), <*const u8>::get_type());

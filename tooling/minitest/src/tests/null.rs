@@ -2,12 +2,13 @@ use crate::*;
 
 #[test]
 fn ptr_null() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const i32>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const i32>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty, <i32>::get_type(), ];
+    let locals = [union_ty, <i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -16,10 +17,7 @@ fn ptr_null() {
             field(local(0), 0),
             const_int::<usize>(0) // nullptr!
         ),
-        assign(
-            local(1),
-            load(deref(load(field(local(0), 1)), <i32>::get_type()))
-        ),
+        assign(local(1), load(deref(load(field(local(0), 1)), <i32>::get_type()))),
         exit()
     );
 
@@ -31,12 +29,13 @@ fn ptr_null() {
 
 #[test]
 fn ptr_null_zst() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const ()>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const ()>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty, <()>::get_type(), ];
+    let locals = [union_ty, <()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -45,10 +44,7 @@ fn ptr_null_zst() {
             field(local(0), 0),
             const_int::<usize>(0) // nullptr!
         ),
-        assign(
-            local(1),
-            load(deref(load(field(local(0), 1)), <()>::get_type()))
-        ),
+        assign(local(1), load(deref(load(field(local(0), 1)), <()>::get_type()))),
         exit()
     );
 

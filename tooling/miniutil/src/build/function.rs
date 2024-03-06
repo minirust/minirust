@@ -12,7 +12,6 @@ pub fn fn_ptr_conv(fn_name: u32, conv: CallingConvention) -> ValueExpr {
     ValueExpr::Constant(x, Type::Ptr(PtrType::FnPtr(conv)))
 }
 
-
 // Whether a function returns or not.
 pub enum Ret {
     Yes,
@@ -89,10 +88,7 @@ pub fn function(ret: Ret, num_args: usize, locals: &[Type], bbs: &[BasicBlock]) 
 }
 
 pub fn block(statements: &[Statement], terminator: Terminator) -> BasicBlock {
-    BasicBlock {
-        statements: statements.iter().copied().collect(),
-        terminator,
-    }
+    BasicBlock { statements: statements.iter().copied().collect(), terminator }
 }
 
 // block!(statement1, statement2, ..., terminator)

@@ -4,13 +4,10 @@ use crate::*;
 /// The probability of failure is: 2*(1/2)^20 which is about 0.0002% with a fair scheduler.
 #[test]
 fn arbitrary_order() {
-
     /// A function that writes 1 to the global(1).
     fn write_1() -> Function {
         let locals = [<*const ()>::get_type()];
-        let b0 = block!(
-            acquire(load(global::<u32>(0)), 1)
-        );
+        let b0 = block!(acquire(load(global::<u32>(0)), 1));
         let b1 = block!(
             assign(global::<u32>(1), const_int::<u32>(1)),
             release(load(global::<u32>(0)), 2)
@@ -27,37 +24,24 @@ fn arbitrary_order() {
     let locals = [<u32>::get_type()];
 
     // Create the lock and store its id at global(0).
-    let b0 = block!(
-        create_lock(global::<u32>(0), 1)
-    );
+    let b0 = block!(create_lock(global::<u32>(0), 1));
 
     // Spawn thread-1 and store its id at local(0).
     // The function given to it tries to write 1.
-    let b1 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 2)
-    );
+    let b1 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 2));
 
     // Write 2 to global(1) within critical section.
-    let b2 = block!(
-        acquire(load(global::<u32>(0)), 3)
-    );
+    let b2 = block!(acquire(load(global::<u32>(0)), 3));
 
-    let b3 = block!(
-        assign(global::<u32>(1), const_int::<u32>(2)),
-        release(load(global::<u32>(0)), 4)
-    );
+    let b3 =
+        block!(assign(global::<u32>(1), const_int::<u32>(2)), release(load(global::<u32>(0)), 4));
 
     // Join thread again.
-    let b4 = block!(
-        join(load(local(0)), 5)
-    );
+    let b4 = block!(join(load(local(0)), 5));
 
     // Print out the value last written to global(1).
-    let b5 = block!(
-        print(load(global::<u32>(1)), 6)
-    );
-    let b6 = block!( exit() );
+    let b5 = block!(print(load(global::<u32>(1)), 6));
+    let b6 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5, b6]);
 
@@ -77,10 +61,14 @@ fn arbitrary_order() {
             Err(err) => panic!("{:?}", err),
         };
 
-        if out[0] == "1" { write_1 = true; }
-        if out[0] == "2" { write_2 = true; }
+        if out[0] == "1" {
+            write_1 = true;
+        }
+        if out[0] == "2" {
+            write_2 = true;
+        }
     }
 
-    assert!( write_1 );
-    assert!( write_2 );
+    assert!(write_1);
+    assert!(write_2);
 }

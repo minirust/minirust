@@ -1,4 +1,4 @@
-use std::{io::Write, str::from_utf8, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, io::Write, rc::Rc, str::from_utf8};
 
 use minirust_rs::libspecr::hidden::GcCompat;
 
@@ -38,7 +38,7 @@ impl Write for MockWrite {
 
 // Nothing within has anything to do with specr-lang. This points to nothing.
 impl GcCompat for MockWrite {
-    fn points_to(&self, _buffer: &mut std::collections::HashSet<usize>) { }
+    fn points_to(&self, _buffer: &mut std::collections::HashSet<usize>) {}
 }
 
 #[cfg(test)]

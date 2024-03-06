@@ -14,26 +14,16 @@ fn access_block(access: AccessPattern, support_global: u32, next: u32) -> BasicB
     let addr = addr_of(global::<u32>(0), ptr_ty);
     match access {
         AccessPattern(AccessType::Load, Atomicity::Atomic) => {
-            block!(
-                atomic_load(global::<u32>(support_global), addr, next)
-            )
-        },
+            block!(atomic_load(global::<u32>(support_global), addr, next))
+        }
         AccessPattern(AccessType::Load, Atomicity::None) => {
-            block!(
-                assign(global::<u32>(support_global), load(global::<u32>(0))),
-                goto(next),
-            )
-        },
+            block!(assign(global::<u32>(support_global), load(global::<u32>(0))), goto(next),)
+        }
         AccessPattern(AccessType::Store, Atomicity::Atomic) => {
-            block!(
-                atomic_store(addr, load(global::<u32>(support_global)), next)
-            )
-        },
+            block!(atomic_store(addr, load(global::<u32>(support_global)), next))
+        }
         AccessPattern(AccessType::Store, Atomicity::None) => {
-            block!(
-                assign(global::<u32>(0), load(global::<u32>(support_global))),
-                goto(next),
-            )
+            block!(assign(global::<u32>(0), load(global::<u32>(support_global))), goto(next),)
         }
     }
 }
@@ -42,23 +32,16 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     // The main thread.
     let main_locals = [<u32>::get_type()];
 
-    let main_b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
+    let main_b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
     let main_b1 = access_block(main_access, 1, 2);
-    let main_b2 = block!(
-        join(load(local(0)), 3),
-    );
-    let main_b3 = block!( exit() );
+    let main_b2 = block!(join(load(local(0)), 3),);
+    let main_b3 = block!(exit());
     let main = function(Ret::No, 0, &main_locals, &[main_b0, main_b1, main_b2, main_b3]);
 
     // The second thread.
     let s_locals = [<()>::get_type(), <*const ()>::get_type()];
     let s_b0 = access_block(s_access, 2, 1);
-    let s_b1 = block!(
-        return_()
-    );
+    let s_b1 = block!(return_());
     let s_fun = function(Ret::Yes, 1, &s_locals, &[s_b0, s_b1]);
 
     // global(0) is needed for the race behavior; the others are used to support our operations.
@@ -73,7 +56,7 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
 fn atomic_load_atomic_load() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::Atomic),
-        AccessPattern(AccessType::Load, Atomicity::Atomic)
+        AccessPattern(AccessType::Load, Atomicity::Atomic),
     );
 
     assert!(!has_data_race(p))
@@ -83,7 +66,7 @@ fn atomic_load_atomic_load() {
 fn atomic_load_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::Atomic),
-        AccessPattern(AccessType::Store, Atomicity::Atomic)
+        AccessPattern(AccessType::Store, Atomicity::Atomic),
     );
 
     assert!(!has_data_race(p))
@@ -93,7 +76,7 @@ fn atomic_load_atomic_store() {
 fn atomic_load_non_atomic_load() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::Atomic),
-        AccessPattern(AccessType::Load, Atomicity::None)
+        AccessPattern(AccessType::Load, Atomicity::None),
     );
 
     assert!(!has_data_race(p))
@@ -103,7 +86,7 @@ fn atomic_load_non_atomic_load() {
 fn atomic_load_non_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::Atomic),
-        AccessPattern(AccessType::Store, Atomicity::None)
+        AccessPattern(AccessType::Store, Atomicity::None),
     );
 
     assert!(has_data_race(p))
@@ -113,7 +96,7 @@ fn atomic_load_non_atomic_store() {
 fn atomic_store_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Store, Atomicity::Atomic),
-        AccessPattern(AccessType::Store, Atomicity::Atomic)
+        AccessPattern(AccessType::Store, Atomicity::Atomic),
     );
 
     assert!(!has_data_race(p))
@@ -123,7 +106,7 @@ fn atomic_store_atomic_store() {
 fn atomic_store_non_atomic_load() {
     let p = racy_program(
         AccessPattern(AccessType::Store, Atomicity::Atomic),
-        AccessPattern(AccessType::Load, Atomicity::None)
+        AccessPattern(AccessType::Load, Atomicity::None),
     );
 
     assert!(has_data_race(p))
@@ -133,7 +116,7 @@ fn atomic_store_non_atomic_load() {
 fn atomic_store_non_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Store, Atomicity::Atomic),
-        AccessPattern(AccessType::Store, Atomicity::None)
+        AccessPattern(AccessType::Store, Atomicity::None),
     );
 
     assert!(has_data_race(p))
@@ -143,7 +126,7 @@ fn atomic_store_non_atomic_store() {
 fn non_atomic_load_non_atomic_load() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::None),
-        AccessPattern(AccessType::Load, Atomicity::None)
+        AccessPattern(AccessType::Load, Atomicity::None),
     );
 
     assert!(!has_data_race(p))
@@ -153,7 +136,7 @@ fn non_atomic_load_non_atomic_load() {
 fn non_atomic_load_non_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Load, Atomicity::None),
-        AccessPattern(AccessType::Store, Atomicity::None)
+        AccessPattern(AccessType::Store, Atomicity::None),
     );
 
     assert!(has_data_race(p))
@@ -163,7 +146,7 @@ fn non_atomic_load_non_atomic_store() {
 fn non_atomic_store_non_atomic_store() {
     let p = racy_program(
         AccessPattern(AccessType::Store, Atomicity::None),
-        AccessPattern(AccessType::Store, Atomicity::None)
+        AccessPattern(AccessType::Store, Atomicity::None),
     );
 
     assert!(has_data_race(p))

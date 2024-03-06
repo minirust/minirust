@@ -6,11 +6,13 @@ fn dynamic_memory() {
     let n = const_int::<usize>(4);
     let b0 = block!(storage_live(0), storage_live(1), allocate(n, n, local(0), 1)); // alloc ptr
     let b1 = block!(
-        assign( // write to ptr
+        assign(
+            // write to ptr
             deref(load(local(0)), <i32>::get_type()),
             const_int::<i32>(42),
         ),
-        assign( // read from ptr
+        assign(
+            // read from ptr
             local(1),
             load(deref(load(local(0)), <i32>::get_type())),
         ),
@@ -24,7 +26,7 @@ fn dynamic_memory() {
 
 #[test]
 fn alloc_argcount() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -44,7 +46,7 @@ fn alloc_argcount() {
 
 #[test]
 fn alloc_align_err() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -65,7 +67,7 @@ fn alloc_align_err() {
 
 #[test]
 fn alloc_size_err() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -86,7 +88,7 @@ fn alloc_size_err() {
 
 #[test]
 fn alloc_wrongarg1() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -108,7 +110,7 @@ fn alloc_wrongarg1() {
 
 #[test]
 fn alloc_wrongarg2() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -130,7 +132,7 @@ fn alloc_wrongarg2() {
 
 #[test]
 fn alloc_wrongreturn() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -151,20 +153,18 @@ fn alloc_wrongreturn() {
 
 #[test]
 fn dealloc_success() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -177,14 +177,12 @@ fn dealloc_success() {
 fn dealloc_argcount() {
     let locals = [];
 
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![],
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(1))),
-        },
-    );
+    let b0 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(1))),
+    },);
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -195,20 +193,18 @@ fn dealloc_argcount() {
 
 #[test]
 fn dealloc_align_err() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(13)], // 13 is not a power of two!
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(13)], // 13 is not a power of two!
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -219,20 +215,18 @@ fn dealloc_align_err() {
 
 #[test]
 fn dealloc_size_err() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -243,20 +237,18 @@ fn dealloc_size_err() {
 
 #[test]
 fn dealloc_wrongarg1() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![const_bool(true), const_int::<usize>(4), const_int::<usize>(4)], // bool unexpected here
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![const_bool(true), const_int::<usize>(4), const_int::<usize>(4)], // bool unexpected here
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -267,20 +259,18 @@ fn dealloc_wrongarg1() {
 
 #[test]
 fn dealloc_wrongarg2() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_bool(true), const_int::<usize>(4)], // bool unexpected here
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_bool(true), const_int::<usize>(4)], // bool unexpected here
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -291,20 +281,18 @@ fn dealloc_wrongarg2() {
 
 #[test]
 fn dealloc_wrongarg3() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(4), const_bool(true)], // bool unexpected here
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(4), const_bool(true)], // bool unexpected here
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -315,20 +303,18 @@ fn dealloc_wrongarg3() {
 
 #[test]
 fn dealloc_wrongreturn() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-            ret: local(0),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -339,20 +325,18 @@ fn dealloc_wrongreturn() {
 
 #[test]
 fn mem_dealloc_wrong_size() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(5), const_int::<usize>(4)],
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(5), const_int::<usize>(4)],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -363,20 +347,18 @@ fn mem_dealloc_wrong_size() {
 
 #[test]
 fn mem_dealloc_wrong_align() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
-    let b1 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Deallocate,
-            arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(8)],
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(2))),
-        },
-    );
+    let b1 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Deallocate,
+        arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(8)],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(2))),
+    },);
     let b2 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -389,19 +371,17 @@ fn mem_dealloc_wrong_align() {
 // this tests generates a dangling ptr by casting the int 42 to a pointer.
 // then we deallocate the ptr, to obtain UB.
 fn mem_dealloc_inv_ptr() {
-    let union_ty = union_ty(&[
-            (size(0), <usize>::get_type()),
-            (size(0), <*const i32>::get_type()),
-        ], size(8), align(8));
+    let union_ty = union_ty(
+        &[(size(0), <usize>::get_type()), (size(0), <*const i32>::get_type())],
+        size(8),
+        align(8),
+    );
 
-    let locals = [ union_ty ];
+    let locals = [union_ty];
 
     let b0 = block!(
         storage_live(0),
-        assign(
-            field(local(0), 0),
-            const_int::<usize>(42)
-        ),
+        assign(field(local(0), 0), const_int::<usize>(42)),
         deallocate(
             load(field(local(0), 1)),
             const_int::<usize>(4), // size
@@ -417,30 +397,17 @@ fn mem_dealloc_inv_ptr() {
     assert_ub(p, "deallocating invalid pointer");
 }
 
-
 #[test]
 fn mem_dealloc_not_beginning() {
-    let locals = [ <*const i32>::get_type() ];
+    let locals = [<*const i32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
         allocate(const_int::<usize>(4), const_int::<usize>(4), local(0), 1)
     );
     let b1 = block!(
-        assign(
-            local(0),
-            ptr_offset(
-                load(local(0)),
-                const_int::<usize>(1),
-                InBounds::Yes
-            )
-        ),
-        deallocate(
-            load(local(0)),
-            const_int::<usize>(4),
-            const_int::<usize>(4),
-            2
-        )
+        assign(local(0), ptr_offset(load(local(0)), const_int::<usize>(1), InBounds::Yes)),
+        deallocate(load(local(0)), const_int::<usize>(4), const_int::<usize>(4), 2)
     );
     let b2 = block!(exit());
 
@@ -470,7 +437,8 @@ fn use_after_free() {
     let b0 = block!(storage_live(0), allocate(n, n, local(0), 1));
     let b1 = block!(deallocate(load(local(0)), n, n, 2));
     let b2 = block!(
-        assign( // write to ptr after dealloc!
+        assign(
+            // write to ptr after dealloc!
             deref(load(local(0)), <i32>::get_type()),
             const_int::<i32>(42),
         ),
@@ -505,15 +473,8 @@ fn memory_leak() {
 fn mem_dealloc_stack() {
     let n = const_int::<usize>(4); // size and align of i32
     let locals = vec![<i32>::get_type()];
-    let b0 = block!(
-        storage_live(0),
-        deallocate(
-            addr_of(local(0), <*const i32>::get_type()),
-            n,
-            n,
-            1,
-        )
-    );
+    let b0 =
+        block!(storage_live(0), deallocate(addr_of(local(0), <*const i32>::get_type()), n, n, 1,));
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);

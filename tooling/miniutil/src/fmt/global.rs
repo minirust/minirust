@@ -46,9 +46,11 @@ fn fmt_global(gname: GlobalName, global: Global) -> String {
 fn fmt_bytes(bytes: List<Option<u8>>) -> String {
     let b: Vec<_> = bytes
         .iter()
-        .map(|x| match x {
-            Some(u) => format!("{:02x?}", u),
-            None => format!("__"),
+        .map(|x| {
+            match x {
+                Some(u) => format!("{:02x?}", u),
+                None => format!("__"),
+            }
         })
         .collect();
 

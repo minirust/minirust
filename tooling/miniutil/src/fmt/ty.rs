@@ -29,17 +29,11 @@ pub(super) fn fmt_int_type(int_ty: IntType) -> String {
 
 pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
     match ptr_ty {
-        PtrType::Ref {
-            mutbl: Mutability::Mutable,
-            pointee,
-        } => {
+        PtrType::Ref { mutbl: Mutability::Mutable, pointee } => {
             let layout_str = fmt_layout(pointee);
             FmtExpr::NonAtomic(format!("&mut {layout_str}"))
         }
-        PtrType::Ref {
-            mutbl: Mutability::Immutable,
-            pointee,
-        } => {
+        PtrType::Ref { mutbl: Mutability::Immutable, pointee } => {
             let layout_str = fmt_layout(pointee);
             FmtExpr::NonAtomic(format!("&{layout_str}"))
         }
@@ -47,9 +41,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let layout_str = fmt_layout(pointee);
             FmtExpr::Atomic(format!("Box<{layout_str}>"))
         }
-        PtrType::Raw => {
-            FmtExpr::NonAtomic(format!("*raw"))
-        }
+        PtrType::Raw => FmtExpr::NonAtomic(format!("*raw")),
         PtrType::FnPtr(conv) => FmtExpr::Atomic(format!("fn({conv:?})")),
     }
 }
@@ -122,16 +114,8 @@ pub(super) fn fmt_comptypes(mut comptypes: Vec<CompType>) -> String {
 fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) -> String {
     let (keyword, size, align) = match t.0 {
         Type::Tuple { fields: _, size, align } => ("tuple", size, align),
-        Type::Union {
-            size,
-            align,
-            ..
-        } => ("union", size, align),
-        Type::Enum {
-            size,
-            align,
-            ..
-        } => ("enum", size, align),
+        Type::Union { size, align, .. } => ("union", size, align),
+        Type::Enum { size, align, .. } => ("enum", size, align),
         _ => panic!("not a supported composite type!"),
     };
     let ct = fmt_comptype_index(i).to_string();
@@ -143,7 +127,7 @@ fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) ->
         Type::Union { fields, chunks, .. } => {
             s += &fmt_comptype_fields(fields, comptypes);
             s += &fmt_comptype_chunks(chunks);
-        },
+        }
         Type::Enum { variants, discriminant_ty, .. } => {
             let discr = fmt_int_type(discriminant_ty);
             s += &format!("  Discriminant: {discr}\n");
@@ -151,7 +135,7 @@ fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) ->
                 let typ = fmt_type(v.ty, comptypes).to_string();
                 s += &format!("  Variant {discriminant}: {typ}\n");
             });
-        },
+        }
         _ => panic!("not a supported composite type!"),
     };
     s += "}\n\n";

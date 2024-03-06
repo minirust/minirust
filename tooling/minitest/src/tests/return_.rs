@@ -11,10 +11,7 @@ fn return_success() {
 
     let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        call(1, &[], local(0), Some(1))
-    );
+    let b0 = block!(storage_live(0), call(1, &[], local(0), Some(1)));
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -34,17 +31,13 @@ fn return_no_next() {
 
     let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        call(1, &[], local(0), None)
-    );
+    let b0 = block!(storage_live(0), call(1, &[], local(0), None));
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f, other_f]);
     dump_program(p);
     assert_ub(p, "return from a function where caller did not specify next block");
 }
-
 
 #[test]
 fn return_intrinsic_no_next() {
@@ -65,4 +58,3 @@ fn return_intrinsic_no_next() {
     dump_program(p);
     assert_ub(p, "return from an intrinsic where caller did not specify next block");
 }
-

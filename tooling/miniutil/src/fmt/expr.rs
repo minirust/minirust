@@ -78,13 +78,12 @@ pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
         Constant::GlobalPointer(relocation) => fmt_relocation(relocation),
         Constant::FnPointer(fn_name) => FmtExpr::Atomic(fmt_fn_name(fn_name)),
-        Constant::InvalidPointer(addr) => {
+        Constant::InvalidPointer(addr) =>
             if addr == 0 {
                 FmtExpr::Atomic(format!("nullptr"))
             } else {
                 FmtExpr::Atomic(format!("invalid_ptr({addr})"))
-            }
-        }
+            },
     }
 }
 
@@ -102,49 +101,31 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
 
             FmtExpr::Atomic(format!("{lparen}{l}{rparen}"))
         }
-        ValueExpr::Union {
-            field,
-            expr,
-            union_ty,
-        } => {
+        ValueExpr::Union { field, expr, union_ty } => {
             let union_ty = fmt_type(union_ty, comptypes).to_string();
             let expr = fmt_value_expr(expr.extract(), comptypes).to_string();
             FmtExpr::NonAtomic(format!("{union_ty} {{ field{field}: {expr} }}"))
         }
-        ValueExpr::Variant {
-            discriminant,
-            data,
-            enum_ty,
-        } => {
+        ValueExpr::Variant { discriminant, data, enum_ty } => {
             let enum_ty = fmt_type(enum_ty, comptypes).to_string();
             let expr = fmt_value_expr(data.extract(), comptypes).to_string();
             FmtExpr::NonAtomic(format!("{enum_ty}(variant {discriminant}): {expr}"))
         }
-        ValueExpr::GetDiscriminant {
-            place
-        } => {
+        ValueExpr::GetDiscriminant { place } => {
             let place = fmt_place_expr(place.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("discriminant({place})"))
         }
-        ValueExpr::Load {
-            source,
-        } => {
+        ValueExpr::Load { source } => {
             let source = source.extract();
             let source = fmt_place_expr(source, comptypes).to_string();
             FmtExpr::Atomic(format!("load({source})"))
         }
-        ValueExpr::AddrOf {
-            target,
-            ptr_ty: PtrType::Raw { .. },
-        } => {
+        ValueExpr::AddrOf { target, ptr_ty: PtrType::Raw { .. } } => {
             let target = target.extract();
             let target = fmt_place_expr(target, comptypes).to_atomic_string();
             FmtExpr::NonAtomic(format!("&raw {target}"))
         }
-        ValueExpr::AddrOf {
-            target,
-            ptr_ty: PtrType::Ref { mutbl, .. },
-        } => {
+        ValueExpr::AddrOf { target, ptr_ty: PtrType::Ref { mutbl, .. } } => {
             let target = target.extract();
             let target = fmt_place_expr(target, comptypes).to_atomic_string();
             let mutbl = match mutbl {
@@ -153,10 +134,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             };
             FmtExpr::NonAtomic(format!("&{mutbl}{target}"))
         }
-        ValueExpr::AddrOf {
-            target: _,
-            ptr_ty: _,
-        } => {
+        ValueExpr::AddrOf { target: _, ptr_ty: _ } => {
             panic!("unsupported ptr_ty for AddrOr!")
         }
         ValueExpr::UnOp { operator, operand } => {
@@ -174,9 +152,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("bool2int<{int_ty}>({operand})"))
                 }
-                UnOp::Bool(UnOpBool::Not) => {
-                    FmtExpr::Atomic(format!("!{operand}"))
-                }
+                UnOp::Bool(UnOpBool::Not) => FmtExpr::Atomic(format!("!{operand}")),
                 UnOp::PtrFromExposed(ptr_ty) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
                     FmtExpr::Atomic(format!("from_exposed<{ptr_ty}>({operand})"))
@@ -187,11 +163,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 }
             }
         }
-        ValueExpr::BinOp {
-            operator: BinOp::Int(int_op, int_ty),
-            left,
-            right,
-        } => {
+        ValueExpr::BinOp { operator: BinOp::Int(int_op, int_ty), left, right } => {
             let int_op = match int_op {
                 BinOpInt::Add => '+',
                 BinOpInt::Sub => '-',
@@ -208,11 +180,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
 
             FmtExpr::NonAtomic(format!("{l} {int_op} {r}"))
         }
-        ValueExpr::BinOp {
-            operator: BinOp::IntRel(rel),
-            left,
-            right,
-        } => {
+        ValueExpr::BinOp { operator: BinOp::IntRel(rel), left, right } => {
             let rel = match rel {
                 IntRel::Lt => "<",
                 IntRel::Le => "<=",
@@ -227,11 +195,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
 
             FmtExpr::NonAtomic(format!("{l} {rel} {r}"))
         }
-        ValueExpr::BinOp {
-            operator: BinOp::PtrOffset { inbounds },
-            left,
-            right,
-        } => {
+        ValueExpr::BinOp { operator: BinOp::PtrOffset { inbounds }, left, right } => {
             let offset_name = match inbounds {
                 true => "offset_inbounds",
                 false => "offset_wrapping",

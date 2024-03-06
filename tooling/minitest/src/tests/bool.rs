@@ -9,7 +9,7 @@ fn false_to_int_works() {
         block!(exit()),
         block!(unreachable()),
     ];
-    
+
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(program);
 }
@@ -23,7 +23,7 @@ fn true_to_int_works() {
         block!(exit()),
         block!(unreachable()),
     ];
-    
+
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(program);
 }
@@ -47,11 +47,7 @@ fn not_works_both_ways() {
 #[test]
 fn boolean_not_requires_boolean_op() {
     let locals = &[<bool>::get_type()];
-    let statements = &[
-        storage_live(0),
-        assign(local(0), not(const_int(0u8))),
-        storage_dead(0),
-    ];
+    let statements = &[storage_live(0), assign(local(0), not(const_int(0u8))), storage_dead(0)];
     let program = small_program(locals, statements);
     assert_ill_formed(program);
 }
@@ -60,11 +56,8 @@ fn boolean_not_requires_boolean_op() {
 #[test]
 fn bool2int_requires_boolean_op() {
     let locals = &[<u8>::get_type()];
-    let statements = &[
-        storage_live(0),
-        assign(local(0), bool_to_int::<u8>(const_int(0u8))),
-        storage_dead(0),
-    ];
+    let statements =
+        &[storage_live(0), assign(local(0), bool_to_int::<u8>(const_int(0u8))), storage_dead(0)];
     let program = small_program(locals, statements);
     assert_ill_formed(program);
 }

@@ -8,15 +8,10 @@ fn dummy_function() -> Function {
 
 #[test]
 fn spawn_success() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
-    let b1 = block!(
-        join(load(local(0)), 2),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
@@ -31,11 +26,11 @@ fn spawn_success() {
 ///     let id = spawn(second, *dp);
 ///     join(id);
 /// }
-/// 
+///
 /// fn second(dp) {
 ///     *dp = null;
 /// }
-/// 
+///
 /// This program should obviously not have a data race, but since
 /// we do a trace based search it could have one. This is the reason we track synchronized threads.
 #[test]
@@ -46,34 +41,19 @@ fn thread_spawn_spurious_race() {
     let size = const_int_typed::<usize>(<*const ()>::get_size().bytes());
     let align = const_int_typed::<usize>(<*const ()>::get_align().bytes());
 
-    let b0 = block!(
-        storage_live(0),
-        allocate(size, align, local(0), 1)
-    );
+    let b0 = block!(storage_live(0), allocate(size, align, local(0), 1));
     let b1 = block!(
         storage_live(1),
         assign(deref(load(local(0)), pp_ptype), load(local(0))),
         spawn(fn_ptr(1), load(deref(load(local(0)), pp_ptype)), local(1), 2)
     );
-    let b2 = block!(
-        join(load(local(1)), 3)
-    );
-    let b3 = block!(
-        deallocate(
-            load(local(0)),
-            size,
-            align,
-            4,
-        )
-    );
-    let b4 = block!( exit() );
-    let main = function(Ret::No, 0, &locals, &[b0,b1,b2,b3,b4]);
+    let b2 = block!(join(load(local(1)), 3));
+    let b3 = block!(deallocate(load(local(0)), size, align, 4,));
+    let b4 = block!(exit());
+    let main = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4]);
 
     let locals = [<()>::get_type(), pp_ptype];
-    let b0 = block!(
-        assign(deref(load(local(1)), pp_ptype), null()),
-        return_(),
-    );
+    let b0 = block!(assign(deref(load(local(1)), pp_ptype), null()), return_(),);
     let second = function(Ret::Yes, 1, &locals, &[b0]);
 
     let prog = program(&[main, second]);
@@ -85,22 +65,18 @@ fn thread_spawn_spurious_race() {
 
 #[test]
 fn spawn_arg_count() {
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Spawn,
-            arguments: list![],
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(1))),
-        }
-    );
+    let b0 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Spawn,
+        arguments: list![],
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(1))),
+    });
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &[], &[b0, b1]);
 
     let p = program(&[f]);
     assert_ub(p, "invalid number of arguments for `Intrinsic::Spawn`")
 }
-
-
 
 #[test]
 fn spawn_arg_value() {
@@ -118,7 +94,6 @@ fn spawn_arg_value() {
     assert_ub(p, "invalid first argument to `Intrinsic::Spawn`: not a pointer")
 }
 
-
 fn no_args() -> Function {
     let locals = [];
     let b0 = block!(exit());
@@ -128,10 +103,7 @@ fn no_args() -> Function {
 #[test]
 fn spawn_func_no_args() {
     let locals = [<i32>::get_type()];
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -139,13 +111,9 @@ fn spawn_func_no_args() {
     assert_ub(p, "call ABI violation: number of arguments does not agree")
 }
 
-
 fn returns() -> Function {
     let locals = [<u32>::get_type(), <*const ()>::get_type()];
-    let b0 = block!(
-        assign(local(0), const_int::<u32>(0)),
-        return_()
-    );
+    let b0 = block!(assign(local(0), const_int::<u32>(0)), return_());
     function(Ret::Yes, 1, &locals, &[b0])
 }
 
@@ -153,10 +121,7 @@ fn returns() -> Function {
 fn spawn_func_returns() {
     let locals = [<i32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -166,15 +131,10 @@ fn spawn_func_returns() {
 
 #[test]
 fn spawn_wrongreturn() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
-    let b1 = block!(
-        join(load(local(0)), 2),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
@@ -184,15 +144,10 @@ fn spawn_wrongreturn() {
 
 #[test]
 fn spawn_data_ptr() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), const_int::<usize>(0), zst_place(), 1),
-    );
-    let b1 = block!(
-        join(load(local(0)), 2),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), const_int::<usize>(0), zst_place(), 1),);
+    let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
@@ -208,15 +163,10 @@ fn wrongarg() -> Function {
 
 #[test]
 fn spawn_wrongarg() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        spawn(fn_ptr(1), null(), local(0), 1),
-    );
-    let b1 = block!(
-        join(load(local(0)), 2),
-    );
+    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
@@ -226,16 +176,14 @@ fn spawn_wrongarg() {
 
 #[test]
 fn join_arg_count() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Join,
-            arguments: list!(),
-            ret: zst_place(),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::Join,
+        arguments: list!(),
+        ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -246,12 +194,9 @@ fn join_arg_count() {
 
 #[test]
 fn join_arg_value() {
-    let locals = [ <()>::get_type() ];
+    let locals = [<()>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        join(load(local(0)), 1),
-    );
+    let b0 = block!(storage_live(0), join(load(local(0)), 1),);
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -262,7 +207,7 @@ fn join_arg_value() {
 
 #[test]
 fn join_wrongreturn() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
@@ -283,7 +228,7 @@ fn join_wrongreturn() {
 
 #[test]
 fn join_no_thread() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),

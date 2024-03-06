@@ -17,58 +17,29 @@ fn no_preserve_padding() {
     // _2 = load(_2).offset(1)
     // _3 = *_2;
 
-    let pair_ty = tuple_ty(&[
-            (size(0), u8::get_type()),
-            (size(2), u16::get_type())
-        ], size(4), align(2));
+    let pair_ty =
+        tuple_ty(&[(size(0), u8::get_type()), (size(2), u16::get_type())], size(4), align(2));
 
-    let union_ty = union_ty(&[
-            (size(0), pair_ty),
-            (size(0), u32::get_type()),
-        ], size(4), align(4));
+    let union_ty = union_ty(&[(size(0), pair_ty), (size(0), u32::get_type())], size(4), align(4));
 
-    let locals = vec![
-        union_ty,
-        pair_ty,
-        <*const u8>::get_type(),
-        <u8>::get_type(),
-    ];
+    let locals = vec![union_ty, pair_ty, <*const u8>::get_type(), <u8>::get_type()];
 
     let stmts = vec![
         storage_live(0),
         storage_live(1),
         storage_live(2),
         storage_live(3),
-        assign(
-            field(local(0), 1),
-            const_int::<u32>(0)
-        ),
-        assign(
-            local(1),
-            load(field(local(0), 0))
-        ),
-        assign(
-            local(2),
-            addr_of(
-                local(1),
-                <*const u8>::get_type(),
-            ),
-        ),
-        assign(
-            local(2),
-            ptr_offset(
-                load(local(2)),
-                const_int::<u32>(1),
-                InBounds::Yes,
-            )
-        ),
-        assign(
-            local(3),
-            load(deref(load(local(2)), <u8>::get_type())),
-        ),
+        assign(field(local(0), 1), const_int::<u32>(0)),
+        assign(local(1), load(field(local(0), 0))),
+        assign(local(2), addr_of(local(1), <*const u8>::get_type())),
+        assign(local(2), ptr_offset(load(local(2)), const_int::<u32>(1), InBounds::Yes)),
+        assign(local(3), load(deref(load(local(2)), <u8>::get_type()))),
     ];
 
     let p = small_program(&locals, &stmts);
     dump_program(p);
-    assert_ub(p, "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant");
+    assert_ub(
+        p,
+        "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant",
+    );
 }

@@ -26,11 +26,7 @@ fn fmt_function(
     let fn_name = fmt_fn_name(fn_name).to_string();
 
     // Format function arguments
-    let args: Vec<String> = f
-        .args
-        .iter()
-        .map(|name| fmt_local_name(name).to_string())
-        .collect();
+    let args: Vec<String> = f.args.iter().map(|name| fmt_local_name(name).to_string()).collect();
     let args = args.join(", ");
 
     // Format return local
@@ -73,11 +69,7 @@ fn fmt_function(
 fn fmt_bb(bb_name: BbName, bb: BasicBlock, start: bool, comptypes: &mut Vec<CompType>) -> String {
     let name = bb_name.0.get_internal();
 
-    let mut out = if start {
-        format!("  start bb{name}:\n")
-    } else {
-        format!("  bb{name}:\n")
-    };
+    let mut out = if start { format!("  start bb{name}:\n") } else { format!("  bb{name}:\n") };
 
     // Format statements
     for st in bb.statements.iter() {
@@ -92,10 +84,7 @@ fn fmt_bb(bb_name: BbName, bb: BasicBlock, start: bool, comptypes: &mut Vec<Comp
 
 fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
     match st {
-        Statement::Assign {
-            destination,
-            source,
-        } => {
+        Statement::Assign { destination, source } => {
             let left = fmt_place_expr(destination, comptypes).to_string();
             let right = fmt_value_expr(source, comptypes).to_string();
             format!("    {left} = {right};")
@@ -104,10 +93,7 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let val = fmt_value_expr(value, comptypes).to_string();
             format!("    expose({val});")
         }
-        Statement::SetDiscriminant {
-            destination,
-            value
-        } => {
+        Statement::SetDiscriminant { destination, value } => {
             let left = fmt_place_expr(destination, comptypes).to_string();
             format!("    discriminant({left}) = {value};")
         }
@@ -159,15 +145,12 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             let bb = fmt_bb_name(bb);
             format!("    goto -> {bb};")
         }
-        Terminator::Switch {
-            value,
-            cases,
-            fallback,
-        } => {
+        Terminator::Switch { value, cases, fallback } => {
             let branch_expr = fmt_value_expr(value, comptypes).to_string();
-            let mut case_strs = cases.iter()
-                                     .map(|(constant, successor)| format!("{}: {}", constant, fmt_bb_name(successor)))
-                                     .collect::<Vec<String>>();
+            let mut case_strs = cases
+                .iter()
+                .map(|(constant, successor)| format!("{}: {}", constant, fmt_bb_name(successor)))
+                .collect::<Vec<String>>();
             case_strs.push(format!("otherwise: {}", fmt_bb_name(fallback)));
             let cases_fmt = case_strs.join(",\n      ");
             format!(
@@ -179,20 +162,19 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Unreachable => {
             format!("    unreachable;")
         }
-        Terminator::Call {
-            callee,
-            arguments,
-            ret,
-            next_block,
-        } => {
+        Terminator::Call { callee, arguments, ret, next_block } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
             let args: Vec<_> = arguments
                 .iter()
-                .map(|arg| match arg {
-                    ArgumentExpr::ByValue(value) =>
-                        format!("by-value({})", fmt_value_expr(value, comptypes).to_string()),
-                    ArgumentExpr::InPlace(place) =>
-                        format!("in-place({})", fmt_place_expr(place, comptypes).to_string()),
+                .map(|arg| {
+                    match arg {
+                        ArgumentExpr::ByValue(value) => {
+                            format!("by-value({})", fmt_value_expr(value, comptypes).to_string())
+                        }
+                        ArgumentExpr::InPlace(place) => {
+                            format!("in-place({})", fmt_place_expr(place, comptypes).to_string())
+                        }
+                    }
                 })
                 .collect();
             fmt_call(&callee, args.join(", "), ret, next_block, comptypes)
@@ -200,12 +182,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Return => {
             format!("    return;")
         }
-        Terminator::CallIntrinsic {
-            intrinsic,
-            arguments,
-            ret,
-            next_block,
-        } => {
+        Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block } => {
             let callee = match intrinsic {
                 Intrinsic::Assume => "assume",
                 Intrinsic::Exit => "exit",
@@ -223,10 +200,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",
             };
-            let args: Vec<_> = arguments
-                .iter()
-                .map(|arg| fmt_value_expr(arg, comptypes).to_string())
-                .collect();
+            let args: Vec<_> =
+                arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();
             fmt_call(callee, args.join(", "), ret, next_block, comptypes)
         }
     }

@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn compare_exchange_success() {
-    let locals = [ <u32>::get_type(); 2 ];
+    let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
 
@@ -25,9 +25,8 @@ fn compare_exchange_success() {
     );
 
     // Failure case: check that we do not perform a store
-    let b3 = block!(
-        compare_exchange(local(1), addr0, const_int::<u32>(3), const_int::<u32>(42), 4)
-    );
+    let b3 =
+        block!(compare_exchange(local(1), addr0, const_int::<u32>(3), const_int::<u32>(42), 4));
     let b4 = block!(
         // print value of CASed location
         print(load(local(0)), 5)
@@ -51,7 +50,7 @@ fn compare_exchange_success() {
 
 #[test]
 fn compare_exchange_arg_count() {
-    let locals = [ <u32>::get_type(); 2 ];
+    let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -76,11 +75,17 @@ fn compare_exchange_arg_count() {
 
 #[test]
 fn compare_exchange_arg_1_value() {
-    let locals = [ <u32>::get_type() ];
+    let locals = [<u32>::get_type()];
 
     let b0 = block!(
         storage_live(0),
-        compare_exchange(local(0), const_int::<u32>(0), const_int::<u32>(0), const_int::<u32>(0), 1)
+        compare_exchange(
+            local(0),
+            const_int::<u32>(0),
+            const_int::<u32>(0),
+            const_int::<u32>(0),
+            1
+        )
     );
     let b1 = block!(exit());
 
@@ -91,11 +96,11 @@ fn compare_exchange_arg_1_value() {
 
 #[test]
 fn compare_exchange_ret_type() {
-    let locals = [ <[u8; 3]>::get_type(); 2 ];
+    let locals = [<[u8; 3]>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
-    let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type() );
+    let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type());
 
     let b0 = block!(
         storage_live(0),
@@ -107,12 +112,15 @@ fn compare_exchange_ret_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
+    assert_ub(
+        p,
+        "invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers",
+    );
 }
 
 #[test]
 fn compare_exchange_arg_1_type() {
-    let locals = [ <u32>::get_type(); 2 ];
+    let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -127,12 +135,15 @@ fn compare_exchange_arg_1_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
+    assert_ub(
+        p,
+        "invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value",
+    );
 }
 
 #[test]
 fn compare_exchange_arg_2_type() {
-    let locals = [ <u32>::get_type(); 2 ];
+    let locals = [<u32>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
@@ -147,12 +158,15 @@ fn compare_exchange_arg_2_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
+    assert_ub(
+        p,
+        "invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value",
+    );
 }
 
 #[test]
 fn compare_exchange_arg_size_max() {
-    let locals = [ <u128>::get_type(); 2 ];
+    let locals = [<u128>::get_type(); 2];
 
     let ptr_ty = raw_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
