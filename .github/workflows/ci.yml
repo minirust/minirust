@@ -1,4 +1,4 @@
-name: Build
+name: CI
 
 on:
   pull_request:
@@ -7,8 +7,8 @@ on:
     branches: ['master']
 
 jobs:
-  build:
-    name: specr build
+  test:
+    name: specr build and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
