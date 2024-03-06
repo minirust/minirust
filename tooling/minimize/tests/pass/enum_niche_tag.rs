@@ -1,13 +1,5 @@
+//! Basic checks that niches work.
 
-fn assert(b: bool) {
-    match b {
-        // FIXME: once we support panics use the safe macro.
-        false => unsafe { std::hint::unreachable_unchecked() },
-        true => {}
-    }
-}
-
-/// Basic checks that niches work.
 fn convert_option_bool(b: Option<bool>) -> i8 {
     match b {
         None => -1,
@@ -66,22 +58,22 @@ fn convert_option_weird_niche_align(instance: Option<WeirdNicheAlign>) -> u8 {
 }
 
 fn main() {
-    assert(convert_option_bool(Some(true)) == 1);
-    assert(convert_option_bool(Some(false)) == 0);
-    assert(convert_option_bool(None) == -1);
+    assert!(convert_option_bool(Some(true)) == 1);
+    assert!(convert_option_bool(Some(false)) == 0);
+    assert!(convert_option_bool(None) == -1);
 
-    assert(convert_result_bool(Ok(true)) == 1);
-    assert(convert_result_bool(Ok(false)) == 0);
-    assert(convert_result_bool(Err(())) == -1);
+    assert!(convert_result_bool(Ok(true)) == 1);
+    assert!(convert_result_bool(Ok(false)) == 0);
+    assert!(convert_result_bool(Err(())) == -1);
 
-    assert(convert_option_ref(Some(&42)) == 42);
-    assert(convert_option_ref(None) == 0);
+    assert!(convert_option_ref(Some(&42)) == 42);
+    assert!(convert_option_ref(None) == 0);
 
-    assert(convert_outer(Outer::V1(12, Inner::V1, 42)) == 0);
-    assert(convert_outer(Outer::V1(8888, Inner::V2, 127)) == 1);
-    assert(convert_outer(Outer::V2) == 2);
-    assert(convert_outer(Outer::V3) == 3);
+    assert!(convert_outer(Outer::V1(12, Inner::V1, 42)) == 0);
+    assert!(convert_outer(Outer::V1(8888, Inner::V2, 127)) == 1);
+    assert!(convert_outer(Outer::V2) == 2);
+    assert!(convert_outer(Outer::V3) == 3);
 
-    assert(convert_option_weird_niche_align(None) == 0);
-    assert(convert_option_weird_niche_align(Some(WeirdNicheAlign { x: 42, inner: Inner::V1 })) == 1);
+    assert!(convert_option_weird_niche_align(None) == 0);
+    assert!(convert_option_weird_niche_align(Some(WeirdNicheAlign { x: 42, inner: Inner::V1 })) == 1);
 }

@@ -27,7 +27,6 @@ fn main() {
         sum += i;
     }
     if sum != 126 {
-        // FIXME: once we support panics use the safe macro.
-        unsafe { std::hint::unreachable_unchecked() }
+        unreachable!()
     }
 }

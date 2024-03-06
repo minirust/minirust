@@ -121,6 +121,11 @@ fn translate_terminator<'cx, 'tcx>(
     }
 }
 
+// HACK to skip translating some functions we can't handle yet.
+fn is_panic_fn(name: &str) -> bool {
+    name == "core::panicking::panic" || name == "core::panicking::panic_nounwind"
+}
+
 fn translate_call<'cx, 'tcx>(
     fcx: &mut FnCtxt<'cx, 'tcx>,
     func: &rs::Operand<'tcx>,
@@ -164,7 +169,7 @@ fn translate_call<'cx, 'tcx>(
             ret: translate_place(&destination, fcx),
             next_block: target.as_ref().map(|t| fcx.bb_name_map[t]),
         }
-    } else if instance.to_string() == "core::panicking::panic_nounwind" {
+    } else if is_panic_fn(&instance.to_string()) {
         // We can't translate this call, it takes a string. So as a special hack we just make this `Unreachable`.
         Terminator::Unreachable
     } else {
@@ -176,7 +181,6 @@ fn translate_call<'cx, 'tcx>(
             op => ArgumentExpr::ByValue(translate_operand(op, fcx)),
         }).collect();
 
-        
         Terminator::Call {
             callee: build::fn_ptr_conv(
                 fcx.cx.get_fn_name(instance).0.get_internal(),

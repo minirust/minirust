@@ -1,11 +1,3 @@
-fn assert(b: bool) {
-    match b {
-        // FIXME: once we support panics use the safe macro.
-        false => unsafe { std::hint::unreachable_unchecked() },
-        true => {}
-    }
-}
-
 fn test_int_cast() {
     #[repr(i16)]
     enum ReprEnum {
@@ -17,8 +9,8 @@ fn test_int_cast() {
         e as i16
     }
 
-    assert(convert_repr_enum(ReprEnum::V1) == -12);
-    assert(convert_repr_enum(ReprEnum::V2) == -42);
+    assert!(convert_repr_enum(ReprEnum::V1) == -12);
+    assert!(convert_repr_enum(ReprEnum::V2) == -42);
 }
 
 fn test_overaligned_int_cast() {
@@ -28,8 +20,8 @@ fn test_overaligned_int_cast() {
         One = 1,
     }
 
-    assert(Aligned::Zero as u8 == 0);
-    assert(Aligned::One as u8 == 1);
+    assert!(Aligned::Zero as u8 == 0);
+    assert!(Aligned::One as u8 == 1);
 }
 
 #[allow(unused)]
@@ -100,7 +92,7 @@ fn test_full_enum() {
         _241, _242, _243, _244, _245, _246, _247, _248, _249, _250, _251, _252, _253, _254, _255,
     }
 
-    assert(X4::_15 as i8 == -113)
+    assert!(X4::_15 as i8 == -113)
 }
 
 fn main() {
