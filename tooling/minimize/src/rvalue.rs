@@ -244,7 +244,7 @@ pub fn translate_operand<'cx, 'tcx>(
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
     match operand {
-        rs::Operand::Constant(box c) => translate_const(c, fcx),
+        rs::Operand::Constant(box c) => translate_const(&c.const_, fcx),
         rs::Operand::Copy(place) =>
             ValueExpr::Load { source: GcCow::new(translate_place(place, fcx)) },
         rs::Operand::Move(place) =>

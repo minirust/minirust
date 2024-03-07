@@ -1,18 +1,18 @@
 use crate::*;
 
 pub fn translate_const<'cx, 'tcx>(
-    c: &rs::ConstOperand<'tcx>,
+    c: &rs::mir::Const<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
-    match c.const_ {
+    match c {
         rs::mir::Const::Ty(_) => panic!("not supported!"),
-        rs::mir::Const::Unevaluated(uneval, ty) => translate_const_uneval(uneval, ty, fcx),
-        rs::mir::Const::Val(val, ty) => translate_const_val(val, ty, fcx),
+        rs::mir::Const::Unevaluated(uneval, ty) => translate_const_uneval(uneval, *ty, fcx),
+        rs::mir::Const::Val(val, ty) => translate_const_val(val, *ty, fcx),
     }
 }
 
 fn translate_const_val<'cx, 'tcx>(
-    val: rs::ConstValue<'tcx>,
+    val: &rs::ConstValue<'tcx>,
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
@@ -45,7 +45,7 @@ fn translate_const_val<'cx, 'tcx>(
 }
 
 fn translate_const_uneval<'cx, 'tcx>(
-    uneval: rs::UnevaluatedConst<'tcx>,
+    uneval: &rs::UnevaluatedConst<'tcx>,
     ty: rs::Ty<'tcx>,
     fcx: &mut FnCtxt<'cx, 'tcx>,
 ) -> ValueExpr {
