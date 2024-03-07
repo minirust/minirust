@@ -13,8 +13,7 @@ impl<'tcx> Ctxt<'tcx> {
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,
     ) -> Type {
-        let a = rs::ParamEnv::reveal_all().and(ty);
-        let layout = self.tcx.layout_of(a).unwrap().layout;
+        let layout = self.rs_layout_of(ty);
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 

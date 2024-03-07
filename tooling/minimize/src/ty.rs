@@ -2,8 +2,7 @@ use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
     pub fn layout_of(&self, ty: rs::Ty<'tcx>) -> Layout {
-        let a = rs::ParamEnv::reveal_all().and(ty);
-        let layout = self.tcx.layout_of(a).unwrap().layout;
+        let layout = self.rs_layout_of(ty);
         assert!(layout.is_sized(), "encountered unsized type: {ty}");
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
@@ -18,8 +17,7 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Int(int_ty) => Type::Int(translate_int_ty(int_ty)),
             rs::TyKind::Uint(uint_ty) => Type::Int(translate_uint_ty(uint_ty)),
             rs::TyKind::Tuple(ts) => {
-                let a = rs::ParamEnv::reveal_all().and(ty);
-                let layout = self.tcx.layout_of(a).unwrap().layout;
+                let layout = self.rs_layout_of(ty);
                 let size = translate_size(layout.size());
                 let align = translate_align(layout.align().abi);
 
@@ -92,8 +90,7 @@ impl<'tcx> Ctxt<'tcx> {
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,
     ) -> (Fields, Size, Align) {
-        let a = rs::ParamEnv::reveal_all().and(ty);
-        let layout = self.tcx.layout_of(a).unwrap().layout;
+        let layout = self.rs_layout_of(ty);
         let fields = adt_def
             .all_fields()
             .enumerate()

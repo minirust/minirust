@@ -61,6 +61,10 @@ impl<'tcx> Ctxt<'tcx> {
 
         *self.fn_name_map.entry(key).or_insert_with(|| FnName(Name::from_internal(len as _)))
     }
+
+    pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
+        self.tcx.layout_of(rs::ParamEnv::reveal_all().and(ty)).unwrap().layout
+    }
 }
 
 fn mk_start_fn(entry: u32) -> Function {
