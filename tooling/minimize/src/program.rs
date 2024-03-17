@@ -213,7 +213,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         for (id, bb_name) in self.bb_name_map.clone() {
             // TODO fix clone
             let bb_data = &self.body.basic_blocks[id].clone(); // TODO fix clone
-            let bb = translate_bb(bb_data, &mut self);
+            let bb = self.translate_bb(bb_data);
             self.blocks.insert(bb_name, bb);
         }
         self.blocks.insert(init_bb, init_blk);

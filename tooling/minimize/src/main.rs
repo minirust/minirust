@@ -46,13 +46,10 @@ mod ty;
 use ty::*;
 
 mod bb;
-use bb::*;
 
 mod rvalue;
-use rvalue::*;
 
 mod constant;
-use constant::*;
 
 mod get;
 use get::get_mini;
