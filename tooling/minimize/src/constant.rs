@@ -49,8 +49,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             panic!("can't resolve unevaluated const!")
         };
         let cid = rs::GlobalId { instance, promoted: uneval.promoted };
-        let alloc =
-            self.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
+        let alloc = self.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
         let name = self.translate_alloc_id(alloc.alloc_id);
         let offset = Offset::ZERO;
 

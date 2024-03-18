@@ -207,8 +207,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                 }
                 rs::Rvalue::Repeat(op, c) => {
-                    let c =
-                        c.try_eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()).unwrap();
+                    let c = c.try_eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()).unwrap();
                     let c = Int::from(c);
 
                     let elem_ty = self.translate_ty(op.ty(&self.body, self.tcx));
@@ -227,14 +226,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let rs::Operand::Constant(box f1) = func else { panic!() };
                     let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
                     let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-                    let instance = rs::Instance::resolve(
-                        self.tcx,
-                        rs::ParamEnv::reveal_all(),
-                        *f,
-                        substs_ref,
-                    )
-                    .unwrap()
-                    .unwrap();
+                    let instance =
+                        rs::Instance::resolve(self.tcx, rs::ParamEnv::reveal_all(), *f, substs_ref)
+                            .unwrap()
+                            .unwrap();
 
                     build::fn_ptr(self.cx.get_fn_name(instance).0.get_internal())
                 }
