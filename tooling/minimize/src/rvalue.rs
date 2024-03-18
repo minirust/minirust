@@ -12,8 +12,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 rs::Rvalue::Use(operand) => self.translate_operand(operand),
                 rs::Rvalue::CheckedBinaryOp(bin_op, box (l, r))
                 | rs::Rvalue::BinaryOp(bin_op, box (l, r)) => {
-                    let lty = l.ty(&self.body, self.cx.tcx);
-                    let rty = r.ty(&self.body, self.cx.tcx);
+                    let lty = l.ty(&self.body, self.tcx);
+                    let rty = r.ty(&self.body, self.tcx);
 
                     assert_eq!(lty, rty);
 
@@ -65,7 +65,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 rs::Rvalue::UnaryOp(unop, operand) =>
                     match unop {
                         rs::UnOp::Neg => {
-                            let ty = operand.ty(&self.body, self.cx.tcx);
+                            let ty = operand.ty(&self.body, self.tcx);
                             let ty = self.translate_ty(ty);
                             let Type::Int(int_ty) = ty else {
                                 panic!("Neg operation with non-int type!");
@@ -79,7 +79,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             }
                         }
                         rs::UnOp::Not => {
-                            let ty = operand.ty(&self.body, self.cx.tcx);
+                            let ty = operand.ty(&self.body, self.tcx);
                             let ty = self.translate_ty(ty);
                             let Type::Bool = ty else {
                                 panic!("Not operation with non-boolean type!");
@@ -94,7 +94,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         }
                     },
                 rs::Rvalue::Ref(_, bkind, place) => {
-                    let ty = place.ty(&self.body, self.cx.tcx).ty;
+                    let ty = place.ty(&self.body, self.tcx).ty;
                     let pointee = self.layout_of(ty);
 
                     let place = self.translate_place(place);
@@ -114,7 +114,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     ValueExpr::AddrOf { target, ptr_ty }
                 }
                 rs::Rvalue::Aggregate(box agg, operands) => {
-                    let ty = rv.ty(&self.body, self.cx.tcx);
+                    let ty = rv.ty(&self.body, self.tcx);
                     let ty = self.translate_ty(ty);
                     match ty {
                         Type::Union { .. } => {
@@ -139,7 +139,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                 panic!()
                             };
                             let discriminant = self.discriminant_for_variant(
-                                rv.ty(&self.body, self.cx.tcx),
+                                rv.ty(&self.body, self.tcx),
                                 *variant_idx,
                             );
                             let ops: List<_> =
@@ -159,7 +159,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     ValueExpr::Load { source: GcCow::new(self.translate_place(place)) },
                 rs::Rvalue::Len(place) => {
                     // as slices are unsupported as of now, we only need to care for arrays.
-                    let ty = place.ty(&self.body, self.cx.tcx).ty;
+                    let ty = place.ty(&self.body, self.tcx).ty;
                     let Type::Array { elem: _, count } = self.translate_ty(ty) else { panic!() };
                     ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
                 }
@@ -167,7 +167,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     ValueExpr::GetDiscriminant { place: GcCow::new(self.translate_place(place)) },
                 rs::Rvalue::Cast(rs::CastKind::IntToInt, operand, ty) => {
                     let operand_ty =
-                        self.translate_ty(operand.ty(&self.body.local_decls, self.cx.tcx));
+                        self.translate_ty(operand.ty(&self.body.local_decls, self.tcx));
                     let operand = self.translate_operand(operand);
                     let Type::Int(int_ty) = self.translate_ty(*ty) else {
                         panic!("attempting to IntToInt-Cast to non-int type!");
@@ -208,10 +208,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
                 rs::Rvalue::Repeat(op, c) => {
                     let c =
-                        c.try_eval_target_usize(self.cx.tcx, rs::ParamEnv::reveal_all()).unwrap();
+                        c.try_eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()).unwrap();
                     let c = Int::from(c);
 
-                    let elem_ty = self.translate_ty(op.ty(&self.body, self.cx.tcx));
+                    let elem_ty = self.translate_ty(op.ty(&self.body, self.tcx));
                     let op = self.translate_operand(op);
 
                     let ty = Type::Array { elem: GcCow::new(elem_ty), count: c };
@@ -228,7 +228,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
                     let rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
                     let instance = rs::Instance::resolve(
-                        self.cx.tcx,
+                        self.tcx,
                         rs::ParamEnv::reveal_all(),
                         *f,
                         substs_ref,
@@ -277,7 +277,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         place.local,
                         &place.projection[..(i + 1)],
                         &self.body,
-                        self.cx.tcx,
+                        self.tcx,
                     )
                     .ty;
                     let ty = self.translate_ty(ty);
@@ -298,7 +298,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         place.local,
                         &place.projection[..(i + 1)],
                         &self.body,
-                        self.cx.tcx,
+                        self.tcx,
                     )
                     .ty;
                     let discriminant = self.discriminant_for_variant(ty, variant_idx);

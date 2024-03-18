@@ -28,7 +28,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             // A `static`
             Type::Ptr(_) => {
                 let (alloc_id, offset) =
-                    val.try_to_scalar().unwrap().to_pointer(&self.cx.tcx).unwrap().into_parts();
+                    val.try_to_scalar().unwrap().to_pointer(&self.tcx).unwrap().into_parts();
                 let alloc_id = alloc_id.expect("no alloc id?").alloc_id();
                 let rel = self.translate_relocation(alloc_id, offset);
                 Constant::GlobalPointer(rel)
@@ -44,13 +44,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         ty: rs::Ty<'tcx>,
     ) -> ValueExpr {
         let Ok(Some(instance)) =
-            rs::Instance::resolve(self.cx.tcx, rs::ParamEnv::reveal_all(), uneval.def, uneval.args)
+            rs::Instance::resolve(self.tcx, rs::ParamEnv::reveal_all(), uneval.def, uneval.args)
         else {
             panic!("can't resolve unevaluated const!")
         };
         let cid = rs::GlobalId { instance, promoted: uneval.promoted };
         let alloc =
-            self.cx.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
+            self.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
         let name = self.translate_alloc_id(alloc.alloc_id);
         let offset = Offset::ZERO;
 
@@ -78,16 +78,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     // calls `translate_const_allocation` with the allocation of alloc_id,
     // and adds the alloc_id and its newly-created global to alloc_map.
     fn translate_alloc_id(&mut self, alloc_id: rs::AllocId) -> GlobalName {
-        if let Some(x) = self.cx.alloc_map.get(&alloc_id) {
+        if let Some(x) = self.alloc_map.get(&alloc_id) {
             return *x;
         }
 
         let name = self.fresh_global_name();
         self.cx.alloc_map.insert(alloc_id, name);
 
-        let alloc = match self.cx.tcx.global_alloc(alloc_id) {
+        let alloc = match self.tcx.global_alloc(alloc_id) {
             rs::GlobalAlloc::Memory(alloc) => alloc,
-            rs::GlobalAlloc::Static(def_id) => self.cx.tcx.eval_static_initializer(def_id).unwrap(),
+            rs::GlobalAlloc::Static(def_id) => self.tcx.eval_static_initializer(def_id).unwrap(),
             _ => panic!("unsupported!"),
         };
         self.translate_const_allocation(alloc, name);
@@ -140,7 +140,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     }
 
     fn fresh_global_name(&mut self) -> GlobalName {
-        let name = GlobalName(Name::from_internal(self.cx.globals.iter().count() as _)); // TODO use .len() here, if supported
+        let name = GlobalName(Name::from_internal(self.globals.iter().count() as _)); // TODO use .len() here, if supported
         // the default_global is added so that calling `fresh_global_name` twice returns different names.
         let default_global = Global {
             bytes: Default::default(),

@@ -44,7 +44,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
-                    rs::Place::ty_from(place.local, place.projection, &self.body, self.cx.tcx).ty;
+                    rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
                 let discriminant = self.discriminant_for_variant(place_ty, *variant_index);
                 vec![Statement::SetDiscriminant {
                     destination: self.translate_place(place),
@@ -67,7 +67,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::TerminatorKind::Call { func, target, destination, args, .. } =>
                 self.translate_call(func, args, destination, target),
             rs::TerminatorKind::SwitchInt { discr, targets } => {
-                let ty = self.translate_ty(discr.ty(&self.body, self.cx.tcx));
+                let ty = self.translate_ty(discr.ty(&self.body, self.tcx));
 
                 let discr_op = self.translate_operand(discr);
                 let (value, int_ty) = match ty {
@@ -121,12 +121,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
         let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
         let instance =
-            rs::Instance::resolve(self.cx.tcx, rs::ParamEnv::reveal_all(), f, substs_ref)
+            rs::Instance::resolve(self.tcx, rs::ParamEnv::reveal_all(), f, substs_ref)
                 .unwrap()
                 .unwrap();
 
-        if self.cx.tcx.crate_name(f.krate).as_str() == "intrinsics" {
-            let intrinsic = match self.cx.tcx.item_name(f).as_str() {
+        if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
+            let intrinsic = match self.tcx.item_name(f).as_str() {
                 "print" => Intrinsic::PrintStdout,
                 "eprint" => Intrinsic::PrintStderr,
                 "exit" => Intrinsic::Exit,
