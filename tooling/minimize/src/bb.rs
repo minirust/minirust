@@ -120,9 +120,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let rs::Operand::Constant(box f1) = func else { panic!() };
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
         let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-        let instance = rs::Instance::resolve(self.tcx, rs::ParamEnv::reveal_all(), f, substs_ref)
-            .unwrap()
-            .unwrap();
+        let instance =
+            rs::Instance::expect_resolve(self.tcx, rs::ParamEnv::reveal_all(), f, substs_ref);
 
         if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             let intrinsic = match self.tcx.item_name(f).as_str() {

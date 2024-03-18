@@ -43,11 +43,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         uneval: &rs::UnevaluatedConst<'tcx>,
         ty: rs::Ty<'tcx>,
     ) -> ValueExpr {
-        let Ok(Some(instance)) =
-            rs::Instance::resolve(self.tcx, rs::ParamEnv::reveal_all(), uneval.def, uneval.args)
-        else {
-            panic!("can't resolve unevaluated const!")
-        };
+        let instance = rs::Instance::expect_resolve(
+            self.tcx,
+            rs::ParamEnv::reveal_all(),
+            uneval.def,
+            uneval.args,
+        );
         let cid = rs::GlobalId { instance, promoted: uneval.promoted };
         let alloc = self.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
         let name = self.translate_alloc_id(alloc.alloc_id);
