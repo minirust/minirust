@@ -10,16 +10,25 @@ extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
 extern crate rustc_session;
+extern crate rustc_smir;
 extern crate rustc_span;
 extern crate rustc_target;
+extern crate stable_mir;
 
 mod rs {
     pub use rustc_middle::mir::UnevaluatedConst;
-    pub use rustc_middle::mir::{self, interpret::*, tcx::PlaceTy, *};
+    pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
     pub use rustc_target::abi::{call::*, Align, FieldIdx, Layout, Size};
+}
+
+mod smir {
+    pub use rustc_smir::rustc_internal::*;
+    pub use stable_mir::mir::mono::*;
+    pub use stable_mir::mir::*;
+    pub use stable_mir::ty::*;
 }
 
 pub use minirust_rs::libspecr::hidden::*;

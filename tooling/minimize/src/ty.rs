@@ -11,6 +11,14 @@ impl<'tcx> Ctxt<'tcx> {
         Layout { size, align, inhabited }
     }
 
+    pub fn layout_of_smir(&self, ty: smir::Ty) -> Layout {
+        self.layout_of(smir::internal(self.tcx, ty))
+    }
+
+    pub fn translate_ty_smir(&self, ty: smir::Ty) -> Type {
+        self.translate_ty(smir::internal(self.tcx, ty))
+    }
+
     pub fn translate_ty(&self, ty: rs::Ty<'tcx>) -> Type {
         match ty.kind() {
             rs::TyKind::Bool => Type::Bool,
@@ -114,6 +122,13 @@ pub fn translate_mutbl(mutbl: rs::Mutability) -> Mutability {
     match mutbl {
         rs::Mutability::Mut => Mutability::Mutable,
         rs::Mutability::Not => Mutability::Immutable,
+    }
+}
+
+pub fn translate_mutbl_smir(mutbl: smir::Mutability) -> Mutability {
+    match mutbl {
+        smir::Mutability::Mut => Mutability::Mutable,
+        smir::Mutability::Not => Mutability::Immutable,
     }
 }
 
