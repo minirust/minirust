@@ -9,6 +9,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         }
     }
 
+    pub fn translate_const_stable(&mut self, c: &smir::Const) -> ValueExpr {
+        self.translate_const(&smir::internal(self.tcx, c))
+    }
+
     fn translate_const_val(&mut self, val: &rs::ConstValue<'tcx>, ty: rs::Ty<'tcx>) -> ValueExpr {
         let ty = self.translate_ty(ty);
 

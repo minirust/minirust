@@ -31,7 +31,9 @@ impl<F: FnOnce(Program) + Send + Copy> Callbacks for Cb<F> {
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
         queries.global_ctxt().unwrap().enter(|arg| {
-            let prog = Ctxt::new(arg).translate();
+            let prog = smir::run(arg, || {
+                Ctxt::new(arg).translate()
+            }).unwrap();
             (self.callback)(prog);
         });
 

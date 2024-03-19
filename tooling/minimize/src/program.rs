@@ -62,6 +62,10 @@ impl<'tcx> Ctxt<'tcx> {
         *self.fn_name_map.entry(key).or_insert_with(|| FnName(Name::from_internal(len as _)))
     }
 
+    pub fn get_fn_name_stable(&mut self, key: smir::Instance) -> FnName {
+        self.get_fn_name(smir::internal(self.tcx, key))
+    }
+
     pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
         self.tcx.layout_of(rs::ParamEnv::reveal_all().and(ty)).unwrap().layout
     }
@@ -126,6 +130,8 @@ pub struct FnCtxt<'cx, 'tcx> {
 
     pub locals: Map<LocalName, Type>,
     pub blocks: Map<BbName, BasicBlock>,
+
+    pub locals_stable: Vec<smir::LocalDecl>,
 }
 
 impl<'cx, 'tcx> std::ops::Deref for FnCtxt<'cx, 'tcx> {
@@ -146,6 +152,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
         );
+        let locals_stable = smir::stable(&body).locals().to_vec();
 
         FnCtxt {
             body,
@@ -155,6 +162,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             bb_name_map: Default::default(),
             locals: Default::default(),
             blocks: Default::default(),
+            locals_stable,
         }
     }
 

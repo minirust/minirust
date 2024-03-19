@@ -177,6 +177,10 @@ impl<'tcx> Ctxt<'tcx> {
             .collect()
     }
 
+    pub fn discriminant_for_variant_stable(&self, ty: smir::Ty, variant_idx: smir::VariantIdx) -> Int {
+        self.discriminant_for_variant(smir::internal(self.tcx, ty), smir::internal(self.tcx, variant_idx))
+    }
+
     pub fn discriminant_for_variant(&self, ty: rs::Ty<'tcx>, variant_idx: rs::VariantIdx) -> Int {
         let rs::TyKind::Adt(adt_def, _) = ty.kind() else {
             panic!("Getting discriminant for a variant of a non-enum type!")
