@@ -62,7 +62,7 @@ impl<'tcx> Ctxt<'tcx> {
         *self.fn_name_map.entry(key).or_insert_with(|| FnName(Name::from_internal(len as _)))
     }
 
-    pub fn get_fn_name_stable(&mut self, key: smir::Instance) -> FnName {
+    pub fn get_fn_name_smir(&mut self, key: smir::Instance) -> FnName {
         self.get_fn_name(smir::internal(self.tcx, key))
     }
 
@@ -117,6 +117,10 @@ fn mk_start_fn(entry: u32) -> Function {
 pub struct FnCtxt<'cx, 'tcx> {
     /// the body we intend to translate. substitutions are already applied.
     pub body: rs::Body<'tcx>,
+
+    /// the list of local variable declarations (StableMIR) used to retrieve the type of some
+    /// SMIR constructs.
+    pub locals_smir: Vec<smir::LocalDecl>,
     /// where the body comes from.
     pub instance: rs::Instance<'tcx>,
 
@@ -130,8 +134,6 @@ pub struct FnCtxt<'cx, 'tcx> {
 
     pub locals: Map<LocalName, Type>,
     pub blocks: Map<BbName, BasicBlock>,
-
-    pub locals_stable: Vec<smir::LocalDecl>,
 }
 
 impl<'cx, 'tcx> std::ops::Deref for FnCtxt<'cx, 'tcx> {
@@ -152,7 +154,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
         );
-        let locals_stable = smir::stable(&body).locals().to_vec();
+        let locals_smir = smir::stable(&body).locals().to_vec();
 
         FnCtxt {
             body,
@@ -162,7 +164,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             bb_name_map: Default::default(),
             locals: Default::default(),
             blocks: Default::default(),
-            locals_stable,
+            locals_smir,
         }
     }
 

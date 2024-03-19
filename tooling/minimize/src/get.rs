@@ -31,9 +31,9 @@ impl<F: FnOnce(Program) + Send + Copy> Callbacks for Cb<F> {
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
         queries.global_ctxt().unwrap().enter(|arg| {
-            let prog = smir::run(arg, || {
-                Ctxt::new(arg).translate()
-            }).unwrap();
+            // StableMIR can only be used inside a `run` call, to guarantee its context is properly
+            // initialized. Calls to StableMIR functions will panic if done outside a run.
+            let prog = smir::run(arg, || Ctxt::new(arg).translate()).unwrap();
             (self.callback)(prog);
         });
 

@@ -49,11 +49,9 @@ pub use miniutil::run::*;
 pub use miniutil::DefaultTarget;
 
 mod program;
-
 use program::*;
 
 mod ty;
-
 use ty::*;
 
 mod bb;
@@ -63,15 +61,12 @@ mod rvalue;
 mod constant;
 
 mod get;
-
 use get::get_mini;
 
 mod chunks;
-
 use chunks::calc_chunks;
 
 mod enums;
-
 use enums::int_from_bits;
 
 use std::collections::HashMap;
