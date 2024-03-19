@@ -256,54 +256,47 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::Load { source: GcCow::new(self.translate_place(place)) },
         }
     }
+
     pub fn translate_place(&mut self, place: &rs::Place<'tcx>) -> PlaceExpr {
-        let mut expr = PlaceExpr::Local(self.local_name_map[&place.local]);
-        for (i, proj) in place.projection.iter().enumerate() {
-            match proj {
-                rs::ProjectionElem::Field(f, _ty) => {
-                    let f = f.index();
-                    let indirected = GcCow::new(expr);
-                    expr = PlaceExpr::Field { root: indirected, field: f.into() };
-                }
-                rs::ProjectionElem::Deref => {
-                    let x = GcCow::new(expr);
-                    let x = ValueExpr::Load { source: x };
-                    let x = GcCow::new(x);
+        // Initial state: start with the local the place is based on
+        let expr = PlaceExpr::Local(self.local_name_map[&place.local]);
+        let place_ty = rs::PlaceTy::from_ty(self.body.local_decls[place.local].ty);
+        // Fold over all projections
+        let (expr, _place_ty) =
+            place.iter_projections().fold((expr, place_ty), |(expr, place_ty), (_base, proj)| {
+                let this_ty = place_ty.projection_ty(self.tcx, proj);
+                let this_expr = match proj {
+                    rs::ProjectionElem::Field(f, _ty) => {
+                        let f = f.index();
+                        let indirected = GcCow::new(expr);
+                        PlaceExpr::Field { root: indirected, field: f.into() }
+                    }
+                    rs::ProjectionElem::Deref => {
+                        let x = GcCow::new(expr);
+                        let x = ValueExpr::Load { source: x };
+                        let x = GcCow::new(x);
 
-                    let ty = rs::Place::ty_from(
-                        place.local,
-                        &place.projection[..(i + 1)],
-                        &self.body,
-                        self.tcx,
-                    )
-                    .ty;
-                    let ty = self.translate_ty(ty);
+                        let ty = self.translate_ty(this_ty.ty);
 
-                    expr = PlaceExpr::Deref { operand: x, ty };
-                }
-                rs::ProjectionElem::Index(loc) => {
-                    let i = PlaceExpr::Local(self.local_name_map[&loc]);
-                    let i = GcCow::new(i);
-                    let i = ValueExpr::Load { source: i };
-                    let i = GcCow::new(i);
-                    let root = GcCow::new(expr);
-                    expr = PlaceExpr::Index { root, index: i };
-                }
-                rs::ProjectionElem::Downcast(_variant_name, variant_idx) => {
-                    let root = GcCow::new(expr);
-                    let ty = rs::Place::ty_from(
-                        place.local,
-                        &place.projection[..(i + 1)],
-                        &self.body,
-                        self.tcx,
-                    )
-                    .ty;
-                    let discriminant = self.discriminant_for_variant(ty, variant_idx);
-                    expr = PlaceExpr::Downcast { root, discriminant };
-                }
-                x => todo!("{:?}", x),
-            }
-        }
+                        PlaceExpr::Deref { operand: x, ty }
+                    }
+                    rs::ProjectionElem::Index(loc) => {
+                        let i = PlaceExpr::Local(self.local_name_map[&loc]);
+                        let i = GcCow::new(i);
+                        let i = ValueExpr::Load { source: i };
+                        let i = GcCow::new(i);
+                        let root = GcCow::new(expr);
+                        PlaceExpr::Index { root, index: i }
+                    }
+                    rs::ProjectionElem::Downcast(_variant_name, variant_idx) => {
+                        let root = GcCow::new(expr);
+                        let discriminant = self.discriminant_for_variant(this_ty.ty, variant_idx);
+                        PlaceExpr::Downcast { root, discriminant }
+                    }
+                    x => todo!("{:?}", x),
+                };
+                (this_expr, this_ty)
+            });
         expr
     }
 }
