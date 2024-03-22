@@ -221,7 +221,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         // convert mirs BBs to minirust.
         for (id, bb_name) in self.bb_name_map.clone() {
-            // TODO fix clone
             let bb_data = &self.body.basic_blocks[id].clone(); // TODO fix clone
             let bb = self.translate_bb(bb_data);
             self.blocks.insert(bb_name, bb);
