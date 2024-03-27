@@ -64,7 +64,14 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
                 mark_used_bytes(elem, &mut markers[offset..]);
             }
         }
-        Type::Enum { .. } => panic!("unsupported!"),
+        Type::Enum { variants, .. } =>
+            for Variant { ty, tagger } in variants.values() {
+                mark_used_bytes(ty, markers);
+                for (offset, (ity, _)) in tagger {
+                    let offset = offset.bytes().try_to_usize().unwrap();
+                    mark_size(ity.size, &mut markers[offset..]);
+                }
+            },
     }
 }
 
