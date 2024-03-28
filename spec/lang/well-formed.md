@@ -96,6 +96,10 @@ impl Type {
                     ensure(size >= offset + ty.size::<T>())?;
                     // This field may overlap with gaps between the chunks. That's perfectly normal
                     // when there is padding inside the field.
+                    // FIXME: should we check that all the non-padding bytes of the field are in some chunk?
+                    // But then we'd have to add a definition of "used (non-padding) bytes" in the spec, and then
+                    // we may as well remove 'chunks' entirely and just compute the set of used bytes for
+                    // encoding/decoding...
                 }
                 // The chunks must be sorted in their offsets and disjoint.
                 // FIXME: should we relax this and allow arbitrary chunk order?
