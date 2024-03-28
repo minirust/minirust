@@ -94,12 +94,8 @@ impl Type {
                 for (offset, ty) in fields {
                     ty.check_wf::<T>()?;
                     ensure(size >= offset + ty.size::<T>())?;
-
-                    // And it must fit into one of the chunks.
-                    ensure(chunks.any(|(chunk_offset, chunk_size)| {
-                        chunk_offset <= offset
-                            && offset + ty.size::<T>() <= chunk_offset + chunk_size
-                    }))?;
+                    // This field may overlap with gaps between the chunks. That's perfectly normal
+                    // when there is padding inside the field.
                 }
                 // The chunks must be sorted in their offsets and disjoint.
                 // FIXME: should we relax this and allow arbitrary chunk order?
