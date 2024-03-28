@@ -64,14 +64,16 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
                 mark_used_bytes(elem, &mut markers[offset..]);
             }
         }
-        Type::Enum { variants, .. } =>
+        Type::Enum { variants, discriminator, .. } => {
             for Variant { ty, tagger } in variants.values() {
                 mark_used_bytes(ty, markers);
                 for (offset, (ity, _)) in tagger {
                     let offset = offset.bytes().try_to_usize().unwrap();
                     mark_size(ity.size, &mut markers[offset..]);
                 }
-            },
+            }
+            mark_discriminator(discriminator, markers);
+        }
     }
 }
 
@@ -80,5 +82,20 @@ fn mark_size(size: Size, markers: &mut [bool]) {
     for i in Int::ZERO..size.bytes() {
         let i = i.try_to_usize().unwrap();
         markers[i] = true;
+    }
+}
+
+fn mark_discriminator(discriminator: Discriminator, markers: &mut [bool]) {
+    match discriminator {
+        Discriminator::Invalid | Discriminator::Known(_) => {}
+        Discriminator::Branch { offset, value_type, fallback, children } => {
+            let offset = offset.bytes().try_to_usize().unwrap();
+            mark_size(value_type.size, &mut markers[offset..]);
+
+            mark_discriminator(fallback.extract(), markers);
+            for result in children.values() {
+                mark_discriminator(result, markers);
+            }
+        }
     }
 }
