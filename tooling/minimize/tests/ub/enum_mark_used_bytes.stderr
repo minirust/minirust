@@ -1,0 +1,1 @@
+UB: load at type Array { elem: Int(IntType { signed: Unsigned, size: Size(1 bytes) }), count: 6 } but the data in memory violates the validity invariant
