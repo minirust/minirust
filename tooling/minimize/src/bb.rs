@@ -7,25 +7,25 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_bb(&mut self, bb: &rs::BasicBlockData<'tcx>) -> BasicBlock {
         let mut statements = List::new();
         for stmt in bb.statements.iter() {
-            // unsupported statements will be IGNORED.
-            if let Some(stmts) = self.translate_stmt(stmt) {
-                for stmt in stmts {
-                    statements.push(stmt);
-                }
+            let stmts = self.translate_stmt(stmt);
+            for stmt in stmts {
+                statements.push(stmt);
             }
         }
         BasicBlock { statements, terminator: self.translate_terminator(bb.terminator()) }
     }
 
-    fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> Option<Vec<Statement>> {
-        Some(match &stmt.kind {
+    fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> Vec<Statement> {
+        match &stmt.kind {
             rs::StatementKind::Assign(box (place, rval)) => {
                 let destination = self.translate_place(place);
-                let (mut stmts, source) = self.translate_rvalue(rval)?; // assign of unsupported rvalues are IGNORED.
-
-                // this puts the extra statements before the evaluation of `destination`!
-                stmts.push(Statement::Assign { destination, source });
-                stmts
+                if let Some((mut stmts, source)) = self.translate_rvalue(rval) {
+                    // this puts the extra statements before the evaluation of `destination`!
+                    stmts.push(Statement::Assign { destination, source });
+                    stmts
+                } else {
+                    vec![] // assign of unsupported rvalues is IGNORED!
+                }
             }
             rs::StatementKind::StorageLive(local) => {
                 vec![Statement::StorageLive(self.local_name_map[&local])]
@@ -57,7 +57,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 dbg!(x);
                 todo!()
             }
-        })
+        }
     }
 
     fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> Terminator {
