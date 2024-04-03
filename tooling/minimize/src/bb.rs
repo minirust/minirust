@@ -19,13 +19,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         match &stmt.kind {
             rs::StatementKind::Assign(box (place, rval)) => {
                 let destination = self.translate_place(place);
-                if let Some((mut stmts, source)) = self.translate_rvalue(rval) {
-                    // this puts the extra statements before the evaluation of `destination`!
-                    stmts.push(Statement::Assign { destination, source });
-                    stmts
-                } else {
-                    vec![] // FIXME: assign of unsupported rvalues is IGNORED!
-                }
+                let (mut stmts, source) = self.translate_rvalue(rval);
+                stmts.push(Statement::Assign { destination, source });
+                stmts
             }
             rs::StatementKind::StorageLive(local) => {
                 vec![Statement::StorageLive(self.local_name_map[&local])]

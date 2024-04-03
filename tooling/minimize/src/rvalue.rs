@@ -4,18 +4,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// Translate an rvalue -- could generate a bunch of helper statements.
     /// Those will be executed *before* the actual assignment, and in particular
     /// before evaluation the destination place of the assignment.
-    pub fn translate_rvalue(
-        &mut self,
-        rv: &rs::Rvalue<'tcx>,
-    ) -> Option<(Vec<Statement>, ValueExpr)> {
+    pub fn translate_rvalue(&mut self, rv: &rs::Rvalue<'tcx>) -> (Vec<Statement>, ValueExpr) {
         self.translate_rvalue_smir(&smir::stable(rv))
     }
 
-    pub fn translate_rvalue_smir(
-        &mut self,
-        rv: &smir::Rvalue,
-    ) -> Option<(Vec<Statement>, ValueExpr)> {
-        Some((
+    pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue) -> (Vec<Statement>, ValueExpr) {
+        (
             vec![],
             match rv {
                 smir::Rvalue::Use(operand) => self.translate_operand_smir(operand),
@@ -197,7 +191,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let expose = Statement::Expose { value: operand };
                     let addr = build::ptr_addr(operand);
 
-                    return Some((vec![expose], addr));
+                    return (vec![expose], addr);
                 }
                 smir::Rvalue::Cast(smir::CastKind::PointerFromExposedAddress, operand, ty) => {
                     // TODO untested so far! (Can't test because of `predict`)
@@ -253,7 +247,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     todo!()
                 }
             },
-        ))
+        )
     }
 
     pub fn translate_operand(&mut self, operand: &rs::Operand<'tcx>) -> ValueExpr {
