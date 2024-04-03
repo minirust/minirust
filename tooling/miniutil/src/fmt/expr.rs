@@ -170,6 +170,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 BinOpInt::Mul => '*',
                 BinOpInt::Div => '/',
                 BinOpInt::Rem => '%',
+                BinOpInt::BitAnd => '&',
             };
 
             let int_ty = fmt_int_type(int_ty).to_string();
@@ -203,6 +204,15 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let l = fmt_value_expr(left.extract(), comptypes).to_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
+        }
+        ValueExpr::BinOp { operator: BinOp::Bool(bool_op), left, right } => {
+            let bool_op = match bool_op {
+                BinOpBool::BitAnd => '&',
+            };
+            let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
+            let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
+            // due to overlap with integer binop add <bool> to operator
+            FmtExpr::NonAtomic(format!("{l} {bool_op}<bool> {r}"))
         }
     }
 }

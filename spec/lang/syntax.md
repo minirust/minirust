@@ -113,7 +113,7 @@ pub enum UnOpBool {
 pub enum UnOp {
     /// An operation on integers, with the given output type.
     Int(UnOpInt, IntType),
-    /// An operation on booleans.
+    /// An operation on booleans; returns a boolean.
     Bool(UnOpBool),
     /// Integer-to-pointer cast (uses previously exposed provenance).
     PtrFromExposed(PtrType),
@@ -134,6 +134,8 @@ pub enum BinOpInt {
     /// Remainder of a division, the `%` operator.
     /// Throws UB, if the modulus (second operand) is zero.
     Rem,
+    /// Bitwise-and two integer values.
+    BitAnd
 }
 
 /// A relation between integers.
@@ -152,6 +154,11 @@ pub enum IntRel {
     Ne,
 }
 
+pub enum BinOpBool {
+    /// Bitwise-and on booleans.
+    BitAnd,
+} 
+
 pub enum BinOp {
     /// An operation on integers, with the given output type.
     Int(BinOpInt, IntType),
@@ -159,6 +166,8 @@ pub enum BinOp {
     IntRel(IntRel),
     /// Pointer arithmetic (with or without inbounds requirement).
     PtrOffset { inbounds: bool },
+    /// An operation on booleans
+    Bool(BinOpBool),
 }
 ```
 

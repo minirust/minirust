@@ -117,6 +117,7 @@ impl<M: Memory> Machine<M> {
                 }
                 left % right
             }
+            BitAnd => left & right,
         })
     }
     fn eval_bin_op(
@@ -217,6 +218,32 @@ impl<M: Memory> Machine<M> {
             self.ptr_offset_wrapping(left, right)
         };
         ret((Value::Ptr(result), l_ty))
+    }
+}
+```
+
+### Boolean operations
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_bin_op_bool(&mut self, op: BinOpBool, left: bool, right: bool) -> bool {
+        use BinOpBool::*;
+        match op {
+            BitAnd => left & right,
+        }
+    }
+    fn eval_bin_op(
+        &mut self,
+        BinOp::Bool(op): BinOp,
+        (left, l_ty): (Value<M>, Type),
+        (right, _r_ty): (Value<M>, Type)
+    ) -> Result<(Value<M>, Type)> {
+        let Value::Bool(left) = left else { panic!("non-boolean input to boolean binop") };
+        let Value::Bool(right) = right else { panic!("non-boolean input to boolean binop") };
+
+        // Perform the operation.
+        let result = self.eval_bin_op_bool(op, left, right);
+        ret((Value::Bool(result), Type::Bool))
     }
 }
 ```

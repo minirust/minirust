@@ -314,6 +314,11 @@ impl ValueExpr {
                         ensure(matches!(right, Type::Int(_)))?;
                         left
                     }
+                    Bool(_bool_op) => {
+                        ensure(matches!(left, Type::Bool))?;
+                        ensure(matches!(right, Type::Bool))?;
+                        Type::Bool
+                    }
                 }
             }
         })
