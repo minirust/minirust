@@ -24,7 +24,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     stmts.push(Statement::Assign { destination, source });
                     stmts
                 } else {
-                    vec![] // assign of unsupported rvalues is IGNORED!
+                    vec![] // FIXME: assign of unsupported rvalues is IGNORED!
                 }
             }
             rs::StatementKind::StorageLive(local) => {
