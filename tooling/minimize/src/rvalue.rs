@@ -2,6 +2,8 @@ use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// Translate an rvalue -- could generate a bunch of helper statements.
+    /// Those will be executed *before* the actual assignment, and in particular
+    /// before evaluation the destination place of the assignment.
     pub fn translate_rvalue(
         &mut self,
         rv: &rs::Rvalue<'tcx>,
