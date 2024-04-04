@@ -11,6 +11,7 @@ mod div_zero;
 mod enum_discriminant;
 mod enum_downcast;
 mod enum_representation;
+mod expose;
 mod heap_intrinsics;
 mod ill_formed;
 mod invalid_offset;

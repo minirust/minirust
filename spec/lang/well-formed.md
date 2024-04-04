@@ -396,7 +396,7 @@ impl Statement {
             }
             Expose { value } => {
                 let v = value.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(v, Type::Ptr(_)));
+                ensure(matches!(v, Type::Ptr(_)))?;
                 live_locals
             }
             SetDiscriminant { destination, value } => {
