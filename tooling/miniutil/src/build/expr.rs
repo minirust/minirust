@@ -123,7 +123,11 @@ pub fn div<T: TypeConv>(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop::<T>(BinOpInt::Div, l, r)
 }
 pub fn bit_and<T: TypeConv>(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop::<T>(BinOpInt::BitAnd, l, r)
+    if T::get_type() == Type::Bool {
+        bool_binop(BinOpBool::BitAnd, l, r)
+    } else {
+        int_binop::<T>(BinOpInt::BitAnd, l, r)
+    }
 }
 
 fn int_rel(op: IntRel, l: ValueExpr, r: ValueExpr) -> ValueExpr {
@@ -154,15 +158,8 @@ pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_rel(IntRel::Lt, l, r)
 }
 
-fn bool_binop<T: TypeConv>(op: BinOpBool, l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    if T::get_type() != Type::Bool {
-        panic!("boolean operator received non-boolean type!");
-    }
+fn bool_binop(op: BinOpBool, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::Bool(op), left: GcCow::new(l), right: GcCow::new(r) }
-}
-
-pub fn bool_bit_and<T: TypeConv>(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop::<T>(BinOpBool::BitAnd, l, r)
 }
 
 pub enum InBounds {

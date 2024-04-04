@@ -61,3 +61,51 @@ fn bool2int_requires_boolean_op() {
     let program = small_program(locals, statements);
     assert_ill_formed(program);
 }
+
+/// Test that bit_and::<bool> works for bool
+#[test]
+fn bit_and_bool_works() {
+    let locals = [];
+    let unreach_block = 5;
+    let blocks = [
+        // if false go to next block
+        block!(if_(bit_and::<bool>(const_bool(false), const_bool(false)), unreach_block, 1)),
+        block!(if_(bit_and::<bool>(const_bool(false), const_bool(true)), unreach_block, 2)),
+        block!(if_(bit_and::<bool>(const_bool(true), const_bool(false)), unreach_block, 3)),
+        // if true go to next block
+        block!(if_(bit_and::<bool>(const_bool(true), const_bool(true)), 4, unreach_block)),
+        block!(exit()),
+        block!(unreachable()),
+    ];
+    let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
+    assert_stop(prog);
+}
+
+// Test that bit_and::<bool> fails with non-int/non-bool
+#[test]
+fn bit_and_requires_bool() {
+    let locals = [<bool>::get_type()];
+    let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type());
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), bit_and::<bool>(const_arr, const_arr)),
+        storage_dead(0),
+        exit(),
+    );
+    let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
+    assert_ill_formed(prog);
+}
+
+// Test that bit_and::<bool> fails with int
+#[test]
+fn bit_and_no_bool_int_mixing() {
+    let locals = [<bool>::get_type()];
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), bit_and::<bool>(const_int::<i32>(1), const_int::<i32>(0))),
+        storage_dead(0),
+        exit(),
+    );
+    let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
+    assert_ill_formed(prog);
+}

@@ -13,6 +13,7 @@ mod enum_downcast;
 mod enum_representation;
 mod heap_intrinsics;
 mod ill_formed;
+mod int;
 mod invalid_offset;
 mod locks;
 mod main;
