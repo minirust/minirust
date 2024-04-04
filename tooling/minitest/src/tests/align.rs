@@ -15,13 +15,10 @@ fn manual_align() {
         assign(
             // _1 = (8 + (_1 / 8 * 8)) - _1; This guarantees alignment of 8 for (&raw _0) + _1
             local(1),
-            sub::<usize>(
-                add::<usize>(
+            sub(
+                add(
                     const_int(8usize),
-                    mul::<usize>(
-                        div::<usize>(load(local(1)), const_int(8usize)),
-                        const_int(8usize),
-                    ),
+                    mul(div(load(local(1)), const_int(8usize)), const_int(8usize)),
                 ),
                 load(local(1)),
             ),

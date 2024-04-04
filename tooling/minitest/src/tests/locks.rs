@@ -20,7 +20,7 @@ fn lock_handover() {
         acquire(load(global::<u32>(0)), 1)
     );
     let b1 = block!(if_(eq(load(local(1)), const_int::<u32>(256)), 3, 2));
-    let b2 = block!(assign(local(1), add::<u32>(load(local(1)), const_int::<u32>(1))), goto(1));
+    let b2 = block!(assign(local(1), add(load(local(1)), const_int::<u32>(1))), goto(1));
     let b3 = block!(release(load(global::<u32>(0)), 4));
     let b4 = block!(return_());
     let critical = function(Ret::Yes, 0, &locals, &[b0, b1, b2, b3, b4]);

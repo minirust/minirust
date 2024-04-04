@@ -19,16 +19,16 @@ impl<M: Memory> Machine<M> {
         use UnOpInt::*;
         ret(match op {
             Neg => -operand,
-            Cast => operand,
         })
     }
-    fn eval_un_op(&mut self, UnOp::Int(op, int_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&mut self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+        let Type::Int(int_ty) = op_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
         let result = self.eval_un_op_int(op, operand)?;
         // Put the result into the right range (in case of overflow).
-        let result = result.modulo(int_ty.signed, int_ty.size);
+        let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
     }
 }
@@ -38,44 +38,56 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_bool(&mut self, op: UnOpBool, operand: bool) -> (Value<M>, Type) {
+    fn eval_un_op_bool(&mut self, op: UnOpBool, operand: bool) -> bool {
         use UnOpBool::*;
         match op {
-            IntCast(int_ty) => {
-                let result = if operand { Int::ONE } else { Int::ZERO };
-                (Value::Int(result), Type::Int(int_ty))
-            },
-            Not => (Value::Bool(!operand), Type::Bool)
+            Not => !operand,
         }
     }
     fn eval_un_op(&mut self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
         let Value::Bool(value) = operand else { panic!("non-boolean input to boolean unop") };
-        ret(self.eval_un_op_bool(op, value))
+        let result = self.eval_un_op_bool(op, value);
+        ret((Value::Bool(result), Type::Bool))
     }
 }
 ```
 
-### Integer-to-pointer cast
+### Casts
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::PtrFromExposed(ptr_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
-        let Value::Int(addr) = operand else { panic!("non-integer input to int2ptr cast") };
-        let result = self.intptrcast.int2ptr(addr)?;
-        ret((Value::Ptr(result), Type::Ptr(ptr_ty)))
+    fn eval_cast(&mut self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+        use CastOp::*;
+        match cast_op {
+            IntToInt(int_ty) => {
+                let Value::Int(operand) = operand else { panic!("non-integer input to int-to-int cast") };
+                let result = int_ty.bring_in_bounds(operand);
+                ret((Value::Int(result), Type::Int(int_ty)))
+            }
+            BoolToInt(int_ty) => {
+                let Value::Bool(operand) = operand else { panic!("non-boolean input to bool-to-int cast") };
+                // 0 and 1 fit into every `IntTy`, so we do not need to `bring_in_bounds`.
+                let result = if operand { Int::ONE } else { Int::ZERO };
+                ret((Value::Int(result), Type::Int(int_ty)))
+            },
+            PtrFromExposed(ptr_ty) => {
+                let Value::Int(addr) = operand else { panic!("non-integer input to int-to-pointer cast") };
+                let result = self.intptrcast.int2ptr(addr)?;
+                ret((Value::Ptr(result), Type::Ptr(ptr_ty)))
+            }
+            Transmute(new_ty) => {
+                if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
+                    throw_ub!("transmute between types of different size")
+                };
+                let Some(val) = transmute(operand, old_ty, new_ty) else {
+                    throw_ub!("transmuted value is not valid at new type")
+                };
+                ret((val, new_ty))
+            }
+        }
     }
-}
-```
-
-### Transmutation
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_un_op(&mut self, UnOp::Transmute(new_ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
-        let Some(val) = transmute(operand, op_ty, new_ty) else {
-            throw_ub!("transmuted value is not valid at new type")
-        };
-        ret((val, new_ty))
+    fn eval_un_op(&mut self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+        ret(self.eval_cast(cast_op, (operand, op_ty))?)
     }
 }
 ```
@@ -122,17 +134,18 @@ impl<M: Memory> Machine<M> {
     }
     fn eval_bin_op(
         &mut self,
-        BinOp::Int(op, int_ty): BinOp,
+        BinOp::Int(op): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
+        let Type::Int(int_ty) = l_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
         let result = self.eval_bin_op_int(op, left, right)?;
         // Put the result into the right range (in case of overflow).
-        let result = result.modulo(int_ty.signed, int_ty.size);
+        let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
     }
 }

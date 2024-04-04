@@ -78,7 +78,7 @@ pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
         Constant::GlobalPointer(relocation) => fmt_relocation(relocation),
         Constant::FnPointer(fn_name) => FmtExpr::Atomic(fmt_fn_name(fn_name)),
-        Constant::InvalidPointer(addr) =>
+        Constant::PointerWithoutProvenance(addr) =>
             if addr == 0 {
                 FmtExpr::Atomic(format!("nullptr"))
             } else {
@@ -140,30 +140,27 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
         ValueExpr::UnOp { operator, operand } => {
             let operand = fmt_value_expr(operand.extract(), comptypes).to_string();
             match operator {
-                UnOp::Int(UnOpInt::Neg, int_ty) => {
-                    let int_ty = fmt_int_type(int_ty);
-                    FmtExpr::NonAtomic(format!("-<{int_ty}>({operand})"))
-                }
-                UnOp::Int(UnOpInt::Cast, int_ty) => {
+                UnOp::Int(UnOpInt::Neg) => FmtExpr::NonAtomic(format!("-({operand})")),
+                UnOp::Cast(CastOp::IntToInt(int_ty)) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
                 }
-                UnOp::Bool(UnOpBool::IntCast(int_ty)) => {
+                UnOp::Cast(CastOp::BoolToInt(int_ty)) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("bool2int<{int_ty}>({operand})"))
                 }
                 UnOp::Bool(UnOpBool::Not) => FmtExpr::Atomic(format!("!{operand}")),
-                UnOp::PtrFromExposed(ptr_ty) => {
+                UnOp::Cast(CastOp::PtrFromExposed(ptr_ty)) => {
                     let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
                     FmtExpr::Atomic(format!("from_exposed<{ptr_ty}>({operand})"))
                 }
-                UnOp::Transmute(new_ty) => {
+                UnOp::Cast(CastOp::Transmute(new_ty)) => {
                     let new_ty = fmt_type(new_ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))
                 }
             }
         }
-        ValueExpr::BinOp { operator: BinOp::Int(int_op, int_ty), left, right } => {
+        ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {
             let int_op = match int_op {
                 BinOpInt::Add => '+',
                 BinOpInt::Sub => '-',
@@ -172,9 +169,6 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 BinOpInt::Rem => '%',
                 BinOpInt::BitAnd => '&',
             };
-
-            let int_ty = fmt_int_type(int_ty).to_string();
-            let int_op = format!("{int_op}<{int_ty}>");
 
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();

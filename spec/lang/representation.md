@@ -64,12 +64,6 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 ### Integers
 
 ```rust
-impl IntType {
-    pub fn can_represent(&self, i: Int) -> bool {
-        i.in_bounds(self.signed, self.size)
-    }
-}
-
 impl Type {
     fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() {
@@ -537,6 +531,7 @@ More precisely:
 ```rust
 /// Transmutes `val` from `type1` to `type2`.
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
+    assert!(type1.size::<M::T>() == type2.size::<M::T>());
     let bytes = type1.encode::<M>(val);
     ret(type2.decode::<M>(bytes)?)
 }

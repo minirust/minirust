@@ -27,33 +27,26 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let r = GcCow::new(r);
 
                     use smir::BinOp::*;
-                    let op_int = |x| {
-                        let Type::Int(int_ty) = self.translate_ty_smir(lty) else {
-                            panic!("arithmetic operation with non-int type unsupported!");
-                        };
-                        BinOp::Int(x, int_ty)
-                    };
-                    let rel = |x| BinOp::IntRel(x);
                     let op = match *bin_op {
                         Offset => BinOp::PtrOffset { inbounds: true },
                         // all int ops
-                        Add => op_int(BinOpInt::Add),
-                        Sub => op_int(BinOpInt::Sub),
-                        Mul => op_int(BinOpInt::Mul),
-                        Div => op_int(BinOpInt::Div),
-                        Rem => op_int(BinOpInt::Rem),
+                        Add => BinOp::Int(BinOpInt::Add),
+                        Sub => BinOp::Int(BinOpInt::Sub),
+                        Mul => BinOp::Int(BinOpInt::Mul),
+                        Div => BinOp::Int(BinOpInt::Div),
+                        Rem => BinOp::Int(BinOpInt::Rem),
 
-                        Lt => rel(IntRel::Lt),
-                        Le => rel(IntRel::Le),
-                        Gt => rel(IntRel::Gt),
-                        Ge => rel(IntRel::Ge),
-                        Eq => rel(IntRel::Eq),
-                        Ne => rel(IntRel::Ne),
+                        Lt => BinOp::IntRel(IntRel::Lt),
+                        Le => BinOp::IntRel(IntRel::Le),
+                        Gt => BinOp::IntRel(IntRel::Gt),
+                        Ge => BinOp::IntRel(IntRel::Ge),
+                        Eq => BinOp::IntRel(IntRel::Eq),
+                        Ne => BinOp::IntRel(IntRel::Ne),
 
                         // implemented for int and bool
                         BitAnd =>
                             match self.translate_ty_smir(lty) {
-                                Type::Int(int_ty) => BinOp::Int(BinOpInt::BitAnd, int_ty),
+                                Type::Int(_) => BinOp::Int(BinOpInt::BitAnd),
                                 Type::Bool => BinOp::Bool(BinOpBool::BitAnd),
                                 _ => panic!("bit-and only supported for int and bool."),
                             },
@@ -68,16 +61,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 smir::Rvalue::UnaryOp(unop, operand) =>
                     match unop {
                         smir::UnOp::Neg => {
-                            let ty = operand.ty(&self.locals_smir).unwrap();
-                            let ty = self.translate_ty_smir(ty);
-                            let Type::Int(int_ty) = ty else {
-                                panic!("Neg operation with non-int type!");
-                            };
-
                             let operand = self.translate_operand_smir(operand);
 
                             ValueExpr::UnOp {
-                                operator: UnOp::Int(UnOpInt::Neg, int_ty),
+                                operator: UnOp::Int(UnOpInt::Neg),
                                 operand: GcCow::new(operand),
                             }
                         }
@@ -180,8 +167,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     };
 
                     let unop = match operand_ty {
-                        Type::Int(_) => UnOp::Int(UnOpInt::Cast, int_ty),
-                        Type::Bool => UnOp::Bool(UnOpBool::IntCast(int_ty)),
+                        Type::Int(_) => UnOp::Cast(CastOp::IntToInt(int_ty)),
+                        Type::Bool => UnOp::Cast(CastOp::BoolToInt(int_ty)),
                         _ => panic!("Attempting to cast non-int or boolean type to int!"),
                     };
                     ValueExpr::UnOp { operator: unop, operand: GcCow::new(operand) }
@@ -199,7 +186,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty) else { panic!() };
 
                     ValueExpr::UnOp {
-                        operator: UnOp::PtrFromExposed(ptr_ty),
+                        operator: UnOp::Cast(CastOp::PtrFromExposed(ptr_ty)),
                         operand: GcCow::new(operand),
                     }
                 }
@@ -208,7 +195,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty) else { panic!() };
 
                     ValueExpr::UnOp {
-                        operator: UnOp::Transmute(Type::Ptr(ptr_ty)),
+                        operator: UnOp::Cast(CastOp::Transmute(Type::Ptr(ptr_ty))),
                         operand: GcCow::new(operand),
                     }
                 }

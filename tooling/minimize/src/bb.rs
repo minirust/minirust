@@ -72,7 +72,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let Type::Int(u8_inttype) = <u8>::get_type() else { unreachable!() };
                         (
                             ValueExpr::UnOp {
-                                operator: UnOp::Bool(UnOpBool::IntCast(u8_inttype)),
+                                operator: UnOp::Cast(CastOp::BoolToInt(u8_inttype)),
                                 operand: GcCow::new(discr_op),
                             },
                             u8_inttype,

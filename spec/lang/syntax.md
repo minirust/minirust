@@ -93,32 +93,38 @@ pub enum Constant {
     GlobalPointer(Relocation),
     /// A pointer pointing to a function.
     FnPointer(FnName),
-    /// A constant pointer, not pointing into any allocation.
-    InvalidPointer(Address),
+    /// A pointer with constant address, not pointing into any allocation.
+    PointerWithoutProvenance(Address),
 }
 
 pub enum UnOpInt {
-    /// Negate an integer value.
+    /// Negate an integer value arithmetically (`x` becomes `-x`).
     Neg,
-    /// Cast an integer to another.
-    Cast,
 }
 pub enum UnOpBool {
-    /// Boolean-to-integer cast producing the given `IntType`.
-    /// True becomes `Int::ONE` and false `Int::ZERO`.
-    IntCast(IntType),
     /// Boolean negation.
     Not,
 }
-pub enum UnOp {
-    /// An operation on integers, with the given output type.
-    Int(UnOpInt, IntType),
-    /// An operation on booleans; returns a boolean.
-    Bool(UnOpBool),
+pub enum CastOp {
+    /// Argument can be any integer type; returns the given integer type.
+    IntToInt(IntType),
+    /// Argument is a Boolean; returns the given integer type.
+    /// True becomes `Int::ONE` and false `Int::ZERO`.
+    BoolToInt(IntType),
     /// Integer-to-pointer cast (uses previously exposed provenance).
     PtrFromExposed(PtrType),
-    /// Transmute the value to a different type (must have the same size).
+    /// Transmute the value to a different type.
+    /// The program is well-formed even if the output type has a different size than the
+    /// input type, but the operation is UB in that case.
     Transmute(Type),
+}
+pub enum UnOp {
+    /// An operation on an integer; returns an integer of the same type.
+    Int(UnOpInt),
+    /// An operation on a boolean; returns a boolean.
+    Bool(UnOpBool),
+    /// A form of cast.
+    Cast(CastOp),
 }
 
 pub enum BinOpInt {
@@ -137,7 +143,6 @@ pub enum BinOpInt {
     /// Bitwise-and two integer values.
     BitAnd
 }
-
 /// A relation between integers.
 pub enum IntRel {
     /// less than
@@ -148,23 +153,23 @@ pub enum IntRel {
     Le,
     /// greater than or equal
     Ge,
-    /// Equality
+    /// equal
     Eq,
-    /// Inequality
+    /// inequal
     Ne,
 }
-
 pub enum BinOpBool {
     /// Bitwise-and on booleans.
     BitAnd,
 } 
-
 pub enum BinOp {
-    /// An operation on integers, with the given output type.
-    Int(BinOpInt, IntType),
-    /// A relation between integers.
+    /// An operation on integers (both must have the same type); returns an integer of the same type.
+    Int(BinOpInt),
+    /// A relation between integers (both must have the same type); returns a boolean.
     IntRel(IntRel),
-    /// Pointer arithmetic (with or without inbounds requirement).
+    /// Pointer arithmetic (with or without inbounds requirement);
+    /// takes a pointer as left operand and an integer as right operand;
+    /// returns a pointer.
     PtrOffset { inbounds: bool },
     /// An operation on booleans
     Bool(BinOpBool),

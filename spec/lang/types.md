@@ -171,3 +171,17 @@ impl Type {
     }
 }
 ```
+
+## Integer type convenience functions
+
+```rust
+impl IntType {
+    pub fn can_represent(&self, i: Int) -> bool {
+        i.in_bounds(self.signed, self.size)
+    }
+
+    pub fn bring_in_bounds(&self, i: Int) -> Int {
+        i.modulo(self.signed, self.size)
+    }
+}
+```

@@ -23,6 +23,7 @@ fn ensure(b: bool) -> Option<()> {
 ```rust
 impl IntType {
     fn check_wf(self) -> Option<()> {
+        // In particular, this checks that the size is at least one byte.
         ensure(self.size.bytes().is_power_of_two())?;
 
         ret(())
@@ -187,7 +188,7 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(_)) => {
                 ensure(prog.functions.contains_key(fn_name))?;
             }
-            (Constant::InvalidPointer(addr), Type::Ptr(_)) => {
+            (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure(addr.in_bounds(Signedness::Unsigned, T::PTR_SIZE))?;
             }
             _ => throw!(),
@@ -271,25 +272,35 @@ impl ValueExpr {
 
                 let operand = operand.check_wf::<T>(locals, prog)?;
                 match operator {
-                    Int(_int_op, int_ty) => {
-                        ensure(matches!(operand, Type::Int(_)))?;
+                    Int(_int_op) => {
+                        let Type::Int(int_ty) = operand else {
+                            throw!();
+                        };
                         Type::Int(int_ty)
                     }
-                    Bool(bool_op) => {
+                    Bool(_bool_op) => {
                         ensure(matches!(operand, Type::Bool))?;
-                        match bool_op {
-                            UnOpBool::IntCast(int_ty) => Type::Int(int_ty),
-                            UnOpBool::Not => Type::Bool
+                        Type::Bool
+                    }
+                    Cast(cast_op) => {
+                        use lang::CastOp::*;
+                        match cast_op {
+                            IntToInt(int_ty) => {
+                                ensure(matches!(operand, Type::Int(_)))?;
+                                Type::Int(int_ty)
+                            }
+                            BoolToInt(int_ty) => {
+                                ensure(matches!(operand, Type::Bool))?;
+                                Type::Int(int_ty)
+                            }
+                            PtrFromExposed(ptr_ty) => {
+                                ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
+                                Type::Ptr(ptr_ty)
+                            }
+                            Transmute(new_ty) => {
+                                new_ty
+                            }
                         }
-                    }
-                    PtrFromExposed(ptr_ty) => {
-                        ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
-                        Type::Ptr(ptr_ty)
-                    }
-                    Transmute(new_ty) => {
-                        // Transmutation requires the sizes to match.
-                        ensure(operand.size::<T>() == new_ty.size::<T>());
-                        new_ty
                     }
                 }
             }
@@ -299,14 +310,18 @@ impl ValueExpr {
                 let left = left.check_wf::<T>(locals, prog)?;
                 let right = right.check_wf::<T>(locals, prog)?;
                 match operator {
-                    Int(_int_op, int_ty) => {
-                        ensure(matches!(left, Type::Int(_)))?;
-                        ensure(matches!(right, Type::Int(_)))?;
+                    Int(_int_op) => {
+                        let Type::Int(int_ty) = left else {
+                            throw!();
+                        };
+                        ensure(right == Type::Int(int_ty))?;
                         Type::Int(int_ty)
                     }
                     IntRel(_int_rel) => {
-                        ensure(matches!(left, Type::Int(_)))?;
-                        ensure(matches!(right, Type::Int(_)))?;
+                        let Type::Int(int_ty) = left else {
+                            throw!();
+                        };
+                        ensure(right == Type::Int(int_ty))?;
                         Type::Bool
                     }
                     PtrOffset { inbounds: _ } => {
