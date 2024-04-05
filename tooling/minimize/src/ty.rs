@@ -169,3 +169,15 @@ fn translate_uint_ty(uint_ty: &rs::UintTy) -> IntType {
 pub fn translate_size(size: rs::Size) -> Size {
     Size::from_bytes_const(size.bytes())
 }
+
+pub fn translate_align(align: rs::Align) -> Align {
+    Align::from_bytes(align.bytes()).unwrap()
+}
+
+pub fn translate_calling_convention(conv: rs::Conv) -> CallingConvention {
+    match conv {
+        rs::Conv::C => CallingConvention::C,
+        rs::Conv::Rust => CallingConvention::Rust,
+        _ => todo!(),
+    }
+}

@@ -51,6 +51,9 @@ pub use miniutil::DefaultTarget;
 mod program;
 use program::*;
 
+mod function;
+use function::*;
+
 mod ty;
 use ty::*;
 
