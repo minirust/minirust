@@ -4,18 +4,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// Translate an rvalue -- could generate a bunch of helper statements.
     /// Those will be executed *before* the actual assignment, and in particular
     /// before evaluation the destination place of the assignment.
-    pub fn translate_rvalue(
-        &mut self,
-        rv: &rs::Rvalue<'tcx>,
-    ) -> Option<(Vec<Statement>, ValueExpr)> {
+    pub fn translate_rvalue(&mut self, rv: &rs::Rvalue<'tcx>) -> (Vec<Statement>, ValueExpr) {
         self.translate_rvalue_smir(&smir::stable(rv))
     }
 
-    pub fn translate_rvalue_smir(
-        &mut self,
-        rv: &smir::Rvalue,
-    ) -> Option<(Vec<Statement>, ValueExpr)> {
-        Some((
+    pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue) -> (Vec<Statement>, ValueExpr) {
+        (
             vec![],
             match rv {
                 smir::Rvalue::Use(operand) => self.translate_operand_smir(operand),
@@ -33,39 +27,39 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let r = GcCow::new(r);
 
                     use smir::BinOp::*;
-                    let op = if *bin_op == Offset {
-                        BinOp::PtrOffset { inbounds: true }
-                    } else {
-                        // everything else right-now is a int op!
-
-                        let op = |x| {
-                            let Type::Int(int_ty) = self.translate_ty_smir(lty) else {
-                                panic!("arithmetic operation with non-int type unsupported!");
-                            };
-
-                            BinOp::Int(x, int_ty)
+                    let op_int = |x| {
+                        let Type::Int(int_ty) = self.translate_ty_smir(lty) else {
+                            panic!("arithmetic operation with non-int type unsupported!");
                         };
-                        let rel = |x| BinOp::IntRel(x);
+                        BinOp::Int(x, int_ty)
+                    };
+                    let rel = |x| BinOp::IntRel(x);
+                    let op = match *bin_op {
+                        Offset => BinOp::PtrOffset { inbounds: true },
+                        // all int ops
+                        Add => op_int(BinOpInt::Add),
+                        Sub => op_int(BinOpInt::Sub),
+                        Mul => op_int(BinOpInt::Mul),
+                        Div => op_int(BinOpInt::Div),
+                        Rem => op_int(BinOpInt::Rem),
 
-                        match bin_op {
-                            Add => op(BinOpInt::Add),
-                            Sub => op(BinOpInt::Sub),
-                            Mul => op(BinOpInt::Mul),
-                            Div => op(BinOpInt::Div),
-                            Rem => op(BinOpInt::Rem),
+                        Lt => rel(IntRel::Lt),
+                        Le => rel(IntRel::Le),
+                        Gt => rel(IntRel::Gt),
+                        Ge => rel(IntRel::Ge),
+                        Eq => rel(IntRel::Eq),
+                        Ne => rel(IntRel::Ne),
 
-                            Lt => rel(IntRel::Lt),
-                            Le => rel(IntRel::Le),
-                            Gt => rel(IntRel::Gt),
-                            Ge => rel(IntRel::Ge),
-                            Eq => rel(IntRel::Eq),
-                            Ne => rel(IntRel::Ne),
-
-                            BitAnd => return None,
-                            x => {
-                                dbg!(x);
-                                todo!("unsupported BinOp")
-                            }
+                        // implemented for int and bool
+                        BitAnd =>
+                            match self.translate_ty_smir(lty) {
+                                Type::Int(int_ty) => BinOp::Int(BinOpInt::BitAnd, int_ty),
+                                Type::Bool => BinOp::Bool(BinOpBool::BitAnd),
+                                _ => panic!("bit-and only supported for int and bool."),
+                            },
+                        x => {
+                            dbg!(x);
+                            todo!()
                         }
                     };
 
@@ -197,7 +191,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     let expose = Statement::Expose { value: operand };
                     let addr = build::ptr_addr(operand);
 
-                    return Some((vec![expose], addr));
+                    return (vec![expose], addr);
                 }
                 smir::Rvalue::Cast(smir::CastKind::PointerFromExposedAddress, operand, ty) => {
                     // TODO untested so far! (Can't test because of `predict`)
@@ -253,7 +247,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     todo!()
                 }
             },
-        ))
+        )
     }
 
     pub fn translate_operand(&mut self, operand: &rs::Operand<'tcx>) -> ValueExpr {
