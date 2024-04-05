@@ -181,8 +181,7 @@ impl<M: Memory> Machine<M> {
         use lang::UnOp::*;
 
         let operand = self.eval_value(operand)?;
-
-        self.eval_un_op(operator, operand)
+        ret(self.eval_un_op(operator, operand)?)
     }
 
     fn eval_value(&mut self, ValueExpr::BinOp { operator, left, right }: ValueExpr) -> NdResult<(Value<M>, Type)> {
@@ -190,8 +189,6 @@ impl<M: Memory> Machine<M> {
 
         let left = self.eval_value(left)?;
         let right = self.eval_value(right)?;
-
-
         ret(self.eval_bin_op(operator, left, right)?)
     }
 }

@@ -7,7 +7,7 @@ Here we define the evaluation of unary and binary operators.
 ```rust
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(operator)]
-    fn eval_un_op(&mut self, operator: UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> { .. }
+    fn eval_un_op(&self, operator: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> { .. }
 }
 ```
 
@@ -15,13 +15,13 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_int(&mut self, op: UnOpInt, operand: Int) -> Result<Int> {
+    fn eval_un_op_int(&self, op: UnOpInt, operand: Int) -> Result<Int> {
         use UnOpInt::*;
         ret(match op {
             Neg => -operand,
         })
     }
-    fn eval_un_op(&mut self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Type::Int(int_ty) = op_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
@@ -38,13 +38,13 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_bool(&mut self, op: UnOpBool, operand: bool) -> bool {
+    fn eval_un_op_bool(&self, op: UnOpBool, operand: bool) -> bool {
         use UnOpBool::*;
         match op {
             Not => !operand,
         }
     }
-    fn eval_un_op(&mut self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Bool(value) = operand else { panic!("non-boolean input to boolean unop") };
         let result = self.eval_un_op_bool(op, value);
         ret((Value::Bool(result), Type::Bool))
@@ -56,7 +56,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast(&mut self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_cast(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -81,7 +81,7 @@ impl<M: Memory> Machine<M> {
             }
         }
     }
-    fn eval_un_op(&mut self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> NdResult<(Value<M>, Type)> {
+    fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         ret(self.eval_cast(cast_op, (operand, op_ty))?)
     }
 }
@@ -93,7 +93,7 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     #[specr::argmatch(operator)]
     fn eval_bin_op(
-        &mut self,
+        &self,
         operator: BinOp,
         (left, l_ty):
         (Value<M>, Type),
@@ -106,7 +106,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_int(&mut self, op: BinOpInt, left: Int, right: Int) -> Result<Int> {
+    fn eval_bin_op_int(&self, op: BinOpInt, left: Int, right: Int) -> Result<Int> {
         use BinOpInt::*;
         ret(match op {
             Add => left + right,
@@ -128,7 +128,7 @@ impl<M: Memory> Machine<M> {
         })
     }
     fn eval_bin_op(
-        &mut self,
+        &self,
         BinOp::Int(op): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
@@ -150,7 +150,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_rel(&mut self, rel: IntRel, left: Int, right: Int) -> bool {
+    fn eval_int_rel(&self, rel: IntRel, left: Int, right: Int) -> bool {
         use IntRel::*;
         match rel {
             Lt => left < right,
@@ -162,7 +162,7 @@ impl<M: Memory> Machine<M> {
         }
     }
     fn eval_bin_op(
-        &mut self,
+        &self,
         BinOp::IntRel(int_rel): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
@@ -212,7 +212,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_bin_op(
-        &mut self,
+        &self,
         BinOp::PtrOffset { inbounds }: BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
@@ -234,14 +234,14 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_bool(&mut self, op: BinOpBool, left: bool, right: bool) -> bool {
+    fn eval_bin_op_bool(&self, op: BinOpBool, left: bool, right: bool) -> bool {
         use BinOpBool::*;
         match op {
             BitAnd => left & right,
         }
     }
     fn eval_bin_op(
-        &mut self,
+        &self,
         BinOp::Bool(op): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)

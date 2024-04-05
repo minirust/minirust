@@ -27,7 +27,7 @@ impl<Provenance> IntPtrCast<Provenance> {
         }
     }
 
-    pub fn int2ptr(&mut self, addr: Int) -> NdResult<Pointer<Provenance>> {
+    pub fn int2ptr(&self, addr: Int) -> NdResult<Pointer<Provenance>> {
         // Predict a suitable provenance. It must be either `None` or already exposed.
         let provenance = predict(|prov: Option<Provenance>| {
             prov.map_or(
