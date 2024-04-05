@@ -87,6 +87,8 @@ pub trait Memory {
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result;
 
     /// Read some bytes from memory.
+    ///
+    /// Needs `&mut self` because in the aliasing model, reading changes the machine state.
     fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
 
     /// Test whether the given pointer is dereferenceable for the given size.
