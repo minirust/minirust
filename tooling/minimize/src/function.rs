@@ -4,12 +4,12 @@ use crate::*;
 pub struct FnCtxt<'cx, 'tcx> {
     /// the body we intend to translate. substitutions are already applied.
     pub body: rs::Body<'tcx>,
+    /// the ABI of this function
+    abi: &'tcx rs::FnAbi<'tcx, rs::Ty<'tcx>>,
 
     /// the list of local variable declarations (StableMIR) used to retrieve the type of some
     /// SMIR constructs.
     pub locals_smir: Vec<smir::LocalDecl>,
-    /// where the body comes from.
-    pub instance: rs::Instance<'tcx>,
 
     pub cx: &'cx mut Ctxt<'tcx>,
 
@@ -20,7 +20,7 @@ pub struct FnCtxt<'cx, 'tcx> {
     pub bb_name_map: HashMap<rs::BasicBlock, BbName>,
 
     /// The next free number that can be used as name for a basic block
-    pub next_bb: u32,
+    next_bb: u32,
 
     pub locals: Map<LocalName, Type>,
     pub blocks: Map<BbName, BasicBlock>,
@@ -44,11 +44,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::ParamEnv::reveal_all(),
             rs::EarlyBinder::bind(body.clone()),
         );
+        let abi = cx
+            .tcx
+            .fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty())))
+            .unwrap();
         let locals_smir = smir::stable(&body).locals().to_vec();
 
         FnCtxt {
             body,
-            instance,
+            abi,
             cx,
             local_name_map: Default::default(),
             bb_name_map: Default::default(),
@@ -68,12 +72,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// translates a function body.
     /// Any fn calls occuring during this translation will be added to the `FnNameMap`.
     pub fn translate(mut self) -> Function {
-        let abi = self
-            .cx
-            .tcx
-            .fn_abi_of_instance(rs::ParamEnv::reveal_all().and((self.instance, rs::List::empty())))
-            .unwrap();
-
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {
             let bb_name = self.fresh_bb_name();
@@ -135,7 +133,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             ret,
             blocks: self.blocks,
             start: init_bb,
-            calling_convention: translate_calling_convention(abi.conv),
+            calling_convention: translate_calling_convention(self.abi.conv),
         };
 
         f
