@@ -59,8 +59,8 @@ fn compare_exchange_arg_count() {
         storage_live(0),
         storage_live(1),
         assign(local(0), const_int::<u32>(10)),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicCompareExchange,
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::AtomicCompareExchange,
             arguments: list!(addr0),
             ret: local(1),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -70,7 +70,7 @@ fn compare_exchange_arg_count() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicCompareExchange`");
+    assert_ub(p, "invalid number of arguments for `AtomicCompareExchange` intrinsic");
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn compare_exchange_arg_1_value() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicCompareExchange`: not a pointer");
+    assert_ub(p, "invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer");
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn compare_exchange_arg_1_type() {
     let p = program(&[f]);
     assert_ub(
         p,
-        "invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value",
+        "invalid second argument to `AtomicCompareExchange` intrinsic: not same type as return value",
     );
 }
 
@@ -160,7 +160,7 @@ fn compare_exchange_arg_2_type() {
     let p = program(&[f]);
     assert_ub(
         p,
-        "invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value",
+        "invalid third argument to `AtomicCompareExchange` intrinsic: not same type as return value",
     );
 }
 
@@ -181,5 +181,5 @@ fn compare_exchange_arg_size_max() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicCompareExchange`: size too big");
+    assert_ub(p, "invalid return type for `AtomicCompareExchange` intrinsic: size too big");
 }

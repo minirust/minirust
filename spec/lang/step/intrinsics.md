@@ -7,7 +7,7 @@ impl<M: Memory> Machine<M> {
     #[specr::argmatch(intrinsic)]
     fn eval_intrinsic(
         &mut self,
-        intrinsic: Intrinsic,
+        intrinsic: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> { .. }
@@ -33,18 +33,18 @@ See [this blog post](https://www.ralfj.de/blog/2022/04/11/provenance-exposed.htm
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(&mut self,
-        Intrinsic::PointerExposeProvenance: Intrinsic,
+        IntrinsicOp::PointerExposeProvenance: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `Intrinsic::PointerExposeProvenance`");
+            throw_ub!("invalid number of arguments for `PointerExposeProvenance` intrinsic");
         }
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid argument for `Intrinsic::PointerExposeProvenance`: not a pointer");
+            throw_ub!("invalid argument for `PointerExposeProvenance` intrinsic: not a pointer");
         };
         if ret_ty != Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE }) {
-            throw_ub!("invalid return type for `Intrinsic::PointerExposeProvenance`")
+            throw_ub!("invalid return type for `PointerExposeProvenance` intrinsic")
         }
 
         self.intptrcast.expose(ptr);
@@ -52,18 +52,18 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_intrinsic(&mut self,
-        Intrinsic::PointerWithExposedProvenance: Intrinsic,
+        IntrinsicOp::PointerWithExposedProvenance: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `Intrinsic::PointerWithExposedProvenance`");
+            throw_ub!("invalid number of arguments for `PointerWithExposedProvenance` intrinsic");
         }
         let Value::Int(addr) = arguments[0].0 else {
-            throw_ub!("invalid argument for `Intrinsic::PointerWithExposedProvenance`: not an integer");
+            throw_ub!("invalid argument for `PointerWithExposedProvenance` intrinsic: not an integer");
         };
         if !matches!(ret_ty, Type::Ptr(_)) {
-            throw_ub!("invalid return type for `Intrinsic::PointerWithExposedProvenance`")
+            throw_ub!("invalid return type for `PointerWithExposedProvenance` intrinsic")
         }
 
         let ptr = self.intptrcast.int2ptr(addr)?;
@@ -87,7 +87,7 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Exit: Intrinsic,
+        IntrinsicOp::Exit: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
@@ -102,22 +102,22 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Assume: Intrinsic,
+        IntrinsicOp::Assume: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `Intrinsic::Assume`");
+            throw_ub!("invalid number of arguments for `Assume` intrinsic");
         }
         let Value::Bool(b) = arguments[0].0 else {
-            throw_ub!("invalid argument for `Intrinsic::Assume`: not a Boolean");
+            throw_ub!("invalid argument for `Assume` intrinsic: not a Boolean");
         };
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::Assume`")
+            throw_ub!("invalid return type for `Assume` intrinsic")
         }
 
         if !b {
-            throw_ub!("`Intrinsic::Assume` called on condition that is violated");
+            throw_ub!("`Assume` intrinsic called on condition that is violated");
         }
 
         ret(unit_value())
@@ -133,12 +133,12 @@ These are the `PrintStdout` and `PrintStderr` intrinsics.
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::PrintStdout: Intrinsic,
+        IntrinsicOp::PrintStdout: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::PrintStdout`")
+            throw_ub!("invalid return type for `PrintStdout` intrinsic")
         }
 
         self.eval_print(self.stdout, arguments)?;
@@ -148,12 +148,12 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::PrintStderr: Intrinsic,
+        IntrinsicOp::PrintStderr: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::PrintStderr`")
+            throw_ub!("invalid return type for `PrintStderr` intrinsic")
         }
 
         self.eval_print(self.stderr, arguments)?;
@@ -187,30 +187,30 @@ These intrinsics can be used for dynamic memory allocation and deallocation.
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Allocate: Intrinsic,
+        IntrinsicOp::Allocate: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
-            throw_ub!("invalid number of arguments for `Intrinsic::Allocate`");
+            throw_ub!("invalid number of arguments for `Allocate` intrinsic");
         }
 
         let Value::Int(size) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Allocate`: not an integer");
+            throw_ub!("invalid first argument to `Allocate` intrinsic: not an integer");
         };
         let Some(size) = Size::from_bytes(size) else {
-            throw_ub!("invalid size for `Intrinsic::Allocate`: negative size");
+            throw_ub!("invalid size for `Allocate` intrinsic: negative size");
         };
 
         let Value::Int(align) = arguments[1].0 else {
-            throw_ub!("invalid second argument to `Intrinsic::Allocate`: not an integer");
+            throw_ub!("invalid second argument to `Allocate` intrinsic: not an integer");
         };
         let Some(align) = Align::from_bytes(align) else {
-            throw_ub!("invalid alignment for `Intrinsic::Allocate`: not a power of 2");
+            throw_ub!("invalid alignment for `Allocate` intrinsic: not a power of 2");
         };
 
         if !matches!(ret_ty, Type::Ptr(_)) {
-            throw_ub!("invalid return type for `Intrinsic::Allocate`")
+            throw_ub!("invalid return type for `Allocate` intrinsic")
         }
 
         let alloc = self.mem.allocate(AllocationKind::Heap, size, align)?;
@@ -220,34 +220,34 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Deallocate: Intrinsic,
+        IntrinsicOp::Deallocate: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
-            throw_ub!("invalid number of arguments for `Intrinsic::Deallocate`");
+            throw_ub!("invalid number of arguments for `Deallocate` intrinsic");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Deallocate`: not a pointer");
+            throw_ub!("invalid first argument to `Deallocate` intrinsic: not a pointer");
         };
 
         let Value::Int(size) = arguments[1].0 else {
-            throw_ub!("invalid second argument to `Intrinsic::Deallocate`: not an integer");
+            throw_ub!("invalid second argument to `Deallocate` intrinsic: not an integer");
         };
         let Some(size) = Size::from_bytes(size) else {
-            throw_ub!("invalid size for `Intrinsic::Deallocate`: negative size");
+            throw_ub!("invalid size for `Deallocate` intrinsic: negative size");
         };
 
         let Value::Int(align) = arguments[2].0 else {
-            throw_ub!("invalid third argument to `Intrinsic::Deallocate`: not an integer");
+            throw_ub!("invalid third argument to `Deallocate` intrinsic: not an integer");
         };
         let Some(align) = Align::from_bytes(align) else {
-            throw_ub!("invalid alignment for `Intrinsic::Deallocate`: not a power of 2");
+            throw_ub!("invalid alignment for `Deallocate` intrinsic: not a power of 2");
         };
 
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::Deallocate`")
+            throw_ub!("invalid return type for `Deallocate` intrinsic")
         }
 
         self.mem.deallocate(ptr, AllocationKind::Heap, size, align)?;
@@ -276,26 +276,26 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Spawn: Intrinsic,
+        IntrinsicOp::Spawn: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
-            throw_ub!("invalid number of arguments for `Intrinsic::Spawn`");
+            throw_ub!("invalid number of arguments for `Spawn` intrinsic");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Spawn`: not a pointer");
+            throw_ub!("invalid first argument to `Spawn` intrinsic: not a pointer");
         };
         let func = self.fn_from_addr(ptr.addr)?;
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {
-            throw_ub!("invalid second argument to `Intrinsic::Spawn`: not a pointer");
+            throw_ub!("invalid second argument to `Spawn` intrinsic: not a pointer");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `Intrinsic::Spawn`")
+            throw_ub!("invalid return type for `Spawn` intrinsic")
         }
 
         let thread_id = self.spawn(func, data_ptr, data_ptr_ty)?;
@@ -304,7 +304,7 @@ impl<M: Memory> Machine<M> {
 
     fn join(&mut self, thread_id: ThreadId) -> NdResult {
         let Some(thread) = self.threads.get(thread_id) else {
-            throw_ub!("`Intrinsic::Join`: join non existing thread");
+            throw_ub!("`Join` intrinsic: join non existing thread");
         };
 
         match thread.state {
@@ -321,20 +321,20 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Join: Intrinsic,
+        IntrinsicOp::Join: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `Intrinsic::Join`");
+            throw_ub!("invalid number of arguments for `Join` intrinsic");
         }
 
         let Value::Int(thread_id) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::Join`: not an integer");
+            throw_ub!("invalid first argument to `Join` intrinsic: not an integer");
         };
 
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::Join`")
+            throw_ub!("invalid return type for `Join` intrinsic")
         }
 
         self.join(thread_id)?;
@@ -351,29 +351,29 @@ These intrinsics provide atomic accesses.
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::AtomicStore: Intrinsic,
+        IntrinsicOp::AtomicStore: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
-            throw_ub!("invalid number of arguments for `Intrinsic::AtomicStore`");
+            throw_ub!("invalid number of arguments for `AtomicStore` intrinsic");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicStore`: not a pointer");
+            throw_ub!("invalid first argument to `AtomicStore` intrinsic: not a pointer");
         };
 
         let (val, ty) = arguments[1];
         let size = ty.size::<M::T>();
         let Some(align) = Align::from_bytes(size.bytes()) else {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`: size not power of two");
+            throw_ub!("invalid second argument to `AtomicStore` intrinsic: size not power of two");
         };
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicStore`: size too big");
+            throw_ub!("invalid second argument to `AtomicStore` intrinsic: size too big");
         }
 
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `Intrinsic::AtomicStore`")
+            throw_ub!("invalid return type for `AtomicStore` intrinsic")
         }
 
         self.mem.typed_store(ptr, val, ty, align, Atomicity::Atomic)?;
@@ -382,24 +382,24 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::AtomicLoad: Intrinsic,
+        IntrinsicOp::AtomicLoad: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `Intrinsic::AtomicLoad`");
+            throw_ub!("invalid number of arguments for `AtomicLoad` intrinsic");
         }
     
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicLoad`: not a pointer");
+            throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a pointer");
         };
 
         let size = ret_ty.size::<M::T>();
         let Some(align) = Align::from_bytes(size.bytes()) else {
-            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`: size not power of two");
+            throw_ub!("invalid return type for `AtomicLoad` intrinsic: size not power of two");
         };
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicLoad`: size too big");
+            throw_ub!("invalid return type for `AtomicLoad` intrinsic: size too big");
         }
 
         let val = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
@@ -408,26 +408,26 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::AtomicCompareExchange: Intrinsic,
+        IntrinsicOp::AtomicCompareExchange: IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 3 {
-            throw_ub!("invalid number of arguments for `Intrinsic::AtomicCompareExchange`");
+            throw_ub!("invalid number of arguments for `AtomicCompareExchange` intrinsic");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicCompareExchange`: not a pointer");
+            throw_ub!("invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer");
         };
 
         let (current, curr_ty) = arguments[1];
         if curr_ty != ret_ty {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
+            throw_ub!("invalid second argument to `AtomicCompareExchange` intrinsic: not same type as return value");
         }
 
         let (next, next_ty) = arguments[2];
         if next_ty != ret_ty {
-            throw_ub!("invalid third argument to `Intrinsic::AtomicCompareExchange`: not same type as return value");
+            throw_ub!("invalid third argument to `AtomicCompareExchange` intrinsic: not same type as return value");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
@@ -438,7 +438,7 @@ impl<M: Memory> Machine<M> {
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicCompareExchange`: size too big");
+            throw_ub!("invalid return type for `AtomicCompareExchange` intrinsic: size too big");
         }
 
         // The value at the location right now.
@@ -459,32 +459,32 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::AtomicFetchAndOp(op): Intrinsic,
+        IntrinsicOp::AtomicFetchAndOp(op): IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 2 {
-            throw_ub!("invalid number of arguments for `Intrinsic::AtomicFetchAndOp`");
+            throw_ub!("invalid number of arguments for `AtomicFetchAndOp` intrinsic");
         }
 
         let Value::Ptr(ptr) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Intrinsic::AtomicFetchAndOp`: not a pointer");
+            throw_ub!("invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer");
         };
 
         let (other, other_ty) = arguments[1];
         if other_ty != ret_ty {
-            throw_ub!("invalid second argument to `Intrinsic::AtomicFetchAndOp`: not same type as return value");
+            throw_ub!("invalid second argument to `AtomicFetchAndOp` intrinsic: not same type as return value");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `Intrinis::AtomicFetchAndOp`: only works with integers");
+            throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
         }
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
-            throw_ub!("invalid return type for `Intrinsic::AtomicFetchAndOp`: size too big");
+            throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: size too big");
         }
 
         // The value at the location right now.

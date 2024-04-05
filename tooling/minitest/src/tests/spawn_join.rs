@@ -65,8 +65,8 @@ fn thread_spawn_spurious_race() {
 
 #[test]
 fn spawn_arg_count() {
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Spawn,
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Spawn,
         arguments: list![],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1))),
@@ -75,7 +75,7 @@ fn spawn_arg_count() {
     let f = function(Ret::No, 0, &[], &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Intrinsic::Spawn`")
+    assert_ub(p, "invalid number of arguments for `Spawn` intrinsic")
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn spawn_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Intrinsic::Spawn`: not a pointer")
+    assert_ub(p, "invalid first argument to `Spawn` intrinsic: not a pointer")
 }
 
 fn no_args() -> Function {
@@ -139,7 +139,7 @@ fn spawn_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid return type for `Intrinsic::Spawn`");
+    assert_ub(p, "invalid return type for `Spawn` intrinsic");
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn spawn_data_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid second argument to `Intrinsic::Spawn`: not a pointer");
+    assert_ub(p, "invalid second argument to `Spawn` intrinsic: not a pointer");
 }
 
 fn wrongarg() -> Function {
@@ -178,8 +178,8 @@ fn spawn_wrongarg() {
 fn join_arg_count() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Join,
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Join,
         arguments: list!(),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1)))
@@ -189,7 +189,7 @@ fn join_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid number of arguments for `Intrinsic::Join`");
+    assert_ub(p, "invalid number of arguments for `Join` intrinsic");
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn join_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `Intrinsic::Join`: not an integer");
+    assert_ub(p, "invalid first argument to `Join` intrinsic: not an integer");
 }
 
 #[test]
@@ -211,8 +211,8 @@ fn join_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Join,
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Join,
             arguments: list![const_int::<u32>(1)],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -223,7 +223,7 @@ fn join_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `Intrinsic::Join`");
+    assert_ub(p, "invalid return type for `Join` intrinsic");
 }
 
 #[test]
@@ -241,5 +241,5 @@ fn join_no_thread() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "`Intrinsic::Join`: join non existing thread");
+    assert_ub(p, "`Join` intrinsic: join non existing thread");
 }

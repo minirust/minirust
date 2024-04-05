@@ -30,5 +30,5 @@ fn requires_pointer() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "invalid argument for `Intrinsic::PointerExposeProvenance`: not a pointer");
+    assert_ub(program, "invalid argument for `PointerExposeProvenance` intrinsic: not a pointer");
 }

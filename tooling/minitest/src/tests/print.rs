@@ -36,8 +36,8 @@ fn print_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::PrintStdout,
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::PrintStdout,
             arguments: list![const_int::<usize>(4)],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -48,5 +48,5 @@ fn print_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid return type for `Intrinsic::PrintStdout`");
+    assert_ub(p, "invalid return type for `PrintStdout` intrinsic");
 }

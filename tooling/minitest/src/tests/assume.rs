@@ -19,15 +19,15 @@ fn assume_false() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "`Intrinsic::Assume` called on condition that is violated");
+    assert_ub(p, "`Assume` intrinsic called on condition that is violated");
 }
 
 #[test]
 fn assume_wrong_argnum() {
     let locals = [];
     let n = const_int::<usize>(4);
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Assume,
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Assume,
         arguments: list![], // no arguments
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1))),
@@ -35,7 +35,7 @@ fn assume_wrong_argnum() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Intrinsic::Assume`");
+    assert_ub(p, "invalid number of arguments for `Assume` intrinsic");
 }
 
 
@@ -43,8 +43,8 @@ fn assume_wrong_argnum() {
 fn assume_wrong_argty() {
     let locals = [];
     let n = const_int::<usize>(4);
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Assume,
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Assume,
         arguments: list![const_int::<i32>((0))], // should be bool, not int
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1))),
@@ -52,5 +52,5 @@ fn assume_wrong_argty() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument for `Intrinsic::Assume`: not a Boolean");
+    assert_ub(p, "invalid first argument for `Assume` intrinsic: not a Boolean");
 }

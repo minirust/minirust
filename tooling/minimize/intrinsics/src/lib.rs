@@ -1,4 +1,4 @@
-//! When used by `minimize`, a call to these functions will be replaced by a `CallIntrinsic`.
+//! When used by `minimize`, a call to these functions will be replaced by a `Intrinsic`.
 //! The bodies of these functions are mostly used through `tests/rust.sh`.
 
 #![feature(allocator_api)]

@@ -178,25 +178,25 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Return => {
             format!("    return;")
         }
-        Terminator::CallIntrinsic { intrinsic, arguments, ret, next_block } => {
+        Terminator::Intrinsic { intrinsic, arguments, ret, next_block } => {
             let callee = match intrinsic {
-                Intrinsic::Assume => "assume",
-                Intrinsic::Exit => "exit",
-                Intrinsic::PrintStdout => "print",
-                Intrinsic::PrintStderr => "eprint",
-                Intrinsic::Allocate => "allocate",
-                Intrinsic::Deallocate => "deallocate",
-                Intrinsic::Spawn => "spawn",
-                Intrinsic::Join => "join",
-                Intrinsic::AtomicStore => "atomic_store",
-                Intrinsic::AtomicLoad => "atomic_load",
-                Intrinsic::AtomicCompareExchange => "atomic_compare_exchange",
-                Intrinsic::AtomicFetchAndOp(binop) => fmt_fetch(binop),
-                Intrinsic::Lock(LockIntrinsic::Acquire) => "lock_acquire",
-                Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
-                Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",
-                Intrinsic::PointerExposeProvenance => "pointer_expose_provenance",
-                Intrinsic::PointerWithExposedProvenance => "pointer_with_exposed_provenance",
+                IntrinsicOp::Assume => "assume",
+                IntrinsicOp::Exit => "exit",
+                IntrinsicOp::PrintStdout => "print",
+                IntrinsicOp::PrintStderr => "eprint",
+                IntrinsicOp::Allocate => "allocate",
+                IntrinsicOp::Deallocate => "deallocate",
+                IntrinsicOp::Spawn => "spawn",
+                IntrinsicOp::Join => "join",
+                IntrinsicOp::AtomicStore => "atomic_store",
+                IntrinsicOp::AtomicLoad => "atomic_load",
+                IntrinsicOp::AtomicCompareExchange => "atomic_compare_exchange",
+                IntrinsicOp::AtomicFetchAndOp(binop) => fmt_fetch(binop),
+                IntrinsicOp::Lock(IntrinsicLockOp::Acquire) => "lock_acquire",
+                IntrinsicOp::Lock(IntrinsicLockOp::Create) => "lock_create",
+                IntrinsicOp::Lock(IntrinsicLockOp::Release) => "lock_release",
+                IntrinsicOp::PointerExposeProvenance => "pointer_expose_provenance",
+                IntrinsicOp::PointerWithExposedProvenance => "pointer_with_exposed_provenance",
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();

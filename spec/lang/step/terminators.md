@@ -339,7 +339,7 @@ It should probably do a `Validate` as the next step to encode that it would be U
 impl<M: Memory> Machine<M> {
     fn eval_terminator(
         &mut self,
-        Terminator::CallIntrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
+        Terminator::Intrinsic { intrinsic, arguments, ret: ret_expr, next_block }: Terminator
     ) -> NdResult {
         // First evaluate return place (left-to-right evaluation).
         let (ret_place, ret_ty) = self.eval_place(ret_expr)?;

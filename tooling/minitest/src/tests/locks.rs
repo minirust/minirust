@@ -114,8 +114,8 @@ fn lock_handover_data_race() {
 
 #[test]
 fn acquire_arg_count() {
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
         arguments: list![],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1))),
@@ -124,7 +124,7 @@ fn acquire_arg_count() {
     let f = function(Ret::No, 0, &[], &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `LockIntrinsic::Acquire`")
+    assert_ub(p, "invalid number of arguments for `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn acquire_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `LockIntrinsic::Acquire`")
+    assert_ub(p, "invalid first argument to `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -145,8 +145,8 @@ fn acquire_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
             arguments: list![const_int::<u32>(0)],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -156,7 +156,7 @@ fn acquire_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `LockIntrinsic::Acquire`")
+    assert_ub(p, "invalid return type for `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -181,8 +181,8 @@ fn acquire_non_existent() {
 fn release_arg_count() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
         arguments: list![],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1))),
@@ -191,7 +191,7 @@ fn release_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `LockIntrinsic::Release`")
+    assert_ub(p, "invalid number of arguments for `Release` lock intrinsic")
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn release_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `LockIntrinsic::Release`")
+    assert_ub(p, "invalid first argument to `Release` lock intrinsic")
 }
 
 #[test]
@@ -212,8 +212,8 @@ fn release_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
             arguments: list![const_int::<u32>(0)],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -223,7 +223,7 @@ fn release_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `LockIntrinsic::Release`")
+    assert_ub(p, "invalid return type for `Release` lock intrinsic")
 }
 
 #[test]
@@ -263,8 +263,8 @@ fn create_arg_count() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
             arguments: list![load(local(0))],
             ret: zst_place(),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -274,7 +274,7 @@ fn create_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `LockIntrinsic::Create`")
+    assert_ub(p, "invalid number of arguments for `Create` lock intrinsic")
 }
 
 #[test]
@@ -283,8 +283,8 @@ fn create_wrongreturn() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
             arguments: list![],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -294,7 +294,7 @@ fn create_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `LockIntrinsic::Create`")
+    assert_ub(p, "invalid return type for `Create` lock intrinsic")
 }
 
 // Other errors

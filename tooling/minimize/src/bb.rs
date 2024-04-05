@@ -7,7 +7,7 @@ use crate::*;
 /// then starts a new basic block.
 enum StatementResult {
     Statement(Statement),
-    Intrinsic { intrinsic: Intrinsic, destination: PlaceExpr, arguments: List<ValueExpr> },
+    Intrinsic { intrinsic: IntrinsicOp, destination: PlaceExpr, arguments: List<ValueExpr> },
 }
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
@@ -25,7 +25,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     // Generate a fresh bb name.
                     let next_bb = self.fresh_bb_name();
                     // End the current block by jumping to the next one.
-                    let terminator = Terminator::CallIntrinsic {
+                    let terminator = Terminator::Intrinsic {
                         intrinsic,
                         arguments,
                         ret: destination,
@@ -56,7 +56,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
                         let operand = self.translate_operand(operand);
                         return StatementResult::Intrinsic {
-                            intrinsic: Intrinsic::PointerExposeProvenance,
+                            intrinsic: IntrinsicOp::PointerExposeProvenance,
                             destination,
                             arguments: list![operand],
                         };
@@ -65,7 +65,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         // TODO untested so far! (Can't test because of `predict`)
                         let operand = self.translate_operand(operand);
                         return StatementResult::Intrinsic {
-                            intrinsic: Intrinsic::PointerWithExposedProvenance,
+                            intrinsic: IntrinsicOp::PointerWithExposedProvenance,
                             destination,
                             arguments: list![operand],
                         };
@@ -102,7 +102,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // Doesn't return anything, get us a dummy place.
                 let destination = build::zst_place();
                 return StatementResult::Intrinsic {
-                    intrinsic: Intrinsic::Assume,
+                    intrinsic: IntrinsicOp::Assume,
                     destination,
                     arguments: list![op],
                 };
@@ -179,24 +179,24 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             let intrinsic = match self.tcx.item_name(f).as_str() {
-                "print" => Intrinsic::PrintStdout,
-                "eprint" => Intrinsic::PrintStderr,
-                "exit" => Intrinsic::Exit,
-                "allocate" => Intrinsic::Allocate,
-                "deallocate" => Intrinsic::Deallocate,
-                "spawn" => Intrinsic::Spawn,
-                "join" => Intrinsic::Join,
-                "create_lock" => Intrinsic::Lock(LockIntrinsic::Create),
-                "acquire" => Intrinsic::Lock(LockIntrinsic::Acquire),
-                "release" => Intrinsic::Lock(LockIntrinsic::Release),
-                "atomic_store" => Intrinsic::AtomicStore,
-                "atomic_load" => Intrinsic::AtomicLoad,
-                "compare_exchange" => Intrinsic::AtomicCompareExchange,
-                "atomic_fetch_add" => Intrinsic::AtomicFetchAndOp(BinOpInt::Add),
-                "atomic_fetch_sub" => Intrinsic::AtomicFetchAndOp(BinOpInt::Sub),
+                "print" => IntrinsicOp::PrintStdout,
+                "eprint" => IntrinsicOp::PrintStderr,
+                "exit" => IntrinsicOp::Exit,
+                "allocate" => IntrinsicOp::Allocate,
+                "deallocate" => IntrinsicOp::Deallocate,
+                "spawn" => IntrinsicOp::Spawn,
+                "join" => IntrinsicOp::Join,
+                "create_lock" => IntrinsicOp::Lock(IntrinsicLockOp::Create),
+                "acquire" => IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
+                "release" => IntrinsicOp::Lock(IntrinsicLockOp::Release),
+                "atomic_store" => IntrinsicOp::AtomicStore,
+                "atomic_load" => IntrinsicOp::AtomicLoad,
+                "compare_exchange" => IntrinsicOp::AtomicCompareExchange,
+                "atomic_fetch_add" => IntrinsicOp::AtomicFetchAndOp(BinOpInt::Add),
+                "atomic_fetch_sub" => IntrinsicOp::AtomicFetchAndOp(BinOpInt::Sub),
                 name => panic!("unsupported intrinsic `{}`", name),
             };
-            Terminator::CallIntrinsic {
+            Terminator::Intrinsic {
                 intrinsic,
                 arguments: args.iter().map(|x| self.translate_operand(&x.node)).collect(),
                 ret: self.translate_place(&destination),

@@ -512,7 +512,7 @@ impl Terminator {
                     None => list![],
                 }
             }
-            CallIntrinsic { intrinsic, arguments, ret, next_block } => {
+            Intrinsic { intrinsic, arguments, ret, next_block } => {
                 // Return and argument expressions must all typecheck with some type.
                 ret.check_wf::<T>(live_locals, prog)?;
                 for arg in arguments {
@@ -521,7 +521,7 @@ impl Terminator {
 
                 // Currently only AtomicFetchAndOp has special well-formedness requirements.
                 match intrinsic {
-                    Intrinsic::AtomicFetchAndOp(op) => {
+                    IntrinsicOp::AtomicFetchAndOp(op) => {
                         if !is_atomic_binop(op) {
                             throw!();
                         }

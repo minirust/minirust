@@ -88,8 +88,8 @@ fn mk_start_fn(entry: u32) -> Function {
 
     let b1 = BasicBlock {
         statements: List::new(),
-        terminator: Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Exit,
+        terminator: Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Exit,
             arguments: List::new(),
             ret: build::zst_place(),
             next_block: None,

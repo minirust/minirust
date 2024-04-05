@@ -116,16 +116,16 @@ This exposes the Machine operations for locks to the language as intrinsics.
 impl<M: Memory> Machine<M> {
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Lock(LockIntrinsic::Create): Intrinsic,
+        IntrinsicOp::Lock(IntrinsicLockOp::Create): IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() > 0 {
-            throw_ub!("invalid number of arguments for `LockIntrinsic::Create`");
+            throw_ub!("invalid number of arguments for `Create` lock intrinsic");
         }
 
         if !matches!(ret_ty, Type::Int(_)) {
-            throw_ub!("invalid return type for `LockIntrinsic::Create`")
+            throw_ub!("invalid return type for `Create` lock intrinsic")
         }
 
         let lock_id = self.lock_create();
@@ -135,20 +135,20 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Lock(LockIntrinsic::Acquire): Intrinsic,
+        IntrinsicOp::Lock(IntrinsicLockOp::Acquire): IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `LockIntrinsic::Acquire`");
+            throw_ub!("invalid number of arguments for `Acquire` lock intrinsic");
         }
 
         let Value::Int(lock_id) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `LockIntrinsic::Acquire`");
+            throw_ub!("invalid first argument to `Acquire` lock intrinsic");
         };
 
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `LockIntrinsic::Acquire`")
+            throw_ub!("invalid return type for `Acquire` lock intrinsic")
         }
 
         self.lock_acquire(lock_id)?;
@@ -158,20 +158,20 @@ impl<M: Memory> Machine<M> {
 
     fn eval_intrinsic(
         &mut self,
-        Intrinsic::Lock(LockIntrinsic::Release): Intrinsic,
+        IntrinsicOp::Lock(IntrinsicLockOp::Release): IntrinsicOp,
         arguments: List<(Value<M>, Type)>,
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         if arguments.len() != 1 {
-            throw_ub!("invalid number of arguments for `LockIntrinsic::Release`");
+            throw_ub!("invalid number of arguments for `Release` lock intrinsic");
         }
 
         let Value::Int(lock_id) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `LockIntrinsic::Release`");
+            throw_ub!("invalid first argument to `Release` lock intrinsic");
         };
 
         if ret_ty != unit_type() {
-            throw_ub!("invalid return type for `LockIntrinsic::Release`")
+            throw_ub!("invalid return type for `Release` lock intrinsic")
         }
 
         self.lock_release(lock_id)?;

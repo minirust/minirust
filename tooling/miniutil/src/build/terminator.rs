@@ -49,8 +49,8 @@ pub fn in_place(arg: PlaceExpr) -> ArgumentExpr {
 }
 
 pub fn assume(val: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Assume,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Assume,
         arguments: list![val],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -58,8 +58,8 @@ pub fn assume(val: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn print(arg: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::PrintStdout,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::PrintStdout,
         arguments: list![arg],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -67,8 +67,8 @@ pub fn print(arg: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn eprint(arg: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::PrintStderr,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::PrintStderr,
         arguments: list![arg],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -76,8 +76,8 @@ pub fn eprint(arg: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn allocate(size: ValueExpr, align: ValueExpr, ret_place: PlaceExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Allocate,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Allocate,
         arguments: list![size, align],
         ret: ret_place,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -85,8 +85,8 @@ pub fn allocate(size: ValueExpr, align: ValueExpr, ret_place: PlaceExpr, next: u
 }
 
 pub fn deallocate(ptr: ValueExpr, size: ValueExpr, align: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Deallocate,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Deallocate,
         arguments: list![ptr, size, align],
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -94,8 +94,8 @@ pub fn deallocate(ptr: ValueExpr, size: ValueExpr, align: ValueExpr, next: u32) 
 }
 
 pub fn exit() -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Exit,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Exit,
         arguments: list![],
         ret: zst_place(),
         next_block: None,
@@ -107,8 +107,8 @@ pub fn return_() -> Terminator {
 }
 
 pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: PlaceExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Spawn,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Spawn,
         arguments: list!(fn_ptr, data_ptr),
         ret,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -116,8 +116,8 @@ pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: PlaceExpr, next: u32) 
 }
 
 pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Join,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Join,
         arguments: list!(thread_id),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -125,8 +125,8 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn atomic_store(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicStore,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicStore,
         arguments: list!(ptr, src),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -134,8 +134,8 @@ pub fn atomic_store(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn atomic_load(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicLoad,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicLoad,
         arguments: list!(ptr),
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -159,8 +159,8 @@ pub fn atomic_fetch(
         FetchBinOp::Sub => BinOpInt::Sub,
     };
 
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicFetchAndOp(binop),
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicFetchAndOp(binop),
         arguments: list!(ptr, other),
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -174,8 +174,8 @@ pub fn compare_exchange(
     next_val: ValueExpr,
     next: u32,
 ) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicCompareExchange,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicCompareExchange,
         arguments: list!(ptr, current, next_val),
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -183,8 +183,8 @@ pub fn compare_exchange(
 }
 
 pub fn expose_provenance(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::PointerExposeProvenance,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::PointerExposeProvenance,
         arguments: list![ptr],
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -192,8 +192,8 @@ pub fn expose_provenance(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminat
 }
 
 pub fn with_exposed_provenance(dest: PlaceExpr, addr: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::PointerWithExposedProvenance,
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::PointerWithExposedProvenance,
         arguments: list![addr],
         ret: dest,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -201,8 +201,8 @@ pub fn with_exposed_provenance(dest: PlaceExpr, addr: ValueExpr, next: u32) -> T
 }
 
 pub fn lock_create(ret: PlaceExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
         arguments: list!(),
         ret: ret,
         next_block: Some(BbName(Name::from_internal(next))),
@@ -210,8 +210,8 @@ pub fn lock_create(ret: PlaceExpr, next: u32) -> Terminator {
 }
 
 pub fn lock_acquire(lock_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
         arguments: list!(lock_id),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),
@@ -219,8 +219,8 @@ pub fn lock_acquire(lock_id: ValueExpr, next: u32) -> Terminator {
 }
 
 pub fn lock_release(lock_id: ValueExpr, next: u32) -> Terminator {
-    Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
         arguments: list!(lock_id),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(next))),

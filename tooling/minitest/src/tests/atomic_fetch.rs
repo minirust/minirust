@@ -35,8 +35,8 @@ fn atomic_fetch_success() {
 fn atomic_fetch_arg_count() {
     let locals = [];
 
-    let b0 = block!(Terminator::CallIntrinsic {
-        intrinsic: Intrinsic::AtomicFetchAndOp(BinOpInt::Add),
+    let b0 = block!(Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicFetchAndOp(BinOpInt::Add),
         arguments: list!(),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1)))
@@ -46,7 +46,7 @@ fn atomic_fetch_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid number of arguments for `Intrinsic::AtomicFetchAndOp`");
+    assert_ub(p, "invalid number of arguments for `AtomicFetchAndOp` intrinsic");
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn atomic_fetch_arg_1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `Intrinsic::AtomicFetchAndOp`: not a pointer");
+    assert_ub(p, "invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer");
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn atomic_fetch_arg_2() {
 
     assert_ub(
         p,
-        "invalid second argument to `Intrinsic::AtomicFetchAndOp`: not same type as return value",
+        "invalid second argument to `AtomicFetchAndOp` intrinsic: not same type as return value",
     );
 }
 
@@ -109,7 +109,7 @@ fn atomic_fetch_ret_ty() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `Intrinis::AtomicFetchAndOp`: only works with integers");
+    assert_ub(p, "invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn atomic_fetch_int_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `Intrinsic::AtomicFetchAndOp`: size too big");
+    assert_ub(p, "invalid return type for `AtomicFetchAndOp` intrinsic: size too big");
 }
 
 #[test]
@@ -142,8 +142,8 @@ fn atomic_fetch_op() {
         storage_live(0),
         storage_live(1),
         assign(local(0), const_int::<u32>(3)),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::AtomicFetchAndOp(BinOpInt::Mul),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::AtomicFetchAndOp(BinOpInt::Mul),
             arguments: list!(addr_of(local(0), ptr_ty), const_int::<u32>(1)),
             ret: local(1),
             next_block: Some(BbName(Name::from_internal(1)))

@@ -266,6 +266,19 @@ pub enum Terminator {
     },
     /// If this is ever executed, we have UB.
     Unreachable,
+    /// Invoke the given intrinsic operation with the given arguments.
+    ///
+    /// Intrinsics are langauge primitives that can have arbitrary side-effects, including divergence.
+    Intrinsic {
+        intrinsic: IntrinsicOp,
+        /// The arguments to pass.
+        arguments: List<ValueExpr>,
+        /// The place to put the return value into.
+        ret: PlaceExpr,
+        /// The block to jump to when this call returns.
+        /// If `None`, UB will be raised when the intrinsic returns.
+        next_block: Option<BbName>,
+    },
     /// Call the given function with the given arguments.
     Call {
         callee: ValueExpr,
@@ -275,17 +288,6 @@ pub enum Terminator {
         ret: PlaceExpr,
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the function returns.
-        next_block: Option<BbName>,
-    },
-    /// Call the given intrinsic function with the given arguments.
-    CallIntrinsic {
-        intrinsic: Intrinsic,
-        /// The arguments to pass.
-        arguments: List<ValueExpr>,
-        /// The place to put the return value into.
-        ret: PlaceExpr,
-        /// The block to jump to when this call returns.
-        /// If `None`, UB will be raised when the intrinsic returns.
         next_block: Option<BbName>,
     },
     /// Return from the current function.
@@ -303,13 +305,14 @@ pub enum ArgumentExpr {
     InPlace(PlaceExpr),
 }
 
-pub enum LockIntrinsic {
+pub enum IntrinsicLockOp {
     Acquire,
     Release,
     Create,
 }
 
-pub enum Intrinsic {
+/// The intrinsic operations supported by MiniRust.
+pub enum IntrinsicOp {
     Assume,
     Exit,
     PrintStdout,
@@ -322,7 +325,7 @@ pub enum Intrinsic {
     AtomicLoad,
     AtomicCompareExchange,
     AtomicFetchAndOp(BinOpInt),
-    Lock(LockIntrinsic),
+    Lock(IntrinsicLockOp),
     /// 'Expose' the provenance a pointer so that it can later be cast to an integer.
     /// The address part of the pointer is stored in `destination`.
     PointerExposeProvenance,

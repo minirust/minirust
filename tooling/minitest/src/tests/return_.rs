@@ -45,8 +45,8 @@ fn return_intrinsic_no_next() {
 
     let b0 = block!(
         storage_live(0),
-        Terminator::CallIntrinsic {
-            intrinsic: Intrinsic::Allocate,
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
             arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
             ret: local(0),
             next_block: None,
