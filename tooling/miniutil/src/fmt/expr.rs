@@ -150,10 +150,6 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     FmtExpr::Atomic(format!("bool2int<{int_ty}>({operand})"))
                 }
                 UnOp::Bool(UnOpBool::Not) => FmtExpr::Atomic(format!("!{operand}")),
-                UnOp::Cast(CastOp::PtrFromExposed(ptr_ty)) => {
-                    let ptr_ty = fmt_ptr_type(ptr_ty).to_string();
-                    FmtExpr::Atomic(format!("from_exposed<{ptr_ty}>({operand})"))
-                }
                 UnOp::Cast(CastOp::Transmute(new_ty)) => {
                     let new_ty = fmt_type(new_ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))

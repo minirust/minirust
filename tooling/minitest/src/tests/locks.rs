@@ -17,17 +17,17 @@ fn lock_handover() {
     let b0 = block!(
         storage_live(1),
         assign(local(1), const_int::<u32>(0)),
-        acquire(load(global::<u32>(0)), 1)
+        lock_acquire(load(global::<u32>(0)), 1)
     );
     let b1 = block!(if_(eq(load(local(1)), const_int::<u32>(256)), 3, 2));
     let b2 = block!(assign(local(1), add(load(local(1)), const_int::<u32>(1))), goto(1));
-    let b3 = block!(release(load(global::<u32>(0)), 4));
+    let b3 = block!(lock_release(load(global::<u32>(0)), 4));
     let b4 = block!(return_());
     let critical = function(Ret::Yes, 0, &locals, &[b0, b1, b2, b3, b4]);
 
     let locals = [<u32>::get_type(), <()>::get_type()];
 
-    let b0 = block!(storage_live(0), storage_live(1), create_lock(global::<u32>(0), 1),);
+    let b0 = block!(storage_live(0), storage_live(1), lock_create(global::<u32>(0), 1),);
     let b1 = block!(spawn(fn_ptr(1), null(), local(0), 2));
     let b2 = block!(call(2, &[], local(1), Some(3)));
     let b3 = block!(join(load(local(0)), 4));
@@ -79,19 +79,19 @@ fn lock_handover_data_race() {
 
     let p_ptype = <u32>::get_type();
 
-    let b0 = block!(acquire(load(global::<u32>(0)), 1));
+    let b0 = block!(lock_acquire(load(global::<u32>(0)), 1));
     let b1 = block!(atomic_store(
         addr_of(global::<*const u32>(1), <*const *const u32>::get_type()),
         addr_of(global::<u32>(0), ptr_ty),
         2
     ));
-    let b2 = block!(release(load(deref(load(global::<*const u32>(1)), p_ptype)), 3));
+    let b2 = block!(lock_release(load(deref(load(global::<*const u32>(1)), p_ptype)), 3));
     let b3 = block!(return_());
     let critical = function(Ret::Yes, 0, &locals, &[b0, b1, b2, b3]);
 
     let locals = [<u32>::get_type(), <()>::get_type()];
 
-    let b0 = block!(storage_live(0), storage_live(1), create_lock(global::<u32>(0), 1),);
+    let b0 = block!(storage_live(0), storage_live(1), lock_create(global::<u32>(0), 1),);
     let b1 = block!(spawn(fn_ptr(1), null(), local(0), 2));
     let b2 = block!(call(2, &[], local(1), Some(3)));
     let b3 = block!(join(load(local(0)), 4));
@@ -131,7 +131,7 @@ fn acquire_arg_count() {
 fn acquire_arg_value() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), acquire(load(local(0)), 1),);
+    let b0 = block!(storage_live(0), lock_acquire(load(local(0)), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -163,8 +163,11 @@ fn acquire_wrongreturn() {
 fn acquire_non_existent() {
     let locals = [<u32>::get_type()];
 
-    let b0 =
-        block!(storage_live(0), assign(local(0), const_int::<u32>(0)), acquire(load(local(0)), 1),);
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), const_int::<u32>(0)),
+        lock_acquire(load(local(0)), 1),
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -195,7 +198,7 @@ fn release_arg_count() {
 fn release_arg_value() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), release(load(local(0)), 1),);
+    let b0 = block!(storage_live(0), lock_release(load(local(0)), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -227,8 +230,11 @@ fn release_wrongreturn() {
 fn release_non_existent() {
     let locals = [<u32>::get_type()];
 
-    let b0 =
-        block!(storage_live(0), assign(local(0), const_int::<u32>(0)), release(load(local(0)), 1),);
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), const_int::<u32>(0)),
+        lock_release(load(local(0)), 1),
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -240,8 +246,8 @@ fn release_non_existent() {
 fn release_non_owned() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(storage_live(0), create_lock(local(0), 1),);
-    let b1 = block!(release(load(local(0)), 2),);
+    let b0 = block!(storage_live(0), lock_create(local(0), 1),);
+    let b1 = block!(lock_release(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
@@ -302,17 +308,17 @@ fn deadlock() {
     // The locals are used to store the thread ids.
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(create_lock(global::<u32>(0), 1));
-    let b1 = block!(acquire(load(global::<u32>(0)), 2));
+    let b0 = block!(lock_create(global::<u32>(0), 1));
+    let b1 = block!(lock_acquire(load(global::<u32>(0)), 2));
     let b2 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 3));
     let b3 = block!(join(load(local(0)), 4));
-    let b4 = block!(release(load(global::<u32>(0)), 5));
+    let b4 = block!(lock_release(load(global::<u32>(0)), 5));
     let b5 = block!(exit());
     let main = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4, b5]);
 
     let locals = [<()>::get_type(), <*const ()>::get_type()];
-    let b0 = block!(acquire(load(global::<u32>(0)), 1));
-    let b1 = block!(release(load(global::<u32>(0)), 2));
+    let b0 = block!(lock_acquire(load(global::<u32>(0)), 1));
+    let b1 = block!(lock_release(load(global::<u32>(0)), 2));
     let b2 = block!(return_());
     let second = function(Ret::Yes, 1, &locals, &[b0, b1, b2]);
 

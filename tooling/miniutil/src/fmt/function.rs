@@ -89,10 +89,6 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let right = fmt_value_expr(source, comptypes).to_string();
             format!("    {left} = {right};")
         }
-        Statement::Expose { value } => {
-            let val = fmt_value_expr(value, comptypes).to_string();
-            format!("    expose({val});")
-        }
         Statement::SetDiscriminant { destination, value } => {
             let left = fmt_place_expr(destination, comptypes).to_string();
             format!("    discriminant({left}) = {value};")
@@ -199,6 +195,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 Intrinsic::Lock(LockIntrinsic::Acquire) => "lock_acquire",
                 Intrinsic::Lock(LockIntrinsic::Create) => "lock_create",
                 Intrinsic::Lock(LockIntrinsic::Release) => "lock_release",
+                Intrinsic::PointerExposeProvenance => "pointer_expose_provenance",
+                Intrinsic::PointerWithExposedProvenance => "pointer_with_exposed_provenance",
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();

@@ -26,6 +26,52 @@ fn unit_type() -> Type {
 }
 ```
 
+## Pointer provenance management
+
+See [this blog post](https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html) for why this is needed.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(&mut self,
+        Intrinsic::PointerExposeProvenance: Intrinsic,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::PointerExposeProvenance`");
+        }
+        let Value::Ptr(ptr) = arguments[0].0 else {
+            throw_ub!("invalid argument for `Intrinsic::PointerExposeProvenance`: not a pointer");
+        };
+        if ret_ty != Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE }) {
+            throw_ub!("invalid return type for `Intrinsic::PointerExposeProvenance`")
+        }
+
+        self.intptrcast.expose(ptr);
+        ret(Value::Int(ptr.addr))
+    }
+
+    fn eval_intrinsic(&mut self,
+        Intrinsic::PointerWithExposedProvenance: Intrinsic,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 1 {
+            throw_ub!("invalid number of arguments for `Intrinsic::PointerWithExposedProvenance`");
+        }
+        let Value::Int(addr) = arguments[0].0 else {
+            throw_ub!("invalid argument for `Intrinsic::PointerWithExposedProvenance`: not an integer");
+        };
+        if !matches!(ret_ty, Type::Ptr(_)) {
+            throw_ub!("invalid return type for `Intrinsic::PointerWithExposedProvenance`")
+        }
+
+        let ptr = self.intptrcast.int2ptr(addr)?;
+        ret(Value::Ptr(ptr))
+    }
+}
+```
+
 ## Machine primitives
 
 We start with the `Exit` intrinsic.

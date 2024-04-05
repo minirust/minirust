@@ -70,11 +70,6 @@ impl<M: Memory> Machine<M> {
                 let result = if operand { Int::ONE } else { Int::ZERO };
                 ret((Value::Int(result), Type::Int(int_ty)))
             },
-            PtrFromExposed(ptr_ty) => {
-                let Value::Int(addr) = operand else { panic!("non-integer input to int-to-pointer cast") };
-                let result = self.intptrcast.int2ptr(addr)?;
-                ret((Value::Ptr(result), Type::Ptr(ptr_ty)))
-            }
             Transmute(new_ty) => {
                 if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
                     throw_ub!("transmute between types of different size")

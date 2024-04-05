@@ -3,57 +3,115 @@ use crate::*;
 // Some Rust features are not supported, and are ignored by `minimize`.
 // Those can be found by grepping "IGNORED".
 
+/// A MIR statement becomes either a MiniRust statement or an intrinsic with some arguments, which
+/// then starts a new basic block.
+enum StatementResult {
+    Statement(Statement),
+    Intrinsic { intrinsic: Intrinsic, destination: PlaceExpr, arguments: List<ValueExpr> },
+}
+
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
-    pub fn translate_bb(&mut self, bb: &rs::BasicBlockData<'tcx>) -> BasicBlock {
-        let mut statements = List::new();
+    /// Translate the given basic block and insert it into `self` with the given name.
+    /// May insert more than one block because some MIR statements turn into MiniRust terminators.
+    pub fn translate_bb(&mut self, name: BbName, bb: &rs::BasicBlockData<'tcx>) {
+        let mut cur_block_name = name;
+        let mut cur_block_statements = List::new();
         for stmt in bb.statements.iter() {
-            let stmts = self.translate_stmt(stmt);
-            for stmt in stmts {
-                statements.push(stmt);
+            match self.translate_stmt(stmt) {
+                StatementResult::Statement(stmt) => {
+                    cur_block_statements.push(stmt);
+                }
+                StatementResult::Intrinsic { intrinsic, destination, arguments } => {
+                    // Generate a fresh bb name.
+                    let next_bb = self.fresh_bb_name();
+                    // End the current block by jumping to the next one.
+                    let terminator = Terminator::CallIntrinsic {
+                        intrinsic,
+                        arguments,
+                        ret: destination,
+                        next_block: Some(next_bb),
+                    };
+                    let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+                    let old = self.blocks.insert(cur_block_name, cur_block);
+                    assert!(old.is_none()); // make sure we do not overwrite a bb
+                    // Go on building the next block.
+                    cur_block_name = next_bb;
+                    cur_block_statements = List::new();
+                }
             }
         }
-        BasicBlock { statements, terminator: self.translate_terminator(bb.terminator()) }
+        let terminator = self.translate_terminator(bb.terminator());
+        let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+        let old = self.blocks.insert(cur_block_name, cur_block);
+        assert!(old.is_none()); // make sure we do not overwrite a bb
     }
 
-    fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> Vec<Statement> {
-        match &stmt.kind {
+    fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> StatementResult {
+        StatementResult::Statement(match &stmt.kind {
             rs::StatementKind::Assign(box (place, rval)) => {
                 let destination = self.translate_place(place);
-                let (mut stmts, source) = self.translate_rvalue(rval);
-                stmts.push(Statement::Assign { destination, source });
-                stmts
+                // Some things that MIR handles as rvalues are non-deterministic,
+                // so MiniRust treats them differently.
+                match rval {
+                    rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
+                        let operand = self.translate_operand(operand);
+                        return StatementResult::Intrinsic {
+                            intrinsic: Intrinsic::PointerExposeProvenance,
+                            destination,
+                            arguments: list![operand],
+                        };
+                    }
+                    rs::Rvalue::Cast(rs::CastKind::PointerFromExposedAddress, operand, _) => {
+                        // TODO untested so far! (Can't test because of `predict`)
+                        let operand = self.translate_operand(operand);
+                        return StatementResult::Intrinsic {
+                            intrinsic: Intrinsic::PointerWithExposedProvenance,
+                            destination,
+                            arguments: list![operand],
+                        };
+                    }
+                    _ => {}
+                }
+                let source = self.translate_rvalue(rval);
+                Statement::Assign { destination, source }
             }
-            rs::StatementKind::StorageLive(local) => {
-                vec![Statement::StorageLive(self.local_name_map[&local])]
-            }
-            rs::StatementKind::StorageDead(local) => {
-                vec![Statement::StorageDead(self.local_name_map[&local])]
-            }
+            rs::StatementKind::StorageLive(local) =>
+                Statement::StorageLive(self.local_name_map[&local]),
+            rs::StatementKind::StorageDead(local) =>
+                Statement::StorageDead(self.local_name_map[&local]),
             rs::StatementKind::Retag(kind, place) => {
                 let place = self.translate_place(place);
                 let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
-                vec![Statement::Validate { place, fn_entry }]
+                Statement::Validate { place, fn_entry }
             }
             rs::StatementKind::Deinit(place) => {
                 let place = self.translate_place(place);
-                vec![Statement::Deinit { place }]
+                Statement::Deinit { place }
             }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
                     rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
                 let discriminant = self.discriminant_for_variant(place_ty, *variant_index);
-                vec![Statement::SetDiscriminant {
+                Statement::SetDiscriminant {
                     destination: self.translate_place(place),
                     value: discriminant,
-                }]
+                }
             }
-            // FIXME: add assume intrinsic statement to MiniRust.
-            rs::StatementKind::Intrinsic(box rs::NonDivergingIntrinsic::Assume(_)) => vec![],
+            rs::StatementKind::Intrinsic(box rs::NonDivergingIntrinsic::Assume(op)) => {
+                let op = self.translate_operand(op);
+                // Doesn't return anything, get us a dummy place.
+                let destination = build::zst_place();
+                return StatementResult::Intrinsic {
+                    intrinsic: Intrinsic::Assume,
+                    destination,
+                    arguments: list![op],
+                };
+            }
             x => {
                 dbg!(x);
                 todo!()
             }
-        }
+        })
     }
 
     fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> Terminator {

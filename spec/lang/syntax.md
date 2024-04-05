@@ -111,8 +111,6 @@ pub enum CastOp {
     /// Argument is a Boolean; returns the given integer type.
     /// True becomes `Int::ONE` and false `Int::ZERO`.
     BoolToInt(IntType),
-    /// Integer-to-pointer cast (uses previously exposed provenance).
-    PtrFromExposed(PtrType),
     /// Transmute the value to a different type.
     /// The program is well-formed even if the output type has a different size than the
     /// input type, but the operation is UB in that case.
@@ -229,10 +227,6 @@ pub enum Statement {
         destination: PlaceExpr,
         source: ValueExpr,
     },
-    /// 'Expose' a pointer so that it can later be cast to an integer.
-    Expose {
-        value: ValueExpr,
-    },
     /// Set the discriminant of the variant at `destination` to `value`.
     SetDiscriminant {
         destination: PlaceExpr,
@@ -284,7 +278,7 @@ pub enum Terminator {
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,
     },
-    /// Call the given intrinsic with the given arguments.
+    /// Call the given intrinsic function with the given arguments.
     CallIntrinsic {
         intrinsic: Intrinsic,
         /// The arguments to pass.
@@ -331,6 +325,11 @@ pub enum Intrinsic {
     AtomicCompareExchange,
     AtomicFetchAndOp(BinOpInt),
     Lock(LockIntrinsic),
+    /// 'Expose' the provenance a pointer so that it can later be cast to an integer.
+    /// The address part of the pointer is stored in `destination`.
+    PointerExposeProvenance,
+    /// Create a new pointer from the given address with some previously exposed provenance.
+    PointerWithExposedProvenance,
 }
 ```
 

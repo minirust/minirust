@@ -41,22 +41,6 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-## Exposing a pointer
-
-See [this blog post](https://www.ralfj.de/blog/2022/04/11/provenance-exposed.html) for why this is needed.
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_statement(&mut self, Statement::Expose { value }: Statement) -> NdResult {
-        let (v, _type) = self.eval_value(value)?;
-        let Value::Ptr(ptr) = v else { panic!("non-pointer value in `Expose`") };
-        self.intptrcast.expose(ptr);
-
-        ret(())
-    }
-}
-```
-
 ## Setting a discriminant
 
 ```rust

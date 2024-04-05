@@ -4,10 +4,6 @@ pub fn assign(destination: PlaceExpr, source: ValueExpr) -> Statement {
     Statement::Assign { destination, source }
 }
 
-pub fn expose(value: ValueExpr) -> Statement {
-    Statement::Expose { value }
-}
-
 pub fn set_discriminant(destination: PlaceExpr, value: impl Into<Int>) -> Statement {
     Statement::SetDiscriminant { destination, value: value.into() }
 }
@@ -206,7 +202,25 @@ pub fn compare_exchange(
     }
 }
 
-pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
+pub fn expose_provenance(dest: PlaceExpr, ptr: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::PointerExposeProvenance,
+        arguments: list![ptr],
+        ret: dest,
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
+}
+
+pub fn with_exposed_provenance(dest: PlaceExpr, addr: ValueExpr, next: u32) -> Terminator {
+    Terminator::CallIntrinsic {
+        intrinsic: Intrinsic::PointerWithExposedProvenance,
+        arguments: list![addr],
+        ret: dest,
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
+}
+
+pub fn lock_create(ret: PlaceExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Create),
         arguments: list!(),
@@ -215,7 +229,7 @@ pub fn create_lock(ret: PlaceExpr, next: u32) -> Terminator {
     }
 }
 
-pub fn acquire(lock_id: ValueExpr, next: u32) -> Terminator {
+pub fn lock_acquire(lock_id: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Acquire),
         arguments: list!(lock_id),
@@ -224,7 +238,7 @@ pub fn acquire(lock_id: ValueExpr, next: u32) -> Terminator {
     }
 }
 
-pub fn release(lock_id: ValueExpr, next: u32) -> Terminator {
+pub fn lock_release(lock_id: ValueExpr, next: u32) -> Terminator {
     Terminator::CallIntrinsic {
         intrinsic: Intrinsic::Lock(LockIntrinsic::Release),
         arguments: list!(lock_id),

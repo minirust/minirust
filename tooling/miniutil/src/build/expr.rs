@@ -66,13 +66,6 @@ pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Cast(CastOp::IntToInt(t)), operand: GcCow::new(v) }
 }
 
-pub fn int_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
-    let Type::Ptr(ptr_ty) = t else {
-        panic!("int_to_ptr requires Type::Ptr argument!");
-    };
-    ValueExpr::UnOp { operator: UnOp::Cast(CastOp::PtrFromExposed(ptr_ty)), operand: GcCow::new(v) }
-}
-
 pub fn ptr_addr(v: ValueExpr) -> ValueExpr {
     transmute(v, <usize>::get_type())
 }

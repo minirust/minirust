@@ -293,10 +293,6 @@ impl ValueExpr {
                                 ensure(matches!(operand, Type::Bool))?;
                                 Type::Int(int_ty)
                             }
-                            PtrFromExposed(ptr_ty) => {
-                                ensure(operand == Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE }))?;
-                                Type::Ptr(ptr_ty)
-                            }
                             Transmute(new_ty) => {
                                 new_ty
                             }
@@ -412,11 +408,6 @@ impl Statement {
                 let left = destination.check_wf::<T>(live_locals, prog)?;
                 let right = source.check_wf::<T>(live_locals, prog)?;
                 ensure(left == right)?;
-                live_locals
-            }
-            Expose { value } => {
-                let v = value.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(v, Type::Ptr(_)))?;
                 live_locals
             }
             SetDiscriminant { destination, value } => {
