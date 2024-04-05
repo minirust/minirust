@@ -24,8 +24,11 @@ pub use function::*;
 mod global;
 pub use global::*;
 
-mod statement; // Also includes terminators
+mod statement;
 pub use statement::*;
+
+mod terminator;
+pub use terminator::*;
 
 mod expr;
 pub use expr::*;
