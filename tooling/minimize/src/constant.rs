@@ -1,19 +1,24 @@
 use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
-    pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>) -> ValueExpr {
+    pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>, span: rs::Span) -> ValueExpr {
         match c {
-            rs::mir::Const::Ty(_) => panic!("not supported!"),
+            rs::mir::Const::Ty(_) => rs::span_bug!(span, "Const::Ty not supported"),
             rs::mir::Const::Unevaluated(uneval, ty) => self.translate_const_uneval(uneval, *ty),
-            rs::mir::Const::Val(val, ty) => self.translate_const_val(val, *ty),
+            rs::mir::Const::Val(val, ty) => self.translate_const_val(val, *ty, span),
         }
     }
 
-    pub fn translate_const_smir(&mut self, c: &smir::Const) -> ValueExpr {
-        self.translate_const(&smir::internal(self.tcx, c))
+    pub fn translate_const_smir(&mut self, c: &smir::Const, span: rs::Span) -> ValueExpr {
+        self.translate_const(&smir::internal(self.tcx, c), span)
     }
 
-    fn translate_const_val(&mut self, val: &rs::ConstValue<'tcx>, ty: rs::Ty<'tcx>) -> ValueExpr {
+    fn translate_const_val(
+        &mut self,
+        val: &rs::ConstValue<'tcx>,
+        ty: rs::Ty<'tcx>,
+        span: rs::Span,
+    ) -> ValueExpr {
         let ty = self.translate_ty(ty);
 
         let constant = match ty {
@@ -37,7 +42,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let rel = self.translate_relocation(alloc_id, offset);
                 Constant::GlobalPointer(rel)
             }
-            ty => panic!("unsupported type for `ConstVal`: {:?}", ty),
+            ty => rs::span_bug!(span, "Unsupported type for `ConstVal`: {ty:?}"),
         };
         ValueExpr::Constant(constant, ty)
     }
