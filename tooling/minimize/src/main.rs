@@ -77,16 +77,18 @@ use enums::int_from_bits;
 use std::collections::HashMap;
 
 fn main() {
-    get_mini(|prog| {
+    get_mini(|tcx, prog| {
         let dump = std::env::args().skip(1).any(|x| x == "--dump");
         if dump {
             dump_program(prog);
         } else {
             match run_program(prog) {
-                TerminationInfo::IllFormed => eprintln!("ERR: program not well-formed."),
+                TerminationInfo::IllFormed =>
+                    tcx.dcx().fatal("ERR: program not well-formed (this is a bug in minimize)"),
                 TerminationInfo::MachineStop => { /* silent exit. */ }
-                TerminationInfo::Ub(err) => eprintln!("UB: {}", err.get_internal()),
-                _ => unreachable!(),
+                TerminationInfo::Ub(err) => tcx.dcx().fatal(format!("UB: {}", err.get_internal())),
+                TerminationInfo::Deadlock => tcx.dcx().fatal("program dead-locked"),
+                TerminationInfo::MemoryLeak => tcx.dcx().fatal("program leaked memory"),
             }
         }
     });

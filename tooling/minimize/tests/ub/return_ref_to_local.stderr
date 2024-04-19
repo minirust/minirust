@@ -1,1 +1,4 @@
-UB: memory accessed after deallocation
+error: UB: memory accessed after deallocation
+
+error: aborting due to 1 previous error
+

@@ -1,1 +1,4 @@
-UB: out-of-bounds array access
+error: UB: out-of-bounds array access
+
+error: aborting due to 1 previous error
+

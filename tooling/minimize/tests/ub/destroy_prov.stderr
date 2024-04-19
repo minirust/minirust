@@ -1,1 +1,4 @@
-UB: non-zero-sized access with invalid pointer
+error: UB: non-zero-sized access with invalid pointer
+
+error: aborting due to 1 previous error
+

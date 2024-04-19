@@ -18,7 +18,6 @@ pub type Offset = Size;
 /// means the program caused UB or put the machine to a halt.
 pub type Result<T=()> = std::result::Result<T, TerminationInfo>;
 
-#[non_exhaustive]
 pub enum TerminationInfo {
     /// The execution encountered undefined behaviour.
     Ub(String),

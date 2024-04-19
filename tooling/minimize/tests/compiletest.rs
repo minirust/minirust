@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-fn cfg(path: &str) -> ui_test::Config {
+use ui_test::Mode;
+
+fn cfg(path: &str, mode: Mode) -> ui_test::Config {
     let bless = std::env::var_os("BLESS").is_some_and(|v| v != "0");
     let output_conflict_handling = if bless {
         ui_test::OutputConflictHandling::Bless
@@ -15,7 +17,7 @@ fn cfg(path: &str) -> ui_test::Config {
         stderr_filters: Vec::new(),
         stdout_filters: Vec::new(),
         root_dir: PathBuf::from(path),
-        mode: ui_test::Mode::Pass,
+        mode,
         program: PathBuf::from(env!("CARGO_BIN_EXE_minimize")),
         output_conflict_handling,
         path_filter: Vec::new(),
@@ -27,6 +29,6 @@ fn cfg(path: &str) -> ui_test::Config {
 }
 
 fn main() {
-    ui_test::run_tests(cfg("./tests/pass")).unwrap();
-    ui_test::run_tests(cfg("./tests/ub")).unwrap();
+    ui_test::run_tests(cfg("./tests/pass", Mode::Pass)).unwrap();
+    ui_test::run_tests(cfg("./tests/ub", Mode::Panic)).unwrap();
 }

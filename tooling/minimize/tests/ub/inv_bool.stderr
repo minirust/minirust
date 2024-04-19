@@ -1,1 +1,4 @@
-UB: load at type Bool but the data in memory violates the validity invariant
+error: UB: load at type Bool but the data in memory violates the validity invariant
+
+error: aborting due to 1 previous error
+

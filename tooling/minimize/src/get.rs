@@ -14,27 +14,27 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Cpanic=abort",
 ];
 
-pub fn get_mini(callback: impl FnOnce(Program) + Send + Copy) {
+pub fn get_mini(callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
     let mut args: Vec<_> = std::env::args().collect();
     args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
     RunCompiler::new(&args, &mut Cb { callback }).run().unwrap();
 }
 
-struct Cb<F: FnOnce(Program) + Send + Copy> {
+struct Cb<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> {
     callback: F,
 }
 
-impl<F: FnOnce(Program) + Send + Copy> Callbacks for Cb<F> {
+impl<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> Callbacks for Cb<F> {
     fn after_analysis<'tcx>(
         &mut self,
         _compiler: &Compiler,
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
-        queries.global_ctxt().unwrap().enter(|arg| {
+        queries.global_ctxt().unwrap().enter(|tcx| {
             // StableMIR can only be used inside a `run` call, to guarantee its context is properly
             // initialized. Calls to StableMIR functions will panic if done outside a run.
-            let prog = smir::run(arg, || Ctxt::new(arg).translate()).unwrap();
-            (self.callback)(prog);
+            let prog = smir::run(tcx, || Ctxt::new(tcx).translate()).unwrap();
+            (self.callback)(tcx, prog);
         });
 
         Compilation::Stop
