@@ -16,5 +16,5 @@ miniutil = { path = "../miniutil"}
 ui_test = "0.5"
 
 [[test]]
-name = "compiletest"
+name = "ui"
 harness = false
