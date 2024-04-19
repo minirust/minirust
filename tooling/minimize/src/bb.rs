@@ -47,6 +47,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     }
 
     fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> StatementResult {
+        let span = stmt.source_info.span;
         StatementResult::Statement(match &stmt.kind {
             rs::StatementKind::Assign(box (place, rval)) => {
                 let destination = self.translate_place(place);
@@ -54,7 +55,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // so MiniRust treats them differently.
                 match rval {
                     rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
-                        let operand = self.translate_operand(operand);
+                        let operand = self.translate_operand(operand, span);
                         return StatementResult::Intrinsic {
                             intrinsic: IntrinsicOp::PointerExposeProvenance,
                             destination,
@@ -63,7 +64,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     rs::Rvalue::Cast(rs::CastKind::PointerFromExposedAddress, operand, _) => {
                         // TODO untested so far! (Can't test because of `predict`)
-                        let operand = self.translate_operand(operand);
+                        let operand = self.translate_operand(operand, span);
                         return StatementResult::Intrinsic {
                             intrinsic: IntrinsicOp::PointerWithExposedProvenance,
                             destination,
@@ -72,7 +73,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     _ => {}
                 }
-                let source = self.translate_rvalue(rval);
+                let source = self.translate_rvalue(rval, span);
                 Statement::Assign { destination, source }
             }
             rs::StatementKind::StorageLive(local) =>
@@ -98,7 +99,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
             }
             rs::StatementKind::Intrinsic(box rs::NonDivergingIntrinsic::Assume(op)) => {
-                let op = self.translate_operand(op);
+                let op = self.translate_operand(op, span);
                 // Doesn't return anything, get us a dummy place.
                 let destination = build::zst_place();
                 return StatementResult::Intrinsic {
@@ -107,14 +108,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     arguments: list![op],
                 };
             }
-            x => {
-                dbg!(x);
-                todo!()
-            }
+            x => rs::span_bug!(span, "StatementKind not supported: {x:?}"),
         })
     }
 
     fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> Terminator {
+        let span = terminator.source_info.span;
         match &terminator.kind {
             rs::TerminatorKind::Return => Terminator::Return,
             rs::TerminatorKind::Goto { target } => Terminator::Goto(self.bb_name_map[&target]),
@@ -123,7 +122,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::TerminatorKind::SwitchInt { discr, targets } => {
                 let ty = self.translate_ty(discr.ty(&self.body, self.tcx));
 
-                let discr_op = self.translate_operand(discr);
+                let discr_op = self.translate_operand(discr, span);
                 let (value, int_ty) = match ty {
                     Type::Bool => {
                         // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
@@ -138,7 +137,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     Type::Int(ity) => (discr_op, ity),
                     // FIXME: add support for switching on `char`
-                    _ => panic!("SwitchInt terminator currently only supports int and bool."),
+                    _ =>
+                        rs::span_bug!(
+                            span,
+                            "SwitchInt terminator currently only supports int and bool."
+                        ),
                 };
 
                 let cases = targets
@@ -157,9 +160,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             // those are IGNORED currently.
             rs::TerminatorKind::Drop { target, .. } | rs::TerminatorKind::Assert { target, .. } =>
                 Terminator::Goto(self.bb_name_map[&target]),
-            x => {
-                unimplemented!("terminator not supported: {x:?}")
-            }
+            x => rs::span_bug!(span, "terminator not supported: {x:?}"),
         }
     }
 
@@ -198,7 +199,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             };
             Terminator::Intrinsic {
                 intrinsic,
-                arguments: args.iter().map(|x| self.translate_operand(&x.node)).collect(),
+                arguments: args.iter().map(|x| self.translate_operand(&x.node, x.span)).collect(),
                 ret: self.translate_place(&destination),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
@@ -215,11 +216,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
             let args: List<_> = args
                 .iter()
-                .map(|op| {
-                    match &op.node {
+                .map(|x| {
+                    match &x.node {
                         rs::Operand::Move(place) =>
                             ArgumentExpr::InPlace(self.translate_place(place)),
-                        op => ArgumentExpr::ByValue(self.translate_operand(op)),
+                        op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
                     }
                 })
                 .collect();

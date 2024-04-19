@@ -1,24 +1,21 @@
 use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
-    /// Translate an rvalue -- could generate a bunch of helper statements.
-    /// Those will be executed *before* the actual assignment, and in particular
-    /// before evaluation the destination place of the assignment.
-    pub fn translate_rvalue(&mut self, rv: &rs::Rvalue<'tcx>) -> ValueExpr {
-        self.translate_rvalue_smir(&smir::stable(rv))
+    pub fn translate_rvalue(&mut self, rv: &rs::Rvalue<'tcx>, span: rs::Span) -> ValueExpr {
+        self.translate_rvalue_smir(&smir::stable(rv), span)
     }
 
-    pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue) -> ValueExpr {
+    pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue, span: rs::Span) -> ValueExpr {
         match rv {
-            smir::Rvalue::Use(operand) => self.translate_operand_smir(operand),
+            smir::Rvalue::Use(operand) => self.translate_operand_smir(operand, span),
             smir::Rvalue::CheckedBinaryOp(bin_op, l, r) | smir::Rvalue::BinaryOp(bin_op, l, r) => {
                 let lty = l.ty(&self.locals_smir).unwrap();
                 let rty = r.ty(&self.locals_smir).unwrap();
 
                 assert_eq!(lty, rty);
 
-                let l = self.translate_operand_smir(l);
-                let r = self.translate_operand_smir(r);
+                let l = self.translate_operand_smir(l, span);
+                let r = self.translate_operand_smir(r, span);
 
                 let l = GcCow::new(l);
                 let r = GcCow::new(r);
@@ -45,12 +42,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         match self.translate_ty_smir(lty) {
                             Type::Int(_) => BinOp::Int(BinOpInt::BitAnd),
                             Type::Bool => BinOp::Bool(BinOpBool::BitAnd),
-                            _ => panic!("bit-and only supported for int and bool."),
+                            ty => rs::span_bug!(span, "BitAnd not supported for: {ty:?}"),
                         },
-                    x => {
-                        dbg!(x);
-                        todo!()
-                    }
+                    x => rs::span_bug!(span, "Binary Op not supported: {x:?}"),
                 };
 
                 ValueExpr::BinOp { operator: op, left: l, right: r }
@@ -58,7 +52,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::UnaryOp(unop, operand) =>
                 match unop {
                     smir::UnOp::Neg => {
-                        let operand = self.translate_operand_smir(operand);
+                        let operand = self.translate_operand_smir(operand, span);
 
                         ValueExpr::UnOp {
                             operator: UnOp::Int(UnOpInt::Neg),
@@ -69,10 +63,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let ty = operand.ty(&self.locals_smir).unwrap();
                         let ty = self.translate_ty_smir(ty);
                         let Type::Bool = ty else {
-                            panic!("Not operation with non-boolean type!");
+                            rs::span_bug!(span, "Not operation with non-boolean type!");
                         };
 
-                        let operand = self.translate_operand_smir(operand);
+                        let operand = self.translate_operand_smir(operand, span);
 
                         ValueExpr::UnOp {
                             operator: UnOp::Bool(UnOpBool::Not),
@@ -109,7 +103,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             panic!()
                         };
                         assert_eq!(operands.len(), 1);
-                        let expr = self.translate_operand_smir(&operands[0]);
+                        let expr = self.translate_operand_smir(&operands[0], span);
                         ValueExpr::Union {
                             field: (*field_idx).into(),
                             expr: GcCow::new(expr),
@@ -118,7 +112,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     Type::Tuple { .. } | Type::Array { .. } => {
                         let ops: List<_> =
-                            operands.iter().map(|x| self.translate_operand_smir(x)).collect();
+                            operands.iter().map(|x| self.translate_operand_smir(x, span)).collect();
                         ValueExpr::Tuple(ops, ty)
                     }
                     Type::Enum { variants, .. } => {
@@ -130,7 +124,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             *variant_idx,
                         );
                         let ops: List<_> =
-                            operands.iter().map(|x| self.translate_operand_smir(x)).collect();
+                            operands.iter().map(|x| self.translate_operand_smir(x, span)).collect();
 
                         // We represent the multiple fields of an enum variant as a MiniRust tuple.
                         let data = GcCow::new(ValueExpr::Tuple(
@@ -139,7 +133,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ));
                         ValueExpr::Variant { discriminant, data, enum_ty: ty }
                     }
-                    _ => panic!("invalid aggregate type!"),
+                    x => rs::span_bug!(span, "Invalid aggregate type: {x:?}"),
                 }
             }
             smir::Rvalue::CopyForDeref(place) =>
@@ -157,7 +151,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let c = Int::from(c);
 
                 let elem_ty = self.translate_ty_smir(op.ty(&self.locals_smir).unwrap());
-                let op = self.translate_operand_smir(op);
+                let op = self.translate_operand_smir(op, span);
 
                 let ty = Type::Array { elem: GcCow::new(elem_ty), count: c };
 
@@ -166,15 +160,19 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             smir::Rvalue::Cast(smir::CastKind::IntToInt, operand, ty) => {
                 let operand_ty = self.translate_ty_smir(operand.ty(&self.locals_smir).unwrap());
-                let operand = self.translate_operand_smir(operand);
+                let operand = self.translate_operand_smir(operand, span);
                 let Type::Int(int_ty) = self.translate_ty_smir(*ty) else {
-                    panic!("attempting to IntToInt-Cast to non-int type!");
+                    rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
                 };
 
                 let unop = match operand_ty {
                     Type::Int(_) => UnOp::Cast(CastOp::IntToInt(int_ty)),
                     Type::Bool => UnOp::Cast(CastOp::BoolToInt(int_ty)),
-                    _ => panic!("Attempting to cast non-int or boolean type to int!"),
+                    _ =>
+                        rs::span_bug!(
+                            span,
+                            "Attempting to cast non-int and non-boolean type to int!"
+                        ),
                 };
                 ValueExpr::UnOp { operator: unop, operand: GcCow::new(operand) }
             }
@@ -189,7 +187,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 );
             }
             smir::Rvalue::Cast(smir::CastKind::PtrToPtr, operand, ty) => {
-                let operand = self.translate_operand_smir(operand);
+                let operand = self.translate_operand_smir(operand, span);
                 let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty) else { panic!() };
 
                 ValueExpr::UnOp {
@@ -216,20 +214,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // TODO: reflect the current session's ub_checks flag instead, once we are on a new enough rustc.
                 build::const_bool(false)
             }
-            x => {
-                dbg!(x);
-                todo!()
-            }
+            x => rs::span_bug!(span, "rvalue failed to translate: {x:?}"),
         }
     }
 
-    pub fn translate_operand(&mut self, operand: &rs::Operand<'tcx>) -> ValueExpr {
-        self.translate_operand_smir(&smir::stable(operand))
+    pub fn translate_operand(&mut self, operand: &rs::Operand<'tcx>, span: rs::Span) -> ValueExpr {
+        self.translate_operand_smir(&smir::stable(operand), span)
     }
 
-    pub fn translate_operand_smir(&mut self, operand: &smir::Operand) -> ValueExpr {
+    pub fn translate_operand_smir(&mut self, operand: &smir::Operand, span: rs::Span) -> ValueExpr {
         match operand {
-            smir::Operand::Constant(c) => self.translate_const_smir(&c.literal),
+            smir::Operand::Constant(c) => self.translate_const_smir(&c.literal, span),
             smir::Operand::Copy(place) =>
                 ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place)) },
             smir::Operand::Move(place) =>
