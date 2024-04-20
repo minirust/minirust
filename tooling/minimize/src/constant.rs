@@ -2,87 +2,102 @@ use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>, span: rs::Span) -> ValueExpr {
-        match c {
-            rs::mir::Const::Ty(_) => rs::span_bug!(span, "Const::Ty not supported"),
-            rs::mir::Const::Unevaluated(uneval, ty) =>
-                self.translate_const_uneval(uneval, *ty, span),
-            rs::mir::Const::Val(val, ty) => self.translate_const_val(val, *ty, span),
-        }
+        let val = match c.eval(self.tcx, rs::ParamEnv::reveal_all(), None) {
+            Ok(val) => val,
+            Err(_) => rs::span_bug!(span, "const-eval failed"),
+        };
+        let tcx_at = self.tcx.at(span);
+        let (mut ecx, v) =
+            rs::mk_eval_cx_for_const_val(tcx_at, rs::ParamEnv::reveal_all(), val, c.ty()).unwrap();
+        self.translate_const_val(v, &mut ecx, span)
     }
 
     pub fn translate_const_smir(&mut self, c: &smir::Const, span: rs::Span) -> ValueExpr {
         self.translate_const(&smir::internal(self.tcx, c), span)
     }
 
-    fn translate_const_val(
+    fn translate_const_val<'mir>(
         &mut self,
-        val: &rs::ConstValue<'tcx>,
-        ty: rs::Ty<'tcx>,
+        val: rs::OpTy<'tcx>,
+        ecx: &mut rs::InterpCx<'mir, 'tcx, rs::CompileTimeInterpreter<'mir, 'tcx>>,
         span: rs::Span,
     ) -> ValueExpr {
-        let ty = self.translate_ty(ty, span);
-
-        let constant = match ty {
+        let ty = self.translate_ty(val.layout.ty, span);
+        match ty {
             Type::Int(int_ty) => {
-                let val = val.try_to_scalar_int().unwrap();
-                let int: Int = match int_ty.signed {
-                    Signed => val.try_to_int(val.size()).unwrap().into(),
-                    Unsigned => val.try_to_uint(val.size()).unwrap().into(),
+                let scalar = ecx.read_scalar(&val).unwrap();
+                let val: Int = match int_ty.signed {
+                    Signed => scalar.to_int(scalar.size()).unwrap().into(),
+                    Unsigned => scalar.to_uint(scalar.size()).unwrap().into(),
                 };
-                Constant::Int(int)
+                ValueExpr::Constant(Constant::Int(val), ty)
             }
-            Type::Bool => Constant::Bool(val.try_to_bool().unwrap()),
-            Type::Tuple { fields, .. } if fields.is_empty() => {
-                return ValueExpr::Tuple(List::new(), ty);
+            Type::Bool => {
+                let val = ecx.read_scalar(&val).unwrap().to_bool().unwrap();
+                ValueExpr::Constant(Constant::Bool(val), ty)
             }
-            // A `static`
-            Type::Ptr(_) => {
-                let (alloc_id, offset) =
-                    val.try_to_scalar().unwrap().to_pointer(&self.tcx).unwrap().into_parts();
-                let alloc_id = alloc_id.expect("no alloc id?").alloc_id();
-                let rel = self.translate_relocation(alloc_id, offset);
-                Constant::GlobalPointer(rel)
+            Type::Ptr(ptr_ty) => {
+                if let PtrType::FnPtr(_) = ptr_ty {
+                    rs::span_bug!(span, "Function pointers are currently not supported")
+                }
+                let ptr = ecx.read_pointer(&val).unwrap();
+                let (prov, offset) = ptr.into_parts();
+                let c = match prov {
+                    None => {
+                        let addr: Int = offset.bytes_usize().into();
+                        Constant::PointerWithoutProvenance(addr)
+                    }
+                    Some(prov) => {
+                        let alloc_id = prov.alloc_id();
+                        let rel = self.translate_relocation(alloc_id, offset);
+                        Constant::GlobalPointer(rel)
+                    }
+                };
+                ValueExpr::Constant(c, ty)
             }
-            ty => rs::span_bug!(span, "Unsupported type for `ConstVal`: {ty:?}"),
-        };
-        ValueExpr::Constant(constant, ty)
-    }
+            Type::Tuple { fields, .. } => {
+                let mut t: List<ValueExpr> = List::new();
+                for (idx, _) in fields.iter().enumerate() {
+                    let val = ecx.project_field(&val, idx).unwrap();
+                    t.push(self.translate_const_val(val, ecx, span));
+                }
+                ValueExpr::Tuple(t, ty)
+            }
+            Type::Enum { variants, discriminant_ty, .. } => {
+                // variant_idx is pointer into list of variants
+                // while discriminant is the value associated with variant
+                let variant_idx = ecx.read_discriminant(&val).unwrap();
+                let variant = ecx.project_downcast(&val, variant_idx).unwrap();
+                let mut fields: List<ValueExpr> = List::new();
+                for i in 0..variant.layout.fields.count() {
+                    let field = ecx.project_field(&variant, i).unwrap();
+                    let field = self.translate_const_val(field, ecx, span);
+                    fields.push(field);
+                }
 
-    fn translate_const_uneval(
-        &mut self,
-        uneval: &rs::UnevaluatedConst<'tcx>,
-        ty: rs::Ty<'tcx>,
-        span: rs::Span,
-    ) -> ValueExpr {
-        let instance = rs::Instance::expect_resolve(
-            self.tcx,
-            rs::ParamEnv::reveal_all(),
-            uneval.def,
-            uneval.args,
-        );
-        let cid = rs::GlobalId { instance, promoted: uneval.promoted };
-        let alloc = self.tcx.eval_to_allocation_raw(rs::ParamEnv::reveal_all().and(cid)).unwrap();
-        let name = self.translate_alloc_id(alloc.alloc_id);
-        let offset = Offset::ZERO;
-
-        let rel = Relocation { name, offset };
-        self.relocation_to_value_expr(rel, ty, span)
-    }
-
-    fn relocation_to_value_expr(
-        &mut self,
-        rel: Relocation,
-        ty: rs::Ty<'tcx>,
-        span: rs::Span,
-    ) -> ValueExpr {
-        let expr = Constant::GlobalPointer(rel);
-
-        let ty = self.translate_ty(ty, span);
-        let ptr_ty = Type::Ptr(PtrType::Raw);
-
-        let expr = ValueExpr::Constant(expr, ptr_ty);
-        let expr = PlaceExpr::Deref { operand: GcCow::new(expr), ty };
-        ValueExpr::Load { source: GcCow::new(expr) }
+                let discriminant =
+                    ecx.discriminant_for_variant(val.layout.ty, variant_idx).unwrap();
+                let discriminant = discriminant.to_scalar();
+                let discriminant: Int = match discriminant_ty.signed {
+                    Signed => discriminant.to_int(discriminant.size()).unwrap().into(),
+                    Unsigned => discriminant.to_uint(discriminant.size()).unwrap().into(),
+                };
+                let variant_ty = variants.get(discriminant).unwrap().ty;
+                let data = GcCow::new(ValueExpr::Tuple(fields, variant_ty));
+                ValueExpr::Variant { discriminant, data, enum_ty: ty }
+            }
+            Type::Array { .. } => {
+                let mut t: List<ValueExpr> = List::new();
+                let mut iter = ecx.project_array_fields(&val).unwrap();
+                while let Ok(Some((_, field))) = iter.next(ecx) {
+                    let field = self.translate_const_val(field, ecx, span);
+                    t.push(field);
+                }
+                ValueExpr::Tuple(t, ty)
+            }
+            Type::Union { .. } =>
+                rs::span_bug!(span, "Constant Unions are currently not supported!"),
+        }
     }
 
     fn translate_relocation(&mut self, alloc_id: rs::AllocId, offset: rs::Size) -> Relocation {
@@ -136,12 +151,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             .map(|&(offset, alloc_id)| {
                 // "Note that the bytes of a pointer represent the offset of the pointer.", see https://doc.rust-lang.org/nightly/nightly-rustc/rustc_middle/mir/interpret/struct.Allocation.html
                 // Hence we have to decode them.
-                let inner_offset_bytes: &[Option<u8>] = &bytes[offset.bytes() as usize..]
-                    [..DefaultTarget::PTR_SIZE.bytes().try_to_usize().unwrap()];
-                let inner_offset_bytes: List<u8> =
-                    inner_offset_bytes.iter().map(|x| x.unwrap()).collect();
-                let inner_offset: Int =
-                    DefaultTarget::ENDIANNESS.decode(Unsigned, inner_offset_bytes);
+                let start = offset.bytes_usize();
+                let end = start + DefaultTarget::PTR_SIZE.bytes().try_to_usize().unwrap();
+                // Pointer bytes are always initialized, so we can unwrap.
+                let inner_offset = bytes[start..end].iter().map(|x| x.unwrap()).collect();
+                let inner_offset = DefaultTarget::ENDIANNESS.decode(Unsigned, inner_offset);
                 let inner_offset = rs::Size::from_bytes(inner_offset.try_to_usize().unwrap());
                 let relo = self.translate_relocation(alloc_id.alloc_id(), inner_offset);
 
