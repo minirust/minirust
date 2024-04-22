@@ -15,11 +15,11 @@ impl<'tcx> Ctxt<'tcx> {
         self.layout_of(smir::internal(self.tcx, ty))
     }
 
-    pub fn translate_ty_smir(&self, ty: smir::Ty) -> Type {
-        self.translate_ty(smir::internal(self.tcx, ty))
+    pub fn translate_ty_smir(&self, ty: smir::Ty, span: rs::Span) -> Type {
+        self.translate_ty(smir::internal(self.tcx, ty), span)
     }
 
-    pub fn translate_ty(&self, ty: rs::Ty<'tcx>) -> Type {
+    pub fn translate_ty(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> Type {
         match ty.kind() {
             rs::TyKind::Bool => Type::Bool,
             rs::TyKind::Int(int_ty) => Type::Int(translate_int_ty(int_ty)),
@@ -33,7 +33,7 @@ impl<'tcx> Ctxt<'tcx> {
                     .iter()
                     .enumerate()
                     .map(|(i, t)| {
-                        let t = self.translate_ty(t);
+                        let t = self.translate_ty(t, span);
                         let offset = layout.fields().offset(i);
                         let offset = translate_size(offset);
 
@@ -44,18 +44,18 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Tuple { fields, size, align }
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
-                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref);
+                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref, span);
 
                 Type::Tuple { fields, size, align }
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
-                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref);
+                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref, span);
                 let chunks = calc_chunks(fields, size);
 
                 Type::Union { fields, size, align, chunks }
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
-                self.translate_enum(ty, *adt_def, sref),
+                self.translate_enum(ty, *adt_def, sref, span),
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.boxed_ty();
                 let pointee = self.layout_of(ty);
@@ -72,7 +72,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()));
-                let elem = GcCow::new(self.translate_ty(*ty));
+                let elem = GcCow::new(self.translate_ty(*ty, span));
                 Type::Array { elem, count }
             }
             rs::TyKind::FnPtr(sig) => {
@@ -85,10 +85,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
-            x => {
-                dbg!(x);
-                todo!()
-            }
+            x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         }
     }
 
@@ -97,6 +94,7 @@ impl<'tcx> Ctxt<'tcx> {
         ty: rs::Ty<'tcx>,
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,
+        span: rs::Span,
     ) -> (Fields, Size, Align) {
         let layout = self.rs_layout_of(ty);
         let fields = adt_def
@@ -104,7 +102,7 @@ impl<'tcx> Ctxt<'tcx> {
             .enumerate()
             .map(|(i, field)| {
                 let ty = field.ty(self.tcx, sref);
-                let ty = self.translate_ty(ty);
+                let ty = self.translate_ty(ty, span);
                 let offset = layout.fields().offset(i);
                 let offset = translate_size(offset);
 

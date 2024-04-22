@@ -87,7 +87,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // convert mirs Local-types to minirust.
         for (id, local_name) in &self.local_name_map {
             let local_decl = &self.body.local_decls[*id];
-            self.locals.insert(*local_name, self.translate_ty(local_decl.ty));
+            let span = local_decl.source_info.span;
+            self.locals.insert(*local_name, self.translate_ty(local_decl.ty, span));
         }
 
         // the number of locals which are implicitly storage live.

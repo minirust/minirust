@@ -12,18 +12,21 @@ impl<'tcx> Ctxt<'tcx> {
         ty: rs::Ty<'tcx>,
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,
+        span: rs::Span,
     ) -> Type {
         let layout = self.rs_layout_of(ty);
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 
-        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx)) else {
+        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        else {
             panic!("Discriminant type is not integer!")
         };
 
         let (variants, discriminator) = match layout.variants() {
             rs::Variants::Single { index } => {
-                let fields = self.translate_fields(layout.fields(), adt_def.variant(*index), sref);
+                let fields =
+                    self.translate_fields(layout.fields(), adt_def.variant(*index), sref, span);
                 let variants = [(
                     Int::ZERO,
                     Variant { ty: Type::Tuple { fields, size, align }, tagger: Map::new() },
@@ -34,7 +37,8 @@ impl<'tcx> Ctxt<'tcx> {
             rs::Variants::Multiple { tag, tag_encoding, tag_field, variants } => {
                 // compute the offset of the tag for the tagger and discriminator construction
                 let tag_offset: Offset = translate_size(layout.fields().offset(*tag_field));
-                let Type::Int(tag_ty) = self.translate_ty(tag.primitive().to_int_ty(self.tcx))
+                let Type::Int(tag_ty) =
+                    self.translate_ty(tag.primitive().to_int_ty(self.tcx), span)
                 else {
                     panic!("enum tag has invalid primitive type")
                 };
@@ -43,8 +47,12 @@ impl<'tcx> Ctxt<'tcx> {
                 let mut translated_variants = Map::new();
                 let mut discriminator_branches = Map::new();
                 for (variant_idx, variant_def) in adt_def.variants().iter_enumerated() {
-                    let fields =
-                        self.translate_fields(&variants[variant_idx].fields, &variant_def, sref);
+                    let fields = self.translate_fields(
+                        &variants[variant_idx].fields,
+                        &variant_def,
+                        sref,
+                        span,
+                    );
                     let discr = adt_def.discriminant_for_variant(self.tcx, variant_idx);
                     let discr_int = int_from_bits(discr.val, discriminant_ty);
                     match tag_encoding {
@@ -162,13 +170,14 @@ impl<'tcx> Ctxt<'tcx> {
         shape: &rs::FieldsShape<rs::FieldIdx>,
         variant: &rs::VariantDef,
         sref: rs::GenericArgsRef<'tcx>,
+        span: rs::Span,
     ) -> List<(Offset, Type)> {
         variant
             .fields
             .iter_enumerated()
             .map(|(i, field)| {
                 let ty = field.ty(self.tcx, sref);
-                let ty = self.translate_ty(ty);
+                let ty = self.translate_ty(ty, span);
                 let offset = shape.offset(i.into());
                 let offset = translate_size(offset);
 
@@ -181,19 +190,27 @@ impl<'tcx> Ctxt<'tcx> {
         &self,
         ty: smir::Ty,
         variant_idx: smir::VariantIdx,
+        span: rs::Span,
     ) -> Int {
         self.discriminant_for_variant(
             smir::internal(self.tcx, ty),
             smir::internal(self.tcx, variant_idx),
+            span,
         )
     }
 
-    pub fn discriminant_for_variant(&self, ty: rs::Ty<'tcx>, variant_idx: rs::VariantIdx) -> Int {
+    pub fn discriminant_for_variant(
+        &self,
+        ty: rs::Ty<'tcx>,
+        variant_idx: rs::VariantIdx,
+        span: rs::Span,
+    ) -> Int {
         let rs::TyKind::Adt(adt_def, _) = ty.kind() else {
             panic!("Getting discriminant for a variant of a non-enum type!")
         };
         assert!(adt_def.is_enum());
-        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx)) else {
+        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        else {
             panic!("Discriminant type is not integer!")
         };
         let discriminant = adt_def.discriminant_for_variant(self.tcx, variant_idx);
