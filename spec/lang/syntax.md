@@ -121,7 +121,7 @@ pub enum UnOp {
     Int(UnOpInt),
     /// An operation on a boolean; returns a boolean.
     Bool(UnOpBool),
-    /// A form of cast.
+    /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
 }
 
