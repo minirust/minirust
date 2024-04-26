@@ -42,6 +42,7 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
+use std::env::Args;
 pub use std::format;
 pub use std::string::String;
 
@@ -77,8 +78,9 @@ use enums::int_from_bits;
 use std::collections::HashMap;
 
 fn main() {
-    get_mini(|tcx, prog| {
-        let dump = std::env::args().skip(1).any(|x| x == "--dump");
+    let (minimize_args, rustc_args) = split_args(std::env::args());
+    let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
+    get_mini(rustc_args, |tcx, prog| {
         if dump {
             dump_program(prog);
         } else {
@@ -92,4 +94,18 @@ fn main() {
             }
         }
     });
+}
+
+/// split arguments into arguments for minimize and rustc
+fn split_args(args: Args) -> (Vec<String>, Vec<String>) {
+    let mut minimize_args: Vec<String> = Vec::new();
+    let mut rustc_args: Vec<String> = Vec::new();
+    for arg in args {
+        if arg.starts_with("--minimize-") {
+            minimize_args.push(arg);
+        } else {
+            rustc_args.push(arg);
+        }
+    }
+    (minimize_args, rustc_args)
 }
