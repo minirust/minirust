@@ -39,7 +39,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                     // implemented for int and bool
                     BitAnd =>
-                        match self.translate_ty_smir(lty) {
+                        match self.translate_ty_smir(lty, span) {
                             Type::Int(_) => BinOp::Int(BinOpInt::BitAnd),
                             Type::Bool => BinOp::Bool(BinOpBool::BitAnd),
                             ty => rs::span_bug!(span, "BitAnd not supported for: {ty:?}"),
@@ -61,7 +61,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     smir::UnOp::Not => {
                         let ty = operand.ty(&self.locals_smir).unwrap();
-                        let ty = self.translate_ty_smir(ty);
+                        let ty = self.translate_ty_smir(ty, span);
                         let Type::Bool = ty else {
                             rs::span_bug!(span, "Not operation with non-boolean type!");
                         };
@@ -78,7 +78,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let pointee = self.layout_of_smir(ty);
 
-                let place = self.translate_place_smir(place);
+                let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
                 let mutbl = translate_mutbl_smir(bkind.to_mutable_lossy());
 
@@ -87,7 +87,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::AddrOf { target, ptr_ty }
             }
             smir::Rvalue::AddressOf(_mutbl, place) => {
-                let place = self.translate_place_smir(place);
+                let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
 
                 let ptr_ty = PtrType::Raw;
@@ -96,7 +96,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             smir::Rvalue::Aggregate(agg, operands) => {
                 let ty = rv.ty(&self.locals_smir).unwrap();
-                let ty = self.translate_ty_smir(ty);
+                let ty = self.translate_ty_smir(ty, span);
                 match ty {
                     Type::Union { .. } => {
                         let smir::AggregateKind::Adt(_, _, _, _, Some(field_idx)) = agg else {
@@ -122,6 +122,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let discriminant = self.discriminant_for_variant_smir(
                             rv.ty(&self.locals_smir).unwrap(),
                             *variant_idx,
+                            span,
                         );
                         let ops: List<_> =
                             operands.iter().map(|x| self.translate_operand_smir(x, span)).collect();
@@ -137,20 +138,24 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
             }
             smir::Rvalue::CopyForDeref(place) =>
-                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place)) },
+                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
             smir::Rvalue::Len(place) => {
                 // as slices are unsupported as of now, we only need to care for arrays.
                 let ty = place.ty(&self.locals_smir).unwrap();
-                let Type::Array { elem: _, count } = self.translate_ty_smir(ty) else { panic!() };
+                let Type::Array { elem: _, count } = self.translate_ty_smir(ty, span) else {
+                    panic!()
+                };
                 ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
             }
             smir::Rvalue::Discriminant(place) =>
-                ValueExpr::GetDiscriminant { place: GcCow::new(self.translate_place_smir(place)) },
+                ValueExpr::GetDiscriminant {
+                    place: GcCow::new(self.translate_place_smir(place, span)),
+                },
             smir::Rvalue::Repeat(op, c) => {
                 let c = c.eval_target_usize().unwrap();
                 let c = Int::from(c);
 
-                let elem_ty = self.translate_ty_smir(op.ty(&self.locals_smir).unwrap());
+                let elem_ty = self.translate_ty_smir(op.ty(&self.locals_smir).unwrap(), span);
                 let op = self.translate_operand_smir(op, span);
 
                 let ty = Type::Array { elem: GcCow::new(elem_ty), count: c };
@@ -159,9 +164,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::Tuple(ls, ty)
             }
             smir::Rvalue::Cast(smir::CastKind::IntToInt, operand, ty) => {
-                let operand_ty = self.translate_ty_smir(operand.ty(&self.locals_smir).unwrap());
+                let operand_ty =
+                    self.translate_ty_smir(operand.ty(&self.locals_smir).unwrap(), span);
                 let operand = self.translate_operand_smir(operand, span);
-                let Type::Int(int_ty) = self.translate_ty_smir(*ty) else {
+                let Type::Int(int_ty) = self.translate_ty_smir(*ty, span) else {
                     rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
                 };
 
@@ -188,7 +194,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             smir::Rvalue::Cast(smir::CastKind::PtrToPtr, operand, ty) => {
                 let operand = self.translate_operand_smir(operand, span);
-                let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty) else { panic!() };
+                let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty, span) else { panic!() };
 
                 ValueExpr::UnOp {
                     operator: UnOp::Cast(CastOp::Transmute(Type::Ptr(ptr_ty))),
@@ -226,17 +232,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         match operand {
             smir::Operand::Constant(c) => self.translate_const_smir(&c.literal, span),
             smir::Operand::Copy(place) =>
-                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place)) },
+                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
             smir::Operand::Move(place) =>
-                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place)) },
+                ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
         }
     }
 
-    pub fn translate_place(&mut self, place: &rs::Place<'tcx>) -> PlaceExpr {
-        self.translate_place_smir(&smir::stable(place))
+    pub fn translate_place(&mut self, place: &rs::Place<'tcx>, span: rs::Span) -> PlaceExpr {
+        self.translate_place_smir(&smir::stable(place), span)
     }
 
-    pub fn translate_place_smir(&mut self, place: &smir::Place) -> PlaceExpr {
+    pub fn translate_place_smir(&mut self, place: &smir::Place, span: rs::Span) -> PlaceExpr {
         // Initial state: start with the local the place is based on
         let expr = PlaceExpr::Local(self.local_name_map[&place.local.into()]);
         let place_ty = self.locals_smir[place.local].ty;
@@ -254,7 +260,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let x = ValueExpr::Load { source: x };
                         let x = GcCow::new(x);
 
-                        let ty = self.translate_ty_smir(this_ty);
+                        let ty = self.translate_ty_smir(this_ty, span);
 
                         PlaceExpr::Deref { operand: x, ty }
                     }
@@ -269,10 +275,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     smir::ProjectionElem::Downcast(variant_idx) => {
                         let root = GcCow::new(expr);
                         let discriminant =
-                            self.discriminant_for_variant_smir(this_ty, *variant_idx);
+                            self.discriminant_for_variant_smir(this_ty, *variant_idx, span);
                         PlaceExpr::Downcast { root, discriminant }
                     }
-                    x => todo!("{:?}", x),
+                    x => rs::span_bug!(span, "Place Projection not supported: {:?}", x),
                 };
                 (this_expr, this_ty)
             });

@@ -4,7 +4,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>, span: rs::Span) -> ValueExpr {
         match c {
             rs::mir::Const::Ty(_) => rs::span_bug!(span, "Const::Ty not supported"),
-            rs::mir::Const::Unevaluated(uneval, ty) => self.translate_const_uneval(uneval, *ty),
+            rs::mir::Const::Unevaluated(uneval, ty) =>
+                self.translate_const_uneval(uneval, *ty, span),
             rs::mir::Const::Val(val, ty) => self.translate_const_val(val, *ty, span),
         }
     }
@@ -19,7 +20,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         ty: rs::Ty<'tcx>,
         span: rs::Span,
     ) -> ValueExpr {
-        let ty = self.translate_ty(ty);
+        let ty = self.translate_ty(ty, span);
 
         let constant = match ty {
             Type::Int(int_ty) => {
@@ -51,6 +52,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         &mut self,
         uneval: &rs::UnevaluatedConst<'tcx>,
         ty: rs::Ty<'tcx>,
+        span: rs::Span,
     ) -> ValueExpr {
         let instance = rs::Instance::expect_resolve(
             self.tcx,
@@ -64,13 +66,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let offset = Offset::ZERO;
 
         let rel = Relocation { name, offset };
-        self.relocation_to_value_expr(rel, ty)
+        self.relocation_to_value_expr(rel, ty, span)
     }
 
-    fn relocation_to_value_expr(&mut self, rel: Relocation, ty: rs::Ty<'tcx>) -> ValueExpr {
+    fn relocation_to_value_expr(
+        &mut self,
+        rel: Relocation,
+        ty: rs::Ty<'tcx>,
+        span: rs::Span,
+    ) -> ValueExpr {
         let expr = Constant::GlobalPointer(rel);
 
-        let ty = self.translate_ty(ty);
+        let ty = self.translate_ty(ty, span);
         let ptr_ty = Type::Ptr(PtrType::Raw);
 
         let expr = ValueExpr::Constant(expr, ptr_ty);

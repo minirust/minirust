@@ -50,7 +50,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let span = stmt.source_info.span;
         StatementResult::Statement(match &stmt.kind {
             rs::StatementKind::Assign(box (place, rval)) => {
-                let destination = self.translate_place(place);
+                let destination = self.translate_place(place, span);
                 // Some things that MIR handles as rvalues are non-deterministic,
                 // so MiniRust treats them differently.
                 match rval {
@@ -81,20 +81,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::StatementKind::StorageDead(local) =>
                 Statement::StorageDead(self.local_name_map[&local]),
             rs::StatementKind::Retag(kind, place) => {
-                let place = self.translate_place(place);
+                let place = self.translate_place(place, span);
                 let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
                 Statement::Validate { place, fn_entry }
             }
             rs::StatementKind::Deinit(place) => {
-                let place = self.translate_place(place);
+                let place = self.translate_place(place, span);
                 Statement::Deinit { place }
             }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
                     rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
-                let discriminant = self.discriminant_for_variant(place_ty, *variant_index);
+                let discriminant = self.discriminant_for_variant(place_ty, *variant_index, span);
                 Statement::SetDiscriminant {
-                    destination: self.translate_place(place),
+                    destination: self.translate_place(place, span),
                     value: discriminant,
                 }
             }
@@ -118,9 +118,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::TerminatorKind::Return => Terminator::Return,
             rs::TerminatorKind::Goto { target } => Terminator::Goto(self.bb_name_map[&target]),
             rs::TerminatorKind::Call { func, target, destination, args, .. } =>
-                self.translate_call(func, args, destination, target),
+                self.translate_call(func, args, destination, target, span),
             rs::TerminatorKind::SwitchInt { discr, targets } => {
-                let ty = self.translate_ty(discr.ty(&self.body, self.tcx));
+                let ty = self.translate_ty(discr.ty(&self.body, self.tcx), span);
 
                 let discr_op = self.translate_operand(discr, span);
                 let (value, int_ty) = match ty {
@@ -170,6 +170,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         args: &[rs::Spanned<rs::Operand<'tcx>>],
         destination: &rs::Place<'tcx>,
         target: &Option<rs::BasicBlock>,
+        span: rs::Span,
     ) -> Terminator {
         // For now we only support calling specific functions, not function pointers.
         let rs::Operand::Constant(box f1) = func else { panic!() };
@@ -200,7 +201,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             Terminator::Intrinsic {
                 intrinsic,
                 arguments: args.iter().map(|x| self.translate_operand(&x.node, x.span)).collect(),
-                ret: self.translate_place(&destination),
+                ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
         } else if is_panic_fn(&instance.to_string()) {
@@ -219,7 +220,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .map(|x| {
                     match &x.node {
                         rs::Operand::Move(place) =>
-                            ArgumentExpr::InPlace(self.translate_place(place)),
+                            ArgumentExpr::InPlace(self.translate_place(place, x.span)),
                         op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
                     }
                 })
@@ -228,7 +229,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             Terminator::Call {
                 callee: build::fn_ptr_conv(self.cx.get_fn_name(instance).0.get_internal(), conv),
                 arguments: args,
-                ret: self.translate_place(&destination),
+                ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
         }
