@@ -14,8 +14,10 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Cpanic=abort",
 ];
 
-pub fn get_mini(callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
-    let mut args: Vec<_> = std::env::args().collect();
+pub fn get_mini(
+    mut args: Vec<String>,
+    callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy,
+) {
     args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
     RunCompiler::new(&args, &mut Cb { callback }).run().unwrap();
 }
