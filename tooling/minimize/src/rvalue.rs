@@ -192,14 +192,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     "PointerFromExposedAddress should have been handled on the statement level"
                 );
             }
-            smir::Rvalue::Cast(smir::CastKind::PtrToPtr, operand, ty) => {
+            smir::Rvalue::Cast(
+                smir::CastKind::Transmute | smir::CastKind::PtrToPtr | smir::CastKind::FnPtrToPtr,
+                operand,
+                ty,
+            ) => {
                 let operand = self.translate_operand_smir(operand, span);
-                let Type::Ptr(ptr_ty) = self.translate_ty_smir(*ty, span) else { panic!() };
-
-                ValueExpr::UnOp {
-                    operator: UnOp::Cast(CastOp::Transmute(Type::Ptr(ptr_ty))),
-                    operand: GcCow::new(operand),
-                }
+                let ty = self.translate_ty_smir(*ty, span);
+                build::transmute(operand, ty)
             }
             smir::Rvalue::Cast(
                 smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer),
