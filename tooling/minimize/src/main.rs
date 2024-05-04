@@ -4,6 +4,7 @@
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 
+extern crate rustc_const_eval;
 extern crate rustc_driver;
 extern crate rustc_hir;
 extern crate rustc_interface;
@@ -16,7 +17,8 @@ extern crate rustc_target;
 extern crate stable_mir;
 
 mod rs {
-    pub use rustc_middle::mir::UnevaluatedConst;
+    pub use rustc_const_eval::const_eval::{mk_eval_cx_for_const_val, CompileTimeInterpreter};
+    pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::span_bug;
     pub use rustc_middle::ty::*;
