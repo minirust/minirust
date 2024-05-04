@@ -69,7 +69,7 @@ fn main() {
     assert!(extract_struct(u) == TestStruct(12, 1200));
     
     let u = ArrayUnion { data: [[42;3], [12;3]] };
-    // FIXME: this still fails to translate
+    // FIXME: this still fails to translate (needs Rvalue::Cast(Transmute))
     // assert!(extract_array(u) == [[42;3], [12;3]]);
     let a = extract_array(u);
     assert!(a[0][1] == 42);

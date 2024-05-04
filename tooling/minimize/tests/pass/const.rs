@@ -33,7 +33,6 @@ fn main() {
     let x = X;
     assert!(x.0 == 2);
     assert!(x.1 == 3);
-    assert!(!(() > ()));
 
     assert!(INT + 1 == 42);
     assert!(!FALSE);
@@ -67,4 +66,7 @@ fn main() {
     let S { x, y: Inner::Val(y) } = STRUCT;
     assert!(x == 40);
     assert!(y == 2);
+
+    // This involves some interesting constants as well.
+    assert!(!(() > ()));
 }
