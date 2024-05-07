@@ -1,4 +1,1 @@
-error: UB: division by zero
-
-error: aborting due to 1 previous error
-
+fatal error: UB: division by zero

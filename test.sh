@@ -13,5 +13,5 @@ fi
 cargo install "specr-transpile@${SPECR_VERSION}"
 specr-transpile specr.toml --check
 
-cargo test --manifest-path=tooling/minitest/Cargo.toml $CARGOFLAGS
-cargo test --manifest-path=tooling/minimize/Cargo.toml $CARGOFLAGS
+cargo test --manifest-path=tooling/minitest/Cargo.toml $CARGOFLAGS "$@"
+cargo test --manifest-path=tooling/minimize/Cargo.toml $CARGOFLAGS "$@"

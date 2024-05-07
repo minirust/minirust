@@ -1,4 +1,1 @@
-error: UB: memory access with null pointer
-
-error: aborting due to 1 previous error
-
+fatal error: UB: memory access with null pointer
