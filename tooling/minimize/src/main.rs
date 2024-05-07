@@ -4,6 +4,8 @@
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 
+// Imports for the rest of the crate
+
 extern crate rustc_const_eval;
 extern crate rustc_driver;
 extern crate rustc_hir;
@@ -44,14 +46,14 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
-use std::env::Args;
-pub use std::format;
-pub use std::string::String;
-
 pub use miniutil::build::{self, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::DefaultTarget;
+
+// Get back some `std` items
+pub use std::format;
+pub use std::string::String;
 
 mod program;
 use program::*;
@@ -68,16 +70,26 @@ mod rvalue;
 
 mod constant;
 
-mod get;
-use get::get_mini;
-
 mod chunks;
 use chunks::calc_chunks;
 
 mod enums;
 use enums::int_from_bits;
 
+// Imports for `main``
+
 use std::collections::HashMap;
+use std::env::Args;
+
+pub const DEFAULT_ARGS: &[&str] = &[
+    "--cfg=miri",
+    "-Zalways-encode-mir",
+    "-Zmir-opt-level=0",
+    // This generates annoying checked operators containing Asserts.
+    "-Cdebug-assertions=off",
+    // This removes Resume and similar stuff.
+    "-Cpanic=abort",
+];
 
 fn show_error(msg: &impl std::fmt::Display) -> ! {
     eprintln!("fatal error: {msg}");
@@ -120,4 +132,30 @@ fn split_args(args: Args) -> (Vec<String>, Vec<String>) {
         }
     }
     (minimize_args, rustc_args)
+}
+
+fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
+    args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+    rustc_driver::RunCompiler::new(&args, &mut Cb { callback }).run().unwrap();
+}
+
+struct Cb<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> {
+    callback: F,
+}
+
+impl<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> rustc_driver::Callbacks for Cb<F> {
+    fn after_analysis<'tcx>(
+        &mut self,
+        _compiler: &rustc_interface::interface::Compiler,
+        queries: &'tcx rustc_interface::Queries<'tcx>,
+    ) -> rustc_driver::Compilation {
+        queries.global_ctxt().unwrap().enter(|tcx| {
+            // StableMIR can only be used inside a `run` call, to guarantee its context is properly
+            // initialized. Calls to StableMIR functions will panic if done outside a run.
+            let prog = smir::run(tcx, || Ctxt::new(tcx).translate()).unwrap();
+            (self.callback)(tcx, prog);
+        });
+
+        rustc_driver::Compilation::Stop
+    }
 }
