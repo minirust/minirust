@@ -1,23 +1,18 @@
-extern crate intrinsics;
-use intrinsics::*;
-
 enum A {
     A1(u8),
-    A2
+    A2,
 }
 
-fn print_a(a: &A) {
+fn check_a(a: &A, is_a1: bool) {
     if let A::A1(x) = a {
-        print(*x)
+        assert!(is_a1 & (*x == 12))
     } else {
-        print(-1)
+        assert!(!is_a1);
     }
-}
 
-fn print_a_match(a: &A) {
     match a {
-        A::A1(x) => print(*x),
-        A::A2 => print(-1),
+        A::A1(x) => assert!(is_a1 & (*x == 12)),
+        A::A2 => assert!(!is_a1),
     }
 }
 
@@ -29,25 +24,23 @@ enum I16Repr {
     Max = i16::MAX,
 }
 
-fn print_i16_repr(a: I16Repr) {
+fn get_i16_repr(a: I16Repr) -> i16 {
     match a {
-        I16Repr::Min => print(-2),
-        I16Repr::Minus1 => print(-1),
-        I16Repr::Zero => print(0),
-        I16Repr::Max => print(1),
+        I16Repr::Min => -2,
+        I16Repr::Minus1 => -1,
+        I16Repr::Zero => 0,
+        I16Repr::Max => 1,
     }
 }
 
 fn main() {
     let x = A::A1(12);
-    print_a(&x);
-    print_a_match(&x);
+    check_a(&x, true);
     let x = A::A2;
-    print_a(&x);
-    print_a_match(&x);
+    check_a(&x, false);
 
-    print_i16_repr(I16Repr::Min);
-    print_i16_repr(I16Repr::Minus1);
-    print_i16_repr(I16Repr::Zero);
-    print_i16_repr(I16Repr::Max);
+    assert!(get_i16_repr(I16Repr::Min) == -2);
+    assert!(get_i16_repr(I16Repr::Minus1) == -1);
+    assert!(get_i16_repr(I16Repr::Zero) == 0);
+    assert!(get_i16_repr(I16Repr::Max) == 1);
 }
