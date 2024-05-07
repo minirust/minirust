@@ -7,7 +7,6 @@ pub struct Ctxt<'tcx> {
     pub fn_name_map: HashMap<rs::Instance<'tcx>, FnName>,
 
     /// Stores which AllocId evaluates to which GlobalName.
-    /// Note that not every AllocId and not every GlobalName is coming up in this map (for example constants are missing).
     pub alloc_map: HashMap<rs::AllocId, GlobalName>,
 
     pub globals: Map<GlobalName, Global>,
