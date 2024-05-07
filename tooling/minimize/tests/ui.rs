@@ -17,36 +17,31 @@ fn cfg(path: &str, mode: Mode) -> Config {
     }
 }
 
-fn run_tests(mut config: Config) -> Result<()> {
-    // We can't use `ui_test::run_tests` as that has bad defaults (it always blesses!).
-
+fn run_tests(mut configs: Vec<Config>) -> Result<()> {
+    // Some of this is adapted from `ui_test::run_tests`.
     // Handle command-line arguments.
     let args = ui_test::Args::test()?;
-    if let Format::Pretty = args.format {
-        println!("Compiler: {}", config.program.display());
-    }
-
     let bless = std::env::var_os("BLESS").is_some_and(|v| v != "0");
-    config.with_args(&args, bless);
-    if let OutputConflictHandling::Error(msg) = &mut config.output_conflict_handling {
-        *msg = "BLESS=1 ./test.sh".into();
+
+    for config in configs.iter_mut() {
+        config.with_args(&args, bless);
+        if let OutputConflictHandling::Error(msg) = &mut config.output_conflict_handling {
+            *msg = "BLESS=1 ./test.sh".into();
+        }
     }
 
     let text = match args.format {
         Format::Terse => status_emitter::Text::quiet(),
         Format::Pretty => status_emitter::Text::verbose(),
     };
-    let name = config.root_dir.display().to_string();
     run_tests_generic(
-        vec![config],
+        configs,
         ui_test::default_file_filter,
         ui_test::default_per_file_config,
-        (text, status_emitter::Gha::</* GHA Actions groups*/ true> { name }),
+        (text, status_emitter::Gha::</* GHA Actions groups*/ true> { name: format!("minimize") }),
     )
 }
 
 fn main() -> Result<()> {
-    run_tests(cfg("./tests/pass", Mode::Pass))?;
-    run_tests(cfg("./tests/ub", Mode::Panic))?;
-    Ok(())
+    run_tests(vec![cfg("tests/pass", Mode::Pass), cfg("tests/ub", Mode::Panic)])
 }
