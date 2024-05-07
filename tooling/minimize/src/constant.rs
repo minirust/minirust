@@ -2,7 +2,7 @@ use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>, span: rs::Span) -> ValueExpr {
-        let val = match c.eval(self.tcx, rs::ParamEnv::reveal_all(), None) {
+        let val = match c.eval(self.tcx, rs::ParamEnv::reveal_all(), rs::DUMMY_SP) {
             Ok(val) => val,
             Err(_) => rs::span_bug!(span, "const-eval failed"),
         };

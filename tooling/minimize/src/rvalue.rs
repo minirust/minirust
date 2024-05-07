@@ -187,9 +187,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     "PointerExposeAddress should have been handled on the statement level"
                 );
             }
-            smir::Rvalue::Cast(smir::CastKind::PointerFromExposedAddress, ..) => {
+            smir::Rvalue::Cast(smir::CastKind::PointerWithExposedProvenance, ..) => {
                 unreachable!(
-                    "PointerFromExposedAddress should have been handled on the statement level"
+                    "PointerWithExposedProvenance should have been handled on the statement level"
                 );
             }
             smir::Rvalue::Cast(
@@ -215,7 +215,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 build::fn_ptr(self.cx.get_fn_name_smir(instance).0.get_internal())
             }
-            smir::Rvalue::NullaryOp(smir::NullOp::DebugAssertions, _ty) => {
+            smir::Rvalue::NullaryOp(smir::NullOp::UbChecks, _ty) => {
                 // Like Miri, since we are able to detect language UB ourselves we can disable these checks.
                 // TODO: reflect the current session's ub_checks flag instead, once we are on a new enough rustc.
                 build::const_bool(false)

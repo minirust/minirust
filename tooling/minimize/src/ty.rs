@@ -66,7 +66,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let mutbl = translate_mutbl(*mutbl);
                 Type::Ptr(PtrType::Ref { pointee, mutbl })
             }
-            rs::TyKind::RawPtr(rs::TypeAndMut { ty, mutbl: _ }) => {
+            rs::TyKind::RawPtr(ty, _mutbl) => {
                 let _pointee = self.layout_of(*ty); // just to make sure that we can translate this type
                 Type::Ptr(PtrType::Raw)
             }

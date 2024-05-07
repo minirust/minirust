@@ -54,7 +54,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // Some things that MIR handles as rvalues are non-deterministic,
                 // so MiniRust treats them differently.
                 match rval {
-                    rs::Rvalue::Cast(rs::CastKind::PointerExposeAddress, operand, _) => {
+                    rs::Rvalue::Cast(rs::CastKind::PointerExposeProvenance, operand, _) => {
                         let operand = self.translate_operand(operand, span);
                         return StatementResult::Intrinsic {
                             intrinsic: IntrinsicOp::PointerExposeProvenance,
@@ -62,7 +62,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             arguments: list![operand],
                         };
                     }
-                    rs::Rvalue::Cast(rs::CastKind::PointerFromExposedAddress, operand, _) => {
+                    rs::Rvalue::Cast(rs::CastKind::PointerWithExposedProvenance, operand, _) => {
                         // TODO untested so far! (Can't test because of `predict`)
                         let operand = self.translate_operand(operand, span);
                         return StatementResult::Intrinsic {
