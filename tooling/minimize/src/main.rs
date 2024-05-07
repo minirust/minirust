@@ -79,20 +79,30 @@ use enums::int_from_bits;
 
 use std::collections::HashMap;
 
+fn show_error(msg: &impl std::fmt::Display) -> ! {
+    eprintln!("fatal error: {msg}");
+    std::process::exit(101) // exit code needed to make ui_test happy
+}
+
+macro_rules! show_error {
+    ($($tt:tt)*) => { crate::show_error(&format_args!($($tt)*)) };
+}
+
 fn main() {
     let (minimize_args, rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
-    get_mini(rustc_args, |tcx, prog| {
+    get_mini(rustc_args, |_tcx, prog| {
         if dump {
             dump_program(prog);
         } else {
             match run_program(prog) {
+                // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
                 TerminationInfo::IllFormed =>
-                    tcx.dcx().fatal("ERR: program not well-formed (this is a bug in minimize)"),
+                    show_error!("program not well-formed (this is a bug in minimize)"),
                 TerminationInfo::MachineStop => { /* silent exit. */ }
-                TerminationInfo::Ub(err) => tcx.dcx().fatal(format!("UB: {}", err.get_internal())),
-                TerminationInfo::Deadlock => tcx.dcx().fatal("program dead-locked"),
-                TerminationInfo::MemoryLeak => tcx.dcx().fatal("program leaked memory"),
+                TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
+                TerminationInfo::Deadlock => show_error!("program dead-locked"),
+                TerminationInfo::MemoryLeak => show_error!("program leaked memory"),
             }
         }
     });
