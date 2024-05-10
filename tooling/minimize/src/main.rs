@@ -27,8 +27,11 @@ mod rs {
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
     pub use rustc_span::{Span, DUMMY_SP};
-    pub use rustc_target::abi::{call::*, Align, FieldIdx, Layout, Size};
+    pub use rustc_target::abi::{self, call::*, Align, FieldIdx, Layout, Size};
 }
+// Traits
+pub use rustc_middle::ty::layout::IntegerExt as _;
+pub use rustc_target::abi::HasDataLayout as _;
 
 mod smir {
     pub use rustc_smir::rustc_internal::*;

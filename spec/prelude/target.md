@@ -35,7 +35,7 @@ pub struct x86_64;
 impl Target for x86_64 {
     const PTR_SIZE: Size = Size::from_bits_const(64).unwrap();
     const PTR_ALIGN: Align = Align::from_bits_const(64).unwrap();
-    const INT_MAX_ALIGN: Align = Align::from_bits_const(64).unwrap();
+    const INT_MAX_ALIGN: Align = Align::from_bits_const(128).unwrap();
     const ENDIANNESS: Endianness = LittleEndian;
 
     const MAX_ATOMIC_SIZE: Size = Size::from_bits_const(64).unwrap();

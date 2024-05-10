@@ -121,6 +121,16 @@ They *do* have a mutability since that is (or will be) relevant for the memory m
 Here we define how to compute the size and other layout properties of a type.
 
 ```rust
+impl IntType {
+    pub fn align<T: Target>(self) -> Align {
+        let size = self.size.bytes();
+        // The size is a power of two, so we can use it as alignment.
+        let natural_align = Align::from_bytes(size).unwrap();
+        // Integer alignment is capped by the target.
+        natural_align.min(T::INT_MAX_ALIGN)
+    }
+}
+
 impl Type {
     pub fn size<T: Target>(self) -> Size {
         use Type::*;
@@ -136,13 +146,7 @@ impl Type {
     pub fn align<T: Target>(self) -> Align {
         use Type::*;
         match self {
-            Int(int_type) => {
-                let size = int_type.size.bytes();
-                // The size is a power of two, so we can use it as alignment.
-                let natural_align = Align::from_bytes(size).unwrap();
-                // Integer alignment is capped by the target.
-                natural_align.min(T::INT_MAX_ALIGN)
-            }
+            Int(int_type) => int_type.align::<T>(),
             Bool => Align::ONE,
             Ptr(_) => T::PTR_ALIGN,
             Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,

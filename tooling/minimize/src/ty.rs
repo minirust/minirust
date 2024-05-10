@@ -22,8 +22,14 @@ impl<'tcx> Ctxt<'tcx> {
     pub fn translate_ty(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> Type {
         match ty.kind() {
             rs::TyKind::Bool => Type::Bool,
-            rs::TyKind::Int(int_ty) => Type::Int(translate_int_ty(int_ty)),
-            rs::TyKind::Uint(uint_ty) => Type::Int(translate_uint_ty(uint_ty)),
+            rs::TyKind::Int(t) => {
+                let sz = rs::abi::Integer::from_int_ty(&self.tcx, *t).size();
+                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Signed })
+            }
+            rs::TyKind::Uint(t) => {
+                let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
+                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
+            }
             rs::TyKind::Tuple(ts) => {
                 let layout = self.rs_layout_of(ty);
                 let size = translate_size(layout.size());
@@ -128,40 +134,6 @@ pub fn translate_mutbl_smir(mutbl: smir::Mutability) -> Mutability {
         smir::Mutability::Mut => Mutability::Mutable,
         smir::Mutability::Not => Mutability::Immutable,
     }
-}
-
-fn translate_int_ty(int_ty: &rs::IntTy) -> IntType {
-    use rs::IntTy::*;
-
-    let size = match int_ty {
-        Isize => 8, // this is fixed as 8, to be compatible with BasicMemory.
-        I8 => 1,
-        I16 => 2,
-        I32 => 4,
-        I64 => 8,
-        I128 => 16,
-    };
-
-    let signed = Signedness::Signed;
-    let size = Size::from_bytes_const(size);
-    IntType { signed, size }
-}
-
-fn translate_uint_ty(uint_ty: &rs::UintTy) -> IntType {
-    use rs::UintTy::*;
-
-    let size = match uint_ty {
-        Usize => 8, // this is fixed as 8, to be compatible with BasicMemory.
-        U8 => 1,
-        U16 => 2,
-        U32 => 4,
-        U64 => 8,
-        U128 => 16,
-    };
-
-    let signed = Signedness::Unsigned;
-    let size = Size::from_bytes_const(size);
-    IntType { signed, size }
 }
 
 pub fn translate_size(size: rs::Size) -> Size {

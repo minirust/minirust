@@ -16,6 +16,31 @@ pub struct Ctxt<'tcx> {
 
 impl<'tcx> Ctxt<'tcx> {
     pub fn new(tcx: rs::TyCtxt<'tcx>) -> Self {
+        // Ensure consistency with the DefaultTarget
+        let dl = tcx.data_layout();
+        assert_eq!(DefaultTarget::PTR_SIZE, translate_size(dl.pointer_size));
+        assert_eq!(DefaultTarget::PTR_ALIGN, translate_align(dl.pointer_align.abi));
+        assert_eq!(
+            DefaultTarget::ENDIANNESS,
+            match dl.endian {
+                rs::abi::Endian::Little => Endianness::LittleEndian,
+                rs::abi::Endian::Big => Endianness::BigEndian,
+            }
+        );
+        for rs_int_ty in [rs::abi::I8, rs::abi::I16, rs::abi::I32, rs::abi::I64, rs::abi::I128] {
+            let size = translate_size(rs_int_ty.size());
+            // Rust alignment:
+            let align = translate_align(rs_int_ty.align(dl).abi);
+            // MiniRust alignment:
+            // Signedness does not matter, we just care to compare the alignments.
+            let int_ty = IntType { size, signed: Signedness::Unsigned };
+            assert_eq!(
+                int_ty.align::<DefaultTarget>(),
+                align,
+                "{rs_int_ty:?} seem to have the wrong alignment"
+            );
+        }
+
         Ctxt {
             tcx,
             fn_name_map: Default::default(),
