@@ -154,5 +154,5 @@ fn atomic_fetch_op() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ill_formed(p);
+    assert_ill_formed(p, "IntrinsicOp::AtomicFetchAndOp: non atomic op");
 }

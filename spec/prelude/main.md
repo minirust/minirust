@@ -24,7 +24,7 @@ pub enum TerminationInfo {
     /// The program was executed and the machine stopped without error.
     MachineStop,
     /// The program was ill-formed.
-    IllFormed,
+    IllFormed(String),
     /// The program did not terminate but no thread can make progress.
     Deadlock,
     /// The program terminated successfully but memory was leaked.
@@ -53,11 +53,13 @@ macro_rules! throw_memory_leak {
         do yeet TerminationInfo::MemoryLeak
     };
 }
+
 macro_rules! throw_ill_formed {
-    () => {
-        do yeet TerminationInfo::IllFormed
+    ($($tt:tt)*) => {
+        do yeet TerminationInfo::IllFormed(format!($($tt)*))
     };
 }
+
 macro_rules! throw_deadlock {
     () => {
         do yeet TerminationInfo::Deadlock

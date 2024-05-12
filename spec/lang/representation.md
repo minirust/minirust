@@ -116,7 +116,9 @@ fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Pr
 impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         let ptr = decode_ptr::<M>(bytes)?;
-        ensure(ptr_type.addr_valid(ptr.addr))?;
+        if !ptr_type.addr_valid(ptr.addr) {
+            return None;
+        }
         ret(Value::Ptr(ptr))
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
@@ -461,7 +463,7 @@ We also use this to lift retagging from pointers to compound values.
 ```rust
 impl<M: Memory> AtomicMemory<M> {
     fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
-        assert!(val.check_wf(ty).is_some(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
+        assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
         let bytes = ty.encode::<M>(val);
         self.store(ptr, bytes, align, atomicity)?;
 
@@ -472,7 +474,7 @@ impl<M: Memory> AtomicMemory<M> {
         let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
-                assert!(val.check_wf(ty).is_some(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
+                assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
                 val
             }
             None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`

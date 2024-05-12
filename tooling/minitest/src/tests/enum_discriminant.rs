@@ -13,7 +13,7 @@ fn ill_formed_invalid_discriminant_set() {
         set_discriminant(local(0), 0), // ill-formed here
     ];
     let program = small_program(&locals, &stmts);
-    assert_ill_formed(program);
+    assert_ill_formed(program, "Statement::SetDiscriminant: invalid discriminant write");
 }
 
 /// Tests that both `get_discriminant` and `set_discriminant` generally work.

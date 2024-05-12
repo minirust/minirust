@@ -7,13 +7,13 @@ Those requirements are defined in this file.
 We also define the idea of a "value being well-formed at a type".
 `decode` will only ever return well-formed values, and `encode` will never panic on a well-formed value.
 
-Note that `check_wf` functions for testing well-formedness return `Option<()>` rather than `bool` so that we can use `?`.
+Note that `check_wf` functions for testing well-formedness return `Result<()>` to pass information in case an error occured.
+
 We use the following helper function to convert Boolean checks into this form.
 
 ```rust
-fn ensure(b: bool) -> Option<()> {
-    if !b { throw!(); }
-
+fn ensure_wf(b: bool, msg: &str) -> Result<()> {
+    if !b { throw_ill_formed!("{}", msg); }
     ret(())
 }
 ```
@@ -22,25 +22,21 @@ fn ensure(b: bool) -> Option<()> {
 
 ```rust
 impl IntType {
-    fn check_wf(self) -> Option<()> {
+    fn check_wf(self) -> Result<()> {
         // In particular, this checks that the size is at least one byte.
-        ensure(self.size.bytes().is_power_of_two())?;
-
-        ret(())
+        ensure_wf(self.size.bytes().is_power_of_two(), "IntType: size is not power of two")
     }
 }
 
 impl Layout {
-    fn check_wf<T: Target>(self) -> Option<()> {
+    fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        ensure(T::valid_size(self.size))?;
-
-        ret(())
+        ensure_wf(T::valid_size(self.size), "Layout: size not valid")
     }
 }
 
 impl PtrType {
-    fn check_wf<T: Target>(self) -> Option<()> {
+    fn check_wf<T: Target>(self) -> Result<()> {
         match self {
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
@@ -53,14 +49,14 @@ impl PtrType {
 }
 
 impl Type {
-    fn check_wf<T: Target>(self) -> Option<()> {
+    fn check_wf<T: Target>(self) -> Result<()> {
         use Type::*;
 
         // Ensure that the size is valid and a multiple of the alignment.
         let size = self.size::<T>();
-        ensure(T::valid_size(size))?;
+        ensure_wf(T::valid_size(size), "Type: size not valid")?;
         let align = self.align::<T>();
-        ensure(size.bytes() % align.bytes() == 0)?;
+        ensure_wf(size.bytes() % align.bytes() == 0, "Type: size is not multiple of alignment")?;
 
         match self {
             Int(int_type) => {
@@ -79,22 +75,25 @@ impl Type {
                     // Recursively check the field type.
                     ty.check_wf::<T>()?;
                     // And ensure it fits after the one we previously checked.
-                    ensure(offset >= last_end)?;
+                    ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
                     last_end = offset + ty.size::<T>();
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
-                ensure(size >= last_end)?;
+                ensure_wf(size >= last_end, "Type::Tuple: size of fields is bigger than total size")?;
             }
             Array { elem, count } => {
-                ensure(count >= 0)?;
+                ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
                 elem.check_wf::<T>()?;
             }
             Union { fields, size, chunks, align: _ } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
                     ty.check_wf::<T>()?;
-                    ensure(size >= offset + ty.size::<T>())?;
+                    ensure_wf(
+                        size >= offset + ty.size::<T>(),
+                        "Type::Union: field size does not fit union",
+                    )?;
                     // This field may overlap with gaps between the chunks. That's perfectly normal
                     // when there is padding inside the field.
                     // FIXME: should we check that all the non-padding bytes of the field are in some chunk?
@@ -106,11 +105,14 @@ impl Type {
                 // FIXME: should we relax this and allow arbitrary chunk order?
                 let mut last_end = Size::ZERO;
                 for (offset, size) in chunks {
-                    ensure(offset >= last_end)?;
+                    ensure_wf(
+                        offset >= last_end,
+                        "Type::Union: chunks are not stored in ascending order",
+                    )?;
                     last_end = offset + size;
                 }
                 // And they must all fit into the size.
-                ensure(size >= last_end)?;
+                ensure_wf(size >= last_end, "Type::Union: chunks do not fit union")?;
             }
             Enum { variants, size, discriminator, discriminant_ty, .. } => {
                 // All the variants need to be well-formed and be the size of the enum so
@@ -118,16 +120,25 @@ impl Type {
                 // Also their alignment may not be larger than the total enum alignment and
                 // all the values written by the tagger must fit into the variant.
                 for (discriminant, variant) in variants {
-                    ensure(discriminant_ty.can_represent(discriminant))?;
+                    ensure_wf(
+                        discriminant_ty.can_represent(discriminant),
+                        "Type::Enum: invalid value for discriminant"
+                    )?;
 
                     variant.ty.check_wf::<T>()?;
-                    ensure(size == variant.ty.size::<T>())?;
-                    ensure(variant.ty.align::<T>().bytes() <= align.bytes())?;
-                    ensure(variant.tagger.iter().all(|(offset, (value_type, value))|
-                        value_type.check_wf().is_some() &&
-                        value_type.can_represent(value) &&
-                        offset + value_type.size <= size
-                    ))?;
+                    ensure_wf(
+                        size == variant.ty.size::<T>(),
+                        "Type::Enum: variant size is not the same as enum size"
+                    )?;
+                    ensure_wf(
+                        variant.ty.align::<T>().bytes() <= align.bytes(),
+                       "Type::Enum: invalid align requirement"
+                    )?;
+                    for (offset, (value_type, value)) in variant.tagger {
+                        value_type.check_wf()?;
+                        ensure_wf(value_type.can_represent(value), "Type::Enum: invalid tagger value")?;
+                        ensure_wf(offset + value_type.size <= size, "Type::Enum tagger type size too big for enum")?;
+                    }
                     // FIXME: check that the values written by the tagger do not overlap.
                 }
 
@@ -143,22 +154,23 @@ impl Type {
 }
 
 impl Discriminator {
-    fn check_wf<T: Target>(self, size: Size, variants: Map<Int, Variant>) -> Option<()> {
+    fn check_wf<T: Target>(self, size: Size, variants: Map<Int, Variant>) -> Result<()>  {
         match self {
-            Discriminator::Known(discriminant) => ensure(variants.get(discriminant).is_some()),
+            Discriminator::Known(discriminant) => ensure_wf(variants.get(discriminant).is_some(), "Discriminator: invalid discriminant"),
             Discriminator::Invalid => ret(()),
             Discriminator::Branch { offset, value_type, fallback, children } => {
                 // Ensure that the value we branch on is stored in bounds and that all children all valid.
                 value_type.check_wf()?;
-                ensure(offset + value_type.size <= size)?;
+                ensure_wf(offset + value_type.size <= size, "Discriminator: branch offset exceeds size")?;
                 fallback.check_wf::<T>(size, variants)?;
                 for (idx, ((start, end), discriminator)) in children.into_iter().enumerate() {
-                    ensure(value_type.can_represent(start))?;
+                    ensure_wf(value_type.can_represent(start), "Discriminator: invalid branch start bound")?;
                     // Since the end is exclusive we only need to represent the number before the end.
-                    ensure(value_type.can_represent(end - Int::ONE))?;
-                    ensure(start < end)?;
+                    ensure_wf(value_type.can_represent(end - Int::ONE), "Discriminator: invalid branch end bound")?;
+                    ensure_wf(start < end, "Discriminator: invalid bound values")?;
                     // Ensure that the ranges don't overlap.
-                    ensure(children.keys().enumerate().all(|(other_idx, (other_start, other_end))| other_end <= start || other_start >= end || idx == other_idx))?;
+                    ensure_wf(children.keys().enumerate().all(|(other_idx, (other_start, other_end))| 
+                                other_end <= start || other_start >= end || idx == other_idx), "Discriminator: branch ranges overlap")?;
                     discriminator.check_wf::<T>(size, variants)?;
                 }
                 ret(())
@@ -174,24 +186,27 @@ impl Discriminator {
 impl Constant {
     /// Check that the constant has the expected type.
     /// Assumes that `ty` has already been checked.
-    fn check_wf<T: Target>(self, ty: Type, prog: Program) -> Option<()> {
+    fn check_wf<T: Target>(self, ty: Type, prog: Program) -> Result<()> {
         // For now, we only support integer and boolean literals and pointers.
         // TODO: add more.
         match (self, ty) {
             (Constant::Int(i), Type::Int(int_type)) => {
-                ensure(int_type.can_represent(i))?;
+                ensure_wf(int_type.can_represent(i), "Constant::Int: invalid int value")?;
             }
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
                 relocation.check_wf(prog.globals)?;
             }
             (Constant::FnPointer(fn_name), Type::Ptr(_)) => {
-                ensure(prog.functions.contains_key(fn_name))?;
+                ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
-                ensure(addr.in_bounds(Signedness::Unsigned, T::PTR_SIZE))?;
+                ensure_wf(
+                    addr.in_bounds(Signedness::Unsigned, T::PTR_SIZE),
+                    "Constant::PointerWithoutProvenance: pointer out-of-bounds"
+                )?;
             }
-            _ => throw!(),
+            _ => throw_ill_formed!("Constant: value does not match type"),
         }
 
         ret(())
@@ -200,7 +215,7 @@ impl Constant {
 
 impl ValueExpr {
     #[allow(unused_braces)]
-    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Option<Type> {
+    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Result<Type> {
         use ValueExpr::*;
         ret(match self {
             Constant(value, ty) => {
@@ -213,20 +228,20 @@ impl ValueExpr {
 
                 match t {
                     Type::Tuple { fields, .. } => {
-                        ensure(exprs.len() == fields.len())?;
+                        ensure_wf(exprs.len() == fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
                         for (e, (_offset, ty)) in exprs.zip(fields) {
                             let checked = e.check_wf::<T>(locals, prog)?;
-                            ensure(checked == ty)?;
+                            ensure_wf(checked == ty, "ValueExpr::Tuple: invalid tuple field type")?;
                         }
                     },
                     Type::Array { elem, count } => {
-                        ensure(exprs.len() == count)?;
+                        ensure_wf(exprs.len() == count, "ValueExpr::Tuple: invalid number of array elements")?;
                         for e in exprs {
                             let checked = e.check_wf::<T>(locals, prog)?;
-                            ensure(checked == elem)?;
+                            ensure_wf(checked == elem, "ValueExpr::Tuple: invalid array element type")?;
                         }
                     },
-                    _ => throw!(),
+                    _ => throw_ill_formed!("ValueExpr::Tuple: expression does not match type"),
                 }
 
                 t
@@ -234,28 +249,34 @@ impl ValueExpr {
             Union { field, expr, union_ty } => {
                 union_ty.check_wf::<T>()?;
 
-                let Type::Union { fields, .. } = union_ty else { throw!() };
+                let Type::Union { fields, .. } = union_ty else {
+                    throw_ill_formed!("ValueExpr::Union: invalid type")
+                };
 
-                ensure(field < fields.len())?;
+                ensure_wf(field < fields.len(), "ValueExpr::Union: invalid field length")?;
                 let (_offset, ty) = fields[field];
 
                 let checked = expr.check_wf::<T>(locals, prog)?;
-                ensure(checked == ty)?;
+                ensure_wf(checked == ty, "ValueExpr::Union: invalid field type")?;
 
                 union_ty
             }
             Variant { discriminant, data, enum_ty } => {
-                let Type::Enum { variants, .. } = enum_ty else { throw!() };
+                let Type::Enum { variants, .. } = enum_ty else { 
+                    throw_ill_formed!("ValueExpr::Variant: invalid type")
+                };
                 enum_ty.check_wf::<T>()?;
-                let ty = variants.get(discriminant)?.ty;
+                let Some(variant) = variants.get(discriminant) else {
+                    throw_ill_formed!("ValueExpr::Variant: invalid discriminant");
+                };
 
                 let checked = data.check_wf::<T>(locals, prog)?;
-                ensure(checked == ty);
+                ensure_wf(checked == variant.ty, "ValueExpr::Variant: invalid type")?;
                 enum_ty
             }
             GetDiscriminant { place } => {
-                let Some(Type::Enum { discriminant_ty, .. }) = place.check_wf::<T>(locals, prog) else {
-                    throw!();
+                let Type::Enum { discriminant_ty, .. } = place.check_wf::<T>(locals, prog)? else {
+                    throw_ill_formed!("ValueExpr::GetDiscriminant: invalid type");
                 };
                 Type::Int(discriminant_ty)
             }
@@ -274,23 +295,23 @@ impl ValueExpr {
                 match operator {
                     Int(_int_op) => {
                         let Type::Int(int_ty) = operand else {
-                            throw!();
+                            throw_ill_formed!("UnOp::Int: invalid operand");
                         };
                         Type::Int(int_ty)
                     }
                     Bool(_bool_op) => {
-                        ensure(matches!(operand, Type::Bool))?;
+                        ensure_wf(matches!(operand, Type::Bool), "UnOp::Bool: invalid operand")?;
                         Type::Bool
                     }
                     Cast(cast_op) => {
                         use lang::CastOp::*;
                         match cast_op {
                             IntToInt(int_ty) => {
-                                ensure(matches!(operand, Type::Int(_)))?;
+                                ensure_wf(matches!(operand, Type::Int(_)), "Cast::IntToInt: invalid operand")?;
                                 Type::Int(int_ty)
                             }
                             BoolToInt(int_ty) => {
-                                ensure(matches!(operand, Type::Bool))?;
+                                ensure_wf(matches!(operand, Type::Bool), "Cast::BoolToInt: invalid operand")?;
                                 Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
@@ -308,26 +329,26 @@ impl ValueExpr {
                 match operator {
                     Int(_int_op) => {
                         let Type::Int(int_ty) = left else {
-                            throw!();
+                            throw_ill_formed!("BinOp::Int: invalid left type");
                         };
-                        ensure(right == Type::Int(int_ty))?;
+                        ensure_wf(right == Type::Int(int_ty), "BinOp::Int: invalid right type")?;
                         Type::Int(int_ty)
                     }
                     IntRel(_int_rel) => {
                         let Type::Int(int_ty) = left else {
-                            throw!();
+                            throw_ill_formed!("BinOp::IntRel: invalid left type");
                         };
-                        ensure(right == Type::Int(int_ty))?;
+                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntRel: invalid right type")?;
                         Type::Bool
                     }
                     PtrOffset { inbounds: _ } => {
-                        ensure(matches!(left, Type::Ptr(_)))?;
-                        ensure(matches!(right, Type::Int(_)))?;
+                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffset: invalid left type")?;
+                        ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
                     Bool(_bool_op) => {
-                        ensure(matches!(left, Type::Bool))?;
-                        ensure(matches!(right, Type::Bool))?;
+                        ensure_wf(matches!(left, Type::Bool), "BinOp::Bool: invalid left type")?;
+                        ensure_wf(matches!(right, Type::Bool), "BinOp::Bool: invalid right type")?;
                         Type::Bool
                     }
                 }
@@ -337,40 +358,54 @@ impl ValueExpr {
 }
 
 impl PlaceExpr {
-    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Option<Type> {
+    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Result<Type> {
         use PlaceExpr::*;
         ret(match self {
-            Local(name) => locals.get(name)?,
+            Local(name) => {
+                match locals.get(name) {
+                    None => throw_ill_formed!("PlaceExpr::Local: unknown local name"),
+                    Some(local) => local,
+                }
+            },
             Deref { operand, ty } => {
                 let op_ty = operand.check_wf::<T>(locals, prog)?;
-                ensure(matches!(op_ty, Type::Ptr(_)))?;
+                ensure_wf(matches!(op_ty, Type::Ptr(_)), "PlaceExpr::Deref: invalid type")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 ty
             }
             Field { root, field } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 let (_offset, field_ty) = match root {
-                    Type::Tuple { fields, .. } => fields.get(field)?,
-                    Type::Union { fields, .. } => fields.get(field)?,
-                    _ => throw!(),
+                    Type::Tuple { fields, .. } | Type::Union { fields, .. } => {
+                        match fields.get(field) {
+                            None => throw_ill_formed!("PlaceExpr::Field: invalid field"),
+                            Some(field) => field,
+                        }
+                    }
+                    _ => throw_ill_formed!("PlaceExpr::Field: expression does not match type"),
                 };
                 field_ty
             }
             Index { root, index } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 let index = index.check_wf::<T>(locals, prog)?;
-                ensure(matches!(index, Type::Int(_)))?;
+                ensure_wf(matches!(index, Type::Int(_)), "PlaceExpr::Index: invalid index type")?;
                 match root {
                     Type::Array { elem, .. } => elem,
-                    _ => throw!(),
+                    _ => throw_ill_formed!("PlaceExpr::Index: expression does not match Array type"),
                 }
             }
             Downcast { root, discriminant } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 match root {
                     // A valid downcast points to an existing variant.
-                    Type::Enum { variants, .. } => variants.get(discriminant)?.ty,
-                    _ => throw!(),
+                    Type::Enum { variants, .. } => {
+                        let Some(variant) = variants.get(discriminant) else {
+                            throw_ill_formed!("PlaceExpr::Downcast: invalid discriminant");
+                        };
+                        variant.ty
+                    }
+                    _ => throw_ill_formed!("PlaceExpr::Downcast: invalid root type"),
                 }
             }
         })
@@ -378,7 +413,7 @@ impl PlaceExpr {
 }
 
 impl ArgumentExpr {
-    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Option<Type> {
+    fn check_wf<T: Target>(self, locals: Map<LocalName, Type>, prog: Program) -> Result<Type> {
         ret(match self {
             ArgumentExpr::ByValue(value) => value.check_wf::<T>(locals, prog)?,
             ArgumentExpr::InPlace(place) => place.check_wf::<T>(locals, prog)?
@@ -401,18 +436,18 @@ impl Statement {
         mut live_locals: Map<LocalName, Type>,
         func: Function,
         prog: Program,
-    ) -> Option<Map<LocalName, Type>> {
+    ) -> Result<Map<LocalName, Type>> {
         use Statement::*;
         ret(match self {
             Assign { destination, source } => {
                 let left = destination.check_wf::<T>(live_locals, prog)?;
                 let right = source.check_wf::<T>(live_locals, prog)?;
-                ensure(left == right)?;
+                ensure_wf(left == right, "Statement::Assign: destination and source type differ")?;
                 live_locals
             }
             SetDiscriminant { destination, value } => {
                 let Type::Enum { variants, .. } = destination.check_wf::<T>(live_locals, prog)? else {
-                    throw!();
+                    throw_ill_formed!("Statement::SetDiscriminant: invalid type");
                 };
                 // We don't ensure that we can actually represent the discriminant.
                 // The well-formedness checks for the type just ensure that every discriminant
@@ -421,7 +456,9 @@ impl Statement {
                 // result in an invalid value as either the discriminator returns
                 // `Discriminator::Invalid` or another variant.
                 // This is fine as SetDiscriminant does not guarantee that the enum is a valid value.
-                variants.get(value)?;
+                if variants.get(value) == None {
+                    throw_ill_formed!("Statement::SetDiscriminant: invalid discriminant write")
+                }
                 live_locals
             }
             Validate { place, fn_entry: _ } => {
@@ -435,15 +472,22 @@ impl Statement {
             StorageLive(local) => {
                 // Look up the type in the function, and add it to the live locals.
                 // Fail if it already is live.
-                live_locals.try_insert(local, func.locals.get(local)?).ok()?;
+                let Some(ty) = func.locals.get(local) else {
+                    throw_ill_formed!("Statement::StorageLive: invalid local variable")
+                };
+                if live_locals.try_insert(local, ty).is_err() {
+                    throw_ill_formed!("Statement::StorageLive: local already live");
+                };
                 live_locals
             }
             StorageDead(local) => {
                 if local == func.ret || func.args.any(|arg_name| local == arg_name) {
                     // Trying to mark an argument or the return local as dead.
-                    throw!();
+                    throw_ill_formed!("Statement::StorageDead: trying to mark argument or return local as dead");
                 }
-                live_locals.remove(local)?;
+                if live_locals.remove(local) == None {
+                    throw_ill_formed!("Statement::StorageDead: local already dead");
+                };
                 live_locals
             }
         })
@@ -468,7 +512,7 @@ impl Terminator {
         self,
         live_locals: Map<LocalName, Type>,
         prog: Program,
-    ) -> Option<List<BbName>> {
+    ) -> Result<List<BbName>> {
         use Terminator::*;
         ret(match self {
             Goto(block_name) => {
@@ -480,13 +524,13 @@ impl Terminator {
                     // We only switch on integers.
                     // This is in contrast to Rust MIR where switch can work on `char`s and booleans as well.
                     // However since those are trivial casts we chose to only accept integers.
-                    throw!()
+                    throw_ill_formed!("Terminator::Switch: switch is not Int")
                 };
 
                 // ensures that all cases are valid and therefore can be reached from this block.
                 let mut next_blocks = List::new();
                 for (case, block) in cases.iter() {
-                    ensure(switch_ty.can_represent(case))?;
+                    ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: invalid basic block name")?;
                     next_blocks.push(block);
                 }
 
@@ -499,7 +543,7 @@ impl Terminator {
             }
             Call { callee, arguments, ret, next_block } => {
                 let ty = callee.check_wf::<T>(live_locals, prog)?;
-                ensure(matches!(ty, Type::Ptr(PtrType::FnPtr(_))))?;
+                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr(_))), "Terminator::Call: invalid type")?;
 
                 // Return and argument expressions must all typecheck with some type.
                 ret.check_wf::<T>(live_locals, prog)?;
@@ -523,7 +567,7 @@ impl Terminator {
                 match intrinsic {
                     IntrinsicOp::AtomicFetchAndOp(op) => {
                         if !is_atomic_binop(op) {
-                            throw!();
+                            throw_ill_formed!("IntrinsicOp::AtomicFetchAndOp: non atomic op");
                         }
                     }
                     _ => {}
@@ -542,7 +586,7 @@ impl Terminator {
 }
 
 impl Function {
-    fn check_wf<T: Target>(self, prog: Program) -> Option<()> {
+    fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // Ensure all locals have a valid type.
         for ty in self.locals.values() {
             ty.check_wf::<T>()?;
@@ -551,10 +595,20 @@ impl Function {
         // Construct initially live locals.
         // Also ensures that return and argument locals must exist.
         let mut start_live: Map<LocalName, Type> = Map::new();
-        start_live.try_insert(self.ret, self.locals.get(self.ret)?).ok()?;
+        let Some(ret_ty) = self.locals.get(self.ret) else {
+            throw_ill_formed!("Function: return local does not exist");
+        };
+        if start_live.try_insert(self.ret, ret_ty).is_err() {
+            throw_ill_formed!("Function: invalid return local")
+        };
         for arg in self.args {
             // Also ensures that no two arguments refer to the same local.
-            start_live.try_insert(arg, self.locals.get(arg)?).ok()?;
+            let Some(arg_ty) = self.locals.get(arg) else {
+                throw_ill_formed!("Function: invalid arg name");
+            };
+            if start_live.try_insert(arg, arg_ty).is_err() {
+                throw_ill_formed!("Function: invalid arg");
+            };
         }
 
         // Check the basic blocks. They can be cyclic, so we keep a worklist of
@@ -564,7 +618,9 @@ impl Function {
         bb_live_at_entry.insert(self.start, start_live);
         let mut todo = list![self.start];
         while let Some(block_name) = todo.pop_front() {
-            let block = self.blocks.get(block_name)?;
+            let Some(block) = self.blocks.get(block_name) else {
+                throw_ill_formed!("Function: invalid block name");
+            };
             let mut live_locals = bb_live_at_entry[block_name];
             // Check this block, updating the live locals along the way.
             for statement in block.statements {
@@ -575,7 +631,7 @@ impl Function {
                 if let Some(precondition) = bb_live_at_entry.get(block_name) {
                     // A block we already visited (or already have in the worklist).
                     // Make sure the set of initially live locals is consistent!
-                    ensure(precondition == live_locals)?;
+                    ensure_wf(precondition == live_locals, "Function: set of live locals is not consistent")?;
                 } else {
                     // A new block.
                     bb_live_at_entry.insert(block_name, live_locals);
@@ -586,7 +642,7 @@ impl Function {
 
         // Ensure there are no dead blocks that we failed to reach.
         for block_name in self.blocks.keys() {
-            ensure(bb_live_at_entry.contains_key(block_name))?;
+            ensure_wf(bb_live_at_entry.contains_key(block_name), "Function: unreached basic block")?;
         }
 
         ret(())
@@ -595,26 +651,36 @@ impl Function {
 
 impl Relocation {
     // Checks whether the relocation is within bounds.
-    fn check_wf(self, globals: Map<GlobalName, Global>) -> Option<()> {
+    fn check_wf(self, globals: Map<GlobalName, Global>) -> Result<()> {
         // The global we are pointing to needs to exist.
-        let global = globals.get(self.name)?;
+        let Some(global) = globals.get(self.name) else {
+            throw_ill_formed!("Relocation: invalid global name");
+        };
         let size = Size::from_bytes(global.bytes.len()).unwrap();
 
         // And the offset needs to be in-bounds of its size.
-        ensure(self.offset <= size)?;
+        ensure_wf(self.offset <= size, "Relocation: offset out-of-bounds")?;
 
         ret(())
     }
 }
 
 impl Program {
-    fn check_wf<T: Target>(self) -> Option<()> {
+    fn check_wf<T: Target>(self) -> Result<()> {
         // Ensure the start function exists, has the right ABI, takes no arguments, and returns a 1-ZST.
-        let func = self.functions.get(self.start)?;
-        ensure(func.calling_convention == CallingConvention::C);
-        let ret_layout = func.locals.get(func.ret)?.layout::<T>();
-        ensure(ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE);
-        ensure(func.args.is_empty())?;
+        let Some(func) = self.functions.get(self.start) else {
+            throw_ill_formed!("Program: start function does not exist");
+        };
+        ensure_wf(func.calling_convention == CallingConvention::C, "Program: invalid calling convention")?;
+        let Some(ret_local) = func.locals.get(func.ret) else {
+            throw_ill_formed!("Program: start function has no return local");
+        };
+        let ret_layout = ret_local.layout::<T>();
+        ensure_wf(
+            ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE,
+            "Program: start function return local has invalid layout"
+        )?;
+        ensure_wf(func.args.is_empty(), "Program: supplied start function with arguments")?;
 
         // Check all the functions.
         for function in self.functions.values() {
@@ -626,7 +692,7 @@ impl Program {
             let size = Size::from_bytes(global.bytes.len()).unwrap();
             for (offset, relocation) in global.relocations {
                 // A relocation fills `PTR_SIZE` many bytes starting at the offset, those need to fit into the size.
-                ensure(offset + T::PTR_SIZE <= size)?;
+                ensure_wf(offset + T::PTR_SIZE <= size, "Program: invalid global pointer value")?;
 
                 relocation.check_wf(self.globals)?;
             }
@@ -642,39 +708,41 @@ impl Program {
 ```rust
 impl<M: Memory> Value<M> {
     /// We assume `ty` is itself well-formed.
-    fn check_wf(self, ty: Type) -> Option<()> {
+    fn check_wf(self, ty: Type) -> Result<()> {
         match (self, ty) {
             (Value::Int(i), Type::Int(ity)) => {
-                ensure(ity.can_represent(i))?;
+                ensure_wf(ity.can_represent(i), "Value::Int: invalid integer value")?;
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure(ptr_ty.addr_valid(ptr.addr))?;
-                ensure(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE))?;
+                ensure_wf(ptr_ty.addr_valid(ptr.addr), "Value::Ptr: invalid pointer address")?;
+                ensure_wf(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure(vals.len() == fields.len())?;
+                ensure_wf(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
                 for (val, (_, ty)) in vals.zip(fields) {
                     val.check_wf(ty)?;
                 }
             }
             (Value::Tuple(vals), Type::Array { elem, count }) => {
-                ensure(vals.len() == count)?;
+                ensure_wf(vals.len() == count, "Value::Tuple: invalid number of elements")?;
                 for val in vals {
                     val.check_wf(elem)?;
                 }
             }
             (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
-                ensure(chunk_data.len() == chunks.len())?;
+                ensure_wf(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
                 for (data, (_, size)) in chunk_data.zip(chunks) {
-                    ensure(data.len() == size.bytes())?;
+                    ensure_wf(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
                 }
             }
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
-                let variant = variants.get(discriminant)?.ty;
-                data.check_wf(variant)?;
+                let Some(variant) = variants.get(discriminant) else {
+                    throw_ill_formed!("Value::Variant: invalid discrimant type");
+                };
+                data.check_wf(variant.ty)?;
             }
-            _ => throw!()
+            _ => throw_ill_formed!("Value: value does not match type")
         }
 
         ret(())

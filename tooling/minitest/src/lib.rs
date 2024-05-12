@@ -57,8 +57,11 @@ pub fn assert_ub_eventually(prog: Program, attempts: usize, msg: &str) {
 }
 
 #[track_caller]
-pub fn assert_ill_formed(prog: Program) {
-    assert_eq!(run_program(prog), TerminationInfo::IllFormed);
+pub fn assert_ill_formed(prog: Program, msg: &str) {
+    let TerminationInfo::IllFormed(info) = run_program(prog) else {
+        panic!("program is not ill formed!")
+    };
+    assert_eq!(info.get_internal(), msg, "program is ill-formed with a different error message");
 }
 
 #[track_caller]

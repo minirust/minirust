@@ -112,8 +112,11 @@ fn main() {
         } else {
             match run_program(prog) {
                 // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
-                TerminationInfo::IllFormed =>
-                    show_error!("program not well-formed (this is a bug in minimize)"),
+                TerminationInfo::IllFormed(err) =>
+                    show_error!(
+                        "program not well-formed (this is a bug in minimize):\n    {}",
+                        err.get_internal()
+                    ),
                 TerminationInfo::MachineStop => { /* silent exit. */ }
                 TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
                 TerminationInfo::Deadlock => show_error!("program dead-locked"),
