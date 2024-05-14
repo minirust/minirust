@@ -49,24 +49,22 @@ impl<'tcx> Ctxt<'tcx> {
 
                 Type::Tuple { fields, size, align }
             }
-            rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
-                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref, span);
-
-                Type::Tuple { fields, size, align }
-            }
-            rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
-                let (fields, size, align) = self.translate_adt_fields(ty, *adt_def, sref, span);
-                let chunks = calc_chunks(fields, size);
-
-                Type::Union { fields, size, align, chunks }
-            }
-            rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
-                self.translate_enum(ty, *adt_def, sref, span),
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.boxed_ty();
                 let pointee = self.layout_of(ty);
                 Type::Ptr(PtrType::Box { pointee })
             }
+            rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
+                let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
+                Type::Tuple { fields, size, align }
+            }
+            rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
+                let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
+                let chunks = calc_chunks(fields, size);
+                Type::Union { fields, size, align, chunks }
+            }
+            rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
+                self.translate_enum(ty, *adt_def, sref, span),
             rs::TyKind::Ref(_, ty, mutbl) => {
                 let pointee = self.layout_of(*ty);
                 let mutbl = translate_mutbl(*mutbl);
@@ -95,7 +93,32 @@ impl<'tcx> Ctxt<'tcx> {
         }
     }
 
-    fn translate_adt_fields(
+    /// Constructs the fields of a given variant.
+    pub fn translate_adt_variant_fields(
+        &self,
+        shape: &rs::FieldsShape<rs::FieldIdx>,
+        variant: &rs::VariantDef,
+        sref: rs::GenericArgsRef<'tcx>,
+        span: rs::Span,
+    ) -> Fields {
+        variant
+            .fields
+            .iter_enumerated()
+            .map(|(i, field)| {
+                let ty = field.ty(self.tcx, sref);
+                // Field types can be non-normalized even if the ADT type was normalized
+                // (due to associated types on the fields).
+                let ty = self.tcx.normalize_erasing_regions(rs::ParamEnv::reveal_all(), ty);
+                let ty = self.translate_ty(ty, span);
+                let offset = shape.offset(i.into());
+                let offset = translate_size(offset);
+
+                (offset, ty)
+            })
+            .collect()
+    }
+
+    fn translate_non_enum_adt(
         &self,
         ty: rs::Ty<'tcx>,
         adt_def: rs::AdtDef<'tcx>,
@@ -103,18 +126,12 @@ impl<'tcx> Ctxt<'tcx> {
         span: rs::Span,
     ) -> (Fields, Size, Align) {
         let layout = self.rs_layout_of(ty);
-        let fields = adt_def
-            .all_fields()
-            .enumerate()
-            .map(|(i, field)| {
-                let ty = field.ty(self.tcx, sref);
-                let ty = self.translate_ty(ty, span);
-                let offset = layout.fields().offset(i);
-                let offset = translate_size(offset);
-
-                (offset, ty)
-            })
-            .collect();
+        let fields = self.translate_adt_variant_fields(
+            layout.fields(),
+            adt_def.non_enum_variant(),
+            sref,
+            span,
+        );
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 

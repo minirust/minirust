@@ -1,4 +1,5 @@
 //! Basic checks that niches work.
+use std::num::NonZeroI32;
 
 fn convert_option_bool(b: Option<bool>) -> i8 {
     match b {
@@ -19,6 +20,13 @@ fn convert_result_bool(r: Result<bool, ()>) -> i8 {
 fn convert_option_ref(o: Option<&u8>) -> u8 {
     match o {
         Some(v) => *v,
+        None => 0,
+    }
+}
+
+fn convert_option_nz(o: Option<NonZeroI32>) -> i32 {
+    match o {
+        Some(v) => v.get(),
         None => 0,
     }
 }
@@ -68,6 +76,11 @@ fn main() {
 
     assert!(convert_option_ref(Some(&42)) == 42);
     assert!(convert_option_ref(None) == 0);
+
+    assert!(convert_option_nz(None) == 0);
+    assert!(convert_option_nz(NonZeroI32::new(0)) == 0);
+    assert!(convert_option_nz(NonZeroI32::new(14)) == 14);
+    assert!(convert_option_nz(NonZeroI32::new(-14)) == -14);
 
     assert!(convert_outer(Outer::V1(12, Inner::V1, 42)) == 0);
     assert!(convert_outer(Outer::V1(8888, Inner::V2, 127)) == 1);

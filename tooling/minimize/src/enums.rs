@@ -1,8 +1,4 @@
 use crate::*;
-mod rs {
-    pub use crate::rs::*;
-    pub use crate::rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
-}
 
 use crate::rustc_middle::ty::layout::PrimitiveExt;
 
@@ -25,8 +21,12 @@ impl<'tcx> Ctxt<'tcx> {
 
         let (variants, discriminator) = match layout.variants() {
             rs::Variants::Single { index } => {
-                let fields =
-                    self.translate_fields(layout.fields(), adt_def.variant(*index), sref, span);
+                let fields = self.translate_adt_variant_fields(
+                    layout.fields(),
+                    adt_def.variant(*index),
+                    sref,
+                    span,
+                );
                 let variants = [(
                     Int::ZERO,
                     Variant { ty: Type::Tuple { fields, size, align }, tagger: Map::new() },
@@ -47,7 +47,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let mut translated_variants = Map::new();
                 let mut discriminator_branches = Map::new();
                 for (variant_idx, variant_def) in adt_def.variants().iter_enumerated() {
-                    let fields = self.translate_fields(
+                    let fields = self.translate_adt_variant_fields(
                         &variants[variant_idx].fields,
                         &variant_def,
                         sref,
@@ -162,28 +162,6 @@ impl<'tcx> Ctxt<'tcx> {
         };
 
         Type::Enum { variants, discriminator, discriminant_ty, size, align }
-    }
-
-    /// Constructs the fields of a given variant.
-    fn translate_fields(
-        &self,
-        shape: &rs::FieldsShape<rs::FieldIdx>,
-        variant: &rs::VariantDef,
-        sref: rs::GenericArgsRef<'tcx>,
-        span: rs::Span,
-    ) -> List<(Offset, Type)> {
-        variant
-            .fields
-            .iter_enumerated()
-            .map(|(i, field)| {
-                let ty = field.ty(self.tcx, sref);
-                let ty = self.translate_ty(ty, span);
-                let offset = shape.offset(i.into());
-                let offset = translate_size(offset);
-
-                (offset, ty)
-            })
-            .collect()
     }
 
     pub fn discriminant_for_variant_smir(
