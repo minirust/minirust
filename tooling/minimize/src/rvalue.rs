@@ -9,10 +9,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         match rv {
             smir::Rvalue::Use(operand) => self.translate_operand_smir(operand, span),
             smir::Rvalue::BinaryOp(bin_op, l, r) => {
-                let lty = l.ty(&self.locals_smir).unwrap();
-                let rty = r.ty(&self.locals_smir).unwrap();
+                let lty_smir = l.ty(&self.locals_smir).unwrap();
+                let rty_smir = r.ty(&self.locals_smir).unwrap();
 
-                assert_eq!(lty, rty);
+                assert_eq!(lty_smir, rty_smir);
 
                 let l = self.translate_operand_smir(l, span);
                 let r = self.translate_operand_smir(r, span);
@@ -20,60 +20,53 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let l = GcCow::new(l);
                 let r = GcCow::new(r);
 
+                let lty = self.translate_ty_smir(lty_smir, span);
                 use smir::BinOp::*;
-                let op = match *bin_op {
-                    Offset => BinOp::PtrOffset { inbounds: true },
+                let op = match (bin_op, lty) {
+                    (Offset, Type::Ptr(_)) => BinOp::PtrOffset { inbounds: true },
                     // all int ops
-                    Add => BinOp::Int(BinOpInt::Add),
-                    Sub => BinOp::Int(BinOpInt::Sub),
-                    Mul => BinOp::Int(BinOpInt::Mul),
-                    Div => BinOp::Int(BinOpInt::Div),
-                    Rem => BinOp::Int(BinOpInt::Rem),
+                    (Add, Type::Int(_)) => BinOp::Int(BinOpInt::Add),
+                    (Sub, Type::Int(_)) => BinOp::Int(BinOpInt::Sub),
+                    (Mul, Type::Int(_)) => BinOp::Int(BinOpInt::Mul),
+                    (Div, Type::Int(_)) => BinOp::Int(BinOpInt::Div),
+                    (Rem, Type::Int(_)) => BinOp::Int(BinOpInt::Rem),
+                    (BitAnd, Type::Int(_)) => BinOp::Int(BinOpInt::BitAnd),
+                    (BitOr, Type::Int(_)) => BinOp::Int(BinOpInt::BitOr),
+                    (BitXor, Type::Int(_)) => BinOp::Int(BinOpInt::BitXor),
 
-                    Lt => BinOp::IntRel(IntRel::Lt),
-                    Le => BinOp::IntRel(IntRel::Le),
-                    Gt => BinOp::IntRel(IntRel::Gt),
-                    Ge => BinOp::IntRel(IntRel::Ge),
-                    Eq => BinOp::IntRel(IntRel::Eq),
-                    Ne => BinOp::IntRel(IntRel::Ne),
+                    (Lt, Type::Int(_)) => BinOp::IntRel(IntRel::Lt),
+                    (Le, Type::Int(_)) => BinOp::IntRel(IntRel::Le),
+                    (Gt, Type::Int(_)) => BinOp::IntRel(IntRel::Gt),
+                    (Ge, Type::Int(_)) => BinOp::IntRel(IntRel::Ge),
+                    (Eq, Type::Int(_)) => BinOp::IntRel(IntRel::Eq),
+                    (Ne, Type::Int(_)) => BinOp::IntRel(IntRel::Ne),
 
-                    // implemented for int and bool
-                    BitAnd =>
-                        match self.translate_ty_smir(lty, span) {
-                            Type::Int(_) => BinOp::Int(BinOpInt::BitAnd),
-                            Type::Bool => BinOp::Bool(BinOpBool::BitAnd),
-                            ty => rs::span_bug!(span, "BitAnd not supported for: {ty:?}"),
-                        },
-                    x => rs::span_bug!(span, "Binary Op not supported: {x:?}"),
+                    // all bool ops
+                    (BitAnd, Type::Bool) => BinOp::Bool(BinOpBool::BitAnd),
+                    (BitOr, Type::Bool) => BinOp::Bool(BinOpBool::BitOr),
+                    (BitXor, Type::Bool) => BinOp::Bool(BinOpBool::BitXor),
+
+                    (op, _) =>
+                        rs::span_bug!(span, "Binary Op {op:?} not supported for type {lty_smir}."),
                 };
 
                 ValueExpr::BinOp { operator: op, left: l, right: r }
             }
-            smir::Rvalue::UnaryOp(unop, operand) =>
-                match unop {
-                    smir::UnOp::Neg => {
-                        let operand = self.translate_operand_smir(operand, span);
+            smir::Rvalue::UnaryOp(unop, operand) => {
+                let ty_smir = operand.ty(&self.locals_smir).unwrap();
+                let ty = self.translate_ty_smir(ty_smir, span);
+                let operand = self.translate_operand_smir(operand, span);
 
-                        ValueExpr::UnOp {
-                            operator: UnOp::Int(UnOpInt::Neg),
-                            operand: GcCow::new(operand),
-                        }
-                    }
-                    smir::UnOp::Not => {
-                        let ty = operand.ty(&self.locals_smir).unwrap();
-                        let ty = self.translate_ty_smir(ty, span);
-                        let Type::Bool = ty else {
-                            rs::span_bug!(span, "Not operation with non-boolean type!");
-                        };
-
-                        let operand = self.translate_operand_smir(operand, span);
-
-                        ValueExpr::UnOp {
-                            operator: UnOp::Bool(UnOpBool::Not),
-                            operand: GcCow::new(operand),
-                        }
-                    }
-                },
+                use smir::UnOp::*;
+                let operator = match (unop, ty) {
+                    (Neg, Type::Int(_)) => UnOp::Int(UnOpInt::Neg),
+                    (Not, Type::Int(_)) => UnOp::Int(UnOpInt::Not),
+                    (Not, Type::Bool) => UnOp::Bool(UnOpBool::Not),
+                    (op, _) =>
+                        rs::span_bug!(span, "UnOp {op:?} called with unsupported type {ty_smir}."),
+                };
+                ValueExpr::UnOp { operator, operand: GcCow::new(operand) }
+            }
             smir::Rvalue::Ref(_, bkind, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let pointee = self.layout_of_smir(ty);

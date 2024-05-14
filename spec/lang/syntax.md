@@ -100,6 +100,8 @@ pub enum Constant {
 pub enum UnOpInt {
     /// Negate an integer value arithmetically (`x` becomes `-x`).
     Neg,
+    /// Bitwise-negate an integer value
+    Not,
 }
 pub enum UnOpBool {
     /// Boolean negation.
@@ -139,7 +141,11 @@ pub enum BinOpInt {
     /// Throws UB, if the modulus (second operand) is zero.
     Rem,
     /// Bitwise-and two integer values.
-    BitAnd
+    BitAnd,
+    /// Bitwise-or two integer values.
+    BitOr,
+    /// Bitwise-xor two integer values.
+    BitXor,
 }
 /// A relation between integers.
 pub enum IntRel {
@@ -159,6 +165,10 @@ pub enum IntRel {
 pub enum BinOpBool {
     /// Bitwise-and on booleans.
     BitAnd,
+    /// Bitwise-or on booleans.
+    BitOr,
+    /// Bitwise-xor on booleans.
+    BitXor,
 } 
 pub enum BinOp {
     /// An operation on integers (both must have the same type); returns an integer of the same type.
