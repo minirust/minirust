@@ -8,7 +8,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue, span: rs::Span) -> ValueExpr {
         match rv {
             smir::Rvalue::Use(operand) => self.translate_operand_smir(operand, span),
-            smir::Rvalue::CheckedBinaryOp(bin_op, l, r) | smir::Rvalue::BinaryOp(bin_op, l, r) => {
+            smir::Rvalue::BinaryOp(bin_op, l, r) => {
                 let lty = l.ty(&self.locals_smir).unwrap();
                 let rty = r.ty(&self.locals_smir).unwrap();
 
