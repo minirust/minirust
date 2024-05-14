@@ -15,7 +15,7 @@ fn ill_sized_enum_variant() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Type::Enum: variant size is not the same as enum size");
 }
 
 /// Ill-formed: the two variants have different sizes
@@ -33,7 +33,7 @@ fn inconsistently_sized_enum_variants() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Type::Enum: variant size is not the same as enum size");
 }
 
 /// Ill-formed: no variants but discriminator returns variant 1
@@ -43,7 +43,7 @@ fn ill_formed_discriminator() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Discriminator: invalid discriminant");
 }
 
 /// Ill-formed: discriminator branch has a case of -1 which is an invalid value for u8.
@@ -73,7 +73,7 @@ fn ill_formed_discriminator_branch() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Discriminator: invalid branch start bound");
 }
 
 /// Ill-formed: the discriminator branch children overlap.
@@ -96,7 +96,7 @@ fn ill_formed_discriminator_overlaps() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Discriminator: branch ranges overlap");
 }
 
 /// Ill-formed: the discriminator branch children overlap.
@@ -119,7 +119,7 @@ fn ill_formed_discriminator_overlaps_2() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Discriminator: branch ranges overlap");
 }
 
 /// Ill-formed: discriminant is of type u8 but variant has discriminant -1.
@@ -135,7 +135,7 @@ fn ill_formed_discriminant_value() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Type::Enum: invalid value for discriminant");
 }
 
 /// Works: simple roundtrip for both variants of an enum like Option<bool>
@@ -196,7 +196,7 @@ fn ill_formed_variant_constant() {
         assign(local(0), variant(0, unit(), enum_ty)), // ill-formed here
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "ValueExpr::Variant: invalid discriminant");
 }
 
 /// Ill-formed: The data of the variant value does not match the type
@@ -214,7 +214,7 @@ fn ill_formed_variant_constant_data() {
         assign(local(0), variant(1, unit(), enum_ty)), // ill-formed here
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "ValueExpr::Variant: invalid discriminant");
 }
 
 /// Ill-formed: Ensures that the enum alignment is at least as big as all the variant alignments.
@@ -229,7 +229,7 @@ fn ill_formed_enum_must_have_maximal_alignment_of_inner() {
     let locals = [enum_ty];
     let stmts = [];
     let prog = small_program(&locals, &stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "Type::Enum: invalid align requirement");
 }
 
 const U32_INTTYPE: IntType =

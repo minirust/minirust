@@ -16,7 +16,7 @@ fn out_of_bounds_downcast() {
         assign(local(1), load(downcast(local(0), 1))), // ill-formed here, variant 1 doesn't exist
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "PlaceExpr::Downcast: invalid discriminant");
 }
 
 /// Works: Both assigning to and from a downcast.

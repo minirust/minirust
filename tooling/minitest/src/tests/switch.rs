@@ -11,7 +11,7 @@ fn if_int_ill_formed() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ill_formed(program);
+    assert_ill_formed(program, "Cast::BoolToInt: invalid operand");
 }
 
 /// tests that the if case can be reached.
@@ -46,7 +46,7 @@ fn boolean_switch_is_ill_formed() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ill_formed(program);
+    assert_ill_formed(program, "Terminator::Switch: switch is not Int");
 }
 
 /// tests that switch_int can access an arbitrary case and the fallback case.

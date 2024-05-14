@@ -49,7 +49,7 @@ fn boolean_not_requires_boolean_op() {
     let locals = &[<bool>::get_type()];
     let statements = &[storage_live(0), assign(local(0), not(const_int(0u8))), storage_dead(0)];
     let program = small_program(locals, statements);
-    assert_ill_formed(program);
+    assert_ill_formed(program, "UnOp::Bool: invalid operand");
 }
 
 /// Tests that bool2int requires a boolean operand
@@ -59,7 +59,7 @@ fn bool2int_requires_boolean_op() {
     let statements =
         &[storage_live(0), assign(local(0), bool_to_int::<u8>(const_int(0u8))), storage_dead(0)];
     let program = small_program(locals, statements);
-    assert_ill_formed(program);
+    assert_ill_formed(program, "Cast::BoolToInt: invalid operand");
 }
 
 /// Test that BinOpBool::BitAnd works
@@ -93,7 +93,7 @@ fn bit_and_requires_bool() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "BinOp::Bool: invalid left type");
 }
 
 // Test that BinOpBool::BitAnd fails with int
@@ -107,5 +107,5 @@ fn bit_and_no_bool_int_mixing() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "BinOp::Bool: invalid left type");
 }

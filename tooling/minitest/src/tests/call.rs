@@ -46,7 +46,7 @@ fn call_non_exist() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ill_formed(p);
+    assert_ill_formed(p, "Constant::FnPointer: invalid function name");
 }
 
 #[test]

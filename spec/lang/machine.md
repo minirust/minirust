@@ -114,9 +114,7 @@ The transition function simply dispatches to evaluating the next statement/termi
 ```rust
 impl<M: Memory> Machine<M> {
     pub fn new(prog: Program, stdout: DynWrite, stderr: DynWrite) -> NdResult<Machine<M>> {
-        if prog.check_wf::<M::T>().is_none() {
-            throw_ill_formed!();
-        }
+        prog.check_wf::<M::T>()?;
 
         let mut mem = AtomicMemory::<M>::new();
         let mut global_ptrs = Map::new();

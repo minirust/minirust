@@ -32,7 +32,7 @@ fn bit_and_requires_int() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "BinOp::Int: invalid left type");
 }
 
 // Test that BinOpInt::BitAnd fails with bool
@@ -46,5 +46,5 @@ fn bit_and_no_int_bool_mixing() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog);
+    assert_ill_formed(prog, "BinOp::Int: invalid left type");
 }
