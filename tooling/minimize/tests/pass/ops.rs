@@ -1,23 +1,28 @@
-extern crate intrinsics;
-use intrinsics::*;
-
 fn black_box<T>(t: T) -> T { t }
 
 fn main() {
-    print(-black_box(-42));
-    print(black_box(12) + 30);
-    print(black_box(55) - 13);
-    print(black_box(7) * 6);
-    print(black_box(504) / 12);
-    print(black_box(112) % 70);
-    print(black_box(171) & 62);
+    assert!(-black_box(-42) == 42);
+    assert!(!black_box(-43) == 42);
+    assert!(!black_box(1_u32) == (u32::MAX - 1));
+    assert!(!black_box(-1) == 0);
+    assert!(!black_box(i32::MIN) == i32::MAX);
+    assert!(black_box(12) + 30 == 42);
+    assert!(black_box(55) - 13 == 42);
+    assert!(black_box(7) * 6 == 42);
+    assert!(black_box(504) / 12 == 42);
+    assert!(black_box(112) % 70 == 42);
+    assert!(black_box(171) & 62 == 42);
+    assert!(black_box(10) | 34 == 42);
+    assert!(black_box(36) ^ 14 == 42);
 
-    print(black_box(10) > 2);
-    print(black_box(10) >= 2);
-    print(black_box(10) < 2);
-    print(black_box(10) <= 2);
-    print(black_box(10) == 2);
-    print(black_box(10) != 2);
+    assert!(black_box(10) > 2);
+    assert!(black_box(10) >= 2);
+    assert!(!(black_box(10) < 2));
+    assert!(!(black_box(10) <= 2));
+    assert!(!(black_box(10) == 2));
+    assert!(black_box(10) != 2);
 
-    print(black_box(true) & true);
+    assert!(black_box(true) & true);
+    assert!(black_box(false) | true);
+    assert!(black_box(false) ^ true)
 }

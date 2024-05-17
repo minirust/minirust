@@ -19,6 +19,7 @@ impl<M: Memory> Machine<M> {
         use UnOpInt::*;
         ret(match op {
             Neg => -operand,
+            Not => !operand,
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
@@ -125,6 +126,8 @@ impl<M: Memory> Machine<M> {
                 left % right
             }
             BitAnd => left & right,
+            BitOr => left | right,
+            BitXor => left ^ right,
         })
     }
     fn eval_bin_op(
@@ -238,6 +241,8 @@ impl<M: Memory> Machine<M> {
         use BinOpBool::*;
         match op {
             BitAnd => left & right,
+            BitOr => left | right,
+            BitXor => left ^ right,
         }
     }
     fn eval_bin_op(

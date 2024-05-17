@@ -109,3 +109,51 @@ fn bit_and_no_bool_int_mixing() {
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
     assert_ill_formed(prog, "BinOp::Bool: invalid left type");
 }
+
+// Test that BinOpBool::BitOr fails if left operand is bool and right operand is int
+#[test]
+fn bit_or_no_bool_int_mixing() {
+    let locals = [<bool>::get_type()];
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), bool_or(const_bool(true), const_int::<i32>(0))),
+        storage_dead(0),
+        exit(),
+    );
+    let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
+    assert_ill_formed(prog, "BinOp::Bool: invalid right type");
+}
+
+/// Test that BinOpBool::BitOr works
+#[test]
+fn bool_or_works() {
+    let locals = [];
+    let unreach_block = 5;
+    let blocks = [
+        block!(if_(bool_or(const_bool(false), const_bool(false)), unreach_block, 1)),
+        block!(if_(bool_or(const_bool(false), const_bool(true)), 2, unreach_block)),
+        block!(if_(bool_or(const_bool(true), const_bool(false)), 3, unreach_block)),
+        block!(if_(bool_or(const_bool(true), const_bool(true)), 4, unreach_block)),
+        block!(exit()),
+        block!(unreachable()),
+    ];
+    let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
+    assert_stop(prog);
+}
+
+/// Test that BinOpBool::BitXor works
+#[test]
+fn bool_xor_works() {
+    let locals = [];
+    let unreach_block = 5;
+    let blocks = [
+        block!(if_(bool_xor(const_bool(false), const_bool(false)), unreach_block, 1)),
+        block!(if_(bool_xor(const_bool(false), const_bool(true)), 2, unreach_block)),
+        block!(if_(bool_xor(const_bool(true), const_bool(false)), 3, unreach_block)),
+        block!(if_(bool_xor(const_bool(true), const_bool(true)), unreach_block, 4)),
+        block!(exit()),
+        block!(unreachable()),
+    ];
+    let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
+    assert_stop(prog);
+}

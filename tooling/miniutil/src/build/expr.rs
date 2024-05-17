@@ -59,6 +59,11 @@ pub fn int_neg(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Int(UnOpInt::Neg), operand: GcCow::new(v) }
 }
 
+/// Unary `!` on an integer
+pub fn int_not(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::Int(UnOpInt::Not), operand: GcCow::new(v) }
+}
+
 pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     let Type::Int(t) = T::get_type() else {
         panic!("int operator received non-int type!");
@@ -111,6 +116,12 @@ pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn bit_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(BinOpInt::BitAnd, l, r)
 }
+pub fn bit_or(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(BinOpInt::BitOr, l, r)
+}
+pub fn bit_xor(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(BinOpInt::BitXor, l, r)
+}
 
 fn int_rel(op: IntRel, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::IntRel(op), left: GcCow::new(l), right: GcCow::new(r) }
@@ -145,6 +156,12 @@ fn bool_binop(op: BinOpBool, l: ValueExpr, r: ValueExpr) -> ValueExpr {
 }
 pub fn bool_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     bool_binop(BinOpBool::BitAnd, l, r)
+}
+pub fn bool_or(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    bool_binop(BinOpBool::BitOr, l, r)
+}
+pub fn bool_xor(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    bool_binop(BinOpBool::BitXor, l, r)
 }
 
 pub enum InBounds {

@@ -141,6 +141,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let operand = fmt_value_expr(operand.extract(), comptypes).to_string();
             match operator {
                 UnOp::Int(UnOpInt::Neg) => FmtExpr::NonAtomic(format!("-({operand})")),
+                UnOp::Int(UnOpInt::Not) => FmtExpr::NonAtomic(format!("!({operand}")),
                 UnOp::Cast(CastOp::IntToInt(int_ty)) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
@@ -164,6 +165,8 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 BinOpInt::Div => '/',
                 BinOpInt::Rem => '%',
                 BinOpInt::BitAnd => '&',
+                BinOpInt::BitOr => '|',
+                BinOpInt::BitXor => '^',
             };
 
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
@@ -198,6 +201,8 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
         ValueExpr::BinOp { operator: BinOp::Bool(bool_op), left, right } => {
             let bool_op = match bool_op {
                 BinOpBool::BitAnd => '&',
+                BinOpBool::BitOr => '|',
+                BinOpBool::BitXor => '^',
             };
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
