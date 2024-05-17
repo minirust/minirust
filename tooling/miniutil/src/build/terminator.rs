@@ -155,8 +155,8 @@ pub fn atomic_fetch(
     next: u32,
 ) -> Terminator {
     let binop = match binop {
-        FetchBinOp::Add => BinOpInt::Add,
-        FetchBinOp::Sub => BinOpInt::Sub,
+        FetchBinOp::Add => IntBinOp::Add,
+        FetchBinOp::Sub => IntBinOp::Sub,
     };
 
     Terminator::Intrinsic {

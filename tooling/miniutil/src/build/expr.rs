@@ -56,12 +56,12 @@ pub fn addr_of(target: PlaceExpr, ty: Type) -> ValueExpr {
 
 /// Unary `-` on an integer.
 pub fn int_neg(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::Int(UnOpInt::Neg), operand: GcCow::new(v) }
+    ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::Neg), operand: GcCow::new(v) }
 }
 
 /// Unary `!` on an integer
 pub fn int_not(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::Int(UnOpInt::Not), operand: GcCow::new(v) }
+    ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::Not), operand: GcCow::new(v) }
 }
 
 pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
@@ -90,37 +90,37 @@ pub fn bool_to_int<T: TypeConv + Into<Int>>(v: ValueExpr) -> ValueExpr {
 }
 
 pub fn not(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::Bool(UnOpBool::Not), operand: GcCow::new(v) }
+    ValueExpr::UnOp { operator: UnOp::Bool(BoolUnOp::Not), operand: GcCow::new(v) }
 }
 
 pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Cast(CastOp::Transmute(t)), operand: GcCow::new(v) }
 }
 
-fn int_binop(op: BinOpInt, l: ValueExpr, r: ValueExpr) -> ValueExpr {
+fn int_binop(op: IntBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::Int(op), left: GcCow::new(l), right: GcCow::new(r) }
 }
 
 pub fn add(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::Add, l, r)
+    int_binop(IntBinOp::Add, l, r)
 }
 pub fn sub(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::Sub, l, r)
+    int_binop(IntBinOp::Sub, l, r)
 }
 pub fn mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::Mul, l, r)
+    int_binop(IntBinOp::Mul, l, r)
 }
 pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::Div, l, r)
+    int_binop(IntBinOp::Div, l, r)
 }
 pub fn bit_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::BitAnd, l, r)
+    int_binop(IntBinOp::BitAnd, l, r)
 }
 pub fn bit_or(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::BitOr, l, r)
+    int_binop(IntBinOp::BitOr, l, r)
 }
 pub fn bit_xor(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_binop(BinOpInt::BitXor, l, r)
+    int_binop(IntBinOp::BitXor, l, r)
 }
 
 fn int_rel(op: IntRel, l: ValueExpr, r: ValueExpr) -> ValueExpr {
@@ -151,17 +151,17 @@ pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_rel(IntRel::Lt, l, r)
 }
 
-fn bool_binop(op: BinOpBool, l: ValueExpr, r: ValueExpr) -> ValueExpr {
+fn bool_binop(op: BoolBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::Bool(op), left: GcCow::new(l), right: GcCow::new(r) }
 }
 pub fn bool_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BinOpBool::BitAnd, l, r)
+    bool_binop(BoolBinOp::BitAnd, l, r)
 }
 pub fn bool_or(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BinOpBool::BitOr, l, r)
+    bool_binop(BoolBinOp::BitOr, l, r)
 }
 pub fn bool_xor(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BinOpBool::BitXor, l, r)
+    bool_binop(BoolBinOp::BitXor, l, r)
 }
 
 pub enum InBounds {

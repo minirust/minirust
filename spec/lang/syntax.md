@@ -97,13 +97,13 @@ pub enum Constant {
     PointerWithoutProvenance(Address),
 }
 
-pub enum UnOpInt {
+pub enum IntUnOp {
     /// Negate an integer value arithmetically (`x` becomes `-x`).
     Neg,
     /// Bitwise-negate an integer value
     Not,
 }
-pub enum UnOpBool {
+pub enum BoolUnOp {
     /// Boolean negation.
     Not,
 }
@@ -120,14 +120,14 @@ pub enum CastOp {
 }
 pub enum UnOp {
     /// An operation on an integer; returns an integer of the same type.
-    Int(UnOpInt),
+    Int(IntUnOp),
     /// An operation on a boolean; returns a boolean.
-    Bool(UnOpBool),
+    Bool(BoolUnOp),
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
 }
 
-pub enum BinOpInt {
+pub enum IntBinOp {
     /// Add two integer values.
     Add,
     /// Subtract two integer values.
@@ -162,7 +162,7 @@ pub enum IntRel {
     /// inequal
     Ne,
 }
-pub enum BinOpBool {
+pub enum BoolBinOp {
     /// Bitwise-and on booleans.
     BitAnd,
     /// Bitwise-or on booleans.
@@ -172,7 +172,7 @@ pub enum BinOpBool {
 } 
 pub enum BinOp {
     /// An operation on integers (both must have the same type); returns an integer of the same type.
-    Int(BinOpInt),
+    Int(IntBinOp),
     /// A relation between integers (both must have the same type); returns a boolean.
     IntRel(IntRel),
     /// Pointer arithmetic (with or without inbounds requirement);
@@ -180,7 +180,7 @@ pub enum BinOp {
     /// returns a pointer.
     PtrOffset { inbounds: bool },
     /// An operation on booleans
-    Bool(BinOpBool),
+    Bool(BoolBinOp),
 }
 ```
 
@@ -334,7 +334,7 @@ pub enum IntrinsicOp {
     AtomicStore,
     AtomicLoad,
     AtomicCompareExchange,
-    AtomicFetchAndOp(BinOpInt),
+    AtomicFetchAndOp(IntBinOp),
     Lock(IntrinsicLockOp),
     /// 'Expose' the provenance a pointer so that it can later be cast to an integer.
     /// The address part of the pointer is stored in `destination`.

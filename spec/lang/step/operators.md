@@ -15,8 +15,8 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_int(&self, op: UnOpInt, operand: Int) -> Result<Int> {
-        use UnOpInt::*;
+    fn eval_int_un_op(&self, op: IntUnOp, operand: Int) -> Result<Int> {
+        use IntUnOp::*;
         ret(match op {
             Neg => -operand,
             Not => !operand,
@@ -27,7 +27,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_un_op_int(op, operand)?;
+        let result = self.eval_int_un_op(op, operand)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
@@ -39,15 +39,15 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op_bool(&self, op: UnOpBool, operand: bool) -> bool {
-        use UnOpBool::*;
+    fn eval_bool_un_op(&self, op: BoolUnOp, operand: bool) -> bool {
+        use BoolUnOp::*;
         match op {
             Not => !operand,
         }
     }
     fn eval_un_op(&self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Bool(value) = operand else { panic!("non-boolean input to boolean unop") };
-        let result = self.eval_un_op_bool(op, value);
+        let result = self.eval_bool_un_op(op, value);
         ret((Value::Bool(result), Type::Bool))
     }
 }
@@ -57,7 +57,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+    fn eval_cast_op(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -83,7 +83,7 @@ impl<M: Memory> Machine<M> {
         }
     }
     fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        ret(self.eval_cast(cast_op, (operand, op_ty))?)
+        ret(self.eval_cast_op(cast_op, (operand, op_ty))?)
     }
 }
 ```
@@ -107,8 +107,8 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_int(&self, op: BinOpInt, left: Int, right: Int) -> Result<Int> {
-        use BinOpInt::*;
+    fn eval_int_bin_op(&self, op: IntBinOp, left: Int, right: Int) -> Result<Int> {
+        use IntBinOp::*;
         ret(match op {
             Add => left + right,
             Sub => left - right,
@@ -141,7 +141,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_bin_op_int(op, left, right)?;
+        let result = self.eval_int_bin_op(op, left, right)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
@@ -237,8 +237,8 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_bin_op_bool(&self, op: BinOpBool, left: bool, right: bool) -> bool {
-        use BinOpBool::*;
+    fn eval_bool_bin_op(&self, op: BoolBinOp, left: bool, right: bool) -> bool {
+        use BoolBinOp::*;
         match op {
             BitAnd => left & right,
             BitOr => left | right,
@@ -255,7 +255,7 @@ impl<M: Memory> Machine<M> {
         let Value::Bool(right) = right else { panic!("non-boolean input to boolean binop") };
 
         // Perform the operation.
-        let result = self.eval_bin_op_bool(op, left, right);
+        let result = self.eval_bool_bin_op(op, left, right);
         ret((Value::Bool(result), Type::Bool))
     }
 }

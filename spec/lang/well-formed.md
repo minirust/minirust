@@ -498,8 +498,8 @@ impl Statement {
 /// Needed for atomic fetch operations.
 /// 
 /// We limit the binops that are allowed to be atomic based on current LLVM and Rust API exposures.
-fn is_atomic_binop(op: BinOpInt) -> bool {
-    use BinOpInt as B;
+fn is_atomic_binop(op: IntBinOp) -> bool {
+    use IntBinOp as B;
     match op {
         B::Add | B::Sub => true,
         _ => false

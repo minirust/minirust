@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Test that BinOpInt::BitAnd works for ints
+/// Test that IntBinOp::BitAnd works for ints
 #[test]
 fn bit_and_int_works() {
     let locals = [];
@@ -20,7 +20,7 @@ fn bit_and_int_works() {
     assert_stop(prog);
 }
 
-// Test that BinOpInt::BitAnd fails with non-int/non-bool
+// Test that IntBinOp::BitAnd fails with non-int/non-bool
 #[test]
 fn bit_and_requires_int() {
     let locals = [<i32>::get_type()];
@@ -35,7 +35,7 @@ fn bit_and_requires_int() {
     assert_ill_formed(prog, "BinOp::Int: invalid left type");
 }
 
-// Test that BinOpInt::BitAnd fails with bool
+// Test that IntBinOp::BitAnd fails with bool
 #[test]
 fn bit_and_no_int_bool_mixing() {
     let locals = [<i32>::get_type()];
@@ -49,7 +49,7 @@ fn bit_and_no_int_bool_mixing() {
     assert_ill_formed(prog, "BinOp::Int: invalid left type");
 }
 
-/// Test that BinOpInt::BitOr works for ints
+/// Test that IntBinOp::BitOr works for ints
 #[test]
 fn bit_or_int_works() {
     let locals = [];
@@ -69,7 +69,7 @@ fn bit_or_int_works() {
     assert_stop(prog);
 }
 
-/// Test that BinOpInt::BitXor works for ints
+/// Test that IntBinOp::BitXor works for ints
 #[test]
 fn bit_xor_int_works() {
     let locals = [];

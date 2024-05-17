@@ -194,8 +194,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 "atomic_store" => IntrinsicOp::AtomicStore,
                 "atomic_load" => IntrinsicOp::AtomicLoad,
                 "compare_exchange" => IntrinsicOp::AtomicCompareExchange,
-                "atomic_fetch_add" => IntrinsicOp::AtomicFetchAndOp(BinOpInt::Add),
-                "atomic_fetch_sub" => IntrinsicOp::AtomicFetchAndOp(BinOpInt::Sub),
+                "atomic_fetch_add" => IntrinsicOp::AtomicFetchAndOp(IntBinOp::Add),
+                "atomic_fetch_sub" => IntrinsicOp::AtomicFetchAndOp(IntBinOp::Sub),
                 name => panic!("unsupported intrinsic `{}`", name),
             };
             Terminator::Intrinsic {

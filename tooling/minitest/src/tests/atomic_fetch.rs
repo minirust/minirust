@@ -36,7 +36,7 @@ fn atomic_fetch_arg_count() {
     let locals = [];
 
     let b0 = block!(Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::AtomicFetchAndOp(BinOpInt::Add),
+        intrinsic: IntrinsicOp::AtomicFetchAndOp(IntBinOp::Add),
         arguments: list!(),
         ret: zst_place(),
         next_block: Some(BbName(Name::from_internal(1)))
@@ -143,7 +143,7 @@ fn atomic_fetch_op() {
         storage_live(1),
         assign(local(0), const_int::<u32>(3)),
         Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicFetchAndOp(BinOpInt::Mul),
+            intrinsic: IntrinsicOp::AtomicFetchAndOp(IntBinOp::Mul),
             arguments: list!(addr_of(local(0), ptr_ty), const_int::<u32>(1)),
             ret: local(1),
             next_block: Some(BbName(Name::from_internal(1)))

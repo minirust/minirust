@@ -25,14 +25,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let op = match (bin_op, lty) {
                     (Offset, Type::Ptr(_)) => BinOp::PtrOffset { inbounds: true },
                     // all int ops
-                    (Add, Type::Int(_)) => BinOp::Int(BinOpInt::Add),
-                    (Sub, Type::Int(_)) => BinOp::Int(BinOpInt::Sub),
-                    (Mul, Type::Int(_)) => BinOp::Int(BinOpInt::Mul),
-                    (Div, Type::Int(_)) => BinOp::Int(BinOpInt::Div),
-                    (Rem, Type::Int(_)) => BinOp::Int(BinOpInt::Rem),
-                    (BitAnd, Type::Int(_)) => BinOp::Int(BinOpInt::BitAnd),
-                    (BitOr, Type::Int(_)) => BinOp::Int(BinOpInt::BitOr),
-                    (BitXor, Type::Int(_)) => BinOp::Int(BinOpInt::BitXor),
+                    (Add, Type::Int(_)) => BinOp::Int(IntBinOp::Add),
+                    (Sub, Type::Int(_)) => BinOp::Int(IntBinOp::Sub),
+                    (Mul, Type::Int(_)) => BinOp::Int(IntBinOp::Mul),
+                    (Div, Type::Int(_)) => BinOp::Int(IntBinOp::Div),
+                    (Rem, Type::Int(_)) => BinOp::Int(IntBinOp::Rem),
+                    (BitAnd, Type::Int(_)) => BinOp::Int(IntBinOp::BitAnd),
+                    (BitOr, Type::Int(_)) => BinOp::Int(IntBinOp::BitOr),
+                    (BitXor, Type::Int(_)) => BinOp::Int(IntBinOp::BitXor),
 
                     (Lt, Type::Int(_)) => BinOp::IntRel(IntRel::Lt),
                     (Le, Type::Int(_)) => BinOp::IntRel(IntRel::Le),
@@ -42,9 +42,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (Ne, Type::Int(_)) => BinOp::IntRel(IntRel::Ne),
 
                     // all bool ops
-                    (BitAnd, Type::Bool) => BinOp::Bool(BinOpBool::BitAnd),
-                    (BitOr, Type::Bool) => BinOp::Bool(BinOpBool::BitOr),
-                    (BitXor, Type::Bool) => BinOp::Bool(BinOpBool::BitXor),
+                    (BitAnd, Type::Bool) => BinOp::Bool(BoolBinOp::BitAnd),
+                    (BitOr, Type::Bool) => BinOp::Bool(BoolBinOp::BitOr),
+                    (BitXor, Type::Bool) => BinOp::Bool(BoolBinOp::BitXor),
 
                     (op, _) =>
                         rs::span_bug!(span, "Binary Op {op:?} not supported for type {lty_smir}."),
@@ -59,9 +59,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 use smir::UnOp::*;
                 let operator = match (unop, ty) {
-                    (Neg, Type::Int(_)) => UnOp::Int(UnOpInt::Neg),
-                    (Not, Type::Int(_)) => UnOp::Int(UnOpInt::Not),
-                    (Not, Type::Bool) => UnOp::Bool(UnOpBool::Not),
+                    (Neg, Type::Int(_)) => UnOp::Int(IntUnOp::Neg),
+                    (Not, Type::Int(_)) => UnOp::Int(IntUnOp::Not),
+                    (Not, Type::Bool) => UnOp::Bool(BoolUnOp::Not),
                     (op, _) =>
                         rs::span_bug!(span, "UnOp {op:?} called with unsupported type {ty_smir}."),
                 };

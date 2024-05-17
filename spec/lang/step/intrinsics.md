@@ -495,7 +495,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(previous_int) = previous else { unreachable!() };
 
         // Perform operation.
-        let next_int = self.eval_bin_op_int(op, previous_int, other_int)?;
+        let next_int = self.eval_int_bin_op(op, previous_int, other_int)?;
         let next = Value::Int(next_int);
 
         // Store it again.

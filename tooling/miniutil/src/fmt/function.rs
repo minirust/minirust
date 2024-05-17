@@ -205,8 +205,8 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
     }
 }
 
-fn fmt_fetch(binop: BinOpInt) -> &'static str {
-    use BinOpInt as B;
+fn fmt_fetch(binop: IntBinOp) -> &'static str {
+    use IntBinOp as B;
     match binop {
         B::Add => "atomic_fetch_add",
         B::Sub => "atomic_fetch_sub",
