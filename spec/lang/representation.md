@@ -295,11 +295,16 @@ impl Type {
     }
 
     fn encode<M: Memory>(Type::Enum { variants, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        let Value::Variant { discriminant, data } = val else { panic!() };
+        // FIXME: can't use `let ... else` as specr-transpile does not recognize that as a
+        // match so it does not do GcGow handling.
+        let (discriminant, data) = match val {
+            Value::Variant { discriminant, data } => (discriminant, data),
+            _ => panic!(),
+        };
 
         // `idx` is guaranteed to be in bounds by the well-formed check in the type.
         let Variant { ty: variant, tagger } = variants[discriminant];
-        let mut bytes = variant.encode(data.extract());
+        let mut bytes = variant.encode(data);
 
         // Write tag into the bytes around the data.
         // This is fine as we don't allow encoded data and the tag to overlap.
