@@ -17,6 +17,9 @@ fn cfg(path: &str, mode: Mode) -> Config {
     };
 
     config.comment_defaults.base().mode = Spanned::dummy(mode).into();
+    // To let tests use dependencies, we have to add a `DependencyBuilder`
+    // custom "comment" (with arbitrary name), which will then take care
+    // of building the dependencies and making them available in the test.
     config.comment_defaults.base().set_custom(
         "dependencies",
         DependencyBuilder {
