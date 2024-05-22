@@ -4,8 +4,13 @@ use ui_test::color_eyre::eyre::Result;
 use ui_test::dependencies::DependencyBuilder;
 use ui_test::spanned::Spanned;
 use ui_test::{
-    run_tests_generic, status_emitter, CommandBuilder, Config, Format, Mode, OutputConflictHandling,
+    run_tests_generic, status_emitter, CommandBuilder, Config, Format, OutputConflictHandling,
 };
+
+enum Mode {
+    Pass,
+    Panic,
+}
 
 fn cfg(path: &str, mode: Mode) -> Config {
     let mut program = CommandBuilder::rustc();
@@ -16,7 +21,16 @@ fn cfg(path: &str, mode: Mode) -> Config {
         ..Config::rustc(path)
     };
 
-    config.comment_defaults.base().mode = Spanned::dummy(mode).into();
+    let exit_status = match mode {
+        Mode::Pass => 0,
+        Mode::Panic => 101,
+    };
+    let require_annotations = false; // we're not showing errors in a specifc line anyway
+    config.comment_defaults.base().exit_status = Spanned::dummy(exit_status).into();
+    config.comment_defaults.base().require_annotations = Spanned::dummy(require_annotations).into();
+    // To let tests use dependencies, we have to add a `DependencyBuilder`
+    // custom "comment" (with arbitrary name), which will then take care
+    // of building the dependencies and making them available in the test.
     config.comment_defaults.base().set_custom(
         "dependencies",
         DependencyBuilder {
