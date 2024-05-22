@@ -13,7 +13,7 @@ minirust-rs = { path = "../minirust-rs" }
 miniutil = { path = "../miniutil"}
 
 [dev-dependencies]
-ui_test = "0.21.1"
+ui_test = "0.23"
 
 [[test]]
 name = "ui"
