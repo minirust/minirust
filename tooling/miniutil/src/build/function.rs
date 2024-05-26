@@ -5,6 +5,13 @@ pub fn fn_ptr(fn_name: u32) -> ValueExpr {
     fn_ptr_conv(fn_name, CallingConvention::C)
 }
 
+pub fn fn_ptr_by_name(name: FnName) -> ValueExpr {
+    let c = Constant::FnPointer(name);
+    // For now we use the C ABI for everything since that's what `spawn` needs...
+    let t = Type::Ptr(PtrType::FnPtr(CallingConvention::C));
+    ValueExpr::Constant(c, t)
+}
+
 pub fn fn_ptr_conv(fn_name: u32, conv: CallingConvention) -> ValueExpr {
     let x = Name::from_internal(fn_name as _);
     let x = FnName(x);

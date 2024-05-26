@@ -13,6 +13,7 @@ pub fn const_bool(b: bool) -> ValueExpr {
     ValueExpr::Constant(Constant::Bool(b), Type::Bool)
 }
 
+#[track_caller]
 pub fn tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
     let Type::Tuple { fields, .. } = ty else {
         panic!("const_tuple received non-tuple type!");
@@ -47,6 +48,7 @@ pub fn load(p: PlaceExpr) -> ValueExpr {
     ValueExpr::Load { source: GcCow::new(p) }
 }
 
+#[track_caller]
 pub fn addr_of(target: PlaceExpr, ty: Type) -> ValueExpr {
     let Type::Ptr(ptr_ty) = ty else {
         panic!("addr_of requires a Type::Ptr!");
@@ -64,6 +66,7 @@ pub fn int_not(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::Not), operand: GcCow::new(v) }
 }
 
+#[track_caller]
 pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     let Type::Int(t) = T::get_type() else {
         panic!("int operator received non-int type!");
@@ -75,6 +78,7 @@ pub fn ptr_addr(v: ValueExpr) -> ValueExpr {
     transmute(v, <usize>::get_type())
 }
 
+#[track_caller]
 pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     let Type::Ptr(_) = t else {
         panic!("ptr_to_ptr requires Type::Ptr argument!");
@@ -82,6 +86,7 @@ pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     transmute(v, t)
 }
 
+#[track_caller]
 pub fn bool_to_int<T: TypeConv + Into<Int>>(v: ValueExpr) -> ValueExpr {
     let Type::Int(int_ty) = T::get_type() else {
         panic!("bool_to_int needs <T> to be converted to Type::Int!");
@@ -177,16 +182,22 @@ pub fn ptr_offset(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
     }
 }
 
+pub fn local_by_name(name: LocalName) -> PlaceExpr {
+    PlaceExpr::Local(name)
+}
+
 pub fn local(x: u32) -> PlaceExpr {
-    PlaceExpr::Local(LocalName(Name::from_internal(x)))
+    local_by_name(LocalName(Name::from_internal(x)))
+}
+
+pub fn global_by_name<T: TypeConv>(name: GlobalName) -> PlaceExpr {
+    let relocation = Relocation { name, offset: Size::ZERO };
+    let ptr_type = Type::Ptr(PtrType::Raw);
+    deref(ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type), T::get_type())
 }
 
 pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
-    let relocation = Relocation { name: GlobalName(Name::from_internal(x)), offset: Size::ZERO };
-
-    let ptr_type = Type::Ptr(PtrType::Raw);
-
-    deref(ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type), T::get_type())
+    global_by_name::<T>(GlobalName(Name::from_internal(x)))
 }
 
 pub fn deref(operand: ValueExpr, ty: Type) -> PlaceExpr {
@@ -211,4 +222,12 @@ pub fn zst_place() -> PlaceExpr {
     let ptr =
         ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()), <*const ()>::get_type());
     PlaceExpr::Deref { operand: GcCow::new(ptr), ty: <()>::get_type() }
+}
+
+pub fn by_value(val: ValueExpr) -> ArgumentExpr {
+    ArgumentExpr::ByValue(val)
+}
+
+pub fn in_place(arg: PlaceExpr) -> ArgumentExpr {
+    ArgumentExpr::InPlace(arg)
 }
