@@ -667,25 +667,22 @@ impl Relocation {
 
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
-        // Ensure the start function exists, has the right ABI, takes no arguments, and returns a 1-ZST.
-        let Some(func) = self.functions.get(self.start) else {
-            throw_ill_formed!("Program: start function does not exist");
-        };
-        ensure_wf(func.calling_convention == CallingConvention::C, "Program: invalid calling convention")?;
-        let Some(ret_local) = func.locals.get(func.ret) else {
-            throw_ill_formed!("Program: start function has no return local");
-        };
-        let ret_layout = ret_local.layout::<T>();
-        ensure_wf(
-            ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE,
-            "Program: start function return local has invalid layout"
-        )?;
-        ensure_wf(func.args.is_empty(), "Program: supplied start function with arguments")?;
-
         // Check all the functions.
         for function in self.functions.values() {
             function.check_wf::<T>(self)?;
         }
+
+        // Ensure the start function exists, has the right ABI, takes no arguments, and returns a 1-ZST.
+        let Some(start) = self.functions.get(self.start) else {
+            throw_ill_formed!("Program: start function does not exist");
+        };
+        ensure_wf(start.calling_convention == CallingConvention::C, "Program: start function has invalid calling convention")?;
+        let ret_layout = start.locals[start.ret].layout::<T>();
+        ensure_wf(
+            ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE,
+            "Program: start function return local has invalid layout"
+        )?;
+        ensure_wf(start.args.is_empty(), "Program: start function has arguments")?;
 
         // Check globals.
         for (_name, global) in self.globals {
