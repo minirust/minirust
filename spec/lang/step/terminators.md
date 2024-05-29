@@ -233,6 +233,8 @@ impl<M: Memory> Machine<M> {
         let func = self.fn_from_addr(ptr.addr)?;
 
         // Then evaluate the arguments.
+        // FIXME: this means if an argument reads from `caller_ret_place`, the contents
+        // of that have already been de-initialized. Is that the intended behavior?
         let arguments = arguments.try_map(|arg| self.eval_argument(arg))?;
 
         // Set up the stack frame.
