@@ -2,6 +2,7 @@ mod align;
 mod atomic;
 mod atomic_fetch;
 mod bool;
+mod builder_api;
 mod call;
 mod compare_exchange;
 mod concurrency;
