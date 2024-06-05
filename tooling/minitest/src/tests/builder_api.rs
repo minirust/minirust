@@ -165,6 +165,7 @@ fn no_exit() {
     let var = f.declare_local::<u32>();
     f.storage_live(var);
     f.assign(var, const_int(42_u32));
+    // Here we are forgetting to finish the block.
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
