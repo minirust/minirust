@@ -1,22 +1,6 @@
 use crate::*;
 
 #[test]
-fn dead_before_live() {
-    let locals = vec![<bool>::get_type()];
-    let stmts = vec![storage_dead(0)];
-    let p = small_program(&locals, &stmts);
-    assert_ill_formed(p, "Statement::StorageDead: local already dead");
-}
-
-#[test]
-fn double_live() {
-    let locals = vec![<bool>::get_type()];
-    let stmts = vec![storage_live(0), storage_live(0)];
-    let p = small_program(&locals, &stmts);
-    assert_ill_formed(p, "Statement::StorageLive: local already live");
-}
-
-#[test]
 fn neg_count_array() {
     let ty = array_ty(<()>::get_type(), -1);
     let locals = &[ty];

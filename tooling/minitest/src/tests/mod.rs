@@ -17,6 +17,7 @@ mod heap_intrinsics;
 mod ill_formed;
 mod int;
 mod invalid_offset;
+mod locals;
 mod locks;
 mod main;
 mod negative_index;

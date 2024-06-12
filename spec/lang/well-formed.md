@@ -424,29 +424,22 @@ impl ArgumentExpr {
 
 ## Well-formed functions and programs
 
-When checking functions, we track for each program point the set of live locals (and their type) at that point.
-To handle cyclic CFGs, we track the set of live locals at the beginning of each basic block.
-When we first encounter a block, we add the locals that are live on the "in" edge; when we encounter a block the second time, we require the set to be the same.
-
 ```rust
 impl Statement {
-    /// This returns the adjusted live local mapping after the statement.
     fn check_wf<T: Target>(
         self,
-        mut live_locals: Map<LocalName, Type>,
         func: Function,
         prog: Program,
-    ) -> Result<Map<LocalName, Type>> {
+    ) -> Result<()> {
         use Statement::*;
-        ret(match self {
+        match self {
             Assign { destination, source } => {
-                let left = destination.check_wf::<T>(live_locals, prog)?;
-                let right = source.check_wf::<T>(live_locals, prog)?;
+                let left = destination.check_wf::<T>(func.locals, prog)?;
+                let right = source.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(left == right, "Statement::Assign: destination and source type differ")?;
-                live_locals
             }
             SetDiscriminant { destination, value } => {
-                let Type::Enum { variants, .. } = destination.check_wf::<T>(live_locals, prog)? else {
+                let Type::Enum { variants, .. } = destination.check_wf::<T>(func.locals, prog)? else {
                     throw_ill_formed!("Statement::SetDiscriminant: invalid type");
                 };
                 // We don't ensure that we can actually represent the discriminant.
@@ -459,38 +452,25 @@ impl Statement {
                 if variants.get(value) == None {
                     throw_ill_formed!("Statement::SetDiscriminant: invalid discriminant write")
                 }
-                live_locals
             }
             Validate { place, fn_entry: _ } => {
-                place.check_wf::<T>(live_locals, prog)?;
-                live_locals
+                place.check_wf::<T>(func.locals, prog)?;
             }
             Deinit { place } => {
-                place.check_wf::<T>(live_locals, prog)?;
-                live_locals
+                place.check_wf::<T>(func.locals, prog)?;
             }
             StorageLive(local) => {
-                // Look up the type in the function, and add it to the live locals.
-                // Fail if it already is live.
-                let Some(ty) = func.locals.get(local) else {
-                    throw_ill_formed!("Statement::StorageLive: invalid local variable")
-                };
-                if live_locals.try_insert(local, ty).is_err() {
-                    throw_ill_formed!("Statement::StorageLive: local already live");
-                };
-                live_locals
+                ensure_wf(func.locals.contains_key(local), "Statement::StorageLive: invalid local variable")?;
             }
             StorageDead(local) => {
+                ensure_wf(func.locals.contains_key(local), "Statement::StorageDead: invalid local variable")?;
                 if local == func.ret || func.args.any(|arg_name| local == arg_name) {
-                    // Trying to mark an argument or the return local as dead.
                     throw_ill_formed!("Statement::StorageDead: trying to mark argument or return local as dead");
                 }
-                if live_locals.remove(local) == None {
-                    throw_ill_formed!("Statement::StorageDead: local already dead");
-                };
-                live_locals
             }
-        })
+        }
+
+        ret(())
     }
 }
 
@@ -507,19 +487,18 @@ fn is_atomic_binop(op: IntBinOp) -> bool {
 }
 
 impl Terminator {
-    /// Returns the successor basic blocks that need to be checked next.
     fn check_wf<T: Target>(
         self,
-        live_locals: Map<LocalName, Type>,
+        func: Function,
         prog: Program,
-    ) -> Result<List<BbName>> {
+    ) -> Result<()> {
         use Terminator::*;
-        ret(match self {
+        match self {
             Goto(block_name) => {
-                list![block_name]
+                ensure_wf(func.blocks.contains_key(block_name), "Terminator::Goto: next block does not exist")?;
             }
             Switch { value, cases, fallback } => {
-                let ty = value.check_wf::<T>(live_locals, prog)?;
+                let ty = value.check_wf::<T>(func.locals, prog)?;
                 let Type::Int(switch_ty) = ty else {
                     // We only switch on integers.
                     // This is in contrast to Rust MIR where switch can work on `char`s and booleans as well.
@@ -527,40 +506,21 @@ impl Terminator {
                     throw_ill_formed!("Terminator::Switch: switch is not Int")
                 };
 
-                // ensures that all cases are valid and therefore can be reached from this block.
-                let mut next_blocks = List::new();
+                // Ensure the switch cases are all valid.
                 for (case, block) in cases.iter() {
-                    ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: invalid basic block name")?;
-                    next_blocks.push(block);
+                    ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: value does not fit in switch type")?;
+                    ensure_wf(func.blocks.contains_key(block), "Terminator::Switch: next block does not exist")?;
                 }
 
                 // we can also reach the fallback block.
-                next_blocks.push(fallback);
-                next_blocks
+                ensure_wf(func.blocks.contains_key(fallback), "Terminator::Switch: fallback block does not exist")?;
             }
-            Unreachable => {
-                list![]
-            }
-            Call { callee, arguments, ret, next_block } => {
-                let ty = callee.check_wf::<T>(live_locals, prog)?;
-                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr(_))), "Terminator::Call: invalid type")?;
-
-                // Return and argument expressions must all typecheck with some type.
-                ret.check_wf::<T>(live_locals, prog)?;
-                for arg in arguments {
-                    arg.check_wf::<T>(live_locals, prog)?;
-                }
-
-                match next_block {
-                    Some(b) => list![b],
-                    None => list![],
-                }
-            }
+            Unreachable => {}
             Intrinsic { intrinsic, arguments, ret, next_block } => {
                 // Return and argument expressions must all typecheck with some type.
-                ret.check_wf::<T>(live_locals, prog)?;
+                ret.check_wf::<T>(func.locals, prog)?;
                 for arg in arguments {
-                    arg.check_wf::<T>(live_locals, prog)?;
+                    arg.check_wf::<T>(func.locals, prog)?;
                 }
 
                 // Currently only AtomicFetchAndOp has special well-formedness requirements.
@@ -573,15 +533,28 @@ impl Terminator {
                     _ => {}
                 }
 
-                match next_block {
-                    Some(b) => list![b],
-                    None => list![],
+                if let Some(next_block) = next_block {
+                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
                 }
             }
-            Return => {
-                list![]
+            Call { callee, arguments, ret, next_block } => {
+                let ty = callee.check_wf::<T>(func.locals, prog)?;
+                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr(_))), "Terminator::Call: invalid type")?;
+
+                // Return and argument expressions must all typecheck with some type.
+                ret.check_wf::<T>(func.locals, prog)?;
+                for arg in arguments {
+                    arg.check_wf::<T>(func.locals, prog)?;
+                }
+
+                if let Some(next_block) = next_block {
+                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
+                }
             }
-        })
+            Return => {}
+        }
+
+        ret(())
     }
 }
 
@@ -592,57 +565,26 @@ impl Function {
             ty.check_wf::<T>()?;
         }
 
-        // Construct initially live locals.
-        // Also ensures that return and argument locals must exist.
-        let mut start_live: Map<LocalName, Type> = Map::new();
-        let Some(ret_ty) = self.locals.get(self.ret) else {
-            throw_ill_formed!("Function: return local does not exist");
-        };
-        if start_live.try_insert(self.ret, ret_ty).is_err() {
-            throw_ill_formed!("Function: invalid return local")
-        };
+        // Compute initially live locals: arguments and return values.
+        // They must all exist and be distinct.
+        let mut start_live: Set<LocalName> = Set::new();
         for arg in self.args {
-            // Also ensures that no two arguments refer to the same local.
-            let Some(arg_ty) = self.locals.get(arg) else {
-                throw_ill_formed!("Function: invalid arg name");
-            };
-            if start_live.try_insert(arg, arg_ty).is_err() {
-                throw_ill_formed!("Function: invalid arg");
+            ensure_wf(self.locals.contains_key(arg), "Function: argument local does not exist")?;
+            if start_live.try_insert(arg).is_err() {
+                throw_ill_formed!("Function: two arguments refer to the same local");
             };
         }
+        ensure_wf(self.locals.contains_key(self.ret), "Function: return local does not exist")?;
+        if start_live.try_insert(self.ret).is_err() {
+            throw_ill_formed!("Function: return local is also used for an argument");
+        };
 
-        // Check the basic blocks. They can be cyclic, so we keep a worklist of
-        // which blocks we still have to check. We also track the live locals
-        // they start out with.
-        let mut bb_live_at_entry: Map<BbName, Map<LocalName, Type>> = Map::new();
-        bb_live_at_entry.insert(self.start, start_live);
-        let mut todo = list![self.start];
-        while let Some(block_name) = todo.pop_front() {
-            let Some(block) = self.blocks.get(block_name) else {
-                throw_ill_formed!("Function: invalid block name");
-            };
-            let mut live_locals = bb_live_at_entry[block_name];
-            // Check this block, updating the live locals along the way.
+        // Check all basic blocks.
+        for block in self.blocks.values() {
             for statement in block.statements {
-                live_locals = statement.check_wf::<T>(live_locals, self, prog)?;
+                statement.check_wf::<T>(self, prog)?;
             }
-            let successors = block.terminator.check_wf::<T>(live_locals, prog)?;
-            for block_name in successors {
-                if let Some(precondition) = bb_live_at_entry.get(block_name) {
-                    // A block we already visited (or already have in the worklist).
-                    // Make sure the set of initially live locals is consistent!
-                    ensure_wf(precondition == live_locals, "Function: set of live locals is not consistent")?;
-                } else {
-                    // A new block.
-                    bb_live_at_entry.insert(block_name, live_locals);
-                    todo.push(block_name);
-                }
-            }
-        }
-
-        // Ensure there are no dead blocks that we failed to reach.
-        for block_name in self.blocks.keys() {
-            ensure_wf(bb_live_at_entry.contains_key(block_name), "Function: unreached basic block")?;
+            block.terminator.check_wf::<T>(self, prog)?;
         }
 
         ret(())

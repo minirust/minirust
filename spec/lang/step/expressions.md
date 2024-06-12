@@ -219,9 +219,10 @@ The place for a local is directly given by the stack frame.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Local(name): PlaceExpr) -> Result<(Place<M>, Type)> {
-        // This implicitly asserts that the local is live!
-        let ptr = self.cur_frame().locals[name];
         let ty = self.cur_frame().func.locals[name];
+        let Some(ptr) = self.cur_frame().locals.get(name) else {
+            throw_ub!("access to a dead local");
+        };
 
         ret((Place { ptr, aligned: true }, ty))
     }

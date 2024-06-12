@@ -124,19 +124,21 @@ These operations (de)allocate the memory backing a local.
 ```rust
 impl<M: Memory> StackFrame<M> {
     fn storage_live(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
+        // First remove the old storage, if any.
+        // This means the same address may be re-used for the new stoage.
+        self.storage_dead(mem, local)?;
+        // Then allocate the new storage.
         let layout = self.func.locals[local].layout::<M::T>();
         let ptr = mem.allocate(AllocationKind::Stack, layout.size, layout.align)?;
-        // Here we make it a spec bug to ever mark an already live local as live.
-        self.locals.try_insert(local, ptr).unwrap();
+        self.locals.insert(local, ptr);
         ret(())
     }
 
     fn storage_dead(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
         let layout = self.func.locals[local].layout::<M::T>();
-        let ptr = self.locals.remove(local).unwrap();
-        // Here we make it a spec bug to ever mark an already dead local as dead.
-        // FIXME: This does not match what rustc does: https://github.com/rust-lang/rust/issues/98896.
-        mem.deallocate(ptr, AllocationKind::Stack, layout.size, layout.align)?;
+        if let Some(ptr) = self.locals.remove(local) {
+            mem.deallocate(ptr, AllocationKind::Stack, layout.size, layout.align)?;
+        }
         ret(())
     }
 }
