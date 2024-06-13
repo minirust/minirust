@@ -118,6 +118,12 @@ pub fn mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Div, l, r)
 }
+pub fn shl(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::Shl, l, r)
+}
+pub fn shr(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::Shr, l, r)
+}
 pub fn bit_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::BitAnd, l, r)
 }

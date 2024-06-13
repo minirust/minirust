@@ -106,3 +106,68 @@ fn bit_int_not_works() {
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop(prog);
 }
+
+#[test]
+fn shl_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    f.assume(eq(shl(const_int(1u8), const_int(7u8)), const_int(128u8)));
+    f.assume(eq(shl(const_int(1u8), const_int(0u8)), const_int(1u8)));
+    f.assume(eq(shl(const_int(-1i32), const_int(1i32)), const_int(-2i32)));
+    f.assume(eq(shl(const_int(i32::MAX), const_int(1)), const_int(-2i32)));
+
+    // Shl should allow for different integer types for left and right operands
+    f.assume(eq(shl(const_int(1u16), const_int(7i32)), const_int(128u16)));
+
+    // Test if shift calculates the euclidean modulo of right operand with number of bits of left
+    // 8 % 8 = 0; shift by 0
+    f.assume(eq(shl(const_int(1u8), const_int(8)), const_int(1u8)));
+    // 9 % 8 = 1; shift by 1
+    f.assume(eq(shl(const_int(1u8), const_int(9)), const_int(2u8)));
+    // -1 % 8 = 7; (for solution in 0..8) shift by 7
+    f.assume(eq(shl(const_int(1u8), const_int(-1)), const_int(128u8)));
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn shr_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    // Logical shr for unsigned integers
+    f.assume(eq(shr(const_int(u8::MAX), const_int(7u8)), const_int(1u8)));
+    f.assume(eq(shr(const_int(1u8), const_int(0)), const_int(1u8)));
+
+    // Arithmetic shr for signed integers
+    f.assume(eq(shr(const_int(-4i16), const_int(1u16)), const_int(-2i16)));
+    f.assume(eq(shr(const_int(-1i32), const_int(1)), const_int(-1i32)));
+    f.assume(eq(shr(const_int(1i32), const_int(1)), const_int(0i32)));
+    f.assume(eq(shr(const_int(i32::MAX), const_int(1)), const_int(i32::MAX / 2)));
+    f.assume(eq(shr(const_int(i32::MIN), const_int(1)), const_int(i32::MIN / 2)));
+
+    // Shr should allow for different integer types for left and right operands
+    f.assume(eq(shr(const_int(u8::MAX), const_int(7i32)), const_int(1u8)));
+    f.assume(eq(shr(const_int(-4i16), const_int(1u8)), const_int(-2i16)));
+
+    // Test if shift calculates the euclidean modulo of right operand with number of bits of left
+    // 8 % 8 = 0; shift by 0
+    f.assume(eq(shr(const_int(1u8), const_int(8)), const_int(1u8)));
+    // 9 % 8 = 1; shift by 1
+    f.assume(eq(shr(const_int(2u8), const_int(9)), const_int(1u8)));
+    // -1 % 8 = 7; (for solution in 0..8) shift by 7
+    f.assume(eq(shr(const_int(u8::MAX), const_int(-1)), const_int(1u8)));
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}

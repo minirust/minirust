@@ -10,9 +10,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::Use(operand) => self.translate_operand_smir(operand, span),
             smir::Rvalue::BinaryOp(bin_op, l, r) => {
                 let lty_smir = l.ty(&self.locals_smir).unwrap();
-                let rty_smir = r.ty(&self.locals_smir).unwrap();
-
-                assert_eq!(lty_smir, rty_smir);
+                let lty = self.translate_ty_smir(lty_smir, span);
 
                 let l = self.translate_operand_smir(l, span);
                 let r = self.translate_operand_smir(r, span);
@@ -20,7 +18,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let l = GcCow::new(l);
                 let r = GcCow::new(r);
 
-                let lty = self.translate_ty_smir(lty_smir, span);
                 use smir::BinOp::*;
                 let op = match (bin_op, lty) {
                     (Offset, Type::Ptr(_)) => BinOp::PtrOffset { inbounds: true },
@@ -30,6 +27,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (Mul, Type::Int(_)) => BinOp::Int(IntBinOp::Mul),
                     (Div, Type::Int(_)) => BinOp::Int(IntBinOp::Div),
                     (Rem, Type::Int(_)) => BinOp::Int(IntBinOp::Rem),
+                    (Shl, Type::Int(_)) => BinOp::Int(IntBinOp::Shl),
+                    (Shr, Type::Int(_)) => BinOp::Int(IntBinOp::Shr),
                     (BitAnd, Type::Int(_)) => BinOp::Int(IntBinOp::BitAnd),
                     (BitOr, Type::Int(_)) => BinOp::Int(IntBinOp::BitOr),
                     (BitXor, Type::Int(_)) => BinOp::Int(IntBinOp::BitXor),

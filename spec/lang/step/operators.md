@@ -107,7 +107,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_bin_op(&self, op: IntBinOp, left: Int, right: Int) -> Result<Int> {
+    fn eval_int_bin_op(&self, op: IntBinOp, left: Int, right: Int, left_ty: IntType) -> Result<Int> {
         use IntBinOp::*;
         ret(match op {
             Add => left + right,
@@ -125,6 +125,16 @@ impl<M: Memory> Machine<M> {
                 }
                 left % right
             }
+            Shl | Shr => {
+                let bits = left_ty.size.bits();
+                let offset = right.rem_euclid(bits);
+
+                match op {
+                    Shl => left << offset,
+                    Shr => left >> offset,
+                    _ => panic!(),
+                }
+            }
             BitAnd => left & right,
             BitOr => left | right,
             BitXor => left ^ right,
@@ -141,7 +151,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_int_bin_op(op, left, right)?;
+        let result = self.eval_int_bin_op(op, left, right, int_ty)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))

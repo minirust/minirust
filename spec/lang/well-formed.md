@@ -327,12 +327,18 @@ impl ValueExpr {
                 let left = left.check_wf::<T>(locals, prog)?;
                 let right = right.check_wf::<T>(locals, prog)?;
                 match operator {
-                    Int(_int_op) => {
-                        let Type::Int(int_ty) = left else {
+                    Int(int_op) => {
+                        let Type::Int(left) = left else {
                             throw_ill_formed!("BinOp::Int: invalid left type");
                         };
-                        ensure_wf(right == Type::Int(int_ty), "BinOp::Int: invalid right type")?;
-                        Type::Int(int_ty)
+                        let Type::Int(right) = right else {
+                            throw_ill_formed!("BinOp::Int: invalid right type");
+                        };
+                        // Shift operators allow unequal left and right type
+                        if !matches!(int_op, IntBinOp::Shl | IntBinOp::Shr) {
+                            ensure_wf(left == right, "BinOp:Int: right and left type are not equal")?;
+                        }
+                        Type::Int(left)
                     }
                     IntRel(_int_rel) => {
                         let Type::Int(int_ty) = left else {
