@@ -32,6 +32,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (BitAnd, Type::Int(_)) => BinOp::Int(IntBinOp::BitAnd),
                     (BitOr, Type::Int(_)) => BinOp::Int(IntBinOp::BitOr),
                     (BitXor, Type::Int(_)) => BinOp::Int(IntBinOp::BitXor),
+                    (AddUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::AddUnchecked),
+                    (SubUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::SubUnchecked),
+                    (MulUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::MulUnchecked),
+                    (ShlUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShlUnchecked),
+                    (ShrUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShrUnchecked),
 
                     (Lt, Type::Int(_)) => BinOp::IntRel(IntRel::Lt),
                     (Le, Type::Int(_)) => BinOp::IntRel(IntRel::Le),

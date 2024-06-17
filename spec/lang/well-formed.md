@@ -334,8 +334,9 @@ impl ValueExpr {
                         let Type::Int(right) = right else {
                             throw_ill_formed!("BinOp::Int: invalid right type");
                         };
+                        use IntBinOp::*;
                         // Shift operators allow unequal left and right type
-                        if !matches!(int_op, IntBinOp::Shl | IntBinOp::Shr) {
+                        if !matches!(int_op, Shl | Shr | ShlUnchecked | ShrUnchecked) {
                             ensure_wf(left == right, "BinOp:Int: right and left type are not equal")?;
                         }
                         Type::Int(left)

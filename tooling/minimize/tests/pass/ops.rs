@@ -1,3 +1,4 @@
+#![feature(unchecked_shifts)]
 fn black_box<T>(t: T) -> T { t }
 
 fn main() {
@@ -18,6 +19,14 @@ fn main() {
     assert!(black_box(171) & 62 == 42);
     assert!(black_box(10) | 34 == 42);
     assert!(black_box(36) ^ 14 == 42);
+    assert!(unsafe { black_box(12_i32).unchecked_add(30) } == 42);
+    assert!(unsafe { black_box(55_i32).unchecked_sub(13) } == 42);
+    assert!(unsafe { black_box(7_i32).unchecked_mul(6) } == 42);
+    // For unchecked shifts Rust only allows for u32 on right side 
+    assert!(unsafe { black_box(i32::MAX).unchecked_shl(1u32) } == -2);
+    assert!(unsafe { black_box(i32::MIN).unchecked_shl(1u32) } == 0);
+    assert!(unsafe { black_box(-1_i32).unchecked_shr(1u32) } == -1);
+    assert!(unsafe { black_box(84_i32).unchecked_shr(1u32) } == 42);
 
     assert!(black_box(10) > 2);
     assert!(black_box(10) >= 2);
