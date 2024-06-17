@@ -79,7 +79,7 @@ impl<'tcx> Ctxt<'tcx> {
                             let tag_int = (discr_int
                                 - Int::from(niche_variants.start().as_usize())
                                 + Int::from(*niche_start))
-                            .modulo(tag_ty.signed, tag_ty.size);
+                            .bring_in_bounds(tag_ty.signed, tag_ty.size);
                             let tagger = [(tag_offset, (tag_ty, tag_int))]
                                 .into_iter()
                                 .collect::<Map<_, _>>();

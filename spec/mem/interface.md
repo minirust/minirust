@@ -127,9 +127,9 @@ impl<Provenance> Pointer<Provenance> {
     /// Calculates the offset from a pointer in bytes using wrapping arithmetic.
     /// This does not check whether the pointer is still in-bounds of its allocation.
     pub fn wrapping_offset<M: Memory<Provenance=Provenance>>(self, offset: Int) -> Self {
-        let offset = offset.modulo(Signed, M::T::PTR_SIZE);
+        let offset = offset.bring_in_bounds(Signed, M::T::PTR_SIZE);
         let addr = self.addr + offset;
-        let addr = addr.modulo(Unsigned, M::T::PTR_SIZE);
+        let addr = addr.bring_in_bounds(Unsigned, M::T::PTR_SIZE);
         Pointer { addr, ..self }
     }
 }
