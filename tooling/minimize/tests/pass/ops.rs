@@ -11,6 +11,10 @@ fn main() {
     assert!(black_box(7) * 6 == 42);
     assert!(black_box(504) / 12 == 42);
     assert!(black_box(112) % 70 == 42);
+    assert!(black_box(i32::MAX) << 1 == -2);
+    assert!(black_box(i32::MIN) << 1u8 == 0);
+    assert!(black_box(-1) >> 1 == -1);
+    assert!(black_box(84) >> 1u8 == 42);
     assert!(black_box(171) & 62 == 42);
     assert!(black_box(10) | 34 == 42);
     assert!(black_box(36) ^ 14 == 42);

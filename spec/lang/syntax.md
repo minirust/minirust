@@ -140,6 +140,10 @@ pub enum IntBinOp {
     /// Remainder of a division, the `%` operator.
     /// Throws UB, if the modulus (second operand) is zero.
     Rem,
+    /// Shift left `<<`
+    Shl,
+    /// Shift right `>>` (arithmetic shift for unsigned integers, logical shift for signed integers)
+    Shr,
     /// Bitwise-and two integer values.
     BitAnd,
     /// Bitwise-or two integer values.

@@ -476,9 +476,9 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid second argument to `AtomicFetchAndOp` intrinsic: not same type as return value");
         }
 
-        if !matches!(ret_ty, Type::Int(_)) {
+        let Type::Int(int_ty) = ret_ty else {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
-        }
+        };
 
         let size = ret_ty.size::<M::T>();
         // All integer sizes are powers of two.
@@ -495,7 +495,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(previous_int) = previous else { unreachable!() };
 
         // Perform operation.
-        let next_int = self.eval_int_bin_op(op, previous_int, other_int)?;
+        let next_int = self.eval_int_bin_op(op, previous_int, other_int, int_ty)?;
         let next = Value::Int(next_int);
 
         // Store it again.

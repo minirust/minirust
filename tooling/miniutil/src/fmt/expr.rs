@@ -159,14 +159,16 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {
             let int_op = match int_op {
-                IntBinOp::Add => '+',
-                IntBinOp::Sub => '-',
-                IntBinOp::Mul => '*',
-                IntBinOp::Div => '/',
-                IntBinOp::Rem => '%',
-                IntBinOp::BitAnd => '&',
-                IntBinOp::BitOr => '|',
-                IntBinOp::BitXor => '^',
+                IntBinOp::Add => "+",
+                IntBinOp::Sub => "-",
+                IntBinOp::Mul => "*",
+                IntBinOp::Div => "/",
+                IntBinOp::Rem => "%",
+                IntBinOp::Shl => "<<",
+                IntBinOp::Shr => ">>",
+                IntBinOp::BitAnd => "&",
+                IntBinOp::BitOr => "|",
+                IntBinOp::BitXor => "^",
             };
 
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
