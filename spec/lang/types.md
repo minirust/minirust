@@ -185,7 +185,7 @@ impl IntType {
     }
 
     pub fn bring_in_bounds(&self, i: Int) -> Int {
-        i.modulo(self.signed, self.size)
+        i.bring_in_bounds(self.signed, self.size)
     }
 }
 ```
