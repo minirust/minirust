@@ -176,10 +176,35 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let rs::Operand::Constant(box f1) = func else { panic!() };
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
         let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-        let instance =
-            rs::Instance::expect_resolve(self.tcx, rs::ParamEnv::reveal_all(), f, substs_ref);
+        let param_env = rs::ParamEnv::reveal_all();
+        let instance = rs::Instance::expect_resolve(self.tcx, param_env, f, substs_ref);
+
+        if let rs::InstanceDef::Intrinsic(def_id) = instance.def {
+            // A Rust intrinsic.
+            let intrinsic_name = self.tcx.item_name(def_id);
+            return match intrinsic_name.as_str() {
+                "assert_inhabited" | "assert_zero_valid" | "assert_mem_uninitialized_valid" => {
+                    let ty = instance.args.type_at(0);
+                    let requirement =
+                        rs::layout::ValidityRequirement::from_intrinsic(intrinsic_name).unwrap();
+                    let should_panic = !self
+                        .tcx
+                        .check_validity_requirement((requirement, param_env.and(ty)))
+                        .unwrap();
+
+                    if should_panic {
+                        // FIXME trigger a panic instead of UB
+                        Terminator::Unreachable
+                    } else {
+                        Terminator::Goto(self.bb_name_map[&target.unwrap()])
+                    }
+                }
+                name => panic!("unsupported Rust intrinsic `{}`", name),
+            };
+        }
 
         if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
+            // Direct call to a MiniRust intrinsic.
             let intrinsic = match self.tcx.item_name(f).as_str() {
                 "print" => IntrinsicOp::PrintStdout,
                 "eprint" => IntrinsicOp::PrintStderr,
@@ -196,7 +221,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 "compare_exchange" => IntrinsicOp::AtomicCompareExchange,
                 "atomic_fetch_add" => IntrinsicOp::AtomicFetchAndOp(IntBinOp::Add),
                 "atomic_fetch_sub" => IntrinsicOp::AtomicFetchAndOp(IntBinOp::Sub),
-                name => panic!("unsupported intrinsic `{}`", name),
+                name => panic!("unsupported MiniRust intrinsic `{}`", name),
             };
             Terminator::Intrinsic {
                 intrinsic,
