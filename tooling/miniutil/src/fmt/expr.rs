@@ -158,21 +158,27 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {
-            let int_op = match int_op {
-                IntBinOp::Add => "+",
-                IntBinOp::Sub => "-",
-                IntBinOp::Mul => "*",
-                IntBinOp::Div => "/",
-                IntBinOp::Rem => "%",
-                IntBinOp::Shl => "<<",
-                IntBinOp::Shr => ">>",
-                IntBinOp::BitAnd => "&",
-                IntBinOp::BitOr => "|",
-                IntBinOp::BitXor => "^",
-            };
-
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
+
+            use IntBinOp::*;
+            let int_op = match int_op {
+                Add => "+",
+                Sub => "-",
+                Mul => "*",
+                Div => "/",
+                Rem => "%",
+                Shl => "<<",
+                Shr => ">>",
+                BitAnd => "&",
+                BitOr => "|",
+                BitXor => "^",
+                AddUnchecked => return FmtExpr::Atomic(format!("AddUnchecked({l}, {r})")),
+                SubUnchecked => return FmtExpr::Atomic(format!("SubUnchecked({l}, {r})")),
+                MulUnchecked => return FmtExpr::Atomic(format!("MulUnchecked({l}, {r})")),
+                ShlUnchecked => return FmtExpr::Atomic(format!("ShlUnchecked({l}, {r})")),
+                ShrUnchecked => return FmtExpr::Atomic(format!("ShrUnchecked({l}, {r})")),
+            };
 
             FmtExpr::NonAtomic(format!("{l} {int_op} {r}"))
         }

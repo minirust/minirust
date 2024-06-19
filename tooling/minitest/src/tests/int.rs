@@ -171,3 +171,173 @@ fn shr_works() {
     let p = p.finish_program(f);
     assert_stop(p);
 }
+
+#[test]
+fn unchecked_add_ub() {
+    assert_ub_expr::<i8>(
+        unchecked_add(const_int(i8::MAX), const_int(1_i8)),
+        "overflow in unchecked add",
+    );
+
+    assert_ub_expr::<i8>(
+        unchecked_add(const_int(i8::MIN), const_int(-1i8)),
+        "overflow in unchecked add",
+    );
+}
+
+#[test]
+fn unchecked_add_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    f.assume(eq(unchecked_add(const_int(i8::MIN), const_int(i8::MAX)), const_int(-1_i8)));
+    f.assume(eq(unchecked_add(const_int(0_i8), const_int(-i8::MAX)), const_int(i8::MIN + 1_i8)));
+    f.assume(eq(unchecked_add(const_int(30), const_int(12)), const_int(42)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn unchecked_sub_ub() {
+    assert_ub_expr::<i8>(
+        unchecked_sub(const_int(i8::MIN), const_int(1_i8)),
+        "overflow in unchecked sub",
+    );
+
+    assert_ub_expr::<i8>(
+        unchecked_sub(const_int(0_i8), const_int(i8::MIN)),
+        "overflow in unchecked sub",
+    );
+}
+
+#[test]
+fn unchecked_sub_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    f.assume(eq(unchecked_sub(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN)));
+    f.assume(eq(unchecked_sub(const_int(-1_i8), const_int(i8::MIN)), const_int(i8::MAX)));
+    f.assume(eq(unchecked_sub(const_int(53), const_int(11)), const_int(42)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn unchecked_mul_ub() {
+    assert_ub_expr::<i8>(
+        unchecked_mul(const_int(i8::MIN), const_int(-1_i8)),
+        "overflow in unchecked mul",
+    );
+    assert_ub_expr::<i8>(
+        unchecked_mul(const_int(56_i8), const_int(3_i8)),
+        "overflow in unchecked mul",
+    );
+}
+
+#[test]
+fn unchecked_mul_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    f.assume(eq(unchecked_mul(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN + 1)));
+    f.assume(eq(unchecked_mul(const_int(-8_i8), const_int(16_i8)), const_int(i8::MIN)));
+    f.assume(eq(unchecked_mul(const_int(6), const_int(7)), const_int(42)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn unchecked_shl_ub() {
+    // If left side is `u8` every right side not in range `0..8` causes UB
+    assert_ub_expr::<u8>(
+        unchecked_shl(const_int(1u8), const_int(8)),
+        "overflow in unchecked shift",
+    );
+    assert_ub_expr::<u8>(
+        unchecked_shl(const_int(1u8), const_int(9)),
+        "overflow in unchecked shift",
+    );
+    assert_ub_expr::<u8>(
+        unchecked_shl(const_int(1u8), const_int(-1)),
+        "overflow in unchecked shift",
+    );
+}
+
+#[test]
+fn unchecked_shl_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    f.assume(eq(unchecked_shl(const_int(1u8), const_int(7u8)), const_int(128u8)));
+    f.assume(eq(unchecked_shl(const_int(1u8), const_int(0u8)), const_int(1u8)));
+    f.assume(eq(unchecked_shl(const_int(-1i32), const_int(1i32)), const_int(-2i32)));
+    f.assume(eq(unchecked_shl(const_int(i32::MAX), const_int(1)), const_int(-2i32)));
+
+    // Unchecked shl should allow for different integer types for left and right operands
+    f.assume(eq(unchecked_shl(const_int(1u16), const_int(7i32)), const_int(128u16)));
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn unchecked_shr_ub() {
+    // If left side is `u8` every right side not in range `0..8` causes UB
+    assert_ub_expr::<u8>(
+        unchecked_shr(const_int(1u8), const_int(8)),
+        "overflow in unchecked shift",
+    );
+    assert_ub_expr::<u8>(
+        unchecked_shr(const_int(2u8), const_int(9)),
+        "overflow in unchecked shift",
+    );
+    assert_ub_expr::<u8>(
+        unchecked_shr(const_int(2u8), const_int(9)),
+        "overflow in unchecked shift",
+    );
+    assert_ub_expr::<u8>(
+        unchecked_shr(const_int(u8::MAX), const_int(-1)),
+        "overflow in unchecked shift",
+    );
+}
+
+#[test]
+fn unchecked_shr_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    // Logical shr for unsigned integers
+    f.assume(eq(unchecked_shr(const_int(u8::MAX), const_int(7u8)), const_int(1u8)));
+    f.assume(eq(unchecked_shr(const_int(1u8), const_int(0)), const_int(1u8)));
+
+    // Arithmetic shr for signed integers
+    f.assume(eq(unchecked_shr(const_int(-4i16), const_int(1u16)), const_int(-2i16)));
+    f.assume(eq(unchecked_shr(const_int(-1i32), const_int(1)), const_int(-1i32)));
+    f.assume(eq(unchecked_shr(const_int(1i32), const_int(1)), const_int(0i32)));
+    f.assume(eq(unchecked_shr(const_int(i32::MAX), const_int(1)), const_int(i32::MAX / 2)));
+    f.assume(eq(unchecked_shr(const_int(i32::MIN), const_int(1)), const_int(i32::MIN / 2)));
+
+    // Unchecked shr should allow for different integer types for left and right operands
+    f.assume(eq(unchecked_shr(const_int(u8::MAX), const_int(7i32)), const_int(1u8)));
+    f.assume(eq(unchecked_shr(const_int(-4i16), const_int(1u8)), const_int(-2i16)));
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}

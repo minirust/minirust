@@ -111,8 +111,29 @@ impl<M: Memory> Machine<M> {
         use IntBinOp::*;
         ret(match op {
             Add => left + right,
+            AddUnchecked => {
+                let result = left + right;
+                if !left_ty.can_represent(result) {
+                    throw_ub!("overflow in unchecked add");
+                }
+                result
+            }
             Sub => left - right,
+            SubUnchecked => {
+                let result = left - right;
+                if !left_ty.can_represent(result) {
+                    throw_ub!("overflow in unchecked sub");
+                }
+                result
+            }
             Mul => left * right,
+            MulUnchecked => {
+                let result = left * right;
+                if !left_ty.can_represent(result) {
+                    throw_ub!("overflow in unchecked mul");
+                }
+                result
+            }
             Div => {
                 if right == 0 {
                     throw_ub!("division by zero");
@@ -132,6 +153,18 @@ impl<M: Memory> Machine<M> {
                 match op {
                     Shl => left << offset,
                     Shr => left >> offset,
+                    _ => panic!(),
+                }
+            }
+            ShlUnchecked | ShrUnchecked => {
+                let bits = left_ty.size.bits();
+                if right < 0 || right >= bits {
+                    throw_ub!("overflow in unchecked shift");
+                }
+
+                match op {
+                    ShlUnchecked => left << right,
+                    ShrUnchecked => left >> right,
                     _ => panic!(),
                 }
             }

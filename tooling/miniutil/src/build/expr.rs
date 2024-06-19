@@ -109,11 +109,20 @@ fn int_binop(op: IntBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn add(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Add, l, r)
 }
+pub fn unchecked_add(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::AddUnchecked, l, r)
+}
 pub fn sub(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Sub, l, r)
 }
+pub fn unchecked_sub(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::SubUnchecked, l, r)
+}
 pub fn mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Mul, l, r)
+}
+pub fn unchecked_mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::MulUnchecked, l, r)
 }
 pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Div, l, r)
@@ -121,8 +130,14 @@ pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn shl(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Shl, l, r)
 }
+pub fn unchecked_shl(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::ShlUnchecked, l, r)
+}
 pub fn shr(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Shr, l, r)
+}
+pub fn unchecked_shr(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::ShrUnchecked, l, r)
 }
 pub fn bit_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::BitAnd, l, r)

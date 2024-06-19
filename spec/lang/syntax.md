@@ -130,10 +130,19 @@ pub enum UnOp {
 pub enum IntBinOp {
     /// Add two integer values.
     Add,
+    /// Add two integer values.
+    /// Throws UB on overflow.
+    AddUnchecked,
     /// Subtract two integer values.
     Sub,
+    /// Subtract two integer values.
+    /// Throws UB on overflow.
+    SubUnchecked,
     /// Multiply two integer values.
     Mul,
+    /// Multiply two integer values.
+    /// Throws UB on overflow.
+    MulUnchecked,
     /// Divide two integer values.
     /// Division by zero is UB.
     Div,
@@ -142,8 +151,14 @@ pub enum IntBinOp {
     Rem,
     /// Shift left `<<`
     Shl,
+    /// Shift left `<<`
+    /// Throws UB if right operand not in range 0..left::BITS.
+    ShlUnchecked,
     /// Shift right `>>` (arithmetic shift for unsigned integers, logical shift for signed integers)
     Shr,
+    /// Shift right `>>` (arithmetic shift for unsigned integers, logical shift for signed integers)
+    /// Throws UB if right operand not in range 0..left::BITS.
+    ShrUnchecked,
     /// Bitwise-and two integer values.
     BitAnd,
     /// Bitwise-or two integer values.

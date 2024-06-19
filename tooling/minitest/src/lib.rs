@@ -56,6 +56,23 @@ pub fn assert_ub_eventually(prog: Program, attempts: usize, msg: &str) {
     panic!("did not get expected output after {} attempts", attempts);
 }
 
+/// Create program that assigns `expr` to local of type T and checks if it causes UB.
+#[track_caller]
+pub fn assert_ub_expr<T: TypeConv>(expr: ValueExpr, msg: &str) {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let local = f.declare_local::<T>();
+
+    f.storage_live(local);
+    f.assign(local, expr);
+    f.exit();
+
+    let f = p.finish_function(f);
+    let p = p.finish_program(f);
+    assert_ub(p, msg);
+}
+
 #[track_caller]
 pub fn assert_ill_formed(prog: Program, msg: &str) {
     let TerminationInfo::IllFormed(info) = run_program(prog) else {
