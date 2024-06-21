@@ -38,12 +38,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (ShlUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShlUnchecked),
                     (ShrUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShrUnchecked),
 
-                    (Lt, Type::Int(_)) => BinOp::IntRel(IntRel::Lt),
-                    (Le, Type::Int(_)) => BinOp::IntRel(IntRel::Le),
-                    (Gt, Type::Int(_)) => BinOp::IntRel(IntRel::Gt),
-                    (Ge, Type::Int(_)) => BinOp::IntRel(IntRel::Ge),
-                    (Eq, Type::Int(_)) => BinOp::IntRel(IntRel::Eq),
-                    (Ne, Type::Int(_)) => BinOp::IntRel(IntRel::Ne),
+                    // We use the int relations also for bools
+                    // (and insert a cast, see below).
+                    (Lt, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Lt),
+                    (Le, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Le),
+                    (Gt, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Gt),
+                    (Ge, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Ge),
+                    (Eq, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Eq),
+                    (Ne, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Ne),
 
                     // all bool ops
                     (BitAnd, Type::Bool) => BinOp::Bool(BoolBinOp::BitAnd),
@@ -52,6 +54,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                     (op, _) =>
                         rs::span_bug!(span, "Binary Op {op:?} not supported for type {lty_smir}."),
+                };
+
+                // cast booleans used in comparisons to Int to use them in IntRel ops
+                let (l, r) = match (op, lty) {
+                    (BinOp::IntRel(_), Type::Bool) => {
+                        let Type::Int(ty) = <u8>::get_type() else { unreachable!() };
+                        let operator = UnOp::Cast(CastOp::BoolToInt(ty));
+                        let l = ValueExpr::UnOp { operator, operand: l };
+                        let r = ValueExpr::UnOp { operator, operand: r };
+                        (GcCow::new(l), GcCow::new(r))
+                    }
+                    (_, _) => (l, r),
                 };
 
                 ValueExpr::BinOp { operator: op, left: l, right: r }
