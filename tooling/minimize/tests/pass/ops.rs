@@ -37,5 +37,10 @@ fn main() {
 
     assert!(black_box(true) & true);
     assert!(black_box(false) | true);
-    assert!(black_box(false) ^ true)
+    assert!(black_box(false) ^ true);
+    assert!(black_box(false) < true);
+    assert!(black_box(false) <= true);
+    assert!(black_box(false) == false);
+    assert!(black_box(true) >= false);
+    assert!(black_box(true) > false);
 }
