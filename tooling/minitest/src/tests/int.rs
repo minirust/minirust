@@ -341,3 +341,53 @@ fn unchecked_shr_works() {
     let p = p.finish_program(f);
     assert_stop(p);
 }
+
+#[test]
+fn cmp_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    f.assume(eq(cmp(const_int(0), const_int(-1)), const_int(1_i8)));
+    f.assume(eq(cmp(const_int(-1), const_int(0)), const_int(-1_i8)));
+    f.assume(eq(cmp(const_int(0), const_int(1)), const_int(-1_i8)));
+    f.assume(eq(cmp(const_int(1), const_int(0)), const_int(1_i8)));
+    f.assume(eq(cmp(const_int(0), const_int(0)), const_int(0_i8)));
+    f.assume(eq(cmp(const_int(i128::MAX), const_int(i128::MIN)), const_int(1_i8)));
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn cmp_ill_formed_left() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local::<i8>();
+    f.storage_live(loc);
+    f.assign(loc, cmp(const_bool(false), const_int(0_i32)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_ill_formed(p, "BinOp::Cmp: invalid left type");
+}
+
+#[test]
+fn cmp_ill_formed_right() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local::<i8>();
+    f.storage_live(loc);
+    f.assign(loc, cmp(const_int(0_i32), const_int(0_i8)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_ill_formed(p, "BinOp::Cmp: invalid right type");
+}

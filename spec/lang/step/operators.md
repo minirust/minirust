@@ -222,6 +222,32 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Integer comparisons
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_bin_op(
+        &self,
+        BinOp::Cmp: BinOp,
+        (left, l_ty): (Value<M>, Type),
+        (right, _r_ty): (Value<M>, Type)
+    ) -> Result<(Value<M>, Type)> {
+        let Value::Int(left) = left else { panic!("non-integer input to integer comparison") };
+        let Value::Int(right) = right else { panic!("non-integer input to integer comparison") };
+
+        let result = if left < right {
+            Int::from(-1_i8)
+        } else if left == right {
+            Int::from(0_i8)
+        } else {
+            Int::from(1_i8)
+        };
+
+        ret((Value::Int(result), Type::Int(IntType::I8)))
+    }
+}
+```
+
 ### Pointer arithmetic
 
 ```rust

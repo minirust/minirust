@@ -197,6 +197,11 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
 
             FmtExpr::NonAtomic(format!("{l} {rel} {r}"))
         }
+        ValueExpr::BinOp { operator: BinOp::Cmp, left, right } => {
+            let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
+            let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
+            FmtExpr::NonAtomic(format!("cmp({l}, {r})"))
+        }
         ValueExpr::BinOp { operator: BinOp::PtrOffset { inbounds }, left, right } => {
             let offset_name = match inbounds {
                 true => "offset_inbounds",
