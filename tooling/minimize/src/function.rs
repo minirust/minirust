@@ -34,6 +34,12 @@ impl<'cx, 'tcx> std::ops::Deref for FnCtxt<'cx, 'tcx> {
     }
 }
 
+impl<'cx, 'tcx> std::ops::DerefMut for FnCtxt<'cx, 'tcx> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.cx
+    }
+}
+
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn new(instance: rs::Instance<'tcx>, cx: &'cx mut Ctxt<'tcx>) -> Self {
         let body = cx.tcx.optimized_mir(instance.def_id());
@@ -88,7 +94,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         for (id, local_name) in &self.local_name_map {
             let local_decl = &self.body.local_decls[*id];
             let span = local_decl.source_info.span;
-            self.locals.insert(*local_name, self.translate_ty(local_decl.ty, span));
+            let ty = self.cx.translate_ty(local_decl.ty, span);
+            self.locals.insert(*local_name, ty);
         }
 
         // the number of locals which are implicitly storage live.

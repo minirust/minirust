@@ -130,11 +130,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let smir::AggregateKind::Adt(_, variant_idx, _, _, _) = agg else {
                             panic!()
                         };
-                        let discriminant = self.discriminant_for_variant_smir(
-                            rv.ty(&self.locals_smir).unwrap(),
-                            *variant_idx,
-                            span,
-                        );
+                        let variant_ty = rv.ty(&self.locals_smir).unwrap();
+                        let discriminant =
+                            self.discriminant_for_variant_smir(variant_ty, *variant_idx, span);
                         let ops: List<_> =
                             operands.iter().map(|x| self.translate_operand_smir(x, span)).collect();
 
@@ -166,7 +164,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let c = c.eval_target_usize().unwrap();
                 let c = Int::from(c);
 
-                let elem_ty = self.translate_ty_smir(op.ty(&self.locals_smir).unwrap(), span);
+                let elem_ty = op.ty(&self.locals_smir).unwrap();
+                let elem_ty = self.translate_ty_smir(elem_ty, span);
                 let op = self.translate_operand_smir(op, span);
 
                 let ty = Type::Array { elem: GcCow::new(elem_ty), count: c };
@@ -175,8 +174,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::Tuple(ls, ty)
             }
             smir::Rvalue::Cast(smir::CastKind::IntToInt, operand, ty) => {
-                let operand_ty =
-                    self.translate_ty_smir(operand.ty(&self.locals_smir).unwrap(), span);
+                let operand_ty = operand.ty(&self.locals_smir).unwrap();
+                let operand_ty = self.translate_ty_smir(operand_ty, span);
                 let operand = self.translate_operand_smir(operand, span);
                 let Type::Int(int_ty) = self.translate_ty_smir(*ty, span) else {
                     rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
