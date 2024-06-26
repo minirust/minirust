@@ -180,6 +180,8 @@ impl Type {
 
 ```rust
 impl IntType {
+    pub const I8: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(1) };
+
     pub fn can_represent(&self, i: Int) -> bool {
         i.in_bounds(self.signed, self.size)
     }

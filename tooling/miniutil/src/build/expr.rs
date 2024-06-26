@@ -176,6 +176,9 @@ pub fn le(l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_rel(IntRel::Lt, l, r)
 }
+pub fn cmp(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    ValueExpr::BinOp { operator: BinOp::Cmp, left: GcCow::new(l), right: GcCow::new(r) }
+}
 
 fn bool_binop(op: BoolBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::Bool(op), left: GcCow::new(l), right: GcCow::new(r) }

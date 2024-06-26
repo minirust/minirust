@@ -38,6 +38,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (ShlUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShlUnchecked),
                     (ShrUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShrUnchecked),
 
+                    (Cmp, Type::Int(_)) => BinOp::Cmp,
+
                     // We use the int relations also for bools
                     // (and insert a cast, see below).
                     (Lt, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Lt),
@@ -68,7 +70,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (_, _) => (l, r),
                 };
 
-                ValueExpr::BinOp { operator: op, left: l, right: r }
+                let value_expr = ValueExpr::BinOp { operator: op, left: l, right: r };
+
+                // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
+                // so we have to transmute the result.
+                if let BinOp::Cmp = op {
+                    let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(None);
+                    let ordering_ty: Type = self.translate_ty(ordering_ty, rs::DUMMY_SP);
+                    return ValueExpr::UnOp {
+                        operator: UnOp::Cast(CastOp::Transmute(ordering_ty)),
+                        operand: GcCow::new(value_expr),
+                    };
+                }
+
+                value_expr
             }
             smir::Rvalue::UnaryOp(unop, operand) => {
                 let ty_smir = operand.ty(&self.locals_smir).unwrap();

@@ -194,6 +194,11 @@ pub enum BinOp {
     Int(IntBinOp),
     /// A relation between integers (both must have the same type); returns a boolean.
     IntRel(IntRel),
+    /// The three-way comparison of integers (both must have same type); returns an i8:
+    /// * -1 if left <  right
+    /// *  0 if left == right
+    /// * +1 if left >  right
+    Cmp,
     /// Pointer arithmetic (with or without inbounds requirement);
     /// takes a pointer as left operand and an integer as right operand;
     /// returns a pointer.
