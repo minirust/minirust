@@ -1,4 +1,5 @@
 mod align;
+mod assume;
 mod atomic;
 mod atomic_fetch;
 mod bool;
