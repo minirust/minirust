@@ -50,7 +50,7 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
-pub use miniutil::build::{self, TypeConv as _};
+pub use miniutil::build::{self, zst_place, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::DefaultTarget;
@@ -118,7 +118,7 @@ fn main() {
                         "program not well-formed (this is a bug in minimize):\n    {}",
                         err.get_internal()
                     ),
-                TerminationInfo::MachineStop => { /* silent exit. */ }
+                TerminationInfo::MachineStop(_) => { /* silent exit. */ }
                 TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
                 TerminationInfo::Deadlock => show_error!("program dead-locked"),
                 TerminationInfo::MemoryLeak => show_error!("program leaked memory"),

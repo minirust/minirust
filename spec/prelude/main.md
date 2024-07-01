@@ -22,7 +22,7 @@ pub enum TerminationInfo {
     /// The execution encountered undefined behaviour.
     Ub(String),
     /// The program was executed and the machine stopped without error.
-    MachineStop,
+    MachineStop(String),
     /// The program was ill-formed.
     IllFormed(String),
     /// The program did not terminate but no thread can make progress.
@@ -44,8 +44,8 @@ macro_rules! throw_ub {
     };
 }
 macro_rules! throw_machine_stop {
-    () => {
-        do yeet TerminationInfo::MachineStop
+    ($($tt:tt)*) => {
+        do yeet TerminationInfo::MachineStop(format!($($tt)*))
     };
 }
 macro_rules! throw_memory_leak {

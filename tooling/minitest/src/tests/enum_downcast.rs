@@ -37,7 +37,7 @@ fn valid_downcast() {
         assign(local(1), load(downcast(local(0), 0))),
     ];
     let prog = small_program(locals, stmts);
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 /// UB: Assigning to first byte of variant 0 doesn't init both data bytes of variant 1.
@@ -114,5 +114,5 @@ fn downcasts_give_different_place2() {
         assign(local(1), load(field(downcast(local(0), 0), 0))),
     ];
     let prog = small_program(locals, stmts);
-    assert_stop(prog);
+    assert_exit(prog);
 }

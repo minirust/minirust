@@ -21,7 +21,7 @@ fn dynamic_memory() {
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn dealloc_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]

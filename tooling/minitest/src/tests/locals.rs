@@ -5,7 +5,7 @@ fn dead_before_live() {
     let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_dead(0)];
     let p = small_program(&locals, &stmts);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -13,7 +13,7 @@ fn double_live() {
     let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_live(0), storage_live(0)];
     let p = small_program(&locals, &stmts);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]

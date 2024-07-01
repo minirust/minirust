@@ -28,7 +28,7 @@ fn assign_dangling_ref() {
     let b0 = block!(storage_live(0), assign(local(0), dangling_ref), exit(),);
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 /// However, when actually *validating* the reference, it will complain.
@@ -59,7 +59,7 @@ fn deref_dangling_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 /// Test that `&*dangling_ptr` is detected.

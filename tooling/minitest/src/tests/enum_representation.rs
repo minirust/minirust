@@ -166,7 +166,7 @@ fn simple_two_variant_works() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_exit(prog)
 }
 
 /// UB: Loading an uninhabited enum is UB as such a value is impossible to produce
@@ -264,7 +264,7 @@ fn larger_sized_tag_works() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_exit(prog)
 }
 
 /// Works: Tests that using a tag larger than u8 has no alignment requirements.
@@ -296,7 +296,7 @@ fn larger_tag_has_no_alignment() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_exit(prog)
 }
 
 /// Works: tests that negative discriminants are valid.
@@ -326,5 +326,5 @@ fn negative_discriminants_work() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_exit(prog)
 }

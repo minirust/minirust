@@ -22,7 +22,7 @@ fn if_works() {
     let blocks = [block!(if_(const_bool(true), 1, 2)), block!(exit()), block!(unreachable())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// tests that the else case can be reached.
@@ -33,7 +33,7 @@ fn else_works() {
     let blocks = [block!(if_(const_bool(false), 1, 2)), block!(unreachable()), block!(exit())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// tests that an integer switch that switches on a boolean is ill-formed.
@@ -61,7 +61,7 @@ fn switch_int_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 const U8_INTTYPE: IntType =
@@ -107,5 +107,5 @@ fn switch_enum_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }

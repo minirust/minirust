@@ -16,7 +16,7 @@ fn spawn_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 /// The program written out:
@@ -58,7 +58,7 @@ fn thread_spawn_spurious_race() {
 
     let prog = program(&[main, second]);
 
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 // UB

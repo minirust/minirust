@@ -16,7 +16,7 @@ fn packed_works() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]

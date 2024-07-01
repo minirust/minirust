@@ -38,7 +38,7 @@ fn manual_align() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn impossible_align() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p); // will panic!
+    assert_exit(p); // will panic!
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn deref_overaligned() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -219,5 +219,5 @@ fn addr_of_misaligned_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }

@@ -56,7 +56,7 @@ fn lock_handover() {
     }
 
     let p = p.finish_program(main);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn lock_handover_data_race() {
     }
 
     let p = p.finish_program(main);
-    assert_stop_always(p, 10);
+    assert_exit_always(p, 10);
 }
 
 // UB Tests for Acquire

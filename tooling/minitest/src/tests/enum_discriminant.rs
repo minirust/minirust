@@ -47,7 +47,7 @@ fn discriminant_get_and_set_work() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// Tests that `set_discriminant` actually sets the right values for all variants.
@@ -101,7 +101,7 @@ fn discriminant_setting_right_value() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// Tests the integrity of the enum data after set_discriminant.
@@ -151,7 +151,7 @@ fn discriminant_leaves_data_alone() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// Tests that set_discriminant does not init the data byte.
@@ -349,5 +349,5 @@ fn space_optimized_enum_works() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }

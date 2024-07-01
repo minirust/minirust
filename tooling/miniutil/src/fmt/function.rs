@@ -178,10 +178,15 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Return => {
             format!("    return;")
         }
+        Terminator::Assert { condition, .. } => {
+            let condition = fmt_value_expr(condition, comptypes).to_string();
+            format!("    assert({condition})")
+        }
         Terminator::Intrinsic { intrinsic, arguments, ret, next_block } => {
             let callee = match intrinsic {
                 IntrinsicOp::Assume => "assume",
                 IntrinsicOp::Exit => "exit",
+                IntrinsicOp::Panic => "panic",
                 IntrinsicOp::PrintStdout => "print",
                 IntrinsicOp::PrintStderr => "eprint",
                 IntrinsicOp::Allocate => "allocate",

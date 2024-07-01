@@ -22,7 +22,7 @@ pub fn get_stdout(prog: Program) -> Result<Vec<String>, TerminationInfo> {
     let res = run(prog, out.clone(), err);
     match res {
         Ok(never) => never,
-        Err(TerminationInfo::MachineStop) => Ok(out.into_strings()),
+        Err(TerminationInfo::MachineStop(_)) => Ok(out.into_strings()),
         Err(info) => Err(info),
     }
 }

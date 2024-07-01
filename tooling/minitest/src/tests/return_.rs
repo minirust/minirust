@@ -17,7 +17,7 @@ fn return_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f]);
     dump_program(p);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
