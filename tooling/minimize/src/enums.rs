@@ -4,7 +4,7 @@ use crate::rustc_middle::ty::layout::PrimitiveExt;
 
 impl<'tcx> Ctxt<'tcx> {
     pub fn translate_enum(
-        &self,
+        &mut self,
         ty: rs::Ty<'tcx>,
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,
@@ -165,7 +165,7 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     pub fn discriminant_for_variant_smir(
-        &self,
+        &mut self,
         ty: smir::Ty,
         variant_idx: smir::VariantIdx,
         span: rs::Span,
@@ -178,7 +178,7 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     pub fn discriminant_for_variant(
-        &self,
+        &mut self,
         ty: rs::Ty<'tcx>,
         variant_idx: rs::VariantIdx,
         span: rs::Span,

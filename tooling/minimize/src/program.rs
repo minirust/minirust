@@ -12,6 +12,8 @@ pub struct Ctxt<'tcx> {
     pub globals: Map<GlobalName, Global>,
 
     pub functions: Map<FnName, Function>,
+
+    pub ty_cache: HashMap<rs::Ty<'tcx>, Type>,
 }
 
 impl<'tcx> Ctxt<'tcx> {
@@ -47,6 +49,7 @@ impl<'tcx> Ctxt<'tcx> {
             alloc_map: Default::default(),
             globals: Default::default(),
             functions: Default::default(),
+            ty_cache: Default::default(),
         }
     }
 

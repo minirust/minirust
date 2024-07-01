@@ -15,12 +15,16 @@ impl<'tcx> Ctxt<'tcx> {
         self.layout_of(smir::internal(self.tcx, ty))
     }
 
-    pub fn translate_ty_smir(&self, ty: smir::Ty, span: rs::Span) -> Type {
+    pub fn translate_ty_smir(&mut self, ty: smir::Ty, span: rs::Span) -> Type {
         self.translate_ty(smir::internal(self.tcx, ty), span)
     }
 
-    pub fn translate_ty(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> Type {
-        match ty.kind() {
+    pub fn translate_ty(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> Type {
+        if let Some(mini_ty) = self.ty_cache.get(&ty) {
+            return *mini_ty;
+        }
+
+        let mini_ty = match ty.kind() {
             rs::TyKind::Bool => Type::Bool,
             rs::TyKind::Int(t) => {
                 let sz = rs::abi::Integer::from_int_ty(&self.tcx, *t).size();
@@ -90,12 +94,14 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
-        }
+        };
+        self.ty_cache.insert(ty, mini_ty);
+        mini_ty
     }
 
     /// Constructs the fields of a given variant.
     pub fn translate_adt_variant_fields(
-        &self,
+        &mut self,
         shape: &rs::FieldsShape<rs::FieldIdx>,
         variant: &rs::VariantDef,
         sref: rs::GenericArgsRef<'tcx>,
@@ -119,7 +125,7 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     fn translate_non_enum_adt(
-        &self,
+        &mut self,
         ty: rs::Ty<'tcx>,
         adt_def: rs::AdtDef<'tcx>,
         sref: rs::GenericArgsRef<'tcx>,

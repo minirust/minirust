@@ -120,7 +120,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             rs::TerminatorKind::Call { func, target, destination, args, .. } =>
                 self.translate_call(func, args, destination, target, span),
             rs::TerminatorKind::SwitchInt { discr, targets } => {
-                let ty = self.translate_ty(discr.ty(&self.body, self.tcx), span);
+                let ty = discr.ty(&self.body, self.tcx);
+                let ty = self.translate_ty(ty, span);
 
                 let discr_op = self.translate_operand(discr, span);
                 let (value, int_ty) = match ty {
