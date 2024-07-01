@@ -82,7 +82,7 @@ impl<M: Memory> Machine<M> {
         // Check for memory leaks.
         self.mem.leak_check()?;
         // No leak found -- good, stop the machine.
-        throw_machine_stop!();
+        throw_machine_stop!("exited");
     }
 
     fn eval_intrinsic(
@@ -92,6 +92,22 @@ impl<M: Memory> Machine<M> {
         ret_ty: Type,
     ) -> NdResult<Value<M>> {
         self.exit()?
+    }
+}
+```
+
+Currently `Panic` carries no message and aborts directly.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        IntrinsicOp::Panic: IntrinsicOp,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        // Stop machine immediatly without any additional checks.
+        throw_machine_stop!("panicked");
     }
 }
 ```

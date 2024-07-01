@@ -19,7 +19,7 @@ fn atomic_store_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn atomic_load_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]

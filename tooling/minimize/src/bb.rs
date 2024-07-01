@@ -158,9 +158,19 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 Terminator::Switch { value, cases, fallback }
             }
             rs::TerminatorKind::Unreachable => Terminator::Unreachable,
+            rs::TerminatorKind::Assert { cond, expected, target, .. } => {
+                let mut condition = self.translate_operand(cond, span);
+                if !expected {
+                    condition = ValueExpr::UnOp {
+                        operator: UnOp::Bool(BoolUnOp::Not),
+                        operand: GcCow::new(condition),
+                    };
+                }
+                let next_block = self.bb_name_map[target];
+                Terminator::Assert { condition, next_block }
+            }
             // those are IGNORED currently.
-            rs::TerminatorKind::Drop { target, .. } | rs::TerminatorKind::Assert { target, .. } =>
-                Terminator::Goto(self.bb_name_map[&target]),
+            rs::TerminatorKind::Drop { target, .. } => Terminator::Goto(self.bb_name_map[&target]),
             x => rs::span_bug!(span, "terminator not supported: {x:?}"),
         }
     }
@@ -194,8 +204,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         .unwrap();
 
                     if should_panic {
-                        // FIXME trigger a panic instead of UB
-                        Terminator::Unreachable
+                        Terminator::Intrinsic {
+                            intrinsic: IntrinsicOp::Panic,
+                            arguments: list!(),
+                            ret: zst_place(),
+                            next_block: None,
+                        }
                     } else {
                         Terminator::Goto(self.bb_name_map[&target.unwrap()])
                     }
@@ -210,6 +224,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 "print" => IntrinsicOp::PrintStdout,
                 "eprint" => IntrinsicOp::PrintStderr,
                 "exit" => IntrinsicOp::Exit,
+                "panic" => IntrinsicOp::Panic,
                 "allocate" => IntrinsicOp::Allocate,
                 "deallocate" => IntrinsicOp::Deallocate,
                 "spawn" => IntrinsicOp::Spawn,
@@ -231,8 +246,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
         } else if is_panic_fn(&instance.to_string()) {
-            // We can't translate this call, it takes a string. So as a special hack we just make this `Unreachable`.
-            Terminator::Unreachable
+            // We can't translate this call, it takes a string. As a hack we just ignore the argument.
+            Terminator::Intrinsic {
+                intrinsic: IntrinsicOp::Panic,
+                arguments: list!(),
+                ret: zst_place(),
+                next_block: None,
+            }
         } else {
             let abi = self
                 .cx

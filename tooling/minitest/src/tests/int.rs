@@ -17,7 +17,7 @@ fn bit_and_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 // Test that IntBinOp::BitAnd fails with non-int/non-bool
@@ -66,7 +66,7 @@ fn bit_or_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 /// Test that IntBinOp::BitXor works for ints
@@ -86,7 +86,7 @@ fn bit_xor_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 /// Test that BinUnOp::Not works for ints
@@ -104,7 +104,7 @@ fn bit_int_not_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_exit(prog);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn shl_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -169,7 +169,7 @@ fn shr_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn unchecked_add_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn unchecked_sub_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn unchecked_mul_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -290,7 +290,7 @@ fn unchecked_shl_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -339,7 +339,7 @@ fn unchecked_shr_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]
@@ -359,7 +359,7 @@ fn cmp_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_exit(p);
 }
 
 #[test]

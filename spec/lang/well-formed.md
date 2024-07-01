@@ -566,6 +566,11 @@ impl Terminator {
                 }
             }
             Return => {}
+            Assert { condition, next_block } => {
+                let ty = condition.check_wf::<T>(func.locals, prog)?;
+                ensure_wf(matches!(ty, Type::Bool), "Terminator::Assert: invalid type")?;
+                ensure_wf(func.blocks.contains_key(next_block), "Terminator::Assert: next block does not exist")?;
+            }
         }
 
         ret(())

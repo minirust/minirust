@@ -25,6 +25,10 @@ impl FunctionBuilder {
         self.finish_block(Terminator::Return);
     }
 
+    pub fn panic(&mut self) {
+        self.finish_block(panic());
+    }
+
     /// Call a function that does not return.
     pub fn call_noret(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
         self.finish_block(Terminator::Call {
@@ -171,6 +175,12 @@ impl FunctionBuilder {
         let next_block = self.declare_block();
         self.finish_block(lock_release(lock_id, bbname_into_u32(next_block)));
         self.set_cur_block(next_block)
+    }
+
+    pub fn assert(&mut self, condition: ValueExpr) {
+        let next_block = self.declare_block();
+        self.finish_block(assert(condition, bbname_into_u32(next_block)));
+        self.set_cur_block(next_block);
     }
 
     // terminators with 2 or more following blocks
@@ -337,6 +347,19 @@ pub fn exit() -> Terminator {
         ret: zst_place(),
         next_block: None,
     }
+}
+
+pub fn panic() -> Terminator {
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Panic,
+        arguments: list![],
+        ret: zst_place(),
+        next_block: None,
+    }
+}
+
+pub fn assert(val: ValueExpr, next: u32) -> Terminator {
+    Terminator::Assert { condition: val, next_block: BbName(Name::from_internal(next)) }
 }
 
 pub fn return_() -> Terminator {

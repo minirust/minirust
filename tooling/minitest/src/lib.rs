@@ -19,15 +19,23 @@ pub use std::string::String;
 mod tests;
 
 #[track_caller]
-pub fn assert_stop(prog: Program) {
-    assert_eq!(run_program(prog), TerminationInfo::MachineStop);
+pub fn assert_exit(prog: Program) {
+    let msg = prelude::String::from_internal("exited".to_string());
+    assert_eq!(run_program(prog), TerminationInfo::MachineStop(msg));
 }
 
 #[track_caller]
-pub fn assert_stop_always(prog: Program, attempts: usize) {
+pub fn assert_exit_always(prog: Program, attempts: usize) {
+    let msg = prelude::String::from_internal("exited".to_string());
     for _ in 0..attempts {
-        assert_eq!(run_program(prog), TerminationInfo::MachineStop);
+        assert_eq!(run_program(prog), TerminationInfo::MachineStop(msg));
     }
+}
+
+#[track_caller]
+pub fn assert_panic(prog: Program) {
+    let msg = prelude::String::from_internal("panicked".to_string());
+    assert_eq!(run_program(prog), TerminationInfo::MachineStop(msg));
 }
 
 #[track_caller]
@@ -43,7 +51,7 @@ pub fn assert_ub_eventually(prog: Program, attempts: usize, msg: &str) {
     let msg = minirust_rs::prelude::String::from_internal(msg.to_string());
     for _ in 0..attempts {
         match run_program(prog) {
-            TerminationInfo::MachineStop => continue,
+            TerminationInfo::MachineStop(_) => continue,
             TerminationInfo::Ub(res) if res == msg => {
                 // Got the expected result.
                 return;
@@ -99,7 +107,7 @@ pub fn has_data_race(prog: Program) -> bool {
 
     for _ in 0..32 {
         match run_program(prog) {
-            TerminationInfo::MachineStop => {}
+            TerminationInfo::MachineStop(_) => {}
             TerminationInfo::Ub(ub) if ub == data_race_string => {
                 return true;
             }

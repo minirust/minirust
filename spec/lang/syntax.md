@@ -326,6 +326,13 @@ pub enum Terminator {
     },
     /// Return from the current function.
     Return,
+    /// Assert the condition if false panic else go `next_block`.
+    Assert {
+        /// The boolean condition to pass.
+        condition: ValueExpr,
+        /// The next block if condition passes.
+        next_block: BbName,
+    },
 }
 
 /// Function arguments can be passed by-value or in-place.
@@ -349,6 +356,7 @@ pub enum IntrinsicLockOp {
 pub enum IntrinsicOp {
     Assume,
     Exit,
+    Panic,
     PrintStdout,
     PrintStderr,
     Allocate,

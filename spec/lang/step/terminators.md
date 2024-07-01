@@ -353,7 +353,7 @@ impl<M: Memory> Machine<M> {
         let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
 
         // Store return value.
-        // `eval_inrinsic` above must guarantee that `value` has the right type.
+        // `eval_intrinsic` above must guarantee that `value` has the right type.
         self.mem.place_store(ret_place, value, ret_ty)?;
 
         // Jump to next block.
@@ -363,6 +363,24 @@ impl<M: Memory> Machine<M> {
             throw_ub!("return from an intrinsic where caller did not specify next block");
         }
 
+        ret(())
+    }
+}
+```
+
+## Assert
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(&mut self, Terminator::Assert { condition, next_block }: Terminator) -> NdResult {
+        let Value::Bool(condition) = self.eval_value(condition)?.0 else {
+            panic!("Assert on non-bool");
+        };
+        if condition {
+            self.jump_to_block(next_block)?;
+        } else {
+            self.eval_intrinsic(IntrinsicOp::Panic, list!(), unit_type())?;
+        }
         ret(())
     }
 }

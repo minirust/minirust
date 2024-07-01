@@ -17,7 +17,7 @@ fn pointer_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_exit(program);
 }
 
 /// Test if `expose` called with non-pointer is UB
