@@ -43,5 +43,9 @@ fn run_tests(mut configs: Vec<Config>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    run_tests(vec![cfg("tests/pass", Mode::Pass), cfg("tests/ub", Mode::Panic)])
+    run_tests(vec![
+        cfg("tests/pass", Mode::Pass),
+        cfg("tests/ub", Mode::Panic),
+        cfg("tests/panic", Mode::Panic),
+    ])
 }

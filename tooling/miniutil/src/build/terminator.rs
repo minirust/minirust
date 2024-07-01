@@ -25,6 +25,10 @@ impl FunctionBuilder {
         self.finish_block(Terminator::Return);
     }
 
+    pub fn panic(&mut self) {
+        self.finish_block(panic());
+    }
+
     /// Call a function that does not return.
     pub fn call_noret(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
         self.finish_block(Terminator::Call {
@@ -333,6 +337,15 @@ pub fn deallocate(ptr: ValueExpr, size: ValueExpr, align: ValueExpr, next: u32) 
 pub fn exit() -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Exit,
+        arguments: list![],
+        ret: zst_place(),
+        next_block: None,
+    }
+}
+
+pub fn panic() -> Terminator {
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Panic,
         arguments: list![],
         ret: zst_place(),
         next_block: None,

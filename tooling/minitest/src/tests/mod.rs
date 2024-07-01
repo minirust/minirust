@@ -24,6 +24,7 @@ mod no_preserve_padding;
 mod no_preserve_prov;
 mod null;
 mod packed;
+mod panic;
 mod print;
 mod ptr_offset;
 mod ptr_offset_from;

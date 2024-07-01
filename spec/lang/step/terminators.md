@@ -353,7 +353,7 @@ impl<M: Memory> Machine<M> {
         let value = self.eval_intrinsic(intrinsic, arguments, ret_ty)?;
 
         // Store return value.
-        // `eval_inrinsic` above must guarantee that `value` has the right type.
+        // `eval_intrinsic` above must guarantee that `value` has the right type.
         self.mem.place_store(ret_place, value, ret_ty)?;
 
         // Jump to next block.

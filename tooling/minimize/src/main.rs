@@ -50,7 +50,7 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
-pub use miniutil::build::{self, TypeConv as _};
+pub use miniutil::build::{self, zst_place, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::DefaultTarget;
@@ -119,6 +119,7 @@ fn main() {
                         err.get_internal()
                     ),
                 TerminationInfo::MachineStop => { /* silent exit. */ }
+                TerminationInfo::Abort(err) => show_error!("Panic: {}", err.get_internal()),
                 TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
                 TerminationInfo::Deadlock => show_error!("program dead-locked"),
                 TerminationInfo::MemoryLeak => show_error!("program leaked memory"),

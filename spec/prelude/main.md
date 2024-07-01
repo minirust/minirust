@@ -23,6 +23,8 @@ pub enum TerminationInfo {
     Ub(String),
     /// The program was executed and the machine stopped without error.
     MachineStop,
+    /// The program terminated with a panic
+    Abort(String),
     /// The program was ill-formed.
     IllFormed(String),
     /// The program did not terminate but no thread can make progress.
@@ -42,6 +44,11 @@ macro_rules! throw_ub {
     ($($tt:tt)*) => {
         do yeet TerminationInfo::Ub(format!($($tt)*))
     };
+}
+macro_rules! throw_abort {
+    ($($tt:tt)*) => {
+        do yeet TerminationInfo::Abort(format!($($tt)*))
+    }
 }
 macro_rules! throw_machine_stop {
     () => {

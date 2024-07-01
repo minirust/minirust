@@ -349,6 +349,7 @@ pub enum IntrinsicLockOp {
 pub enum IntrinsicOp {
     Assume,
     Exit,
+    Panic,
     PrintStdout,
     PrintStderr,
     Allocate,
