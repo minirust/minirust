@@ -33,6 +33,24 @@ fn main() {
     assert!(black_box(42).cmp(&42) == Ordering::Equal);
     assert!(black_box(42).cmp(&43) == Ordering::Less);
 
+    assert!(black_box(41_i32).checked_add(1) == Some(42));
+    assert!(black_box(i32::MAX).checked_add(1) == None);
+    assert!(black_box(43_i32).checked_sub(1) == Some(42));
+    assert!(black_box(i32::MIN).checked_sub(1) == None);
+    assert!(black_box(21_i32).checked_mul(2) == Some(42));
+    assert!(black_box(i32::MIN).checked_mul(-1) == None);
+
+    assert!(black_box(41_i32).overflowing_add(1) == (42, false));
+    assert!(black_box(i32::MAX).overflowing_add(1) == (i32::MIN, true));
+    assert!(black_box(43_i32).overflowing_sub(1) == (42, false));
+    assert!(black_box(i32::MIN).overflowing_sub(1) == (i32::MAX, true));
+    assert!(black_box(21_i32).overflowing_mul(2) == (42, false));
+    assert!(black_box(i32::MIN).overflowing_mul(-1) == (i32::MIN, true));
+
+    assert!(black_box(42).cmp(&41) == Ordering::Greater);
+    assert!(black_box(42).cmp(&42) == Ordering::Equal);
+    assert!(black_box(42).cmp(&43) == Ordering::Less);
+
     assert!(black_box(10) > 2);
     assert!(black_box(10) >= 2);
     assert!(!(black_box(10) < 2));

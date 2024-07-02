@@ -192,6 +192,37 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Integer operations with overflow
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_bin_op(
+        &self,
+        BinOp::IntWithOverflow(op): BinOp,
+        (left, l_ty): (Value<M>, Type),
+        (right, _r_ty): (Value<M>, Type)
+    ) -> Result<(Value<M>, Type)> {
+        let Type::Int(int_ty) = l_ty else { panic!("non-integer input to integer operation") };
+        let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
+        let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
+
+        // Perform the operation.
+        let result = match op {
+            IntBinOpWithOverflow::Add => left + right,
+            IntBinOpWithOverflow::Sub => left - right,
+            IntBinOpWithOverflow::Mul => left * right,
+        };
+        let overflow = !int_ty.can_represent(result);
+        // Put the result into the right range (in case of overflow).
+        let result = int_ty.bring_in_bounds(result);
+        // Pack result and overflow bool into tuple.
+        let value = Value::Tuple(list![Value::Int::<M>(result), Value::Bool::<M>(overflow)]);
+        let ty = int_ty.with_overflow::<M::T>();
+        ret((value, ty))
+    }
+}
+```
+
 ### Integer relations
 
 ```rust

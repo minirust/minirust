@@ -182,7 +182,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         if let rs::InstanceDef::Intrinsic(def_id) = instance.def {
             // A Rust intrinsic.
             let intrinsic_name = self.tcx.item_name(def_id);
-            return match intrinsic_name.as_str() {
+            match intrinsic_name.as_str() {
                 "assert_inhabited" | "assert_zero_valid" | "assert_mem_uninitialized_valid" => {
                     let ty = instance.args.type_at(0);
                     let requirement =
@@ -194,10 +194,48 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                     if should_panic {
                         // FIXME trigger a panic instead of UB
-                        Terminator::Unreachable
+                        return Terminator::Unreachable;
                     } else {
-                        Terminator::Goto(self.bb_name_map[&target.unwrap()])
+                        return Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                     }
+                }
+                "unlikely" | "likely" => {
+                    // FIXME: use the "fallback body" provided in the standard library.
+                    // translate `unlikely`, `likely` intrinsic into functions that can be called
+                    let function_name = self.cx.get_fn_name(instance);
+                    if !self.functions.contains_key(function_name) {
+                        let ret = LocalName(Name::from_internal(0));
+                        let arg = LocalName(Name::from_internal(1));
+
+                        let b0_name = BbName(Name::from_internal(0));
+                        let assign = Statement::Assign {
+                            destination: PlaceExpr::Local(ret),
+                            source: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(arg)) },
+                        };
+                        let b0 = BasicBlock {
+                            statements: list![assign],
+                            terminator: Terminator::Return,
+                        };
+
+                        let mut blocks = Map::new();
+                        blocks.insert(b0_name, b0);
+
+                        let mut locals = Map::new();
+                        locals.insert(ret, <bool>::get_type());
+                        locals.insert(arg, <bool>::get_type());
+
+                        let function = Function {
+                            locals,
+                            args: list![arg],
+                            ret,
+                            blocks,
+                            start: b0_name,
+                            calling_convention: CallingConvention::Rust,
+                        };
+                        // We can unwrap because we already checked that `function_name` is not in the `functions` map.
+                        self.cx.functions.try_insert(function_name, function).unwrap();
+                    }
+                    // Fall through to the regular function call handling below.
                 }
                 name => panic!("unsupported Rust intrinsic `{}`", name),
             };

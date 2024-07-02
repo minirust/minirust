@@ -341,6 +341,13 @@ impl ValueExpr {
                         }
                         Type::Int(left)
                     }
+                    IntWithOverflow(_int_op) => {
+                        let Type::Int(int_ty) = left else {
+                            throw_ill_formed!("BinOp::IntWithOverflow: invalid left type");
+                        };
+                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntWithOverflow: invalid right type")?;
+                        int_ty.with_overflow::<T>()
+                    }
                     IntRel(_int_rel) => {
                         let Type::Int(int_ty) = left else {
                             throw_ill_formed!("BinOp::IntRel: invalid left type");

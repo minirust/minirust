@@ -166,6 +166,17 @@ pub enum IntBinOp {
     /// Bitwise-xor two integer values.
     BitXor,
 }
+pub enum IntBinOpWithOverflow {
+    /// Add two integer values, returns a tuple of the result integer
+    /// and a bool indicating whether the calculation overflowed.
+    Add,
+    /// Subtract two integer values, returns a tuple of the result integer
+    /// and a bool indicating whether the calculation overflowed.
+    Sub,
+    /// Multiply two integers, returns a tuple of the result integer
+    /// and a bool indicating whether the calculation overflowed.
+    Mul,
+}
 /// A relation between integers.
 pub enum IntRel {
     /// less than
@@ -181,6 +192,7 @@ pub enum IntRel {
     /// inequal
     Ne,
 }
+
 pub enum BoolBinOp {
     /// Bitwise-and on booleans.
     BitAnd,
@@ -192,6 +204,9 @@ pub enum BoolBinOp {
 pub enum BinOp {
     /// An operation on integers (both must have the same type); returns an integer of the same type.
     Int(IntBinOp),
+    /// An operation on integers (both must have same type); returns a tuple of integer of the same type
+    /// and a boolean that is true if the result is not equal to the infinite-precision result.
+    IntWithOverflow(IntBinOpWithOverflow),
     /// A relation between integers (both must have the same type); returns a boolean.
     IntRel(IntRel),
     /// The three-way comparison of integers (both must have same type); returns an i8:
