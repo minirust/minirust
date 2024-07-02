@@ -189,5 +189,17 @@ impl IntType {
     pub fn bring_in_bounds(&self, i: Int) -> Int {
         i.bring_in_bounds(self.signed, self.size)
     }
+
+    /// Generate the return type for IntWithOverflow
+    pub fn with_overflow<T: Target>(&self) -> Type {
+        // Define a tuple type with two fields: An integer followed directly by a boolean.
+        let fields = list![(Size::ZERO, Type::Int(*self)), (self.size, Type::Bool)];
+        // Alignment is always the one of the integer as boolean has align requirement 1.
+        let align = self.align::<T>();
+        // The total size is `self.size + 1` rounded up to the next multiple of `align`.
+        // Since `self.size` is already a multiple of `align`, we can compute this as follows:
+        let size = self.size + Size::from_bytes(align.bytes()).unwrap();
+        Type::Tuple { fields, size, align }
+    }
 }
 ```

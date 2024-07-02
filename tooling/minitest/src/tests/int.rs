@@ -391,3 +391,125 @@ fn cmp_ill_formed_right() {
     let p = p.finish_program(f);
     assert_ill_formed(p, "BinOp::Cmp: invalid right type");
 }
+
+#[test]
+fn overflow_add_works() {
+    let ty =
+        tuple_ty(&[(Size::ZERO, i32::get_type()), (size(4), bool::get_type())], size(8), align(4));
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local_with_ty(ty);
+    f.storage_live(loc);
+    let mut test = |l: i32, r: i32, result: (i32, bool)| {
+        f.assign(loc, overflow_add(const_int(l), const_int(r)));
+        f.assume(eq(load(field(loc, 0)), const_int(result.0)));
+        f.assume(not(bool_xor(load(field(loc, 1)), const_bool(result.1))));
+    };
+    // test the non-overflowing addition
+    test(21, 21, (42, false));
+    test(i32::MIN, i32::MAX, (-1, false));
+    test(-1, -i32::MAX, (i32::MIN, false));
+
+    // test the overflowing addition
+    test(i32::MAX, 1, (i32::MIN, true));
+    test(i32::MIN, -1, (i32::MAX, true));
+
+    f.exit();
+    let f = p.finish_function(f);
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn overflow_sub_works() {
+    let ty =
+        tuple_ty(&[(Size::ZERO, i32::get_type()), (size(4), bool::get_type())], size(8), align(4));
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local_with_ty(ty);
+    f.storage_live(loc);
+    let mut test = |l: i32, r: i32, result: (i32, bool)| {
+        f.assign(loc, overflow_sub(const_int(l), const_int(r)));
+        f.assume(eq(load(field(loc, 0)), const_int(result.0)));
+        f.assume(not(bool_xor(load(field(loc, 1)), const_bool(result.1))));
+    };
+    // test the non-overflowing subtraction
+    test(-1, i32::MAX, (i32::MIN, false));
+    test(-1, i32::MIN, (i32::MAX, false));
+    test(53, 11, (42, false));
+
+    // test the overflowing subtraction
+    test(i32::MIN, 1, (i32::MAX, true));
+    test(0, i32::MIN, (i32::MIN, true));
+
+    f.exit();
+    let f = p.finish_function(f);
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn overflow_mul_works() {
+    let ty =
+        tuple_ty(&[(Size::ZERO, i32::get_type()), (size(4), bool::get_type())], size(8), align(4));
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local_with_ty(ty);
+    f.storage_live(loc);
+    let mut test = |l: i32, r: i32, result: (i32, bool)| {
+        f.assign(loc, overflow_mul(const_int(l), const_int(r)));
+        f.assume(eq(load(field(loc, 0)), const_int(result.0)));
+        f.assume(not(bool_xor(load(field(loc, 1)), const_bool(result.1))));
+    };
+    // test the non-overflowing multiplication
+    test(-1, i32::MAX, (i32::MIN + 1, false));
+    test(-(1 << 15), 1 << 16, (i32::MIN, false));
+    test(6, 7, (42, false));
+
+    // test the overflowing multiplication
+    test(i32::MIN, -1, (i32::MIN, true));
+    test(1 << 16, 1 << 16, (0, true));
+
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn overflow_ill_formed_left() {
+    let ty =
+        tuple_ty(&[(Size::ZERO, i32::get_type()), (size(4), bool::get_type())], size(8), align(4));
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local_with_ty(ty);
+    f.storage_live(loc);
+    f.assign(loc, overflow_add(const_bool(false), const_int(0_i32)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_ill_formed(p, "BinOp::IntWithOverflow: invalid left type");
+}
+
+#[test]
+fn overflow_ill_formed_right() {
+    let ty =
+        tuple_ty(&[(Size::ZERO, i32::get_type()), (size(4), bool::get_type())], size(8), align(4));
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let loc = f.declare_local_with_ty(ty);
+    f.storage_live(loc);
+    f.assign(loc, overflow_add(const_int(0_i32), const_bool(false)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_ill_formed(p, "BinOp::IntWithOverflow: invalid right type");
+}
