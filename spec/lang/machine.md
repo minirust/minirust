@@ -16,7 +16,7 @@ pub struct Machine<M: Memory> {
     prog: Program,
 
     /// The contents of memory.
-    mem: AtomicMemory<M>,
+    mem: ConcurrentMemory<M>,
 
     /// The state of the integer-pointer cast subsystem.
     intptrcast: IntPtrCast<M::Provenance>,
@@ -116,7 +116,7 @@ impl<M: Memory> Machine<M> {
     pub fn new(prog: Program, stdout: DynWrite, stderr: DynWrite) -> NdResult<Machine<M>> {
         prog.check_wf::<M::T>()?;
 
-        let mut mem = AtomicMemory::<M>::new();
+        let mut mem = ConcurrentMemory::<M>::new();
         let mut global_ptrs = Map::new();
         let mut fn_addrs = Map::new();
 
@@ -234,7 +234,7 @@ impl<M: Memory> Machine<M> {
         self.active_thread().cur_frame()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut AtomicMemory<M>) -> NdResult<O>) -> NdResult<O> {
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> NdResult<O>) -> NdResult<O> {
         self.threads.try_mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(|frame| f(frame, &mut self.mem)))
     }
 

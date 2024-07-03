@@ -130,7 +130,7 @@ impl<M: Memory> Machine<M> {
 This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     fn place_load(&mut self, place: Place<M>, ty: Type) -> Result<Value<M>> {
         if !place.aligned {
             throw_ub!("loading from a place based on a misaligned pointer");

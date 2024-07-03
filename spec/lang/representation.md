@@ -466,7 +466,7 @@ This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberu
 We also use this to lift retagging from pointers to compound values.
 
 ```rust
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
         assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
         let bytes = ty.encode::<M>(val);

@@ -4,7 +4,7 @@ This is a wrapper for a memory that distinguishes between non-atomic and atomic 
 For now atomicity is ignored; this will change in the future.
 
 ```rust
-pub struct AtomicMemory<M: Memory> {
+pub struct ConcurrentMemory<M: Memory> {
     memory: M,
 
     /// List of all memory access done by the active thread in the current step.
@@ -41,7 +41,7 @@ The atomic memory presents a very similar interface to the `Memory`.
 It differs in both store and load where we also take the `Atomicity` of an operation.
 
 ```rust
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     pub fn new() -> Self {
         Self {
             memory: M::new(),
@@ -113,7 +113,7 @@ The type `ThreadId` is used to identify threads.
 /// The ID of a thread is an index into the machine's `threads` list.
 pub type ThreadId = Int;
 
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     /// Given a list of previous accesses, checks if any of the current accesses is in a data race with any of those.
     pub fn check_data_races(
         &self,

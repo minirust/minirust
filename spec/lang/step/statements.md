@@ -19,7 +19,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
 - TODO: Should this implicitly retag, to have full `Validate` semantics?
 
 ```rust
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     fn place_store(&mut self, place: Place<M>, val: Value<M>, ty: Type) -> Result {
         if !place.aligned {
             throw_ub!("storing to a place based on a misaligned pointer");
@@ -96,7 +96,7 @@ impl<M: Memory> Machine<M> {
 This statement replaces the contents of a place with `Uninit`.
 
 ```rust
-impl<M: Memory> AtomicMemory<M> {
+impl<M: Memory> ConcurrentMemory<M> {
     fn deinit(&mut self, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result {
         self.store(ptr, list![AbstractByte::Uninit; len.bytes()], align, Atomicity::None)?;
         ret(())
@@ -123,7 +123,7 @@ These operations (de)allocate the memory backing a local.
 
 ```rust
 impl<M: Memory> StackFrame<M> {
-    fn storage_live(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
+    fn storage_live(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
         // First remove the old storage, if any.
         // This means the same address may be re-used for the new stoage.
         self.storage_dead(mem, local)?;
@@ -134,7 +134,7 @@ impl<M: Memory> StackFrame<M> {
         ret(())
     }
 
-    fn storage_dead(&mut self, mem: &mut AtomicMemory<M>, local: LocalName) -> NdResult {
+    fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
         let layout = self.func.locals[local].layout::<M::T>();
         if let Some(ptr) = self.locals.remove(local) {
             mem.deallocate(ptr, AllocationKind::Stack, layout.size, layout.align)?;
