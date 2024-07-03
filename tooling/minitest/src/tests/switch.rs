@@ -1,19 +1,5 @@
 use crate::*;
 
-/// tests that if only works with booleans (as it gets translated to a boolean switch)
-#[test]
-fn if_int_ill_formed() {
-    let locals = [];
-    let blocks = [
-        block!(if_(const_int(0u8), 1, 2)), // ill-formed here at const_int(0u8) as if_ creates boolean cases
-        block!(exit()),
-        block!(unreachable()),
-    ];
-
-    let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ill_formed(program, "Cast::BoolToInt: invalid operand");
-}
-
 /// tests that the if case can be reached.
 /// Also tests that BoolToIntCast converts true to 1.
 #[test]

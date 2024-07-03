@@ -38,7 +38,7 @@ fn oob_success() {
     f.storage_live(var2);
     f.storage_live(diff);
     f.assign(diff, ptr_offset_from(var1_addr, var2_addr, InBounds::No));
-    f.assume(eq(ptr_offset_from(var2_addr, var1_addr, InBounds::No), int_neg(load(diff))));
+    f.assume(eq(ptr_offset_from(var2_addr, var1_addr, InBounds::No), neg(load(diff))));
     f.exit();
     let f = p.finish_function(f);
 

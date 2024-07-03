@@ -1,5 +1,99 @@
 use crate::*;
 
+#[test]
+fn arith_works() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    f.assume(eq(add(const_int(1u8), const_int(7u8)), const_int(8u8)));
+    f.assume(eq(sub(const_int(1u8), const_int(7u8)), const_int(250u8)));
+    f.assume(eq(mul(const_int(1u8), const_int(7u8)), const_int(7u8)));
+    f.assume(eq(div(const_int(1u8), const_int(7u8)), const_int(0u8)));
+    f.assume(eq(rem(const_int(1u8), const_int(7u8)), const_int(1u8)));
+
+    // Division is odd around signs...
+    f.assume(eq(div(const_int(7i8), const_int(3i8)), const_int(2i8)));
+    f.assume(eq(rem(const_int(7i8), const_int(3i8)), const_int(1i8)));
+    f.assume(eq(div(const_int(7i8), const_int(-3i8)), const_int(-2i8)));
+    f.assume(eq(rem(const_int(7i8), const_int(-3i8)), const_int(1i8)));
+    f.assume(eq(div(const_int(-7i8), const_int(3i8)), const_int(-2i8)));
+    f.assume(eq(rem(const_int(-7i8), const_int(3i8)), const_int(-1i8)));
+    f.assume(eq(div(const_int(-7i8), const_int(-3i8)), const_int(2i8)));
+    f.assume(eq(rem(const_int(-7i8), const_int(-3i8)), const_int(-1i8)));
+
+    f.exit();
+
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop(p);
+}
+
+#[test]
+fn div_zero() {
+    let locals = [<i32>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), div(const_int::<i32>(1), const_int::<i32>(0),)),
+        exit()
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "division by zero");
+}
+
+#[test]
+fn rem_zero() {
+    let locals = [<i32>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), rem(const_int::<i32>(1), const_int::<i32>(0),)),
+        exit()
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "modulus of remainder is zero");
+}
+
+#[test]
+fn div_overflow() {
+    let locals = [<i32>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), div(const_int::<i32>(i32::MIN), const_int::<i32>(-1),)),
+        exit()
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "overflow in division");
+}
+
+#[test]
+fn rem_overflow() {
+    let locals = [<i32>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), rem(const_int::<i32>(i32::MIN), const_int::<i32>(-1),)),
+        exit()
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub(p, "overflow in remainder");
+}
+
 /// Test that IntBinOp::BitAnd works for ints
 #[test]
 fn bit_and_int_works() {
@@ -94,7 +188,7 @@ fn bit_xor_int_works() {
 fn bit_int_not_works() {
     let locals = [];
     let unreach_block = 3;
-    let not = |x| int_not(const_int::<i32>(x));
+    let not = |x| bit_not(const_int::<i32>(x));
 
     let blocks = [
         block!(if_(eq(not(42), const_int::<i32>(-43)), 1, unreach_block)),
@@ -175,12 +269,12 @@ fn shr_works() {
 #[test]
 fn unchecked_add_ub() {
     assert_ub_expr::<i8>(
-        unchecked_add(const_int(i8::MAX), const_int(1_i8)),
+        add_unchecked(const_int(i8::MAX), const_int(1_i8)),
         "overflow in unchecked add",
     );
 
     assert_ub_expr::<i8>(
-        unchecked_add(const_int(i8::MIN), const_int(-1i8)),
+        add_unchecked(const_int(i8::MIN), const_int(-1i8)),
         "overflow in unchecked add",
     );
 }
@@ -190,9 +284,9 @@ fn unchecked_add_works() {
     let mut p = ProgramBuilder::new();
 
     let mut f = p.declare_function();
-    f.assume(eq(unchecked_add(const_int(i8::MIN), const_int(i8::MAX)), const_int(-1_i8)));
-    f.assume(eq(unchecked_add(const_int(0_i8), const_int(-i8::MAX)), const_int(i8::MIN + 1_i8)));
-    f.assume(eq(unchecked_add(const_int(30), const_int(12)), const_int(42)));
+    f.assume(eq(add_unchecked(const_int(i8::MIN), const_int(i8::MAX)), const_int(-1_i8)));
+    f.assume(eq(add_unchecked(const_int(0_i8), const_int(-i8::MAX)), const_int(i8::MIN + 1_i8)));
+    f.assume(eq(add_unchecked(const_int(30), const_int(12)), const_int(42)));
     f.exit();
     let f = p.finish_function(f);
 
@@ -203,12 +297,12 @@ fn unchecked_add_works() {
 #[test]
 fn unchecked_sub_ub() {
     assert_ub_expr::<i8>(
-        unchecked_sub(const_int(i8::MIN), const_int(1_i8)),
+        sub_unchecked(const_int(i8::MIN), const_int(1_i8)),
         "overflow in unchecked sub",
     );
 
     assert_ub_expr::<i8>(
-        unchecked_sub(const_int(0_i8), const_int(i8::MIN)),
+        sub_unchecked(const_int(0_i8), const_int(i8::MIN)),
         "overflow in unchecked sub",
     );
 }
@@ -218,9 +312,9 @@ fn unchecked_sub_works() {
     let mut p = ProgramBuilder::new();
 
     let mut f = p.declare_function();
-    f.assume(eq(unchecked_sub(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN)));
-    f.assume(eq(unchecked_sub(const_int(-1_i8), const_int(i8::MIN)), const_int(i8::MAX)));
-    f.assume(eq(unchecked_sub(const_int(53), const_int(11)), const_int(42)));
+    f.assume(eq(sub_unchecked(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN)));
+    f.assume(eq(sub_unchecked(const_int(-1_i8), const_int(i8::MIN)), const_int(i8::MAX)));
+    f.assume(eq(sub_unchecked(const_int(53), const_int(11)), const_int(42)));
     f.exit();
     let f = p.finish_function(f);
 
@@ -231,11 +325,11 @@ fn unchecked_sub_works() {
 #[test]
 fn unchecked_mul_ub() {
     assert_ub_expr::<i8>(
-        unchecked_mul(const_int(i8::MIN), const_int(-1_i8)),
+        mul_unchecked(const_int(i8::MIN), const_int(-1_i8)),
         "overflow in unchecked mul",
     );
     assert_ub_expr::<i8>(
-        unchecked_mul(const_int(56_i8), const_int(3_i8)),
+        mul_unchecked(const_int(56_i8), const_int(3_i8)),
         "overflow in unchecked mul",
     );
 }
@@ -245,9 +339,9 @@ fn unchecked_mul_works() {
     let mut p = ProgramBuilder::new();
 
     let mut f = p.declare_function();
-    f.assume(eq(unchecked_mul(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN + 1)));
-    f.assume(eq(unchecked_mul(const_int(-8_i8), const_int(16_i8)), const_int(i8::MIN)));
-    f.assume(eq(unchecked_mul(const_int(6), const_int(7)), const_int(42)));
+    f.assume(eq(mul_unchecked(const_int(-1_i8), const_int(i8::MAX)), const_int(i8::MIN + 1)));
+    f.assume(eq(mul_unchecked(const_int(-8_i8), const_int(16_i8)), const_int(i8::MIN)));
+    f.assume(eq(mul_unchecked(const_int(6), const_int(7)), const_int(42)));
     f.exit();
     let f = p.finish_function(f);
 
@@ -259,15 +353,15 @@ fn unchecked_mul_works() {
 fn unchecked_shl_ub() {
     // If left side is `u8` every right side not in range `0..8` causes UB
     assert_ub_expr::<u8>(
-        unchecked_shl(const_int(1u8), const_int(8)),
+        shl_unchecked(const_int(1u8), const_int(8)),
         "overflow in unchecked shift",
     );
     assert_ub_expr::<u8>(
-        unchecked_shl(const_int(1u8), const_int(9)),
+        shl_unchecked(const_int(1u8), const_int(9)),
         "overflow in unchecked shift",
     );
     assert_ub_expr::<u8>(
-        unchecked_shl(const_int(1u8), const_int(-1)),
+        shl_unchecked(const_int(1u8), const_int(-1)),
         "overflow in unchecked shift",
     );
 }
@@ -278,13 +372,13 @@ fn unchecked_shl_works() {
 
     let mut f = p.declare_function();
 
-    f.assume(eq(unchecked_shl(const_int(1u8), const_int(7u8)), const_int(128u8)));
-    f.assume(eq(unchecked_shl(const_int(1u8), const_int(0u8)), const_int(1u8)));
-    f.assume(eq(unchecked_shl(const_int(-1i32), const_int(1i32)), const_int(-2i32)));
-    f.assume(eq(unchecked_shl(const_int(i32::MAX), const_int(1)), const_int(-2i32)));
+    f.assume(eq(shl_unchecked(const_int(1u8), const_int(7u8)), const_int(128u8)));
+    f.assume(eq(shl_unchecked(const_int(1u8), const_int(0u8)), const_int(1u8)));
+    f.assume(eq(shl_unchecked(const_int(-1i32), const_int(1i32)), const_int(-2i32)));
+    f.assume(eq(shl_unchecked(const_int(i32::MAX), const_int(1)), const_int(-2i32)));
 
     // Unchecked shl should allow for different integer types for left and right operands
-    f.assume(eq(unchecked_shl(const_int(1u16), const_int(7i32)), const_int(128u16)));
+    f.assume(eq(shl_unchecked(const_int(1u16), const_int(7i32)), const_int(128u16)));
     f.exit();
 
     let f = p.finish_function(f);
@@ -297,19 +391,19 @@ fn unchecked_shl_works() {
 fn unchecked_shr_ub() {
     // If left side is `u8` every right side not in range `0..8` causes UB
     assert_ub_expr::<u8>(
-        unchecked_shr(const_int(1u8), const_int(8)),
+        shr_unchecked(const_int(1u8), const_int(8)),
         "overflow in unchecked shift",
     );
     assert_ub_expr::<u8>(
-        unchecked_shr(const_int(2u8), const_int(9)),
+        shr_unchecked(const_int(2u8), const_int(9)),
         "overflow in unchecked shift",
     );
     assert_ub_expr::<u8>(
-        unchecked_shr(const_int(2u8), const_int(9)),
+        shr_unchecked(const_int(2u8), const_int(9)),
         "overflow in unchecked shift",
     );
     assert_ub_expr::<u8>(
-        unchecked_shr(const_int(u8::MAX), const_int(-1)),
+        shr_unchecked(const_int(u8::MAX), const_int(-1)),
         "overflow in unchecked shift",
     );
 }
@@ -321,19 +415,19 @@ fn unchecked_shr_works() {
     let mut f = p.declare_function();
 
     // Logical shr for unsigned integers
-    f.assume(eq(unchecked_shr(const_int(u8::MAX), const_int(7u8)), const_int(1u8)));
-    f.assume(eq(unchecked_shr(const_int(1u8), const_int(0)), const_int(1u8)));
+    f.assume(eq(shr_unchecked(const_int(u8::MAX), const_int(7u8)), const_int(1u8)));
+    f.assume(eq(shr_unchecked(const_int(1u8), const_int(0)), const_int(1u8)));
 
     // Arithmetic shr for signed integers
-    f.assume(eq(unchecked_shr(const_int(-4i16), const_int(1u16)), const_int(-2i16)));
-    f.assume(eq(unchecked_shr(const_int(-1i32), const_int(1)), const_int(-1i32)));
-    f.assume(eq(unchecked_shr(const_int(1i32), const_int(1)), const_int(0i32)));
-    f.assume(eq(unchecked_shr(const_int(i32::MAX), const_int(1)), const_int(i32::MAX / 2)));
-    f.assume(eq(unchecked_shr(const_int(i32::MIN), const_int(1)), const_int(i32::MIN / 2)));
+    f.assume(eq(shr_unchecked(const_int(-4i16), const_int(1u16)), const_int(-2i16)));
+    f.assume(eq(shr_unchecked(const_int(-1i32), const_int(1)), const_int(-1i32)));
+    f.assume(eq(shr_unchecked(const_int(1i32), const_int(1)), const_int(0i32)));
+    f.assume(eq(shr_unchecked(const_int(i32::MAX), const_int(1)), const_int(i32::MAX / 2)));
+    f.assume(eq(shr_unchecked(const_int(i32::MIN), const_int(1)), const_int(i32::MIN / 2)));
 
     // Unchecked shr should allow for different integer types for left and right operands
-    f.assume(eq(unchecked_shr(const_int(u8::MAX), const_int(7i32)), const_int(1u8)));
-    f.assume(eq(unchecked_shr(const_int(-4i16), const_int(1u8)), const_int(-2i16)));
+    f.assume(eq(shr_unchecked(const_int(u8::MAX), const_int(7i32)), const_int(1u8)));
+    f.assume(eq(shr_unchecked(const_int(-4i16), const_int(1u8)), const_int(-2i16)));
     f.exit();
 
     let f = p.finish_function(f);
@@ -374,7 +468,7 @@ fn cmp_ill_formed_left() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::Cmp: invalid left type");
+    assert_ill_formed(p, "BinOp::IntCmp: invalid left type");
 }
 
 #[test]
@@ -389,7 +483,7 @@ fn cmp_ill_formed_right() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::Cmp: invalid right type");
+    assert_ill_formed(p, "BinOp::IntCmp: invalid right type");
 }
 
 #[test]

@@ -15,75 +15,58 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let l = self.translate_operand_smir(l, span);
                 let r = self.translate_operand_smir(r, span);
 
-                let l = GcCow::new(l);
-                let r = GcCow::new(r);
+                let bool_to_int = build::bool_to_int::<u8>;
 
                 use smir::BinOp::*;
-                let op = match (bin_op, lty) {
-                    (Offset, Type::Ptr(_)) => BinOp::PtrOffset { inbounds: true },
-                    // all int ops
-                    (Add, Type::Int(_)) => BinOp::Int(IntBinOp::Add),
-                    (Sub, Type::Int(_)) => BinOp::Int(IntBinOp::Sub),
-                    (Mul, Type::Int(_)) => BinOp::Int(IntBinOp::Mul),
-                    (Div, Type::Int(_)) => BinOp::Int(IntBinOp::Div),
-                    (Rem, Type::Int(_)) => BinOp::Int(IntBinOp::Rem),
-                    (Shl, Type::Int(_)) => BinOp::Int(IntBinOp::Shl),
-                    (Shr, Type::Int(_)) => BinOp::Int(IntBinOp::Shr),
-                    (BitAnd, Type::Int(_)) => BinOp::Int(IntBinOp::BitAnd),
-                    (BitOr, Type::Int(_)) => BinOp::Int(IntBinOp::BitOr),
-                    (BitXor, Type::Int(_)) => BinOp::Int(IntBinOp::BitXor),
-                    (AddUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::AddUnchecked),
-                    (SubUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::SubUnchecked),
-                    (MulUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::MulUnchecked),
-                    (ShlUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShlUnchecked),
-                    (ShrUnchecked, Type::Int(_)) => BinOp::Int(IntBinOp::ShrUnchecked),
+                match (bin_op, lty) {
+                    (Offset, Type::Ptr(_)) => build::ptr_offset(l, r, build::InBounds::Yes),
 
-                    (Cmp, Type::Int(_)) => BinOp::Cmp,
+                    (Add, Type::Int(_)) => build::add(l, r),
+                    (Sub, Type::Int(_)) => build::sub(l, r),
+                    (Mul, Type::Int(_)) => build::mul(l, r),
+                    (Div, Type::Int(_)) => build::div(l, r),
+                    (Rem, Type::Int(_)) => build::rem(l, r),
+                    (Shl, Type::Int(_)) => build::shl(l, r),
+                    (Shr, Type::Int(_)) => build::shr(l, r),
+                    (BitAnd, Type::Int(_)) => build::bit_and(l, r),
+                    (BitOr, Type::Int(_)) => build::bit_or(l, r),
+                    (BitXor, Type::Int(_)) => build::bit_xor(l, r),
+                    (AddUnchecked, Type::Int(_)) => build::add_unchecked(l, r),
+                    (SubUnchecked, Type::Int(_)) => build::sub_unchecked(l, r),
+                    (MulUnchecked, Type::Int(_)) => build::mul_unchecked(l, r),
+                    (ShlUnchecked, Type::Int(_)) => build::shl_unchecked(l, r),
+                    (ShrUnchecked, Type::Int(_)) => build::shr_unchecked(l, r),
 
-                    // We use the int relations also for bools
-                    // (and insert a cast, see below).
-                    (Lt, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Lt),
-                    (Le, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Le),
-                    (Gt, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Gt),
-                    (Ge, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Ge),
-                    (Eq, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Eq),
-                    (Ne, Type::Int(_) | Type::Bool) => BinOp::IntRel(IntRel::Ne),
+                    (Lt, Type::Int(_)) => build::lt(l, r),
+                    (Le, Type::Int(_)) => build::le(l, r),
+                    (Gt, Type::Int(_)) => build::gt(l, r),
+                    (Ge, Type::Int(_)) => build::ge(l, r),
+                    (Eq, Type::Int(_)) => build::eq(l, r),
+                    (Ne, Type::Int(_)) => build::ne(l, r),
 
-                    // all bool ops
-                    (BitAnd, Type::Bool) => BinOp::Bool(BoolBinOp::BitAnd),
-                    (BitOr, Type::Bool) => BinOp::Bool(BoolBinOp::BitOr),
-                    (BitXor, Type::Bool) => BinOp::Bool(BoolBinOp::BitXor),
+                    (Cmp, Type::Int(_)) => {
+                        let res = build::cmp(l, r);
+                        // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
+                        // so we have to transmute the result.
+                        let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(None);
+                        let ordering_ty: Type = self.translate_ty(ordering_ty, span);
+                        build::transmute(res, ordering_ty)
+                    }
+
+                    (BitAnd, Type::Bool) => build::bool_and(l, r),
+                    (BitOr, Type::Bool) => build::bool_or(l, r),
+                    (BitXor, Type::Bool) => build::bool_xor(l, r),
+
+                    (Lt, Type::Bool) => build::lt(bool_to_int(l), bool_to_int(r)),
+                    (Le, Type::Bool) => build::le(bool_to_int(l), bool_to_int(r)),
+                    (Gt, Type::Bool) => build::gt(bool_to_int(l), bool_to_int(r)),
+                    (Ge, Type::Bool) => build::ge(bool_to_int(l), bool_to_int(r)),
+                    (Eq, Type::Bool) => build::eq(bool_to_int(l), bool_to_int(r)),
+                    (Ne, Type::Bool) => build::ne(bool_to_int(l), bool_to_int(r)),
 
                     (op, _) =>
                         rs::span_bug!(span, "Binary Op {op:?} not supported for type {lty_smir}."),
-                };
-
-                // cast booleans used in comparisons to Int to use them in IntRel ops
-                let (l, r) = match (op, lty) {
-                    (BinOp::IntRel(_), Type::Bool) => {
-                        let Type::Int(ty) = <u8>::get_type() else { unreachable!() };
-                        let operator = UnOp::Cast(CastOp::BoolToInt(ty));
-                        let l = ValueExpr::UnOp { operator, operand: l };
-                        let r = ValueExpr::UnOp { operator, operand: r };
-                        (GcCow::new(l), GcCow::new(r))
-                    }
-                    (_, _) => (l, r),
-                };
-
-                let value_expr = ValueExpr::BinOp { operator: op, left: l, right: r };
-
-                // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
-                // so we have to transmute the result.
-                if let BinOp::Cmp = op {
-                    let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(None);
-                    let ordering_ty: Type = self.translate_ty(ordering_ty, rs::DUMMY_SP);
-                    return ValueExpr::UnOp {
-                        operator: UnOp::Cast(CastOp::Transmute(ordering_ty)),
-                        operand: GcCow::new(value_expr),
-                    };
                 }
-
-                value_expr
             }
             smir::Rvalue::CheckedBinaryOp(op, l, r) => {
                 let l = GcCow::new(self.translate_operand_smir(l, span));
@@ -103,14 +86,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let operand = self.translate_operand_smir(operand, span);
 
                 use smir::UnOp::*;
-                let operator = match (unop, ty) {
-                    (Neg, Type::Int(_)) => UnOp::Int(IntUnOp::Neg),
-                    (Not, Type::Int(_)) => UnOp::Int(IntUnOp::Not),
-                    (Not, Type::Bool) => UnOp::Bool(BoolUnOp::Not),
+                match (unop, ty) {
+                    (Neg, Type::Int(_)) => build::neg(operand),
+                    (Not, Type::Int(_)) => build::bit_not(operand),
+                    (Not, Type::Bool) => build::not(operand),
                     (op, _) =>
                         rs::span_bug!(span, "UnOp {op:?} called with unsupported type {ty_smir}."),
-                };
-                ValueExpr::UnOp { operator, operand: GcCow::new(operand) }
+                }
             }
             smir::Rvalue::Ref(_, bkind, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
@@ -208,16 +190,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
                 };
 
-                let unop = match operand_ty {
-                    Type::Int(_) => UnOp::Cast(CastOp::IntToInt(int_ty)),
-                    Type::Bool => UnOp::Cast(CastOp::BoolToInt(int_ty)),
+                let operand = match operand_ty {
+                    Type::Int(_) => operand,
+                    // bool2int casts first go to u8, and then to the final type.
+                    Type::Bool => build::transmute(operand, u8::get_type()),
                     _ =>
                         rs::span_bug!(
                             span,
                             "Attempting to cast non-int and non-boolean type to int!"
                         ),
                 };
-                ValueExpr::UnOp { operator: unop, operand: GcCow::new(operand) }
+                ValueExpr::UnOp {
+                    operator: UnOp::Cast(CastOp::IntToInt(int_ty)),
+                    operand: GcCow::new(operand),
+                }
             }
             smir::Rvalue::Cast(smir::CastKind::PointerExposeAddress, ..) => {
                 unreachable!(

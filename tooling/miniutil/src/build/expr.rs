@@ -57,13 +57,13 @@ pub fn addr_of(target: PlaceExpr, ty: Type) -> ValueExpr {
 }
 
 /// Unary `-` on an integer.
-pub fn int_neg(v: ValueExpr) -> ValueExpr {
+pub fn neg(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::Neg), operand: GcCow::new(v) }
 }
 
 /// Unary `!` on an integer
-pub fn int_not(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::Not), operand: GcCow::new(v) }
+pub fn bit_not(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::BitNot), operand: GcCow::new(v) }
 }
 
 #[track_caller]
@@ -86,16 +86,17 @@ pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
     transmute(v, t)
 }
 
-#[track_caller]
-pub fn bool_to_int<T: TypeConv + Into<Int>>(v: ValueExpr) -> ValueExpr {
-    let Type::Int(int_ty) = T::get_type() else {
-        panic!("bool_to_int needs <T> to be converted to Type::Int!");
-    };
-    ValueExpr::UnOp { operator: UnOp::Cast(CastOp::BoolToInt(int_ty)), operand: GcCow::new(v) }
+pub fn bool_to_int<T: TypeConv>(v: ValueExpr) -> ValueExpr {
+    // First transmute to `u8`.
+    let t = u8::get_type();
+    let int = transmute(v, t);
+    // Then cast that to the desired integer type, if necessary.
+    if T::get_type() == t { int } else { int_cast::<T>(int) }
 }
 
 pub fn not(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::Bool(BoolUnOp::Not), operand: GcCow::new(v) }
+    // `1 - v` is always 0 or 1, so safe to transmute back
+    transmute(sub(const_int(1u8), bool_to_int::<u8>(v)), bool_ty())
 }
 
 pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
@@ -109,34 +110,37 @@ fn int_binop(op: IntBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn add(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Add, l, r)
 }
-pub fn unchecked_add(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+pub fn add_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::AddUnchecked, l, r)
 }
 pub fn sub(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Sub, l, r)
 }
-pub fn unchecked_sub(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+pub fn sub_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::SubUnchecked, l, r)
 }
 pub fn mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Mul, l, r)
 }
-pub fn unchecked_mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+pub fn mul_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::MulUnchecked, l, r)
 }
 pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Div, l, r)
 }
+pub fn rem(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::Rem, l, r)
+}
 pub fn shl(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Shl, l, r)
 }
-pub fn unchecked_shl(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+pub fn shl_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::ShlUnchecked, l, r)
 }
 pub fn shr(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Shr, l, r)
 }
-pub fn unchecked_shr(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+pub fn shr_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::ShrUnchecked, l, r)
 }
 pub fn bit_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
@@ -195,20 +199,20 @@ pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_rel(IntRel::Lt, l, r)
 }
 pub fn cmp(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    ValueExpr::BinOp { operator: BinOp::Cmp, left: GcCow::new(l), right: GcCow::new(r) }
+    ValueExpr::BinOp { operator: BinOp::IntCmp, left: GcCow::new(l), right: GcCow::new(r) }
 }
 
-fn bool_binop(op: BoolBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    ValueExpr::BinOp { operator: BinOp::Bool(op), left: GcCow::new(l), right: GcCow::new(r) }
-}
 pub fn bool_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BoolBinOp::BitAnd, l, r)
+    // `l & r` is always 0 or 1, so safe to transmute back
+    transmute(bit_and(bool_to_int::<u8>(l), bool_to_int::<u8>(r)), bool_ty())
 }
 pub fn bool_or(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BoolBinOp::BitOr, l, r)
+    // `l | r` is always 0 or 1, so safe to transmute back
+    transmute(bit_or(bool_to_int::<u8>(l), bool_to_int::<u8>(r)), bool_ty())
 }
 pub fn bool_xor(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    bool_binop(BoolBinOp::BitXor, l, r)
+    // `l ^ r` is always 0 or 1, so safe to transmute back
+    transmute(bit_xor(bool_to_int::<u8>(l), bool_to_int::<u8>(r)), bool_ty())
 }
 
 pub enum InBounds {

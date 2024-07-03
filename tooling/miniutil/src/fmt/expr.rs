@@ -141,16 +141,11 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let operand = fmt_value_expr(operand.extract(), comptypes).to_string();
             match operator {
                 UnOp::Int(IntUnOp::Neg) => FmtExpr::NonAtomic(format!("-({operand})")),
-                UnOp::Int(IntUnOp::Not) => FmtExpr::NonAtomic(format!("!({operand}")),
+                UnOp::Int(IntUnOp::BitNot) => FmtExpr::NonAtomic(format!("!({operand}")),
                 UnOp::Cast(CastOp::IntToInt(int_ty)) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))
                 }
-                UnOp::Cast(CastOp::BoolToInt(int_ty)) => {
-                    let int_ty = fmt_int_type(int_ty);
-                    FmtExpr::Atomic(format!("bool2int<{int_ty}>({operand})"))
-                }
-                UnOp::Bool(BoolUnOp::Not) => FmtExpr::Atomic(format!("!{operand}")),
                 UnOp::Cast(CastOp::Transmute(new_ty)) => {
                     let new_ty = fmt_type(new_ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))
@@ -208,7 +203,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
 
             FmtExpr::NonAtomic(format!("{l} {rel} {r}"))
         }
-        ValueExpr::BinOp { operator: BinOp::Cmp, left, right } => {
+        ValueExpr::BinOp { operator: BinOp::IntCmp, left, right } => {
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
             FmtExpr::NonAtomic(format!("cmp({l}, {r})"))
@@ -230,17 +225,6 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let l = fmt_value_expr(left.extract(), comptypes).to_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
-        }
-        ValueExpr::BinOp { operator: BinOp::Bool(bool_op), left, right } => {
-            let bool_op = match bool_op {
-                BoolBinOp::BitAnd => '&',
-                BoolBinOp::BitOr => '|',
-                BoolBinOp::BitXor => '^',
-            };
-            let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
-            let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
-            // due to overlap with integer binop add <bool> to operator
-            FmtExpr::NonAtomic(format!("{l} {bool_op}<bool> {r}"))
         }
     }
 }

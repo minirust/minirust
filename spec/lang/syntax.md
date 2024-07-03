@@ -100,19 +100,12 @@ pub enum Constant {
 pub enum IntUnOp {
     /// Negate an integer value arithmetically (`x` becomes `-x`).
     Neg,
-    /// Bitwise-negate an integer value
-    Not,
-}
-pub enum BoolUnOp {
-    /// Boolean negation.
-    Not,
+    /// Bitwise-invert an integer value
+    BitNot,
 }
 pub enum CastOp {
     /// Argument can be any integer type; returns the given integer type.
     IntToInt(IntType),
-    /// Argument is a Boolean; returns the given integer type.
-    /// True becomes `Int::ONE` and false `Int::ZERO`.
-    BoolToInt(IntType),
     /// Transmute the value to a different type.
     /// The program is well-formed even if the output type has a different size than the
     /// input type, but the operation is UB in that case.
@@ -121,8 +114,6 @@ pub enum CastOp {
 pub enum UnOp {
     /// An operation on an integer; returns an integer of the same type.
     Int(IntUnOp),
-    /// An operation on a boolean; returns a boolean.
-    Bool(BoolUnOp),
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
 }
@@ -193,14 +184,6 @@ pub enum IntRel {
     Ne,
 }
 
-pub enum BoolBinOp {
-    /// Bitwise-and on booleans.
-    BitAnd,
-    /// Bitwise-or on booleans.
-    BitOr,
-    /// Bitwise-xor on booleans.
-    BitXor,
-} 
 pub enum BinOp {
     /// An operation on integers (both must have the same type); returns an integer of the same type.
     Int(IntBinOp),
@@ -213,7 +196,8 @@ pub enum BinOp {
     /// * -1 if left <  right
     /// *  0 if left == right
     /// * +1 if left >  right
-    Cmp,
+    IntCmp,
+
     /// Add a byte-offset to a pointer (with or without inbounds requirement).
     /// Takes a pointer as left operand and an integer as right operand;
     /// returns a pointer.
@@ -221,8 +205,6 @@ pub enum BinOp {
     /// Compute the distance between two pointers in bytes (with or without inbounds requirement).
     /// Takes two pointers; returns a signed pointer-sized integer.
     PtrOffsetFrom { inbounds: bool },
-    /// An operation on booleans.
-    Bool(BoolBinOp),
 }
 ```
 

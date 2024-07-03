@@ -299,19 +299,11 @@ impl ValueExpr {
                         };
                         Type::Int(int_ty)
                     }
-                    Bool(_bool_op) => {
-                        ensure_wf(matches!(operand, Type::Bool), "UnOp::Bool: invalid operand")?;
-                        Type::Bool
-                    }
                     Cast(cast_op) => {
                         use lang::CastOp::*;
                         match cast_op {
                             IntToInt(int_ty) => {
                                 ensure_wf(matches!(operand, Type::Int(_)), "Cast::IntToInt: invalid operand")?;
-                                Type::Int(int_ty)
-                            }
-                            BoolToInt(int_ty) => {
-                                ensure_wf(matches!(operand, Type::Bool), "Cast::BoolToInt: invalid operand")?;
                                 Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
@@ -355,11 +347,11 @@ impl ValueExpr {
                         ensure_wf(right == Type::Int(int_ty), "BinOp::IntRel: invalid right type")?;
                         Type::Bool
                     }
-                    Cmp => {
+                    IntCmp => {
                         let Type::Int(int_ty) = left else {
-                            throw_ill_formed!("BinOp::Cmp: invalid left type");
+                            throw_ill_formed!("BinOp::IntCmp: invalid left type");
                         };
-                        ensure_wf(right == Type::Int(int_ty), "BinOp::Cmp: invalid right type")?;
+                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntCmp: invalid right type")?;
                         Type::Int(IntType::I8)
                     }
                     PtrOffset { inbounds: _ } => {
@@ -372,11 +364,6 @@ impl ValueExpr {
                         ensure_wf(matches!(right, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid right type")?;
                         let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
                         Type::Int(isize_int)
-                    }
-                    Bool(_bool_op) => {
-                        ensure_wf(matches!(left, Type::Bool), "BinOp::Bool: invalid left type")?;
-                        ensure_wf(matches!(right, Type::Bool), "BinOp::Bool: invalid right type")?;
-                        Type::Bool
                     }
                 }
             }

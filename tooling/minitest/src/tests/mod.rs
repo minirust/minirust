@@ -9,7 +9,6 @@ mod compare_exchange;
 mod concurrency;
 mod data_race;
 mod dereferenceable;
-mod div_zero;
 mod enum_discriminant;
 mod enum_downcast;
 mod enum_representation;

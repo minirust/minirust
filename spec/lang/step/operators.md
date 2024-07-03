@@ -19,7 +19,7 @@ impl<M: Memory> Machine<M> {
         use IntUnOp::*;
         ret(match op {
             Neg => -operand,
-            Not => !operand,
+            BitNot => !operand,
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
@@ -31,24 +31,6 @@ impl<M: Memory> Machine<M> {
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
-    }
-}
-```
-
-### Boolean operations
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_bool_un_op(&self, op: BoolUnOp, operand: bool) -> bool {
-        use BoolUnOp::*;
-        match op {
-            Not => !operand,
-        }
-    }
-    fn eval_un_op(&self, UnOp::Bool(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Value::Bool(value) = operand else { panic!("non-boolean input to boolean unop") };
-        let result = self.eval_bool_un_op(op, value);
-        ret((Value::Bool(result), Type::Bool))
     }
 }
 ```
@@ -65,12 +47,6 @@ impl<M: Memory> Machine<M> {
                 let result = int_ty.bring_in_bounds(operand);
                 ret((Value::Int(result), Type::Int(int_ty)))
             }
-            BoolToInt(int_ty) => {
-                let Value::Bool(operand) = operand else { panic!("non-boolean input to bool-to-int cast") };
-                // 0 and 1 fit into every `IntTy`, so we do not need to `bring_in_bounds`.
-                let result = if operand { Int::ONE } else { Int::ZERO };
-                ret((Value::Int(result), Type::Int(int_ty)))
-            },
             Transmute(new_ty) => {
                 if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
                     throw_ub!("transmute between types of different size")
@@ -138,11 +114,18 @@ impl<M: Memory> Machine<M> {
                 if right == 0 {
                     throw_ub!("division by zero");
                 }
-                left / right
+                let result = left / right;
+                if !left_ty.can_represent(result) { // `int::MIN / -1` is UB
+                    throw_ub!("overflow in division");
+                }
+                result
             }
             Rem => {
                 if right == 0 {
                     throw_ub!("modulus of remainder is zero");
+                }
+                if !left_ty.can_represent(left / right) { // `int::MIN % -1` is UB
+                    throw_ub!("overflow in remainder");
                 }
                 left % right
             }
@@ -189,13 +172,7 @@ impl<M: Memory> Machine<M> {
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
     }
-}
-```
 
-### Integer operations with overflow
-
-```rust
-impl<M: Memory> Machine<M> {
     fn eval_bin_op(
         &self,
         BinOp::IntWithOverflow(op): BinOp,
@@ -250,16 +227,10 @@ impl<M: Memory> Machine<M> {
         let result = self.eval_int_rel(int_rel, left, right);
         ret((Value::Bool(result), Type::Bool))
     }
-}
-```
 
-### Integer comparisons
-
-```rust
-impl<M: Memory> Machine<M> {
     fn eval_bin_op(
         &self,
-        BinOp::Cmp: BinOp,
+        BinOp::IntCmp: BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
@@ -339,34 +310,6 @@ impl<M: Memory> Machine<M> {
 
         let isize_int = IntType { signed: Signed, size: M::T::PTR_SIZE };
         ret((Value::Int(distance), Type::Int(isize_int)))
-    }
-}
-```
-
-### Boolean operations
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_bool_bin_op(&self, op: BoolBinOp, left: bool, right: bool) -> bool {
-        use BoolBinOp::*;
-        match op {
-            BitAnd => left & right,
-            BitOr => left | right,
-            BitXor => left ^ right,
-        }
-    }
-    fn eval_bin_op(
-        &self,
-        BinOp::Bool(op): BinOp,
-        (left, l_ty): (Value<M>, Type),
-        (right, _r_ty): (Value<M>, Type)
-    ) -> Result<(Value<M>, Type)> {
-        let Value::Bool(left) = left else { panic!("non-boolean input to boolean binop") };
-        let Value::Bool(right) = right else { panic!("non-boolean input to boolean binop") };
-
-        // Perform the operation.
-        let result = self.eval_bool_bin_op(op, left, right);
-        ret((Value::Bool(result), Type::Bool))
     }
 }
 ```
