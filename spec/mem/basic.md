@@ -174,26 +174,22 @@ impl<T: Target> BasicMemory<T> {
     /// length. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
     fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size) -> Result<Option<(AllocId, Size)>> {
-        // We do reject null pointers, even for zero-sized accesses.
-        // FIXME: Do we really want/need that?
-        if ptr.addr == 0 {
-            throw_ub!("memory access with null pointer");
-        }
         // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
         if len.is_zero() {
             return ret(None);
         }
+        // We do not even have to check for null, since no allocation will ever contain that address.
         // Now try to access the allocation information.
         let Some(id) = ptr.provenance else {
             // An invalid pointer.
-            throw_ub!("non-zero-sized access with invalid pointer")
+            throw_ub!("dereferencing pointer without provenance");
         };
         let allocation = self.allocations[id.0];
 
         if !allocation.live {
-            throw_ub!("memory accessed after deallocation");
+            throw_ub!("dereferencing pointer to dead allocation");
         }
 
         // Compute relative offset, and ensure we are in-bounds.
@@ -201,7 +197,7 @@ impl<T: Target> BasicMemory<T> {
         // contains the null address.
         let offset_in_alloc = ptr.addr - allocation.addr;
         if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
-            throw_ub!("out-of-bounds memory access");
+            throw_ub!("dereferencing pointer outside the bounds of its allocation");
         }
         // All is good!
         ret(Some((id, Offset::from_bytes(offset_in_alloc).unwrap())))

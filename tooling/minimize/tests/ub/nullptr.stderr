@@ -1,1 +1,1 @@
-fatal error: UB: memory access with null pointer
+fatal error: UB: dereferencing pointer without provenance

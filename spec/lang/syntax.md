@@ -214,11 +214,14 @@ pub enum BinOp {
     /// *  0 if left == right
     /// * +1 if left >  right
     Cmp,
-    /// Pointer arithmetic (with or without inbounds requirement);
-    /// takes a pointer as left operand and an integer as right operand;
+    /// Add a byte-offset to a pointer (with or without inbounds requirement).
+    /// Takes a pointer as left operand and an integer as right operand;
     /// returns a pointer.
     PtrOffset { inbounds: bool },
-    /// An operation on booleans
+    /// Compute the distance between two pointers in bytes (with or without inbounds requirement).
+    /// Takes two pointers; returns a signed pointer-sized integer.
+    PtrOffsetFrom { inbounds: bool },
+    /// An operation on booleans.
     Bool(BoolBinOp),
 }
 ```

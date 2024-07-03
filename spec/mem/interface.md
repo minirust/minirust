@@ -94,6 +94,18 @@ pub trait Memory {
     /// Test whether the given pointer is dereferenceable for the given size.
     fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result;
 
+    /// A derived form of `dereferenceable` that works with a signed notion of "length".
+    fn signed_dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Int) -> Result {
+        if len > 0 {
+            self.dereferenceable(ptr, Size::from_bytes(len).unwrap())
+        } else {
+            // Compute a pointer to the beginning of the range, and check `dereferenceable` from there.
+            let begin_ptr = Pointer { addr: ptr.addr + len, ..ptr };
+            // `ptr.addr + len` might be negative, but then `dereferenceable` will surely fail.
+            self.dereferenceable(begin_ptr, Size::from_bytes(-len).unwrap())
+        }
+    }
+
     /// Retag the given pointer, which has the given type.
     /// `fn_entry` indicates whether this is one of the special retags that happen
     /// right at the top of each function.
@@ -120,17 +132,3 @@ This is a very basic memory interface that is incomplete in at least the followi
 * Maybe we want operations that can compare pointers without casting them to integers. Or else we decide only the address can matter for comparison.
 
 [`Ordering`]: https://doc.rust-lang.org/nightly/core/sync/atomic/enum.Ordering.html
-
-
-```rust
-impl<Provenance> Pointer<Provenance> {
-    /// Calculates the offset from a pointer in bytes using wrapping arithmetic.
-    /// This does not check whether the pointer is still in-bounds of its allocation.
-    pub fn wrapping_offset<M: Memory<Provenance=Provenance>>(self, offset: Int) -> Self {
-        let offset = offset.bring_in_bounds(Signed, M::T::PTR_SIZE);
-        let addr = self.addr + offset;
-        let addr = addr.bring_in_bounds(Unsigned, M::T::PTR_SIZE);
-        Pointer { addr, ..self }
-    }
-}
-```

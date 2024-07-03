@@ -136,7 +136,7 @@ impl<M: Memory> Machine<M> {
                 }
             );
             for (i, relocation) in global.relocations {
-                let ptr = global_ptrs[relocation.name].wrapping_offset::<M>(relocation.offset.bytes());
+                let ptr = global_ptrs[relocation.name].wrapping_offset::<M::T>(relocation.offset.bytes());
                 let encoded_ptr = encode_ptr::<M>(ptr);
                 bytes.write_subslice_at_index(i.bytes(), encoded_ptr);
             }

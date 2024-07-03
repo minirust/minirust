@@ -34,7 +34,7 @@ impl<M: Memory> Machine<M> {
             Constant::Int(i) => Value::Int(i),
             Constant::Bool(b) => Value::Bool(b),
             Constant::GlobalPointer(relocation) => {
-                let ptr = self.global_ptrs[relocation.name].wrapping_offset::<M>(relocation.offset.bytes());
+                let ptr = self.global_ptrs[relocation.name].wrapping_offset::<M::T>(relocation.offset.bytes());
                 Value::Ptr(ptr)
             },
             Constant::FnPointer(fn_name) => {

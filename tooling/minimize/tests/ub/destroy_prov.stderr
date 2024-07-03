@@ -1,1 +1,1 @@
-fatal error: UB: non-zero-sized access with invalid pointer
+fatal error: UB: dereferencing pointer without provenance

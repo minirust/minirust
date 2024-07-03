@@ -446,7 +446,7 @@ fn use_after_free() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
-    assert_ub(p, "memory accessed after deallocation");
+    assert_ub(p, "dereferencing pointer to dead allocation");
 }
 
 #[test]

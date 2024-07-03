@@ -38,7 +38,7 @@ fn ptr_offset_inbounds() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "inbounds offset does not fit into `isize`");
+    assert_ub(p, "dereferencing pointer outside the bounds of its allocation");
 }
 
 #[test]
@@ -68,40 +68,6 @@ fn ptr_offset_no_inbounds() {
 }
 
 #[test]
-fn ptr_offset_overflow() {
-    let union_ty = union_ty(
-        &[(size(0), <usize>::get_type()), (size(0), <*const i32>::get_type())],
-        size(8),
-        align(8),
-    );
-
-    let locals = [union_ty];
-
-    let b0 = block!(
-        storage_live(0),
-        assign(
-            field(local(0), 0),
-            const_int::<usize>(usize::MAX) // this is the largest possible pointer.
-        ),
-        assign(
-            field(local(0), 1),
-            ptr_offset(
-                // here we add 1 to the largest possible pointer -> overflow.
-                load(field(local(0), 1)),
-                const_int::<usize>(1),
-                InBounds::Yes
-            ),
-        ),
-        exit()
-    );
-
-    let f = function(Ret::No, 0, &locals, &[b0]);
-    let p = program(&[f]);
-    dump_program(p);
-    assert_ub(p, "overflowing inbounds pointer arithmetic");
-}
-
-#[test]
 fn ptr_offset_out_of_bounds() {
     let locals = &[<i32>::get_type(), <*const i32>::get_type()];
 
@@ -124,5 +90,38 @@ fn ptr_offset_out_of_bounds() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "out-of-bounds memory access");
+    assert_ub(p, "dereferencing pointer outside the bounds of its allocation");
+}
+
+#[test]
+fn invalid_offset() {
+    let union_ty = union_ty(
+        &[(size(0), <*const i32>::get_type()), (size(0), <usize>::get_type())],
+        size(8),
+        align(8),
+    );
+    let locals = &[<[i32; 2]>::get_type(), union_ty];
+
+    let stmts = &[
+        storage_live(0),
+        storage_live(1),
+        assign(local(0), array(&[const_int::<i32>(42), const_int::<i32>(24)], <i32>::get_type())),
+        assign(
+            field(local(1), 0),
+            addr_of(index(local(0), const_int::<usize>(0)), <*const i32>::get_type()),
+        ),
+        assign(
+            // strips provenance!
+            field(local(1), 1),
+            load(field(local(1), 1)),
+        ),
+        assign(
+            field(local(1), 0),
+            ptr_offset(load(field(local(1), 0)), const_int::<usize>(4), InBounds::Yes),
+        ),
+    ];
+
+    let p = small_program(locals, stmts);
+    dump_program(p);
+    assert_ub(p, "dereferencing pointer without provenance");
 }

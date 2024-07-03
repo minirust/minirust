@@ -367,6 +367,12 @@ impl ValueExpr {
                         ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
+                    PtrOffsetFrom { inbounds: _ } => {
+                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid left type")?;
+                        ensure_wf(matches!(right, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid right type")?;
+                        let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
+                        Type::Int(isize_int)
+                    }
                     Bool(_bool_op) => {
                         ensure_wf(matches!(left, Type::Bool), "BinOp::Bool: invalid left type")?;
                         ensure_wf(matches!(right, Type::Bool), "BinOp::Bool: invalid right type")?;

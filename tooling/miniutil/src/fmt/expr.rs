@@ -222,6 +222,15 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
         }
+        ValueExpr::BinOp { operator: BinOp::PtrOffsetFrom { inbounds }, left, right } => {
+            let offset_name = match inbounds {
+                true => "offset_from_inbounds",
+                false => "offset_from_wrapping",
+            };
+            let l = fmt_value_expr(left.extract(), comptypes).to_string();
+            let r = fmt_value_expr(right.extract(), comptypes).to_string();
+            FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
+        }
         ValueExpr::BinOp { operator: BinOp::Bool(bool_op), left, right } => {
             let bool_op = match bool_op {
                 BoolBinOp::BitAnd => '&',

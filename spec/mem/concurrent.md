@@ -92,6 +92,11 @@ impl<M: Memory> ConcurrentMemory<M> {
         self.memory.dereferenceable(ptr, len)
     }
 
+    /// A derived form of `dereferenceable` that works with a signed notion on "length".
+    pub fn signed_dereferenceable(&self, ptr: Pointer<M::Provenance>, len: Int) -> Result {
+        self.memory.signed_dereferenceable(ptr, len)
+    }
+
     /// Return the retagged pointer.
     pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
         self.memory.retag_ptr(ptr, ptr_type, fn_entry)

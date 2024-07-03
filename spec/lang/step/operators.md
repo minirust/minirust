@@ -285,33 +285,18 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
     fn ptr_offset_wrapping(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Pointer<M::Provenance> {
-        ptr.wrapping_offset::<M>(offset)
+        ptr.wrapping_offset::<M::T>(offset)
     }
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
     fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Result<Pointer<M::Provenance>> {
-        if !offset.in_bounds(Signed, M::T::PTR_SIZE) {
-            throw_ub!("inbounds offset does not fit into `isize`");
-        }
-        let addr = ptr.addr + offset;
-        if !addr.in_bounds(Unsigned, M::T::PTR_SIZE) {
-            throw_ub!("overflowing inbounds pointer arithmetic");
-        }
-        let new_ptr = Pointer { addr, ..ptr };
-        // TODO: Do we even want this 'dereferenceable' restriction?
-        // See <https://github.com/rust-lang/unsafe-code-guidelines/issues/350>.
-        // We check that the range between the two pointers is dereferenceable.
-        // For this, we figure out which pointer is the smaller one.
-        let min_ptr = if ptr.addr <= new_ptr.addr {
-            ptr
-        } else {
-            new_ptr
-        };
-        // `offset.abs()` is obviously positive, hence `unwrap()`.
-        self.mem.dereferenceable(min_ptr, Size::from_bytes(offset.abs()).unwrap())?;
-        // If this check passed, we are good.
-        ret(new_ptr)
+        // Ensure dereferenceability. This also ensures that `offset` fits in an `isize`, since no allocation
+        // can be bigger than `isize`, and it ensures that the arithmetic does not overflow, since no
+        // allocation wraps around the edge of the address space.
+        self.mem.signed_dereferenceable(ptr, offset)?;
+        // All checked!
+        ret(Pointer { addr: ptr.addr + offset, ..ptr })
     }
 
     fn eval_bin_op(
@@ -320,8 +305,8 @@ impl<M: Memory> Machine<M> {
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Value::Ptr(left) = left else { panic!("non-pointer left input to pointer addition") };
-        let Value::Int(right) = right else { panic!("non-integer right input to pointer addition") };
+        let Value::Ptr(left) = left else { panic!("non-pointer left input to `PtrOffset`") };
+        let Value::Int(right) = right else { panic!("non-integer right input to `PtrOffset`") };
 
         let result = if inbounds {
             self.ptr_offset_inbounds(left, right)?
@@ -329,6 +314,31 @@ impl<M: Memory> Machine<M> {
             self.ptr_offset_wrapping(left, right)
         };
         ret((Value::Ptr(result), l_ty))
+    }
+
+    fn eval_bin_op(
+        &self,
+        BinOp::PtrOffsetFrom { inbounds }: BinOp,
+        (left, l_ty): (Value<M>, Type),
+        (right, _r_ty): (Value<M>, Type)
+    ) -> Result<(Value<M>, Type)> {
+        let Value::Ptr(left) = left else { panic!("non-pointer left input to `PtrOffsetFrom`") };
+        let Value::Ptr(right) = right else { panic!("non-integer right input to `PtrOffsetFrom`") };
+
+        let distance = left.addr - right.addr;
+        let distance = if inbounds {
+            // The "gap" between the two pointers must be dereferenceable from both of them.
+            // This check also ensures that the distance is inbounds of `isize`.
+            self.mem.signed_dereferenceable(left, -distance)?;
+            self.mem.signed_dereferenceable(right, distance)?;
+            // All checked!
+            distance
+        } else {
+            distance.bring_in_bounds(Signed, M::T::PTR_SIZE)
+        };
+
+        let isize_int = IntType { signed: Signed, size: M::T::PTR_SIZE };
+        ret((Value::Int(distance), Type::Int(isize_int)))
     }
 }
 ```

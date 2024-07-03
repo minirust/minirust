@@ -16,7 +16,7 @@ fn deref_dangling_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "non-zero-sized access with invalid pointer");
+    assert_ub(p, "dereferencing pointer without provenance");
 }
 
 /// Test that handling a dangling reference is allowed as long as we don't dereference it.
@@ -44,7 +44,7 @@ fn validate_dangling_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "non-zero-sized access with invalid pointer");
+    assert_ub(p, "dereferencing pointer without provenance");
 }
 
 /// Test that `*dangling_ptr` is allowed as long as we don't do anything with that place.
@@ -78,5 +78,5 @@ fn ref_dangling_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "non-zero-sized access with invalid pointer");
+    assert_ub(p, "dereferencing pointer without provenance");
 }

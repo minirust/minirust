@@ -24,7 +24,7 @@ fn ptr_null() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "memory access with null pointer");
+    assert_ub(p, "dereferencing pointer without provenance");
 }
 
 #[test]
@@ -44,12 +44,12 @@ fn ptr_null_zst() {
             field(local(0), 0),
             const_int::<usize>(0) // nullptr!
         ),
+        // We load from the nullptr for 0 bytes, that is okay.
         assign(local(1), load(deref(load(field(local(0), 1)), <()>::get_type()))),
         exit()
     );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    dump_program(p);
-    assert_ub(p, "memory access with null pointer");
+    assert_stop(p);
 }

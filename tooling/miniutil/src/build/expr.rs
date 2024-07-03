@@ -224,6 +224,14 @@ pub fn ptr_offset(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
     }
 }
 
+pub fn ptr_offset_from(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
+    ValueExpr::BinOp {
+        operator: BinOp::PtrOffsetFrom { inbounds: matches!(inbounds, InBounds::Yes) },
+        left: GcCow::new(l),
+        right: GcCow::new(r),
+    }
+}
+
 pub fn local_by_name(name: LocalName) -> PlaceExpr {
     PlaceExpr::Local(name)
 }

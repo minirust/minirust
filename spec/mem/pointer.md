@@ -27,7 +27,18 @@ pub struct Pointer<Provenance> {
     pub addr: Address,
     pub provenance: Option<Provenance>,
 }
+
+impl<Provenance> Pointer<Provenance> {
+    /// Offsets a pointer in bytes using wrapping arithmetic.
+    /// This does not check whether the pointer is still in-bounds of its allocation.
+    pub fn wrapping_offset<T: Target>(self, offset: Int) -> Self {
+        let addr = self.addr + offset;
+        let addr = addr.bring_in_bounds(Unsigned, T::PTR_SIZE);
+        Pointer { addr, ..self }
+    }
+}
 ```
+
 
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
 
