@@ -236,7 +236,6 @@ impl<T: Target> Memory for BasicMemory<T> {
     }
 
     fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result {
-        // FIXME: this leads to bad error messages since `check_ptr` talks about "memory access"
         self.check_ptr(ptr, len)?;
         ret(())
     }
