@@ -355,6 +355,8 @@ pub enum IntrinsicOp {
     Deallocate,
     Spawn,
     Join,
+    /// Determines whether the raw bytes of the two values are equal.
+    RawEq,
     AtomicStore,
     AtomicLoad,
     AtomicCompareExchange,

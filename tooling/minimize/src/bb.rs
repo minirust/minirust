@@ -200,6 +200,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         return Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                     }
                 }
+                "raw_eq" =>
+                    return Terminator::Intrinsic {
+                        intrinsic: IntrinsicOp::RawEq,
+                        arguments: args
+                            .iter()
+                            .map(|x| self.translate_operand(&x.node, x.span))
+                            .collect(),
+                        ret: self.translate_place(&destination, span),
+                        next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                    },
+
                 "unlikely" | "likely" => {
                     // FIXME: use the "fallback body" provided in the standard library.
                     // translate `unlikely`, `likely` intrinsic into functions that can be called
