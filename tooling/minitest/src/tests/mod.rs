@@ -29,6 +29,7 @@ mod print;
 mod ptr_offset;
 mod ptr_offset_from;
 mod ptr_partial_overwrite;
+mod raw_eq;
 mod return_;
 mod spawn_join;
 mod switch;

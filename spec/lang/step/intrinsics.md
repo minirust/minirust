@@ -358,6 +358,68 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
+## Raw equality
+```rust
+impl<M: Memory> Machine<M> {
+    fn load_raw_data(&mut self, ptr : Pointer<<M as Memory>::Provenance>, ptr_ty : PtrType) -> Result<List<u8>> {
+        // We need the pointee layout to determine how many bytes to load.
+        let PtrType::Ref { pointee, .. } = ptr_ty else {
+            throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
+        };
+        let Layout { size, align, .. } = pointee;
+        let bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
+
+        // FIXME: This violates provenance monotonicity
+        if bytes.any(|byte| byte.provenance() != None) {
+            throw_ub!("invalid argument to `RawEq` intrinsic: byte has provenance");
+        }
+
+        let Some(data) =  bytes.try_map(|byte| byte.data()) else {
+            throw_ub!("invalid argument to `RawEq` intrinsic: byte is uninitialized");
+        };
+
+        Ok(data)
+    }
+
+    fn eval_intrinsic(
+        &mut self,
+        IntrinsicOp::RawEq: IntrinsicOp,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 2 {
+            throw_ub!("invalid number of arguments for `RawEq` intrinsic");
+        }
+        if ret_ty != Type::Bool {
+            throw_ub!("invalid return type for `RawEq` intrinsic")
+        }
+
+        let (left, l_ty) = (arguments).index_at(0);
+        let (right, r_ty) = (arguments).index_at(1);
+
+        if l_ty != r_ty {
+            throw_ub!("invalid arguments to `RawEq` intrinsic: types of arguments are not identical");
+        }
+
+        let Value::Ptr(left) = left else {
+            throw_ub!("invalid first argument to `RawEq` intrinsic: not a pointer");
+        };
+
+        let Value::Ptr(right) = right else {
+            throw_ub!("invalid second argument to `RawEq` intrinsic: not a pointer");
+        };
+
+        let Type::Ptr(l_ty) = l_ty else {
+            throw_ub!("invalid argument type to `RawEq` intrinsic: not a pointer");
+        };
+
+        let left_data = self.load_raw_data(left, l_ty)?;
+        let right_data = self.load_raw_data(right, l_ty)?;
+
+        ret(Value::Bool(left_data == right_data))
+    }
+}
+```
 
 ## Atomic accesses
 

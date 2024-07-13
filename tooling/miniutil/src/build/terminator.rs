@@ -105,6 +105,12 @@ impl FunctionBuilder {
         self.set_cur_block(next_block)
     }
 
+    pub fn raw_eq(&mut self, dest: PlaceExpr, left_ptr: ValueExpr, right_ptr: ValueExpr) {
+        let next_block = self.declare_block();
+        self.finish_block(raw_eq(dest, left_ptr, right_ptr, bbname_into_u32(next_block)));
+        self.set_cur_block(next_block)
+    }
+
     pub fn atomic_store(&mut self, ptr: ValueExpr, src: ValueExpr) {
         let next_block = self.declare_block();
         self.finish_block(atomic_store(ptr, src, bbname_into_u32(next_block)));
@@ -370,6 +376,15 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
         intrinsic: IntrinsicOp::Join,
         arguments: list!(thread_id),
         ret: zst_place(),
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
+}
+
+pub fn raw_eq(ret: PlaceExpr, left_ptr: ValueExpr, right_ptr: ValueExpr, next: u32) -> Terminator {
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::RawEq,
+        arguments: list!(left_ptr, right_ptr),
+        ret,
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }

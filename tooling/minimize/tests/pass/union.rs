@@ -69,10 +69,5 @@ fn main() {
     assert!(extract_struct(u) == TestStruct(12, 1200));
     
     let u = ArrayUnion { data: [[42;3], [12;3]] };
-    let a = extract_array(u);
-    assert!(a[0][1] == 42);
-    assert!(a[0][2] == 42);
-    assert!(a[1][0] == 12);
-    assert!(a[1][1] == 12);
-    assert!(a[1][2] == 12);
+    assert!(extract_array(u) == [[42;3], [12;3]]);
 }

@@ -189,6 +189,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 IntrinsicOp::Deallocate => "deallocate",
                 IntrinsicOp::Spawn => "spawn",
                 IntrinsicOp::Join => "join",
+                IntrinsicOp::RawEq => "raw_eq",
                 IntrinsicOp::AtomicStore => "atomic_store",
                 IntrinsicOp::AtomicLoad => "atomic_load",
                 IntrinsicOp::AtomicCompareExchange => "atomic_compare_exchange",

@@ -7,4 +7,6 @@ fn main() {
     print(x[2]);
     print(x[1]);
     print(x[0]);
+    assert!(x == [3, 2, 1, 0]);
+    assert!(!(x == [0, 1, 2, 3]));
 }
