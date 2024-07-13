@@ -31,6 +31,12 @@ pub fn assert_stop_always(prog: Program, attempts: usize) {
 }
 
 #[track_caller]
+pub fn assert_abort(prog: Program, msg: &str) {
+    let msg = prelude::String::from_internal(msg.to_string());
+    assert_eq!(run_program(prog), TerminationInfo::Abort(msg));
+}
+
+#[track_caller]
 pub fn assert_ub(prog: Program, msg: &str) {
     assert_eq!(
         run_program(prog),

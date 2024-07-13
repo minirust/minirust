@@ -96,6 +96,22 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+Currently `Panic` carries no message and aborts directly.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        IntrinsicOp::Panic: IntrinsicOp,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        // Stop machine immediatly without any additional checks.
+        throw_abort!("we panicked");
+    }
+}
+```
+
 ## UB control
 
 ```rust
