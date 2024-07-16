@@ -88,10 +88,10 @@ pub fn ptr_to_ptr(v: ValueExpr, t: Type) -> ValueExpr {
 
 pub fn bool_to_int<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     // First transmute to `u8`.
-    let t = u8::get_type();
-    let int = transmute(v, t);
+    let t_u8 = u8::get_type();
+    let int = transmute(v, t_u8);
     // Then cast that to the desired integer type, if necessary.
-    if T::get_type() == t { int } else { int_cast::<T>(int) }
+    if T::get_type() == t_u8 { int } else { int_cast::<T>(int) }
 }
 
 pub fn not(v: ValueExpr) -> ValueExpr {
@@ -171,35 +171,35 @@ pub fn overflow_mul(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_overflow(IntBinOpWithOverflow::Mul, l, r)
 }
 
-fn int_rel(op: IntRel, l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    ValueExpr::BinOp { operator: BinOp::IntRel(op), left: GcCow::new(l), right: GcCow::new(r) }
+fn rel_op(op: RelOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    ValueExpr::BinOp { operator: BinOp::Rel(op), left: GcCow::new(l), right: GcCow::new(r) }
 }
 
 pub fn eq(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Eq, l, r)
+    rel_op(RelOp::Eq, l, r)
 }
 
 pub fn ne(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Ne, l, r)
+    rel_op(RelOp::Ne, l, r)
 }
 
 pub fn ge(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Ge, l, r)
+    rel_op(RelOp::Ge, l, r)
 }
 
 pub fn gt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Gt, l, r)
+    rel_op(RelOp::Gt, l, r)
 }
 
 pub fn le(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Le, l, r)
+    rel_op(RelOp::Le, l, r)
 }
 
 pub fn lt(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    int_rel(IntRel::Lt, l, r)
+    rel_op(RelOp::Lt, l, r)
 }
 pub fn cmp(l: ValueExpr, r: ValueExpr) -> ValueExpr {
-    ValueExpr::BinOp { operator: BinOp::IntCmp, left: GcCow::new(l), right: GcCow::new(r) }
+    ValueExpr::BinOp { operator: BinOp::Rel(RelOp::Cmp), left: GcCow::new(l), right: GcCow::new(r) }
 }
 
 pub fn bool_and(l: ValueExpr, r: ValueExpr) -> ValueExpr {

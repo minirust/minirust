@@ -340,19 +340,13 @@ impl ValueExpr {
                         ensure_wf(right == Type::Int(int_ty), "BinOp::IntWithOverflow: invalid right type")?;
                         int_ty.with_overflow::<T>()
                     }
-                    IntRel(_int_rel) => {
-                        let Type::Int(int_ty) = left else {
-                            throw_ill_formed!("BinOp::IntRel: invalid left type");
-                        };
-                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntRel: invalid right type")?;
-                        Type::Bool
-                    }
-                    IntCmp => {
-                        let Type::Int(int_ty) = left else {
-                            throw_ill_formed!("BinOp::IntCmp: invalid left type");
-                        };
-                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntCmp: invalid right type")?;
-                        Type::Int(IntType::I8)
+                    Rel(rel_op) => {
+                        ensure_wf(matches!(left, Type::Int(_) | Type::Bool | Type::Ptr(_)), "BinOp::Rel: invalid left type")?;
+                        ensure_wf(right == left, "BinOp::Rel: invalid right type")?;
+                        match rel_op {
+                            RelOp::Cmp => Type::Int(IntType::I8),
+                            _ => Type::Bool,
+                        }
                     }
                     PtrOffset { inbounds: _ } => {
                         ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffset: invalid left type")?;

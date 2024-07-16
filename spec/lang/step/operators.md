@@ -15,7 +15,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_un_op(&self, op: IntUnOp, operand: Int) -> Result<Int> {
+    fn eval_int_un_op(op: IntUnOp, operand: Int) -> Result<Int> {
         use IntUnOp::*;
         ret(match op {
             Neg => -operand,
@@ -27,7 +27,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_int_un_op(op, operand)?;
+        let result = Self::eval_int_un_op(op, operand)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
@@ -39,7 +39,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast_op(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+    fn eval_cast_op(cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -59,7 +59,7 @@ impl<M: Memory> Machine<M> {
         }
     }
     fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        ret(self.eval_cast_op(cast_op, (operand, op_ty))?)
+        ret(Self::eval_cast_op(cast_op, (operand, op_ty))?)
     }
 }
 ```
@@ -83,7 +83,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_bin_op(&self, op: IntBinOp, left: Int, right: Int, left_ty: IntType) -> Result<Int> {
+    fn eval_int_bin_op(op: IntBinOp, left: Int, right: Int, left_ty: IntType) -> Result<Int> {
         use IntBinOp::*;
         ret(match op {
             Add => left + right,
@@ -167,7 +167,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = self.eval_int_bin_op(op, left, right, int_ty)?;
+        let result = Self::eval_int_bin_op(op, left, right, int_ty)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
@@ -200,52 +200,54 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Integer relations
+### Relational operators
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_rel(&self, rel: IntRel, left: Int, right: Int) -> bool {
-        use IntRel::*;
-        match rel {
+    fn eval_rel_op(rel: RelOp, left: Int, right: Int) -> (Value<M>, Type) {
+        use RelOp::*;
+        let b = match rel {
             Lt => left < right,
             Gt => left > right,
             Le => left <= right,
             Ge => left >= right,
             Eq => left == right,
             Ne => left != right,
+            Cmp => {
+                // 3-way comparison.
+                let result = if left < right {
+                    Int::from(-1)
+                } else if left == right {
+                    Int::from(0)
+                } else {
+                    Int::from(1)
+                };
+
+                // FIXME avoid using early return
+                return (Value::Int(result), Type::Int(IntType::I8));
+            }
+        };
+        (Value::Bool(b), Type::Bool)
+    }
+    /// Prepare a value for being compared with a `RelOp`. This involves turning it into an `Int`.
+    fn prepare_for_rel_op(val: Value<M>) -> Int {
+        match val {
+            Value::Int(i) => i,
+            Value::Bool(b) => if b { Int::from(1) } else { Int::from(0) },
+            Value::Ptr(p) => p.addr,
+            _ => panic!("invalid value for relational operator"),
         }
     }
     fn eval_bin_op(
         &self,
-        BinOp::IntRel(int_rel): BinOp,
+        BinOp::Rel(rel_op): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Value::Int(left) = left else { panic!("non-integer input to integer relation") };
-        let Value::Int(right) = right else { panic!("non-integer input to integer relation") };
+        let left = Self::prepare_for_rel_op(left);
+        let right = Self::prepare_for_rel_op(right);
 
-        let result = self.eval_int_rel(int_rel, left, right);
-        ret((Value::Bool(result), Type::Bool))
-    }
-
-    fn eval_bin_op(
-        &self,
-        BinOp::IntCmp: BinOp,
-        (left, l_ty): (Value<M>, Type),
-        (right, _r_ty): (Value<M>, Type)
-    ) -> Result<(Value<M>, Type)> {
-        let Value::Int(left) = left else { panic!("non-integer input to integer comparison") };
-        let Value::Int(right) = right else { panic!("non-integer input to integer comparison") };
-
-        let result = if left < right {
-            Int::from(-1_i8)
-        } else if left == right {
-            Int::from(0_i8)
-        } else {
-            Int::from(1_i8)
-        };
-
-        ret((Value::Int(result), Type::Int(IntType::I8)))
+        ret(Self::eval_rel_op(rel_op, left, right))
     }
 }
 ```

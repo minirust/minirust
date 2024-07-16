@@ -168,8 +168,9 @@ pub enum IntBinOpWithOverflow {
     /// and a bool indicating whether the calculation overflowed.
     Mul,
 }
-/// A relation between integers.
-pub enum IntRel {
+/// A relational operator indicates how two values are to be compared.
+/// Unless noted otherwise, these all return a Boolean.
+pub enum RelOp {
     /// less than
     Lt,
     /// greater than
@@ -182,21 +183,22 @@ pub enum IntRel {
     Eq,
     /// inequal
     Ne,
+    /// The three-way comparison; returns an i8:
+    /// * -1 if left <  right
+    /// *  0 if left == right
+    /// * +1 if left >  right
+    Cmp,
 }
 
 pub enum BinOp {
     /// An operation on integers (both must have the same type); returns an integer of the same type.
     Int(IntBinOp),
-    /// An operation on integers (both must have same type); returns a tuple of integer of the same type
+    /// An operation on integers (both must have the same type); returns a tuple of integer of the same type
     /// and a boolean that is true if the result is not equal to the infinite-precision result.
     IntWithOverflow(IntBinOpWithOverflow),
-    /// A relation between integers (both must have the same type); returns a boolean.
-    IntRel(IntRel),
-    /// The three-way comparison of integers (both must have same type); returns an i8:
-    /// * -1 if left <  right
-    /// *  0 if left == right
-    /// * +1 if left >  right
-    IntCmp,
+    /// Compares two values according to the given relational operator. Both must have the same type,
+    /// and they must both be integers, Booleans, or pointers.
+    Rel(RelOp),
 
     /// Add a byte-offset to a pointer (with or without inbounds requirement).
     /// Takes a pointer as left operand and an integer as right operand;

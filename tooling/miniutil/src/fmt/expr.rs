@@ -188,25 +188,21 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             };
             FmtExpr::Atomic(format!("{name}WithOverflow({l}, {r})"))
         }
-        ValueExpr::BinOp { operator: BinOp::IntRel(rel), left, right } => {
+        ValueExpr::BinOp { operator: BinOp::Rel(rel), left, right } => {
             let rel = match rel {
-                IntRel::Lt => "<",
-                IntRel::Le => "<=",
-                IntRel::Gt => ">",
-                IntRel::Ge => ">=",
-                IntRel::Eq => "==",
-                IntRel::Ne => "!=",
+                RelOp::Lt => "<",
+                RelOp::Le => "<=",
+                RelOp::Gt => ">",
+                RelOp::Ge => ">=",
+                RelOp::Eq => "==",
+                RelOp::Ne => "!=",
+                RelOp::Cmp => "<=>",
             };
 
             let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
 
             FmtExpr::NonAtomic(format!("{l} {rel} {r}"))
-        }
-        ValueExpr::BinOp { operator: BinOp::IntCmp, left, right } => {
-            let l = fmt_value_expr(left.extract(), comptypes).to_atomic_string();
-            let r = fmt_value_expr(right.extract(), comptypes).to_atomic_string();
-            FmtExpr::NonAtomic(format!("cmp({l}, {r})"))
         }
         ValueExpr::BinOp { operator: BinOp::PtrOffset { inbounds }, left, right } => {
             let offset_name = match inbounds {
