@@ -1,20 +1,44 @@
 use std::path::PathBuf;
 
 use ui_test::color_eyre::eyre::Result;
+use ui_test::dependencies::DependencyBuilder;
+use ui_test::spanned::Spanned;
 use ui_test::{
-    run_tests_generic, status_emitter, CommandBuilder, Config, Format, Mode, OutputConflictHandling,
+    run_tests_generic, status_emitter, CommandBuilder, Config, Format, OutputConflictHandling,
 };
+
+enum Mode {
+    Pass,
+    Panic,
+}
 
 fn cfg(path: &str, mode: Mode) -> Config {
     let mut program = CommandBuilder::rustc();
     program.program = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
-    Config {
-        mode,
+    let mut config = Config {
         program,
-        dependencies_crate_manifest_path: Some(PathBuf::from("./tests/deps/Cargo.toml")),
         out_dir: PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("ui"),
         ..Config::rustc(path)
-    }
+    };
+
+    let exit_status = match mode {
+        Mode::Pass => 0,
+        Mode::Panic => 101,
+    };
+    let require_annotations = false; // we're not showing errors in a specifc line anyway
+    config.comment_defaults.base().exit_status = Spanned::dummy(exit_status).into();
+    config.comment_defaults.base().require_annotations = Spanned::dummy(require_annotations).into();
+    // To let tests use dependencies, we have to add a `DependencyBuilder`
+    // custom "comment" (with arbitrary name), which will then take care
+    // of building the dependencies and making them available in the test.
+    config.comment_defaults.base().set_custom(
+        "dependencies",
+        DependencyBuilder {
+            crate_manifest_path: "./tests/deps/Cargo.toml".into(),
+            ..Default::default()
+        },
+    );
+    config
 }
 
 fn run_tests(mut configs: Vec<Config>) -> Result<()> {
@@ -24,10 +48,11 @@ fn run_tests(mut configs: Vec<Config>) -> Result<()> {
     let bless = std::env::var_os("BLESS").is_some_and(|v| v != "0");
 
     for config in configs.iter_mut() {
-        config.with_args(&args, bless);
-        if let OutputConflictHandling::Error(msg) = &mut config.output_conflict_handling {
-            *msg = "BLESS=1 ./test.sh".into();
+        config.with_args(&args);
+        if bless {
+            config.output_conflict_handling = OutputConflictHandling::Bless;
         }
+        config.bless_command = Some("BLESS=1 ./test.sh".into());
     }
 
     let text = match args.format {
