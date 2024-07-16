@@ -15,8 +15,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let l = self.translate_operand_smir(l, span);
                 let r = self.translate_operand_smir(r, span);
 
-                let bool_to_int = build::bool_to_int::<u8>;
-
                 use smir::BinOp::*;
                 match (bin_op, lty) {
                     (Offset, Type::Ptr(_)) => build::ptr_offset(l, r, build::InBounds::Yes),
@@ -37,14 +35,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (ShlUnchecked, Type::Int(_)) => build::shl_unchecked(l, r),
                     (ShrUnchecked, Type::Int(_)) => build::shr_unchecked(l, r),
 
-                    (Lt, Type::Int(_)) => build::lt(l, r),
-                    (Le, Type::Int(_)) => build::le(l, r),
-                    (Gt, Type::Int(_)) => build::gt(l, r),
-                    (Ge, Type::Int(_)) => build::ge(l, r),
-                    (Eq, Type::Int(_)) => build::eq(l, r),
-                    (Ne, Type::Int(_)) => build::ne(l, r),
+                    (Lt, _) => build::lt(l, r),
+                    (Le, _) => build::le(l, r),
+                    (Gt, _) => build::gt(l, r),
+                    (Ge, _) => build::ge(l, r),
+                    (Eq, _) => build::eq(l, r),
+                    (Ne, _) => build::ne(l, r),
 
-                    (Cmp, Type::Int(_)) => {
+                    (Cmp, _) => {
                         let res = build::cmp(l, r);
                         // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
                         // so we have to transmute the result.
@@ -56,13 +54,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (BitAnd, Type::Bool) => build::bool_and(l, r),
                     (BitOr, Type::Bool) => build::bool_or(l, r),
                     (BitXor, Type::Bool) => build::bool_xor(l, r),
-
-                    (Lt, Type::Bool) => build::lt(bool_to_int(l), bool_to_int(r)),
-                    (Le, Type::Bool) => build::le(bool_to_int(l), bool_to_int(r)),
-                    (Gt, Type::Bool) => build::gt(bool_to_int(l), bool_to_int(r)),
-                    (Ge, Type::Bool) => build::ge(bool_to_int(l), bool_to_int(r)),
-                    (Eq, Type::Bool) => build::eq(bool_to_int(l), bool_to_int(r)),
-                    (Ne, Type::Bool) => build::ne(bool_to_int(l), bool_to_int(r)),
 
                     (op, _) =>
                         rs::span_bug!(span, "Binary Op {op:?} not supported for type {lty_smir}."),

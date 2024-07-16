@@ -459,16 +459,17 @@ fn cmp_works() {
 #[test]
 fn cmp_ill_formed_left() {
     let mut p = ProgramBuilder::new();
+    let tuple_ty = tuple_ty(&[(offset(0), Type::Bool), (offset(1), Type::Bool)], size(2), align(1));
 
     let mut f = p.declare_function();
     let loc = f.declare_local::<i8>();
     f.storage_live(loc);
-    f.assign(loc, cmp(const_bool(false), const_int(0_i32)));
+    f.assign(loc, cmp(tuple(&[const_bool(false), const_bool(false)], tuple_ty), const_int(0_i32)));
     f.exit();
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "BinOp::IntCmp: invalid left type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::Rel: invalid left type");
 }
 
 #[test]
@@ -483,7 +484,7 @@ fn cmp_ill_formed_right() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "BinOp::IntCmp: invalid right type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::Rel: invalid right type");
 }
 
 #[test]
