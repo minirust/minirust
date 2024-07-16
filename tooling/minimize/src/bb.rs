@@ -179,8 +179,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     fallback: panic_bb,
                 }
             }
-            // those are IGNORED currently.
-            rs::TerminatorKind::Drop { target, .. } => Terminator::Goto(self.bb_name_map[&target]),
+            rs::TerminatorKind::Drop { place, target, .. } => {
+                let ty = place.ty(&self.body, self.tcx).ty;
+                let drop_in_place_fn = rs::Instance::resolve_drop_in_place(self.tcx, ty);
+                let place = self.translate_place(place, span);
+                let ptr_to_drop = build::addr_of(place, build::raw_ptr_ty());
+
+                Terminator::Call {
+                    callee: build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn)),
+                    calling_convention: CallingConvention::Rust,
+                    arguments: list![ArgumentExpr::ByValue(ptr_to_drop)],
+                    ret: zst_place(),
+                    next_block: Some(self.bb_name_map[&target]),
+                }
+            }
             x => rs::span_bug!(span, "terminator not supported: {x:?}"),
         }
     }
@@ -332,7 +344,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .collect();
 
             Terminator::Call {
-                callee: build::fn_ptr_conv(self.cx.get_fn_name(instance).0.get_internal(), conv),
+                callee: build::fn_ptr(self.cx.get_fn_name(instance)),
+                calling_convention: conv,
                 arguments: args,
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),

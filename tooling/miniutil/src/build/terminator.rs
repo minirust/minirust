@@ -32,7 +32,8 @@ impl FunctionBuilder {
     /// Call a function that does not return.
     pub fn call_noret(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
         self.finish_block(Terminator::Call {
-            callee: fn_ptr_by_name(f),
+            callee: fn_ptr(f),
+            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret,
             next_block: None,
@@ -43,7 +44,8 @@ impl FunctionBuilder {
     pub fn call(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
         self.finish_block(Terminator::Call {
-            callee: fn_ptr_by_name(f),
+            callee: fn_ptr(f),
+            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret,
             next_block: Some(next_block),
@@ -55,7 +57,8 @@ impl FunctionBuilder {
     pub fn call_ignoreret(&mut self, f: FnName, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
         self.finish_block(Terminator::Call {
-            callee: fn_ptr_by_name(f),
+            callee: fn_ptr(f),
+            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret: zst_place(),
             next_block: Some(next_block),
@@ -95,7 +98,7 @@ impl FunctionBuilder {
 
     pub fn spawn(&mut self, f: FnName, data_ptr: ValueExpr, ret: PlaceExpr) {
         let next_block = self.declare_block();
-        self.finish_block(spawn(fn_ptr_by_name(f), data_ptr, ret, bbname_into_u32(next_block)));
+        self.finish_block(spawn(fn_ptr(f), data_ptr, ret, bbname_into_u32(next_block)));
         self.set_cur_block(next_block)
     }
 
@@ -288,7 +291,8 @@ pub fn unreachable() -> Terminator {
 
 pub fn call(f: u32, args: &[ArgumentExpr], ret: PlaceExpr, next: Option<u32>) -> Terminator {
     Terminator::Call {
-        callee: fn_ptr(f),
+        callee: fn_ptr_internal(f),
+        calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
         arguments: args.iter().copied().collect(),
         ret,
         next_block: next.map(|x| BbName(Name::from_internal(x))),

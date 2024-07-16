@@ -63,15 +63,7 @@ pub enum PtrType {
         pointee: Layout,
     },
     Raw,
-    FnPtr(CallingConvention),
-}
-
-/// The `CallingConvention` defines how function arguments and return values are passed.
-///
-/// The assumption is that if caller and callee agree on the calling convention, and all arguments and the return types
-/// pass `check_abi_compatibility`, then this implies they are ABI-compatible on real implementations.
-pub enum CallingConvention {
-    Rust, C,
+    FnPtr,
 }
 
 impl PtrType {
@@ -79,7 +71,7 @@ impl PtrType {
     pub fn safe_pointee(self) -> Option<Layout> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
-            PtrType::Raw | PtrType::FnPtr(_) => None,
+            PtrType::Raw | PtrType::FnPtr => None,
         }
     }
 

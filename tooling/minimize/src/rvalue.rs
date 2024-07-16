@@ -227,7 +227,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 };
                 let instance = smir::Instance::resolve(f, &substs_ref).unwrap();
 
-                build::fn_ptr(self.cx.get_fn_name_smir(instance).0.get_internal())
+                build::fn_ptr_internal(self.cx.get_fn_name_smir(instance).0.get_internal())
             }
             smir::Rvalue::NullaryOp(smir::NullOp::UbChecks, _ty) => {
                 // Like Miri, since we are able to detect language UB ourselves we can disable these checks.
