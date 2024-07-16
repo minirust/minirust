@@ -14,7 +14,8 @@ fn call_success() {
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
-            callee: fn_ptr(1),
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
             arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -35,7 +36,8 @@ fn call_non_exist() {
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
-            callee: fn_ptr(1),
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
             arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -56,7 +58,8 @@ fn call_arg_count() {
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
-            callee: fn_ptr(1),
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
             arguments: list![],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -77,7 +80,8 @@ fn call_arg_abi() {
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
-            callee: fn_ptr(1),
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
             arguments: list![by_value(const_int::<i32>(42))],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),
@@ -98,7 +102,8 @@ fn call_ret_abi() {
     let b0 = block!(
         storage_live(0),
         Terminator::Call {
-            callee: fn_ptr(1),
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
             arguments: list![by_value(unit())],
             ret: local(0),
             next_block: Some(BbName(Name::from_internal(1))),

@@ -42,7 +42,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             FmtExpr::Atomic(format!("Box<{layout_str}>"))
         }
         PtrType::Raw => FmtExpr::NonAtomic(format!("*raw")),
-        PtrType::FnPtr(conv) => FmtExpr::Atomic(format!("fn({conv:?})")),
+        PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
     }
 }
 

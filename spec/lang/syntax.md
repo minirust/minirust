@@ -316,6 +316,8 @@ pub enum Terminator {
     /// Call the given function with the given arguments.
     Call {
         callee: ValueExpr,
+        /// The calling convention to use for this call.
+        calling_convention: CallingConvention,
         /// The arguments to pass.
         arguments: List<ArgumentExpr>,
         /// The place to put the return value into.
@@ -337,6 +339,14 @@ pub enum ArgumentExpr {
     ByValue(ValueExpr),
     /// Pass the argument value in-place; the contents of this place may be altered arbitrarily by the callee.
     InPlace(PlaceExpr),
+}
+
+/// The `CallingConvention` defines how function arguments and return values are passed.
+///
+/// The assumption is that if caller and callee agree on the calling convention, and all arguments and the return types
+/// pass `check_abi_compatibility`, then this implies they are ABI-compatible on real implementations.
+pub enum CallingConvention {
+    Rust, C,
 }
 
 pub enum IntrinsicLockOp {

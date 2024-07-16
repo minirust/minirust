@@ -106,7 +106,8 @@ fn mk_start_fn(entry: u32) -> Function {
     let b0 = BasicBlock {
         statements: List::new(),
         terminator: Terminator::Call {
-            callee: build::fn_ptr_conv(entry, CallingConvention::Rust),
+            callee: build::fn_ptr_internal(entry),
+            calling_convention: CallingConvention::Rust,
             arguments: List::new(),
             ret: build::zst_place(),
             next_block: Some(b1_name),

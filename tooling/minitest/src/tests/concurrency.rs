@@ -28,7 +28,7 @@ fn arbitrary_order() {
 
     // Spawn thread-1 and store its id at local(0).
     // The function given to it tries to write 1.
-    let b1 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 2));
+    let b1 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 2));
 
     // Write 2 to global(1) within critical section.
     let b2 = block!(lock_acquire(load(global::<u32>(0)), 3));

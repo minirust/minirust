@@ -32,7 +32,7 @@ fn racy_program(main_access: AccessPattern, s_access: AccessPattern) -> Program 
     // The main thread.
     let main_locals = [<u32>::get_type()];
 
-    let main_b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let main_b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let main_b1 = access_block(main_access, 1, 2);
     let main_b2 = block!(join(load(local(0)), 3),);
     let main_b3 = block!(exit());

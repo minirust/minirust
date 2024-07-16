@@ -41,7 +41,7 @@ impl PtrType {
             PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw | PtrType::FnPtr(_) => ()
+            PtrType::Raw | PtrType::FnPtr => ()
         }
 
         ret(())
@@ -551,9 +551,9 @@ impl Terminator {
                     ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
                 }
             }
-            Call { callee, arguments, ret, next_block } => {
+            Call { callee, calling_convention: _, arguments, ret, next_block } => {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr(_))), "Terminator::Call: invalid type")?;
+                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
 
                 // Return and argument expressions must all typecheck with some type.
                 ret.check_wf::<T>(func.locals, prog)?;

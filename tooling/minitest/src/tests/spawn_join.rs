@@ -10,7 +10,7 @@ fn dummy_function() -> Function {
 fn spawn_success() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -45,7 +45,7 @@ fn thread_spawn_spurious_race() {
     let b1 = block!(
         storage_live(1),
         assign(deref(load(local(0)), pp_ptype), load(local(0))),
-        spawn(fn_ptr(1), load(deref(load(local(0)), pp_ptype)), local(1), 2)
+        spawn(fn_ptr_internal(1), load(deref(load(local(0)), pp_ptype)), local(1), 2)
     );
     let b2 = block!(join(load(local(1)), 3));
     let b3 = block!(deallocate(load(local(0)), size, align, 4,));
@@ -103,7 +103,7 @@ fn no_args() -> Function {
 #[test]
 fn spawn_func_no_args() {
     let locals = [<i32>::get_type()];
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -121,7 +121,7 @@ fn returns() -> Function {
 fn spawn_func_returns() {
     let locals = [<i32>::get_type()];
 
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -133,7 +133,7 @@ fn spawn_func_returns() {
 fn spawn_wrongreturn() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -146,7 +146,8 @@ fn spawn_wrongreturn() {
 fn spawn_data_ptr() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), const_int::<usize>(0), zst_place(), 1),);
+    let b0 =
+        block!(storage_live(0), spawn(fn_ptr_internal(1), const_int::<usize>(0), zst_place(), 1),);
     let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
@@ -165,7 +166,7 @@ fn wrongarg() -> Function {
 fn spawn_wrongarg() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(storage_live(0), spawn(fn_ptr(1), null(), local(0), 1),);
+    let b0 = block!(storage_live(0), spawn(fn_ptr_internal(1), null(), local(0), 1),);
     let b1 = block!(join(load(local(0)), 2),);
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);

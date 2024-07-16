@@ -37,7 +37,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::Constant(Constant::Bool(val), ty)
             }
             Type::Ptr(ptr_ty) => {
-                if let PtrType::FnPtr(_) = ptr_ty {
+                if let PtrType::FnPtr = ptr_ty {
                     rs::span_bug!(span, "Function pointers are currently not supported")
                 }
                 let ptr = ecx.read_pointer(&val).unwrap();

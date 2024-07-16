@@ -83,14 +83,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let elem = GcCow::new(self.translate_ty(*ty, span));
                 Type::Array { elem, count }
             }
-            rs::TyKind::FnPtr(sig) => {
-                let abi = self
-                    .tcx
-                    .fn_abi_of_fn_ptr(rs::ParamEnv::reveal_all().and((*sig, rs::List::empty())))
-                    .unwrap();
-
-                Type::Ptr(PtrType::FnPtr(translate_calling_convention(abi.conv)))
-            }
+            rs::TyKind::FnPtr(_sig) => Type::Ptr(PtrType::FnPtr),
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),

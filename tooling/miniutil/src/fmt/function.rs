@@ -115,6 +115,7 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
 // used both for functions and intrinsics.
 fn fmt_call(
     callee: &str,
+    conv: CallingConvention,
     args: String,
     ret: PlaceExpr,
     next_block: Option<BbName>,
@@ -132,7 +133,13 @@ fn fmt_call(
         None => String::new(),
     };
 
-    format!("    {r} = {callee}({args}){next};")
+    // Format calling convention
+    let conv = match conv {
+        CallingConvention::Rust => format!(""),
+        c => format!("extern \"{c:?}\""),
+    };
+
+    format!("    {r} = {conv}{callee}({args}){next};")
 }
 
 fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
@@ -158,7 +165,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Unreachable => {
             format!("    unreachable;")
         }
-        Terminator::Call { callee, arguments, ret, next_block } => {
+        Terminator::Call { callee, calling_convention: conv, arguments, ret, next_block } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
             let args: Vec<_> = arguments
                 .iter()
@@ -173,7 +180,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                     }
                 })
                 .collect();
-            fmt_call(&callee, args.join(", "), ret, next_block, comptypes)
+            fmt_call(&callee, conv, args.join(", "), ret, next_block, comptypes)
         }
         Terminator::Return => {
             format!("    return;")
@@ -202,7 +209,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();
-            fmt_call(callee, args.join(", "), ret, next_block, comptypes)
+            fmt_call(callee, CallingConvention::Rust, args.join(", "), ret, next_block, comptypes)
         }
     }
 }
