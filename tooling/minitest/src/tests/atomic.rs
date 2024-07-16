@@ -19,7 +19,7 @@ fn atomic_store_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn atomic_store_arg_count() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `AtomicStore` intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `AtomicStore` intrinsic")
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn atomic_store_arg_type1() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `AtomicStore` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(p, "invalid first argument to `AtomicStore` intrinsic: not a pointer")
 }
 
 #[test]
@@ -73,7 +73,10 @@ fn atomic_store_arg_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `AtomicStore` intrinsic: size not power of two")
+    assert_ub::<BasicMem>(
+        p,
+        "invalid second argument to `AtomicStore` intrinsic: size not power of two",
+    )
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -97,7 +100,7 @@ fn atomic_store_arg_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid second argument to `AtomicStore` intrinsic: size too big")
+    assert_ub::<BasicMem>(p, "invalid second argument to `AtomicStore` intrinsic: size too big")
 }
 
 #[test]
@@ -119,7 +122,7 @@ fn atomic_store_ret_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `AtomicStore` intrinsic")
+    assert_ub::<BasicMem>(p, "invalid return type for `AtomicStore` intrinsic")
 }
 
 #[test]
@@ -141,7 +144,7 @@ fn atomic_load_success() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -161,7 +164,7 @@ fn atomic_load_arg_count() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `AtomicLoad` intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `AtomicLoad` intrinsic")
 }
 
 #[test]
@@ -181,7 +184,7 @@ fn atomic_load_arg_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `AtomicLoad` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(p, "invalid first argument to `AtomicLoad` intrinsic: not a pointer")
 }
 
 #[test]
@@ -195,7 +198,10 @@ fn atomic_load_ret_type_pow() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `AtomicLoad` intrinsic: size not power of two")
+    assert_ub::<BasicMem>(
+        p,
+        "invalid return type for `AtomicLoad` intrinsic: size not power of two",
+    )
 }
 
 // This test assumes that we test on a memory with `MAX_ATOMIC_SIZE <= 8 byte`.
@@ -210,5 +216,5 @@ fn atomic_load_ret_type_size() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `AtomicLoad` intrinsic: size too big")
+    assert_ub::<BasicMem>(p, "invalid return type for `AtomicLoad` intrinsic: size too big")
 }

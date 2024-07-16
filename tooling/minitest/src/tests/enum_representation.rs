@@ -15,7 +15,7 @@ fn ill_sized_enum_variant() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Type::Enum: variant size is not the same as enum size");
+    assert_ill_formed::<BasicMem>(prog, "Type::Enum: variant size is not the same as enum size");
 }
 
 /// Ill-formed: the two variants have different sizes
@@ -33,7 +33,7 @@ fn inconsistently_sized_enum_variants() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Type::Enum: variant size is not the same as enum size");
+    assert_ill_formed::<BasicMem>(prog, "Type::Enum: variant size is not the same as enum size");
 }
 
 /// Ill-formed: no variants but discriminator returns variant 1
@@ -43,7 +43,7 @@ fn ill_formed_discriminator() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Discriminator: invalid discriminant");
+    assert_ill_formed::<BasicMem>(prog, "Discriminator: invalid discriminant");
 }
 
 /// Ill-formed: discriminator branch has a case of -1 which is an invalid value for u8.
@@ -73,7 +73,7 @@ fn ill_formed_discriminator_branch() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Discriminator: invalid branch start bound");
+    assert_ill_formed::<BasicMem>(prog, "Discriminator: invalid branch start bound");
 }
 
 /// Ill-formed: the discriminator branch children overlap.
@@ -96,7 +96,7 @@ fn ill_formed_discriminator_overlaps() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Discriminator: branch ranges overlap");
+    assert_ill_formed::<BasicMem>(prog, "Discriminator: branch ranges overlap");
 }
 
 /// Ill-formed: the discriminator branch children overlap.
@@ -119,7 +119,7 @@ fn ill_formed_discriminator_overlaps_2() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Discriminator: branch ranges overlap");
+    assert_ill_formed::<BasicMem>(prog, "Discriminator: branch ranges overlap");
 }
 
 /// Ill-formed: discriminant is of type u8 but variant has discriminant -1.
@@ -135,7 +135,7 @@ fn ill_formed_discriminant_value() {
     let locals = &[enum_ty];
     let stmts = &[];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "Type::Enum: invalid value for discriminant");
+    assert_ill_formed::<BasicMem>(prog, "Type::Enum: invalid value for discriminant");
 }
 
 /// Works: simple roundtrip for both variants of an enum like Option<bool>
@@ -166,7 +166,7 @@ fn simple_two_variant_works() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_stop::<BasicMem>(prog)
 }
 
 /// UB: Loading an uninhabited enum is UB as such a value is impossible to produce
@@ -180,7 +180,7 @@ fn loading_uninhabited_enum_is_ub() {
         assign(local(0), load(local(0))), // UB here.
     ];
     let prog = small_program(locals, stmts);
-    assert_ub(
+    assert_ub::<BasicMem>(
         prog,
         "load at type Enum { variants: Map({}), discriminant_ty: IntType { signed: Unsigned, size: Size(1 bytes) }, discriminator: Invalid, size: Size(0 bytes), align: Align(1 bytes) } but the data in memory violates the validity invariant",
     );
@@ -196,7 +196,7 @@ fn ill_formed_variant_constant() {
         assign(local(0), variant(0, unit(), enum_ty)), // ill-formed here
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "ValueExpr::Variant: invalid discriminant");
+    assert_ill_formed::<BasicMem>(prog, "ValueExpr::Variant: invalid discriminant");
 }
 
 /// Ill-formed: The data of the variant value does not match the type
@@ -214,7 +214,7 @@ fn ill_formed_variant_constant_data() {
         assign(local(0), variant(1, unit(), enum_ty)), // ill-formed here
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "ValueExpr::Variant: invalid discriminant");
+    assert_ill_formed::<BasicMem>(prog, "ValueExpr::Variant: invalid discriminant");
 }
 
 /// Ill-formed: Ensures that the enum alignment is at least as big as all the variant alignments.
@@ -229,7 +229,7 @@ fn ill_formed_enum_must_have_maximal_alignment_of_inner() {
     let locals = [enum_ty];
     let stmts = [];
     let prog = small_program(&locals, &stmts);
-    assert_ill_formed(prog, "Type::Enum: invalid align requirement");
+    assert_ill_formed::<BasicMem>(prog, "Type::Enum: invalid align requirement");
 }
 
 const U32_INTTYPE: IntType =
@@ -264,7 +264,7 @@ fn larger_sized_tag_works() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_stop::<BasicMem>(prog)
 }
 
 /// Works: Tests that using a tag larger than u8 has no alignment requirements.
@@ -296,7 +296,7 @@ fn larger_tag_has_no_alignment() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_stop::<BasicMem>(prog)
 }
 
 /// Works: tests that negative discriminants are valid.
@@ -326,5 +326,5 @@ fn negative_discriminants_work() {
         storage_dead(0),
     ];
     let prog = small_program(locals, statements);
-    assert_stop(prog)
+    assert_stop::<BasicMem>(prog)
 }

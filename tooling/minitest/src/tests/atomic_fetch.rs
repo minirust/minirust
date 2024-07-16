@@ -26,7 +26,7 @@ fn atomic_fetch_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3, b4]);
     let p = program(&[f]);
 
-    let output = get_stdout(p).unwrap();
+    let output = get_stdout::<BasicMem>(p).unwrap();
     assert_eq!(output[0], "4");
     assert_eq!(output[1], "2");
 }
@@ -46,7 +46,7 @@ fn atomic_fetch_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid number of arguments for `AtomicFetchAndOp` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `AtomicFetchAndOp` intrinsic");
 }
 
 #[test]
@@ -64,7 +64,10 @@ fn atomic_fetch_arg_1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(
+        p,
+        "invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer",
+    );
 }
 
 #[test]
@@ -84,7 +87,7 @@ fn atomic_fetch_arg_2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(
+    assert_ub::<BasicMem>(
         p,
         "invalid second argument to `AtomicFetchAndOp` intrinsic: not same type as return value",
     );
@@ -109,7 +112,10 @@ fn atomic_fetch_ret_ty() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
+    assert_ub::<BasicMem>(
+        p,
+        "invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers",
+    );
 }
 
 #[test]
@@ -129,7 +135,7 @@ fn atomic_fetch_int_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `AtomicFetchAndOp` intrinsic: size too big");
+    assert_ub::<BasicMem>(p, "invalid return type for `AtomicFetchAndOp` intrinsic: size too big");
 }
 
 #[test]
@@ -154,5 +160,5 @@ fn atomic_fetch_op() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ill_formed(p, "IntrinsicOp::AtomicFetchAndOp: non atomic op");
+    assert_ill_formed::<BasicMem>(p, "IntrinsicOp::AtomicFetchAndOp: non atomic op");
 }

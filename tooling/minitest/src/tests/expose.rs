@@ -17,7 +17,7 @@ fn pointer_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Test if `expose` called with non-pointer is UB
@@ -30,5 +30,8 @@ fn requires_pointer() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "invalid argument for `PointerExposeProvenance` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(
+        program,
+        "invalid argument for `PointerExposeProvenance` intrinsic: not a pointer",
+    );
 }

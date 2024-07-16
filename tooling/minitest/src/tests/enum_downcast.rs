@@ -16,7 +16,7 @@ fn out_of_bounds_downcast() {
         assign(local(1), load(downcast(local(0), 1))), // ill-formed here, variant 1 doesn't exist
     ];
     let prog = small_program(locals, stmts);
-    assert_ill_formed(prog, "PlaceExpr::Downcast: invalid discriminant");
+    assert_ill_formed::<BasicMem>(prog, "PlaceExpr::Downcast: invalid discriminant");
 }
 
 /// Works: Both assigning to and from a downcast.
@@ -37,7 +37,7 @@ fn valid_downcast() {
         assign(local(1), load(downcast(local(0), 0))),
     ];
     let prog = small_program(locals, stmts);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 /// UB: Assigning to first byte of variant 0 doesn't init both data bytes of variant 1.
@@ -74,7 +74,7 @@ fn downcasts_give_different_place() {
         assign(local(1), load(field(downcast(local(0), 1), 0))), // UB here, only the lower byte is initialized
     ];
     let prog = small_program(locals, stmts);
-    assert_ub(
+    assert_ub::<BasicMem>(
         prog,
         "load at type Int(IntType { signed: Unsigned, size: Size(2 bytes) }) but the data in memory violates the validity invariant",
     );
@@ -114,5 +114,5 @@ fn downcasts_give_different_place2() {
         assign(local(1), load(field(downcast(local(0), 0), 0))),
     ];
     let prog = small_program(locals, stmts);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }

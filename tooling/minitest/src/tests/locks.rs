@@ -56,7 +56,7 @@ fn lock_handover() {
     }
 
     let p = p.finish_program(main);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn lock_handover_data_race() {
     }
 
     let p = p.finish_program(main);
-    assert_stop_always(p, 10);
+    assert_stop_always::<BasicMem>(p, 10);
 }
 
 // UB Tests for Acquire
@@ -146,7 +146,7 @@ fn acquire_arg_count() {
     let f = function(Ret::No, 0, &[], &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Acquire` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn acquire_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Acquire` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid first argument to `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -178,7 +178,7 @@ fn acquire_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Acquire` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid return type for `Acquire` lock intrinsic")
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn acquire_non_existent() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "acquiring non-existing lock")
+    assert_ub::<BasicMem>(p, "acquiring non-existing lock")
 }
 
 // UB Tests for Release
@@ -213,7 +213,7 @@ fn release_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Release` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Release` lock intrinsic")
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn release_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Release` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid first argument to `Release` lock intrinsic")
 }
 
 #[test]
@@ -245,7 +245,7 @@ fn release_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Release` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid return type for `Release` lock intrinsic")
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn release_non_existent() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "releasing non-existing lock")
+    assert_ub::<BasicMem>(p, "releasing non-existing lock")
 }
 
 #[test]
@@ -274,7 +274,7 @@ fn release_non_owned() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f]);
-    assert_ub(p, "releasing non-acquired lock")
+    assert_ub::<BasicMem>(p, "releasing non-acquired lock")
 }
 
 // UB on Create lock
@@ -296,7 +296,7 @@ fn create_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Create` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Create` lock intrinsic")
 }
 
 #[test]
@@ -316,7 +316,7 @@ fn create_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `Create` lock intrinsic")
+    assert_ub::<BasicMem>(p, "invalid return type for `Create` lock intrinsic")
 }
 
 // Other errors
@@ -357,5 +357,5 @@ fn deadlock() {
     }
 
     let p = p.finish_program(main);
-    assert_deadlock(p);
+    assert_deadlock::<BasicMem>(p);
 }

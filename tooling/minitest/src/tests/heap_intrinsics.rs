@@ -21,7 +21,7 @@ fn dynamic_memory() {
     let b2 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn alloc_argcount() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid number of arguments for `Allocate` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Allocate` intrinsic");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn alloc_align_err() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid alignment for `Allocate` intrinsic: not a power of 2");
+    assert_ub::<BasicMem>(p, "invalid alignment for `Allocate` intrinsic: not a power of 2");
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn alloc_size_err() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid size for `Allocate` intrinsic: negative size");
+    assert_ub::<BasicMem>(p, "invalid size for `Allocate` intrinsic: negative size");
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn alloc_wrongarg1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid first argument to `Allocate` intrinsic: not an integer");
+    assert_ub::<BasicMem>(p, "invalid first argument to `Allocate` intrinsic: not an integer");
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn alloc_wrongarg2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid second argument to `Allocate` intrinsic: not an integer");
+    assert_ub::<BasicMem>(p, "invalid second argument to `Allocate` intrinsic: not an integer");
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn alloc_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid return type for `Allocate` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `Allocate` intrinsic");
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn dealloc_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn dealloc_argcount() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid number of arguments for `Deallocate` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Deallocate` intrinsic");
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn dealloc_align_err() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid alignment for `Deallocate` intrinsic: not a power of 2");
+    assert_ub::<BasicMem>(p, "invalid alignment for `Deallocate` intrinsic: not a power of 2");
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn dealloc_size_err() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid size for `Deallocate` intrinsic: negative size");
+    assert_ub::<BasicMem>(p, "invalid size for `Deallocate` intrinsic: negative size");
 }
 
 #[test]
@@ -254,7 +254,7 @@ fn dealloc_wrongarg1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid first argument to `Deallocate` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(p, "invalid first argument to `Deallocate` intrinsic: not a pointer");
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn dealloc_wrongarg2() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid second argument to `Deallocate` intrinsic: not an integer");
+    assert_ub::<BasicMem>(p, "invalid second argument to `Deallocate` intrinsic: not an integer");
 }
 
 #[test]
@@ -298,7 +298,7 @@ fn dealloc_wrongarg3() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid third argument to `Deallocate` intrinsic: not an integer");
+    assert_ub::<BasicMem>(p, "invalid third argument to `Deallocate` intrinsic: not an integer");
 }
 
 #[test]
@@ -320,7 +320,7 @@ fn dealloc_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid return type for `Deallocate` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `Deallocate` intrinsic");
 }
 
 #[test]
@@ -342,7 +342,7 @@ fn mem_dealloc_wrong_size() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "deallocating with incorrect size information");
+    assert_ub::<BasicMem>(p, "deallocating with incorrect size information");
 }
 
 #[test]
@@ -364,7 +364,7 @@ fn mem_dealloc_wrong_align() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "deallocating with incorrect alignment information");
+    assert_ub::<BasicMem>(p, "deallocating with incorrect alignment information");
 }
 
 #[test]
@@ -394,7 +394,7 @@ fn mem_dealloc_inv_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "deallocating invalid pointer");
+    assert_ub::<BasicMem>(p, "deallocating invalid pointer");
 }
 
 #[test]
@@ -414,7 +414,7 @@ fn mem_dealloc_not_beginning() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "deallocating with pointer not to the beginning of its allocation");
+    assert_ub::<BasicMem>(p, "deallocating with pointer not to the beginning of its allocation");
 }
 
 #[test]
@@ -427,7 +427,7 @@ fn double_free() {
     let b3 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2, b3]);
     let p = program(&[f]);
-    assert_ub(p, "double-free");
+    assert_ub::<BasicMem>(p, "double-free");
 }
 
 #[test]
@@ -446,7 +446,7 @@ fn use_after_free() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
-    assert_ub(p, "dereferencing pointer to dead allocation");
+    assert_ub::<BasicMem>(p, "dereferencing pointer to dead allocation");
 }
 
 #[test]
@@ -466,7 +466,7 @@ fn memory_leak() {
     let main = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[main]);
-    assert_memory_leak(p);
+    assert_memory_leak::<BasicMem>(p);
 }
 
 #[test]
@@ -478,5 +478,5 @@ fn mem_dealloc_stack() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "deallocating Stack memory with Heap deallocation operation");
+    assert_ub::<BasicMem>(p, "deallocating Stack memory with Heap deallocation operation");
 }

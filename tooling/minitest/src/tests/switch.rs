@@ -8,7 +8,7 @@ fn if_works() {
     let blocks = [block!(if_(const_bool(true), 1, 2)), block!(exit()), block!(unreachable())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// tests that the else case can be reached.
@@ -19,7 +19,7 @@ fn else_works() {
     let blocks = [block!(if_(const_bool(false), 1, 2)), block!(unreachable()), block!(exit())];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// tests that an integer switch that switches on a boolean is ill-formed.
@@ -32,7 +32,7 @@ fn boolean_switch_is_ill_formed() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ill_formed(program, "Terminator::Switch: switch is not Int");
+    assert_ill_formed::<BasicMem>(program, "Terminator::Switch: switch is not Int");
 }
 
 /// tests that switch_int can access an arbitrary case and the fallback case.
@@ -47,7 +47,7 @@ fn switch_int_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 const U8_INTTYPE: IntType =
@@ -93,5 +93,5 @@ fn switch_enum_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }

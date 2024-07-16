@@ -21,7 +21,7 @@ fn inbounds_success() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn oob_success() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn inbounds_cross_alloc() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ub(p, "dereferencing pointer outside the bounds of its allocation");
+    assert_ub::<BasicMem>(p, "dereferencing pointer outside the bounds of its allocation");
 }
 
 #[test]
@@ -87,5 +87,5 @@ fn inbounds_cross_alloc_same_addr() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }

@@ -25,7 +25,7 @@ fn call_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn call_non_exist() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ill_formed(p, "Constant::FnPointer: invalid function name");
+    assert_ill_formed::<BasicMem>(p, "Constant::FnPointer: invalid function name");
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn call_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: number of arguments does not agree");
+    assert_ub::<BasicMem>(p, "call ABI violation: number of arguments does not agree");
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn call_arg_abi() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: argument types are not compatible");
+    assert_ub::<BasicMem>(p, "call ABI violation: argument types are not compatible");
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn call_ret_abi() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: return types are not compatible");
+    assert_ub::<BasicMem>(p, "call ABI violation: return types are not compatible");
 }
 
 #[test]
@@ -134,5 +134,5 @@ fn ret_mismatch() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f]);
     dump_program(p);
-    assert_ub(p, "call ABI violation: return types are not compatible");
+    assert_ub::<BasicMem>(p, "call ABI violation: return types are not compatible");
 }

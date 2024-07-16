@@ -13,7 +13,10 @@ fn ill_formed_invalid_discriminant_set() {
         set_discriminant(local(0), 0), // ill-formed here
     ];
     let program = small_program(&locals, &stmts);
-    assert_ill_formed(program, "Statement::SetDiscriminant: invalid discriminant write");
+    assert_ill_formed::<BasicMem>(
+        program,
+        "Statement::SetDiscriminant: invalid discriminant write",
+    );
 }
 
 /// Tests that both `get_discriminant` and `set_discriminant` generally work.
@@ -47,7 +50,7 @@ fn discriminant_get_and_set_work() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Tests that `set_discriminant` actually sets the right values for all variants.
@@ -101,7 +104,7 @@ fn discriminant_setting_right_value() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Tests the integrity of the enum data after set_discriminant.
@@ -151,7 +154,7 @@ fn discriminant_leaves_data_alone() {
     ];
     let function = function(Ret::No, 0, &locals, &blocks);
     let program = program(&[function]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Tests that set_discriminant does not init the data byte.
@@ -185,7 +188,7 @@ fn ub_discriminant_does_not_init() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(
+    assert_ub::<BasicMem>(
         program,
         "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant",
     );
@@ -222,7 +225,7 @@ fn ub_cannot_read_uninit_discriminant() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
+    assert_ub::<BasicMem>(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
 }
 
 /// Tests that reading from an invalid discriminant is UB.
@@ -254,7 +257,7 @@ fn ub_cannot_read_invalid_discriminant() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_ub(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
+    assert_ub::<BasicMem>(program, "ValueExpr::GetDiscriminant encountered invalid discriminant.");
 }
 
 /// Reading discriminant from mis-aligned enum (ptr) is UB.
@@ -281,7 +284,10 @@ fn ub_get_discriminant_on_misaligned_enum() {
         ),
     ];
     let prog = small_program(&locals, &stmts);
-    assert_ub(prog, "Getting the discriminant of a place based on a misaligned pointer.");
+    assert_ub::<BasicMem>(
+        prog,
+        "Getting the discriminant of a place based on a misaligned pointer.",
+    );
 }
 
 /// Setting discriminant of mis-aligned enum (ptr) is UB.
@@ -304,7 +310,10 @@ fn ub_set_discriminant_on_misaligned_enum() {
         ),
     ];
     let prog = small_program(&locals, &stmts);
-    assert_ub(prog, "Setting the discriminant of a place based on a misaligned pointer");
+    assert_ub::<BasicMem>(
+        prog,
+        "Setting the discriminant of a place based on a misaligned pointer",
+    );
 }
 
 /// Ensures that the behaviour of an `Option<NonZeroU8>` of Rust is possible in MiniRust.
@@ -349,5 +358,5 @@ fn space_optimized_enum_works() {
         block!(unreachable()),
     ];
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }

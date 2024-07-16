@@ -16,7 +16,7 @@ fn spawn_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 /// The program written out:
@@ -58,7 +58,7 @@ fn thread_spawn_spurious_race() {
 
     let prog = program(&[main, second]);
 
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 // UB
@@ -75,7 +75,7 @@ fn spawn_arg_count() {
     let f = function(Ret::No, 0, &[], &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Spawn` intrinsic")
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Spawn` intrinsic")
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn spawn_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `Spawn` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(p, "invalid first argument to `Spawn` intrinsic: not a pointer")
 }
 
 fn no_args() -> Function {
@@ -108,7 +108,7 @@ fn spawn_func_no_args() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, no_args()]);
-    assert_ub(p, "call ABI violation: number of arguments does not agree")
+    assert_ub::<BasicMem>(p, "call ABI violation: number of arguments does not agree")
 }
 
 fn returns() -> Function {
@@ -126,7 +126,7 @@ fn spawn_func_returns() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f, returns()]);
-    assert_ub(p, "call ABI violation: return types are not compatible")
+    assert_ub::<BasicMem>(p, "call ABI violation: return types are not compatible")
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn spawn_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid return type for `Spawn` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `Spawn` intrinsic");
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn spawn_data_ptr() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, dummy_function()]);
-    assert_ub(p, "invalid second argument to `Spawn` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(p, "invalid second argument to `Spawn` intrinsic: not a pointer");
 }
 
 fn wrongarg() -> Function {
@@ -171,7 +171,7 @@ fn spawn_wrongarg() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
 
     let p = program(&[f, wrongarg()]);
-    assert_ub(p, "call ABI violation: argument types are not compatible");
+    assert_ub::<BasicMem>(p, "call ABI violation: argument types are not compatible");
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn join_arg_count() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid number of arguments for `Join` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Join` intrinsic");
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn join_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid first argument to `Join` intrinsic: not an integer");
+    assert_ub::<BasicMem>(p, "invalid first argument to `Join` intrinsic: not an integer");
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn join_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "invalid return type for `Join` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `Join` intrinsic");
 }
 
 #[test]
@@ -241,5 +241,5 @@ fn join_no_thread() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
 
-    assert_ub(p, "`Join` intrinsic: join non existing thread");
+    assert_ub::<BasicMem>(p, "`Join` intrinsic: join non existing thread");
 }

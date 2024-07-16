@@ -9,7 +9,7 @@ fn zst_array() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn zst_tuple() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn zst_tuple2() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -45,5 +45,5 @@ fn zst_enum() {
     let stmts = &[storage_live(0), assign(local(0), load(local(0)))];
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }

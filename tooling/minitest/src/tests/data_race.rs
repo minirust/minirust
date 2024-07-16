@@ -59,7 +59,7 @@ fn atomic_load_atomic_load() {
         AccessPattern(AccessType::Load, Atomicity::Atomic),
     );
 
-    assert!(!has_data_race(p))
+    assert!(!has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn atomic_load_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::Atomic),
     );
 
-    assert!(!has_data_race(p))
+    assert!(!has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn atomic_load_non_atomic_load() {
         AccessPattern(AccessType::Load, Atomicity::None),
     );
 
-    assert!(!has_data_race(p))
+    assert!(!has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn atomic_load_non_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::None),
     );
 
-    assert!(has_data_race(p))
+    assert!(has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn atomic_store_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::Atomic),
     );
 
-    assert!(!has_data_race(p))
+    assert!(!has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn atomic_store_non_atomic_load() {
         AccessPattern(AccessType::Load, Atomicity::None),
     );
 
-    assert!(has_data_race(p))
+    assert!(has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn atomic_store_non_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::None),
     );
 
-    assert!(has_data_race(p))
+    assert!(has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn non_atomic_load_non_atomic_load() {
         AccessPattern(AccessType::Load, Atomicity::None),
     );
 
-    assert!(!has_data_race(p))
+    assert!(!has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn non_atomic_load_non_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::None),
     );
 
-    assert!(has_data_race(p))
+    assert!(has_data_race::<BasicMem>(p))
 }
 
 #[test]
@@ -149,5 +149,5 @@ fn non_atomic_store_non_atomic_store() {
         AccessPattern(AccessType::Store, Atomicity::None),
     );
 
-    assert!(has_data_race(p))
+    assert!(has_data_race::<BasicMem>(p))
 }

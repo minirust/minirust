@@ -28,7 +28,7 @@ fn true_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn false_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn uninit_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid argument to `RawEq` intrinsic: byte is uninitialized");
+    assert_ub::<BasicMem>(p, "invalid argument to `RawEq` intrinsic: byte is uninitialized");
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn provenance_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid argument to `RawEq` intrinsic: byte has provenance");
+    assert_ub::<BasicMem>(p, "invalid argument to `RawEq` intrinsic: byte has provenance");
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn raw_ptr_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid argument to `RawEq` intrinsic: not a reference");
+    assert_ub::<BasicMem>(p, "invalid argument to `RawEq` intrinsic: not a reference");
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn invalid_ret_ty_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid return type for `RawEq` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `RawEq` intrinsic");
 }
 
 #[test]
@@ -196,7 +196,10 @@ fn unequal_args_ty_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid arguments to `RawEq` intrinsic: types of arguments are not identical");
+    assert_ub::<BasicMem>(
+        p,
+        "invalid arguments to `RawEq` intrinsic: types of arguments are not identical",
+    );
 }
 
 #[test]
@@ -211,5 +214,5 @@ fn invalid_arg_ty_raw_eq() {
 
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_ub(p, "invalid first argument to `RawEq` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(p, "invalid first argument to `RawEq` intrinsic: not a pointer");
 }
