@@ -16,7 +16,7 @@ fn ptr_offset_success() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn ptr_offset_inbounds() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "dereferencing pointer outside the bounds of its allocation");
+    assert_ub::<BasicMem>(p, "dereferencing pointer outside the bounds of its allocation");
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn ptr_offset_no_inbounds() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn ptr_offset_out_of_bounds() {
     let f = function(Ret::No, 0, locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "dereferencing pointer outside the bounds of its allocation");
+    assert_ub::<BasicMem>(p, "dereferencing pointer outside the bounds of its allocation");
 }
 
 #[test]
@@ -123,5 +123,5 @@ fn invalid_offset() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }

@@ -39,5 +39,5 @@ fn no_preserve_prov() {
 
     let p = small_program(&locals, &stmts);
     dump_program(p);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }

@@ -5,7 +5,7 @@ fn dead_before_live() {
     let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_dead(0)];
     let p = small_program(&locals, &stmts);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -13,7 +13,7 @@ fn double_live() {
     let locals = vec![<bool>::get_type()];
     let stmts = vec![storage_live(0), storage_live(0)];
     let p = small_program(&locals, &stmts);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -27,5 +27,5 @@ fn assign_dead() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ub(p, "access to a dead local");
+    assert_ub::<BasicMem>(p, "access to a dead local");
 }

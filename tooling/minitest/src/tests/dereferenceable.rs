@@ -16,7 +16,7 @@ fn deref_dangling_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }
 
 /// Test that handling a dangling reference is allowed as long as we don't dereference it.
@@ -28,7 +28,7 @@ fn assign_dangling_ref() {
     let b0 = block!(storage_live(0), assign(local(0), dangling_ref), exit(),);
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 /// However, when actually *validating* the reference, it will complain.
@@ -44,7 +44,7 @@ fn validate_dangling_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }
 
 /// Test that `*dangling_ptr` is allowed as long as we don't do anything with that place.
@@ -59,7 +59,7 @@ fn deref_dangling_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 /// Test that `&*dangling_ptr` is detected.
@@ -78,5 +78,5 @@ fn ref_dangling_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }

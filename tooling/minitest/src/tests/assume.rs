@@ -7,7 +7,7 @@ fn assume_true() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn assume_false() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "`Assume` intrinsic called on condition that is violated");
+    assert_ub::<BasicMem>(p, "`Assume` intrinsic called on condition that is violated");
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn assume_wrong_argnum() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `Assume` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `Assume` intrinsic");
 }
 
 #[test]
@@ -47,5 +47,5 @@ fn assume_wrong_argty() {
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid argument for `Assume` intrinsic: not a Boolean");
+    assert_ub::<BasicMem>(p, "invalid argument for `Assume` intrinsic: not a Boolean");
 }

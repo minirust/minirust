@@ -23,3 +23,4 @@ pub mod mock_write;
 pub mod run;
 
 pub type DefaultTarget = x86_64;
+pub type BasicMem = BasicMemory<DefaultTarget>;

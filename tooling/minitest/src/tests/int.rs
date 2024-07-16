@@ -27,7 +27,7 @@ fn arith_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn div_zero() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "division by zero");
+    assert_ub::<BasicMem>(p, "division by zero");
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn rem_zero() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "modulus of remainder is zero");
+    assert_ub::<BasicMem>(p, "modulus of remainder is zero");
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn div_overflow() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "overflow in division");
+    assert_ub::<BasicMem>(p, "overflow in division");
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn rem_overflow() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "overflow in remainder");
+    assert_ub::<BasicMem>(p, "overflow in remainder");
 }
 
 /// Test that IntBinOp::BitAnd works for ints
@@ -111,7 +111,7 @@ fn bit_and_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 // Test that IntBinOp::BitAnd fails with non-int/non-bool
@@ -126,7 +126,7 @@ fn bit_and_requires_int() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog, "BinOp::Int: invalid left type");
+    assert_ill_formed::<BasicMem>(prog, "BinOp::Int: invalid left type");
 }
 
 // Test that IntBinOp::BitAnd fails with bool
@@ -140,7 +140,7 @@ fn bit_and_no_int_bool_mixing() {
         exit(),
     );
     let prog = program(&[function(Ret::No, 0, &locals, &[b0])]);
-    assert_ill_formed(prog, "BinOp::Int: invalid left type");
+    assert_ill_formed::<BasicMem>(prog, "BinOp::Int: invalid left type");
 }
 
 /// Test that IntBinOp::BitOr works for ints
@@ -160,7 +160,7 @@ fn bit_or_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 /// Test that IntBinOp::BitXor works for ints
@@ -180,7 +180,7 @@ fn bit_xor_int_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 /// Test that BinUnOp::Not works for ints
@@ -198,7 +198,7 @@ fn bit_int_not_works() {
     ];
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 #[test]
@@ -227,7 +227,7 @@ fn shl_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -263,17 +263,17 @@ fn shr_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
 fn unchecked_add_ub() {
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         add_unchecked(const_int(i8::MAX), const_int(1_i8)),
         "overflow in unchecked add",
     );
 
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         add_unchecked(const_int(i8::MIN), const_int(-1i8)),
         "overflow in unchecked add",
     );
@@ -291,17 +291,17 @@ fn unchecked_add_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
 fn unchecked_sub_ub() {
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         sub_unchecked(const_int(i8::MIN), const_int(1_i8)),
         "overflow in unchecked sub",
     );
 
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         sub_unchecked(const_int(0_i8), const_int(i8::MIN)),
         "overflow in unchecked sub",
     );
@@ -319,16 +319,16 @@ fn unchecked_sub_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
 fn unchecked_mul_ub() {
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         mul_unchecked(const_int(i8::MIN), const_int(-1_i8)),
         "overflow in unchecked mul",
     );
-    assert_ub_expr::<i8>(
+    assert_ub_expr::<i8, BasicMem>(
         mul_unchecked(const_int(56_i8), const_int(3_i8)),
         "overflow in unchecked mul",
     );
@@ -346,21 +346,21 @@ fn unchecked_mul_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
 fn unchecked_shl_ub() {
     // If left side is `u8` every right side not in range `0..8` causes UB
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shl_unchecked(const_int(1u8), const_int(8)),
         "overflow in unchecked shift",
     );
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shl_unchecked(const_int(1u8), const_int(9)),
         "overflow in unchecked shift",
     );
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shl_unchecked(const_int(1u8), const_int(-1)),
         "overflow in unchecked shift",
     );
@@ -384,25 +384,25 @@ fn unchecked_shl_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
 fn unchecked_shr_ub() {
     // If left side is `u8` every right side not in range `0..8` causes UB
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shr_unchecked(const_int(1u8), const_int(8)),
         "overflow in unchecked shift",
     );
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shr_unchecked(const_int(2u8), const_int(9)),
         "overflow in unchecked shift",
     );
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shr_unchecked(const_int(2u8), const_int(9)),
         "overflow in unchecked shift",
     );
-    assert_ub_expr::<u8>(
+    assert_ub_expr::<u8, BasicMem>(
         shr_unchecked(const_int(u8::MAX), const_int(-1)),
         "overflow in unchecked shift",
     );
@@ -433,7 +433,7 @@ fn unchecked_shr_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -453,7 +453,7 @@ fn cmp_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -468,7 +468,7 @@ fn cmp_ill_formed_left() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::IntCmp: invalid left type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::IntCmp: invalid left type");
 }
 
 #[test]
@@ -483,7 +483,7 @@ fn cmp_ill_formed_right() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::IntCmp: invalid right type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::IntCmp: invalid right type");
 }
 
 #[test]
@@ -512,7 +512,7 @@ fn overflow_add_works() {
     f.exit();
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -541,7 +541,7 @@ fn overflow_sub_works() {
     f.exit();
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -571,7 +571,7 @@ fn overflow_mul_works() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -588,7 +588,7 @@ fn overflow_ill_formed_left() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::IntWithOverflow: invalid left type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::IntWithOverflow: invalid left type");
 }
 
 #[test]
@@ -605,5 +605,5 @@ fn overflow_ill_formed_right() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ill_formed(p, "BinOp::IntWithOverflow: invalid right type");
+    assert_ill_formed::<BasicMem>(p, "BinOp::IntWithOverflow: invalid right type");
 }

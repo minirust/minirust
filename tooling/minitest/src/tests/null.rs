@@ -24,7 +24,7 @@ fn ptr_null() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
 }
 
 #[test]
@@ -51,5 +51,5 @@ fn ptr_null_zst() {
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }

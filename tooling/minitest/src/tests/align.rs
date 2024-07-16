@@ -38,7 +38,7 @@ fn manual_align() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn impossible_align() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_stop(p); // will panic!
+    assert_stop::<BasicMem>(p); // will panic!
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn load_place_misaligned() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "loading from a place based on a misaligned pointer");
+    assert_ub::<BasicMem>(p, "loading from a place based on a misaligned pointer");
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn store_place_misaligned() {
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "storing to a place based on a misaligned pointer");
+    assert_ub::<BasicMem>(p, "storing to a place based on a misaligned pointer");
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn deref_misaligned_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "transmuted value is not valid at new type");
+    assert_ub::<BasicMem>(p, "transmuted value is not valid at new type");
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn deref_overaligned() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -189,7 +189,10 @@ fn addr_of_misaligned_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "taking the address of an invalid (null, misaligned, or uninhabited) place");
+    assert_ub::<BasicMem>(
+        p,
+        "taking the address of an invalid (null, misaligned, or uninhabited) place",
+    );
 }
 
 /// Same test as above, but with a raw pointer it's fine.
@@ -219,5 +222,5 @@ fn addr_of_misaligned_ptr() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }

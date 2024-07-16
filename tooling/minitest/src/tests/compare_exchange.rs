@@ -41,7 +41,7 @@ fn compare_exchange_success() {
     let p = program(&[f]);
 
     // Check that we exchange in the first case but not the second
-    let out = match get_stdout(p) {
+    let out = match get_stdout::<BasicMem>(p) {
         Ok(out) => out,
         Err(err) => panic!("{:?}", err),
     };
@@ -70,7 +70,7 @@ fn compare_exchange_arg_count() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid number of arguments for `AtomicCompareExchange` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid number of arguments for `AtomicCompareExchange` intrinsic");
 }
 
 #[test]
@@ -91,7 +91,10 @@ fn compare_exchange_arg_1_value() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(
+        p,
+        "invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer",
+    );
 }
 
 #[test]
@@ -112,7 +115,7 @@ fn compare_exchange_ret_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(
+    assert_ub::<BasicMem>(
         p,
         "invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers",
     );
@@ -135,7 +138,7 @@ fn compare_exchange_arg_1_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(
+    assert_ub::<BasicMem>(
         p,
         "invalid second argument to `AtomicCompareExchange` intrinsic: not same type as return value",
     );
@@ -158,7 +161,7 @@ fn compare_exchange_arg_2_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(
+    assert_ub::<BasicMem>(
         p,
         "invalid third argument to `AtomicCompareExchange` intrinsic: not same type as return value",
     );
@@ -181,5 +184,8 @@ fn compare_exchange_arg_size_max() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub(p, "invalid return type for `AtomicCompareExchange` intrinsic: size too big");
+    assert_ub::<BasicMem>(
+        p,
+        "invalid return type for `AtomicCompareExchange` intrinsic: size too big",
+    );
 }

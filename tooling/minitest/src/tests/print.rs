@@ -12,7 +12,7 @@ fn print_success() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_eq!(get_stdout(p).unwrap(), &["42"]);
+    assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &["42"]);
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn print_fail() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "unsupported value for printing");
+    assert_ub::<BasicMem>(p, "unsupported value for printing");
 }
 
 #[test]
@@ -48,5 +48,5 @@ fn print_wrongreturn() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub(p, "invalid return type for `PrintStdout` intrinsic");
+    assert_ub::<BasicMem>(p, "invalid return type for `PrintStdout` intrinsic");
 }

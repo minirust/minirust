@@ -13,7 +13,7 @@ fn global_var() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn local_var() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn arg_and_ret_var() {
     };
 
     let p = p.finish_program(start);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn switch_int() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn while_() {
     f.if_(eq(load(var), const_int(84u32)), |f| f.exit(), |f| f.unreachable());
     let f = p.finish_function(f);
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn double_exit() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn statement_after_exit() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -169,5 +169,5 @@ fn no_exit() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }

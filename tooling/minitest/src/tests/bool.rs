@@ -11,7 +11,7 @@ fn false_to_int_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Tests that true to int results in 1.
@@ -25,7 +25,7 @@ fn true_to_int_works() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Tests that boolean negation works.
@@ -40,7 +40,7 @@ fn not_works_both_ways() {
     ];
 
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(program);
+    assert_stop::<BasicMem>(program);
 }
 
 /// Test that BoolBinOp::BitAnd works
@@ -59,7 +59,7 @@ fn bit_and_bool_works() {
         block!(unreachable()),
     ];
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 /// Test that BoolBinOp::BitOr works
@@ -76,7 +76,7 @@ fn bool_or_works() {
         block!(unreachable()),
     ];
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }
 
 /// Test that BoolBinOp::BitXor works
@@ -93,5 +93,5 @@ fn bool_xor_works() {
         block!(unreachable()),
     ];
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
-    assert_stop(prog);
+    assert_stop::<BasicMem>(prog);
 }

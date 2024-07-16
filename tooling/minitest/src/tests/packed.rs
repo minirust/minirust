@@ -16,7 +16,7 @@ fn packed_works() {
     );
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
-    assert_stop(p);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn packed_is_not_aligned() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ub_eventually(
+    assert_ub_eventually::<BasicMem>(
         p,
         16,
         "taking the address of an invalid (null, misaligned, or uninhabited) place",

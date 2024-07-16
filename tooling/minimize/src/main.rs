@@ -53,6 +53,7 @@ pub use minirust_rs::prelude::*;
 pub use miniutil::build::{self, zst_place, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
+pub use miniutil::BasicMem;
 pub use miniutil::DefaultTarget;
 
 // Get back some `std` items
@@ -111,7 +112,7 @@ fn main() {
         if dump {
             dump_program(prog);
         } else {
-            match run_program(prog) {
+            match run_program::<BasicMem>(prog) {
                 // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
                 TerminationInfo::IllFormed(err) =>
                     show_error!(
