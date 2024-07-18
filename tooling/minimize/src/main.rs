@@ -94,6 +94,8 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Cdebug-assertions=off",
     // This removes Resume and similar stuff.
     "-Cpanic=abort",
+    // This enable emitting MIR `Retag`s.
+    "-Zmir-emit-retag",
 ];
 
 fn show_error(msg: &impl std::fmt::Display) -> ! {
