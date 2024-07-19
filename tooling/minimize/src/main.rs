@@ -55,6 +55,7 @@ pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::BasicMem;
 pub use miniutil::DefaultTarget;
+pub use miniutil::TreeBorrowMem;
 
 // Get back some `std` items
 pub use std::format;
@@ -110,11 +111,12 @@ macro_rules! show_error {
 fn main() {
     let (minimize_args, rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
+
     get_mini(rustc_args, |_tcx, prog| {
         if dump {
             dump_program(prog);
         } else {
-            match run_program::<BasicMem>(prog) {
+            match run_prog(prog, &minimize_args) {
                 // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
                 TerminationInfo::IllFormed(err) =>
                     show_error!(
@@ -143,6 +145,14 @@ fn split_args(args: Args) -> (Vec<String>, Vec<String>) {
         }
     }
     (minimize_args, rustc_args)
+}
+
+fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
+    if args.iter().any(|x| x == "--minimize-tree-borrows") {
+        run_program::<TreeBorrowMem>(prog)
+    } else {
+        run_program::<BasicMem>(prog)
+    }
 }
 
 fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
