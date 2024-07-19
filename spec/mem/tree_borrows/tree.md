@@ -53,37 +53,27 @@ impl TreeBorrowsAllocation {
     fn node_access(
         &mut self, 
         curr_tag: BorTag,
-        access_pattern: AccessKind,
+        access_kind: AccessKind,
         ptr: Pointer<TreeBorrowsProvenance>,
         size: Size,
         access_tag: BorTag,
     ) -> Result<bool> {
-        let Some(mut node) = self.tree.nodes.get(curr_tag) else { throw_ub!("Tree Borrows: node not existed"); };
+        let Some(node) = self.tree.nodes.get(curr_tag) else { throw_ub!("Tree Borrows: node not existed"); };
 
         // Flag to indicate whether `acccess_tag`is a child of the `curr_tag`
         let mut is_child = curr_tag == access_tag;
 
         for child_tag in node.children {
-            is_child |= self.node_access(child_tag, access_pattern, ptr, size, access_tag)?;
+            is_child |= self.node_access(child_tag, access_kind, ptr, size, access_tag)?;
         }
 
         // Indicates whether the `access_tag` is a child or foreign
         // *from the perspective of the `curr_tag`*
         let node_relation = if is_child { NodeRelation::Child } else { NodeRelation::Foreign };
 
-        for location in ptr.addr..ptr.addr + size.bytes() {
-            let Some(curr_permission) = node.permissions.get(location) else {
-                throw_ub!("Tree Borrows: location without permission");
-            };
-            let next_permission = Self::permission_transition(
-                curr_permission,
-                access_pattern,
-                node_relation,
-            )?;
-            node.permissions.insert(location, next_permission);
+        for addr in ptr.addr..ptr.addr + size.bytes() {
+            self.permission_transition(curr_tag, addr, access_kind, node_relation)?;
         }
-        // Insert back the node.
-        self.tree.nodes.insert(curr_tag, node);
 
         ret(is_child)
     }
@@ -93,12 +83,12 @@ impl TreeBorrowsAllocation {
     fn tree_access(
         &mut self, 
         base: BorTag, 
-        access_pattern: AccessKind,
+        access_kind: AccessKind,
         ptr: Pointer<TreeBorrowsProvenance>,
         size: Size
     ) -> Result {
         // Each node is a descendant of the root node.
-        self.node_access(self.tree.root_tag, access_pattern, ptr, size, base)?;
+        self.node_access(self.tree.root_tag, access_kind, ptr, size, base)?;
         ret(())
     }
 }
