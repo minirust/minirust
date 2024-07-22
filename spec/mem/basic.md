@@ -23,9 +23,9 @@ impl<T: Target> Memory for BasicMemory<T> {
 The data tracked by the memory is fairly simple: for each allocation, we track its data contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
 
 ```rust
-struct Allocation {
+struct Allocation<Provenance> {
     /// The data stored in this allocation.
-    data: List<AbstractByte<AllocId>>,
+    data: List<AbstractByte<Provenance>>,
     /// The address where this allocation starts.
     /// This is never 0, and `addr + data.len()` fits into a `usize`.
     addr: Address,
@@ -43,7 +43,7 @@ Memory then consists of a map tracking the allocation for each ID, stored as a l
 
 ```rust
 pub struct BasicMemory<T: Target> {
-    allocations: List<Allocation>,
+    allocations: List<Allocation<AllocId>>,
 
     // FIXME: specr should add this automatically
     _phantom: std::marker::PhantomData<T>,
@@ -63,7 +63,7 @@ impl<T: Target> Memory for BasicMemory<T> {
 We start with some helper operations.
 
 ```rust
-impl Allocation {
+impl<Provenance> Allocation<Provenance> {
     fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
 
     fn overlaps(self, other_addr: Address, other_size: Size) -> bool {

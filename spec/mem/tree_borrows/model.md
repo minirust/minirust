@@ -18,7 +18,7 @@ pub type TreeBorrowsProvenance = (BorTag, AllocId);
 
 ```rust
 pub struct TreeBorrowsMemory<T: Target> {
-    allocations: List<TreeBorrowsAllocation>,
+    tree_allocs: List<TreeBorrowsAllocation>,
     /// Next unused borrow tag.
     next_tag: BorTag,
     // FIXME: specr should add this automatically
@@ -30,25 +30,15 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
     type T = T;
 
     fn new() -> Self {
-        Self { allocations: List::new(), next_tag: BorTag(Int::ZERO), _phantom: std::marker::PhantomData }
+        Self { tree_allocs: List::new(), next_tag: BorTag(Int::ZERO), _phantom: std::marker::PhantomData }
     }
 }
 ```
 
 ```rust
 pub struct TreeBorrowsAllocation {
-    /// The data stored in this allocation.
-    data: List<AbstractByte<TreeBorrowsProvenance>>,
-    /// The address where this allocation starts.
-    /// This is never 0, and `addr + data.len()` fits into a `usize`.
-    addr: Address,
-    /// The alignment that was requested for this allocation.
-    /// `addr` will be a multiple of this.
-    align: Align,
-    /// The kind of this allocation.
-    kind: AllocationKind,
-    /// Whether this allocation is still live.
-    live: bool,
+    /// The same allocation data as the basic memory model.
+    allocation: Allocation<TreeBorrowsProvenance>,
     /// The **TREE** for the Tree Borrows.
     tree: Tree,
 }
@@ -85,7 +75,8 @@ impl<T: Target> TreeBorrowsMemory<T> {
             throw_ub!("Tree Borrows: Pointer does not contain provenance");
         };
 
-        let mut allocation = self.allocations[alloc_id.0];
+        let mut tree_alloc = self.tree_allocs[alloc_id.0];
+        let allocation = tree_alloc.allocation;
 
         // Create the new child node
         let child_permissions = Self::init_alloc_permissions(permission, allocation.addr, allocation.size());
@@ -97,17 +88,17 @@ impl<T: Target> TreeBorrowsMemory<T> {
 
         let child_tag = self.next_tag();
         // Add the new node to the parent's children list
-        let Some(mut parent_node) = self.allocations[alloc_id.0].tree.nodes.get(parent_tag) else {
+        let Some(mut parent_node) = tree_alloc.tree.nodes.get(parent_tag) else {
             throw_ub!("Tree Borrows: Parent pointer does not exist in the tree");
         };
         parent_node.children.push(child_tag);
-        allocation.tree.insert_node(parent_tag, parent_node);
-        allocation.tree.insert_node(child_tag, child_node);
+        tree_alloc.tree.insert_node(parent_tag, parent_node);
+        tree_alloc.tree.insert_node(child_tag, child_node);
 
         // Perform child read to all nodes
-        allocation.tree_access(child_tag, AccessKind::Read, ptr, pointee_size)?;
+        tree_alloc.tree_access(child_tag, AccessKind::Read, ptr, pointee_size)?;
 
-        self.allocations.set(alloc_id.0, allocation);
+        self.tree_allocs.set(alloc_id.0, tree_alloc);
 
         // Create the child pointer and return it 
         ret(Pointer {
@@ -155,14 +146,14 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             // ... such that addr+size is in-bounds of a `usize`...
             if !(addr+size.bytes()).in_bounds(Unsigned, Self::T::PTR_SIZE) { return false; }
             // ... and it does not overlap with any existing live allocation.
-            if self.allocations.any(|a| a.live && a.overlaps(addr, size)) { return false; }
+            if self.tree_allocs.any(|ta| ta.allocation.live && ta.allocation.overlaps(addr, size)) { return false; }
             // If all tests pass, we are good!
             true
         })?;
 
         // Calculate the proverance for the root node
         let bor_tag = self.next_tag();
-        let alloc_id = AllocId(self.allocations.len());
+        let alloc_id = AllocId(self.tree_allocs.len());
 
         // Create the root node for the tree.
         // Intially, we set the permission as `Active`
@@ -181,16 +172,20 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             nodes,
         };
         
-        let allocation = TreeBorrowsAllocation {
+        let allocation = Allocation {
             addr,
             align,
             kind,
             live: true,
             data: list![AbstractByte::Uninit; size.bytes()],
+        };
+
+        let tree_alloc = TreeBorrowsAllocation {
+            allocation,
             tree,
         };
 
-        self.allocations.push(allocation);
+        self.tree_allocs.push(tree_alloc);
 
         ret(Pointer { addr, provenance: Some((bor_tag, alloc_id)) })
     }
@@ -202,7 +197,8 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             throw_ub!("deallocating invalid pointer")
         };
         // This lookup will definitely work, since AllocId cannot be faked.
-        let mut allocation = self.allocations[alloc_id.0];
+        let mut tree_alloc = self.tree_allocs[alloc_id.0];
+        let allocation = tree_alloc.allocation;
 
         // Check a bunch of things.
         if !allocation.live {
@@ -222,11 +218,11 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         }
 
         // check that ptr has the permission to write the entire allocation
-        allocation.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
+        tree_alloc.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
 
         // Mark it as dead. That's it.
-        self.allocations.mutate_at(alloc_id.0, |allocation| {
-            allocation.live = false;
+        self.tree_allocs.mutate_at(alloc_id.0, |tree_alloc| {
+            tree_alloc.allocation.live = false;
         });
 
         ret(())
@@ -250,13 +246,13 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         };
 
         // Recursively update the tree and check the existence of UBs 
-        let mut allocation = self.allocations[alloc_id.0];
-        allocation.tree_access(bor_tag, AccessKind::Read, ptr, len)?;
+        let mut tree_alloc = self.tree_allocs[alloc_id.0];
+        tree_alloc.tree_access(bor_tag, AccessKind::Read, ptr, len)?;
 
-        self.allocations.set(alloc_id.0, allocation);
+        self.tree_allocs.set(alloc_id.0, tree_alloc);
 
         // Slice into the contents, and copy them to a new list.
-        ret(allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
+        ret(tree_alloc.allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
     }
 }
 ```
@@ -277,13 +273,13 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             return ret(());
         };
 
-        let mut allocation = self.allocations[alloc_id.0];
-        allocation.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
+        let mut tree_alloc = self.tree_allocs[alloc_id.0];
+        tree_alloc.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
 
         // Slice into the contents, and put the new bytes there.
-        allocation.data.write_subslice_at_index(offset.bytes(), bytes);
+        tree_alloc.allocation.data.write_subslice_at_index(offset.bytes(), bytes);
 
-        self.allocations.set(alloc_id.0, allocation);
+        self.tree_allocs.set(alloc_id.0, tree_alloc);
 
         ret(())
     }
@@ -324,9 +320,9 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
     fn leak_check(&self) -> Result {
-        for allocation in self.allocations {
-            if allocation.live {
-                match allocation.kind {
+        for tree_alloc in self.tree_allocs {
+            if tree_alloc.allocation.live {
+                match tree_alloc.allocation.kind {
                     // These should all be gone.
                     AllocationKind::Heap => throw_memory_leak!(),
                     // These we can still have at the end.
@@ -335,29 +331,6 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             }
         }
         ret(())
-    }
-}
-```
-
-Some helper methods to manipulate allocations in Tree Borrows
-
-```rust
-impl TreeBorrowsAllocation {
-    fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
-
-    fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
-        let end_addr = self.addr + self.size().bytes();
-        let other_end_addr = other_addr + other_size.bytes();
-        if end_addr <= other_addr || other_end_addr <= self.addr {
-            // Our end is before their beginning, or vice versa -- we do not overlap.
-            // However, to make sure that each allocation has a unique address, we still
-            // report overlap if both allocations have the same address.
-            // FIXME: This is not necessarily realistic, e.g. for zero-sized stack variables.
-            // OTOH the function pointer logic currently relies on this.
-            self.addr == other_addr
-        } else {
-            true
-        }
     }
 }
 ```
@@ -378,7 +351,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
             // An invalid pointer.
             throw_ub!("dereferencing pointer without provenance");
         };
-        let allocation = self.allocations[alloc_id.0];
+        let allocation = self.tree_allocs[alloc_id.0].allocation;
 
         if !allocation.live {
             throw_ub!("dereferencing pointer to dead allocation");
