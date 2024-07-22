@@ -205,7 +205,7 @@ impl<T: Target> BasicMemory<T> {
 }
 
 impl<T: Target> Memory for BasicMemory<T> {
-    fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
+    fn load(&mut self, ptr: DataPointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("load from a misaligned pointer");
         }

@@ -74,7 +74,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     /// Read some bytes from memory and check for data races.
-    pub fn load(&mut self, ptr: Pointer<M::Provenance>, len: Size, align: Align, atomicity: Atomicity) -> Result<List<AbstractByte<M::Provenance>>> {
+    pub fn load(&mut self, ptr: DataPointer<M::Provenance>, len: Size, align: Align, atomicity: Atomicity) -> Result<List<AbstractByte<M::Provenance>>> {
         let access = Access {
             ty: AccessType::Load,
             atomicity,

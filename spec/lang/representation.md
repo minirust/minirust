@@ -476,7 +476,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     fn typed_load(&mut self, ptr: Pointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
+        let bytes = self.load(ptr.data_pointer, ty.size::<M::T>().resolve(ptr.metadata), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
