@@ -60,7 +60,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
     }
 
     /// Create a new node for a pointer (reborrow)
-    fn new_child(
+    fn reborrow(
         &mut self, 
         ptr: Pointer<TreeBorrowsProvenance>,
         pointee_size: Size,
@@ -297,9 +297,9 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
                     Mutability::Mutable => Permission::Reserved,
                     Mutability::Immutable => Permission::Frozen,
                 };
-                self.new_child(ptr, pointee.size, permission)
+                self.reborrow(ptr, pointee.size, permission)
             },
-            PtrType::Box { pointee } => self.new_child(ptr, pointee.size, Permission::Reserved),
+            PtrType::Box { pointee } => self.reborrow(ptr, pointee.size, Permission::Reserved),
             _ => ret(ptr),
         }
     }

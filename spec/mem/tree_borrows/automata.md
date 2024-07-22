@@ -45,6 +45,10 @@ impl TreeBorrowsAllocation {
         )
     }
 
+    fn foreign_write(_permission: Permission) -> Result<Option<Permission>> {
+        ret(None)
+    }
+
     fn permission_transition(
         &mut self,
         tag: BorTag,
@@ -65,7 +69,7 @@ impl TreeBorrowsAllocation {
         };
 
         let next_permission = match (node_relation, access_kind) {
-            (NodeRelation::Foreign, AccessKind::Write) => None,
+            (NodeRelation::Foreign, AccessKind::Write) => Self::foreign_write(curr_permission)?,
             (NodeRelation::Foreign, AccessKind::Read) => Self::foreign_read(curr_permission)?,
             (NodeRelation::Child, AccessKind::Read) => Self::child_read(curr_permission)?,
             (NodeRelation::Child, AccessKind::Write) => Self::child_write(curr_permission)?,
