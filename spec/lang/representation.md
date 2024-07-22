@@ -109,8 +109,18 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Poi
 }
 
 fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
-    let bytes_data = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, ptr.addr).unwrap();
-    bytes_data.map(|b| AbstractByte::Init(b, ptr.provenance))
+    let bytes_data = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, ptr.data_pointer.addr).unwrap();
+    let bytes_data = bytes_data.map(|b| AbstractByte::Init(b, ptr.data_pointer.provenance));
+    let bytes_meta = match ptr.metadata {
+        None => list!(),
+        Some(PointerMeta::ElementCount(len)) => {
+            let bytes = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, len).unwrap();
+            bytes.map(|b| AbstractByte::Init(b, None))
+        }
+        Some(PointerMeta::VTable) => unimplemented!("Trait objects are not supported yet"),
+    };
+    // Is the order correct and target independent?
+    bytes_data.iter().chain(bytes_meta.iter()).collect()
 }
 
 impl Type {

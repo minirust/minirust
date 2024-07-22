@@ -203,9 +203,9 @@ impl SizeStrategy {
     // TODO: this needs to access memory for trait objects, support this with function arguments
     pub fn resolve(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
-            (SizeStrategySized(size), None) => size,
-            (SizeStrategyFixPlusTail { min_size, element_size }, Some(PointerMeta::ElementCount(num))) => min_size + element_size * num,
-            (SizeStrategy::VTable, PointerMeta::VTable) => unimplemented!("trait object support is missing"),
+            (SizeStrategy::Sized(size), None) => size,
+            (SizeStrategy::FixPlusTail { min_size, element_size }, Some(PointerMeta::ElementCount(num))) => min_size + element_size * num,
+            (SizeStrategy::VTable, Some(PointerMeta::VTable)) => unimplemented!("trait object support is missing"),
             _ => panic!("Pointer meta data does not match type"),
         }
     }

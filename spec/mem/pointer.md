@@ -55,8 +55,9 @@ impl<Provenance> DataPointer<Provenance> {
 ```rust
 // This doesn't make a lot of sense in this file, maybe rather values.md.
 // (Similarly the PtrType is only used for retagging in mem.rs, and it felt out of place when reading ?)
-enum PointerMeta {
-    ElementCount(Size),
+/// The metadata that can be stored in a fat pointer.
+pub enum PointerMeta {
+    ElementCount(Int),
     // TODO
     VTable
 }
