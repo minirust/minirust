@@ -17,7 +17,11 @@ Then we define the transition table.
 
 ```rust
 impl TreeBorrowsAllocation {
-    fn child_read(permission: Permission) -> Result<Option<Permission>> {
+    fn child_read(permission: Option<Permission>) -> Result<Option<Permission>> {
+        let Some(permission) = permission else {
+            throw_ub!("Tree Borrows: Child reading a pointer without permission")
+        };
+
         ret(Some(
             match permission {
                 Permission::Reserved => Permission::Reserved,
@@ -27,7 +31,11 @@ impl TreeBorrowsAllocation {
         ))
     }
 
-    fn child_write(permission: Permission) -> Result<Option<Permission>> {
+    fn child_write(permission: Option<Permission>) -> Result<Option<Permission>> {
+        let Some(permission) = permission else {
+            throw_ub!("Tree Borrows: Child writing a pointer without permission")
+        };
+
         match permission {
             Permission::Reserved => ret(Some(Permission::Active)),
             Permission::Active => ret(Some(Permission::Active)),
@@ -35,7 +43,11 @@ impl TreeBorrowsAllocation {
         }
     }
 
-    fn foreign_read(permission: Permission) -> Result<Option<Permission>> {
+    fn foreign_read(permission: Option<Permission>) -> Result<Option<Permission>> {
+        let Some(permission) = permission else {
+            return ret(permission)
+        };
+
         ret(
             match permission {
                 Permission::Reserved => Some(Permission::Reserved),
@@ -45,7 +57,8 @@ impl TreeBorrowsAllocation {
         )
     }
 
-    fn foreign_write(_permission: Permission) -> Result<Option<Permission>> {
+    // FIXME: consider interior mutability
+    fn foreign_write(_permission: Option<Permission>) -> Result<Option<Permission>> {
         ret(None)
     }
 
@@ -58,15 +71,7 @@ impl TreeBorrowsAllocation {
     ) -> Result {
         let Some(mut node) = self.tree.nodes.get(tag) else { throw_ub!("Tree Borrows: node not existed"); };
 
-        let Some(curr_permission) = node.permissions.get(addr) else {
-            if node_relation == NodeRelation::Foreign {
-                return ret(());
-            }
-            match access_kind {
-                AccessKind::Read => throw_ub!("Tree Borrows: Child reading a pointer without permission"),
-                AccessKind::Write => throw_ub!("Tree Borrows: Child writing a pointer without permission"),
-            }
-        };
+        let curr_permission = node.permissions.get(addr);
 
         let next_permission = match (node_relation, access_kind) {
             (NodeRelation::Foreign, AccessKind::Write) => Self::foreign_write(curr_permission)?,
