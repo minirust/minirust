@@ -5,7 +5,7 @@ To check the details on Tree Borrows
 1. [From Stacks to Trees: A new aliasing model for Rust](https://www.ralfj.de/blog/2023/06/02/tree-borrows.html)
 1. [Neven's posts on Tree Borrows](https://perso.crans.org/vanille/treebor)
 
-We define the core date structure *Tree* in the [tree.md](tree.md) and the core state machine in the [automata.md](automata.md).
+We define the core date structure *Tree* in the [tree.md](tree.md) and the core state machine in the [state_machine.md](state_machine.md).
 
 Similar to the [Basic Memory Model](../basic.md), we need to first define some basic data structures.
 

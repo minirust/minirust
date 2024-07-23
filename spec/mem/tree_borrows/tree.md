@@ -26,7 +26,7 @@ impl Tree {
 }
 ```
 
-During each memory access, we update permissions according to the state machine defined in [automata.md](automata.md). When a node is accessed, each node in the tree can be divided into two disjoint sets: *Child* and *Foreign*, based on its relative position to the accessed node. The Child set includes the node itself and all its descendants, while the Foreign set contains all other nodes.
+During each memory access, we update permissions according to the state machine defined in [state_machine.md](state_machine.md). When a node is accessed, each node in the tree can be divided into two disjoint sets: *Child* and *Foreign*, based on its relative position to the accessed node. The Child set includes the node itself and all its descendants, while the Foreign set contains all other nodes.
 
 ```rust
 pub enum NodeRelation {
