@@ -24,6 +24,7 @@ fn main() {
     array_casts();
     mut_below_shr();
     write_does_not_invalidate_all_aliases();
+    array_overlapping_read_read();
 }
 
 
@@ -250,4 +251,16 @@ fn write_does_not_invalidate_all_aliases() {
     *x = 42; // a write to x -- invalidates other pointers?
     other::lib2();
     assert!(*x == 1337); // oops, the value changed! I guess not all pointers were invalidated
+}
+
+fn array_overlapping_read_read() {
+    unsafe { 
+        let mut data = [42u8, 57]; 
+        let x = &mut data[0] as *mut u8;
+        let y = &mut data[1] as *mut u8;
+        assert!(*x == 42); 
+        assert!(*y == 57); 
+        assert!(*x.add(1) == 57); 
+        assert!(*y.sub(1) == 42); 
+    }
 }

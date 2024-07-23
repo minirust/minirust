@@ -26,7 +26,7 @@ impl Node {
                 Permission::Reserved => Permission::Reserved,
                 Permission::Active => Permission::Active,
                 Permission::Frozen => Permission::Frozen,
-                Permission::Disabled => throw_ub!("Tree Borrows: Child reading a pointer without permission"),
+                Permission::Disabled => throw_ub!("Tree Borrows: Child reading a pointer with Disabled permission"),
             }
         )
     }
@@ -36,7 +36,7 @@ impl Node {
             Permission::Reserved => ret(Permission::Active),
             Permission::Active => ret(Permission::Active),
             Permission::Frozen => throw_ub!("Tree Borrows: Child writing a pointer with the Frozen permission"),
-            Permission::Disabled => throw_ub!("Tree Borrows: Child writing a pointer without permission"),
+            Permission::Disabled => throw_ub!("Tree Borrows: Child writing a pointer with Disabled permission"),
         }
     }
 
