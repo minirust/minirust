@@ -50,10 +50,10 @@ Here we define some helper methods to implement the memory interface.
 impl<T: Target> TreeBorrowsMemory<T> {
     /// Given the permission and the allocation size,
     /// create an initialized permission list for an allocation.
-    fn init_alloc_permissions(permission: Permission, alloc_size: Size) -> List<Permission> {
+    fn init_alloc_permissions(permission: Permission, alloc_size: Size) -> List<(Accessed, Permission)> {
         let mut permissions = List::new();
         for _ in Int::ZERO..alloc_size.bytes() {
-            permissions.push(permission);
+            permissions.push((Accessed::No, permission));
         }
 
         permissions

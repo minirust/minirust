@@ -16,6 +16,18 @@ pub enum Permission {
 }
 ```
 
+In addition, we also need to track whether a location has already been accessed.
+```rust
+enum Accessed {
+    /// This address has been accessed (read, written, or the initial implicit read upon retag)
+    /// with this borrow tag.
+    Yes,
+    /// This address has not yet been accessed with this borrow tag. We still track how foreign
+    /// accesses affect the current permission so that on the first access, we start in the right state.
+    No,
+}
+```
+
 Then we define the transition table.
 
 ```rust
