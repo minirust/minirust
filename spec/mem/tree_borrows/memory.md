@@ -49,14 +49,17 @@ Here we define some helper methods to implement the memory interface.
 ```rust
 impl<T: Target> TreeBorrowsMemory<T> {
     /// Given the permission and the allocation size,
-    /// create an initialized permission list for an allocation.
-    fn init_alloc_permissions(permission: Permission, alloc_size: Size) -> List<(Accessed, Permission)> {
-        let mut permissions = List::new();
+    /// create an initialized location state list for an allocation.
+    fn init_location_states(permission: Permission, alloc_size: Size) -> List<LocationState> {
+        let mut location_states = List::new();
         for _ in Int::ZERO..alloc_size.bytes() {
-            permissions.push((Accessed::No, permission));
+            location_states.push(LocationState {
+                accessed: Accessed::No,
+                permission,
+            });
         }
 
-        permissions
+        location_states
     }
 
     /// Create a new node for a pointer (reborrow)
@@ -74,11 +77,11 @@ impl<T: Target> TreeBorrowsMemory<T> {
         let allocation = tree_alloc.allocation;
 
         // Create the new child node
-        let child_permissions = Self::init_alloc_permissions(permission, allocation.size());
+        let child_states = Self::init_location_states(permission, allocation.size());
         let child_node = Node {
             parent: Some(parent_tag),
             children: List::new(),
-            permissions: child_permissions,
+            location_states: child_states,
         };
 
         let child_tag = self.next_tag();
@@ -155,7 +158,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         let root_node = Node { 
             parent: None,
             children: List::new(),
-            permissions: Self::init_alloc_permissions(Permission::Active, size),
+            location_states: Self::init_location_states(Permission::Active, size),
         };
 
         let mut nodes = Map::new();

@@ -1,8 +1,8 @@
 # State Machine for Tree Borrows
 
 The core of Tree Borrows is a state machine for each node and each location.
-We call the state a *Permission*.
 
+We first track the *permission* of each node to access each location.
 ```rust
 pub enum Permission {
     /// Represents a two-phase borrow during its reservation phase
@@ -17,8 +17,9 @@ pub enum Permission {
 ```
 
 In addition, we also need to track whether a location has already been accessed.
+
 ```rust
-enum Accessed {
+pub enum Accessed {
     /// This address has been accessed (read, written, or the initial implicit read upon retag)
     /// with this borrow tag.
     Yes,
@@ -28,7 +29,15 @@ enum Accessed {
 }
 ```
 
-Then we define the transition table.
+Then we define the state for the Tree Borrows state machine.
+```rust
+pub struct LocationState {
+    accessed: Accessed,
+    permission: Permission,
+}
+```
+
+Finally, we define the transition table.
 
 ```rust
 impl Permission {
@@ -79,6 +88,17 @@ impl Permission {
             (NodeRelation::Child, AccessKind::Read) => self.child_read(),
             (NodeRelation::Child, AccessKind::Write) => self.child_write(),
         }
+    }
+}
+
+impl LocationState {
+    fn transition(
+        self,
+        access_kind: AccessKind,
+        node_relation: NodeRelation,
+    ) -> Result<LocationState> {
+        let permission = self.permission.transition(access_kind, node_relation)?;
+        ret(LocationState { permission, accessed: Accessed::Yes })
     }
 }
 ```
