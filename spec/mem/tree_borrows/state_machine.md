@@ -19,10 +19,10 @@ pub enum Permission {
 Then we define the transition table.
 
 ```rust
-impl Node {
-    fn child_read(permission: Permission) -> Result<Permission> {
+impl Permission {
+    fn child_read(self) -> Result<Permission> {
         ret(
-            match permission {
+            match self {
                 Permission::Reserved => Permission::Reserved,
                 Permission::Active => Permission::Active,
                 Permission::Frozen => Permission::Frozen,
@@ -31,8 +31,8 @@ impl Node {
         )
     }
 
-    fn child_write(permission: Permission) -> Result<Permission> {
-        match permission {
+    fn child_write(self) -> Result<Permission> {
+        match self {
             Permission::Reserved => ret(Permission::Active),
             Permission::Active => ret(Permission::Active),
             Permission::Frozen => throw_ub!("Tree Borrows: Child writing a pointer with the Frozen permission"),
@@ -40,9 +40,9 @@ impl Node {
         }
     }
 
-    fn foreign_read(permission: Permission) -> Result<Permission> {
+    fn foreign_read(self) -> Result<Permission> {
         ret(
-            match permission {
+            match self {
                 Permission::Reserved => Permission::Reserved,
                 Permission::Active => Permission::Frozen,
                 Permission::Frozen => Permission::Frozen,
@@ -52,20 +52,20 @@ impl Node {
     }
 
     // FIXME: consider interior mutability
-    fn foreign_write(_permission: Permission) -> Result<Permission> {
+    fn foreign_write(self) -> Result<Permission> {
         ret(Permission::Disabled)
     }
 
-    fn permission_transition(
-        curr_permission: Permission,
+    fn transition(
+        self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
     ) -> Result<Permission> {
         match (node_relation, access_kind) {
-            (NodeRelation::Foreign, AccessKind::Write) => Self::foreign_write(curr_permission),
-            (NodeRelation::Foreign, AccessKind::Read) => Self::foreign_read(curr_permission),
-            (NodeRelation::Child, AccessKind::Read) => Self::child_read(curr_permission),
-            (NodeRelation::Child, AccessKind::Write) => Self::child_write(curr_permission),
+            (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
+            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(),
+            (NodeRelation::Child, AccessKind::Read) => self.child_read(),
+            (NodeRelation::Child, AccessKind::Write) => self.child_write(),
         }
     }
 }

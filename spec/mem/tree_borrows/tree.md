@@ -77,7 +77,7 @@ impl Tree {
 
         for offset in offset_start..offset_start + size.bytes() {
             let curr_permission = node.permissions[offset];
-            let next_permission = Node::permission_transition(curr_permission, access_kind, node_relation)?;
+            let next_permission = curr_permission.transition(access_kind, node_relation)?;
             node.permissions.set(offset, next_permission);
         }
 
