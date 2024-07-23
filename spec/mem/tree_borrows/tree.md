@@ -15,7 +15,7 @@ pub struct Node {
     /// Borrow tags of the children node
     children: List<BorTag>,
     /// Permission for each location
-    permissions: Map<Address, Permission>,
+    permissions: List<Permission>,
 }
 
 impl Tree {
@@ -47,7 +47,7 @@ pub enum AccessKind {
 Then we implement how to actually update and check permissions in a Tree during each memory access.
 
 ```rust
-impl TreeBorrowsAllocation {
+impl Tree {
     /// Recusively do permission transition on the `curr` node and all its descendants.
     /// `base` means the node that is actually memory accessed.
     /// This method will throw UBs, representing the undefined behavior captured by Tree Borrows.
@@ -56,41 +56,47 @@ impl TreeBorrowsAllocation {
         &mut self, 
         curr_tag: BorTag,
         access_kind: AccessKind,
-        ptr: Pointer<TreeBorrowsProvenance>,
+        offset_in_alloc: Size,
         size: Size,
         access_tag: BorTag,
     ) -> Result<bool> {
-        let Some(node) = self.tree.nodes.get(curr_tag) else { throw_ub!("Tree Borrows: node not existed"); };
+        let Some(mut node) = self.nodes.get(curr_tag) else { throw_ub!("Tree Borrows: node not existed"); };
 
         // Flag to indicate whether `acccess_tag`is a child of the `curr_tag`
         let mut is_child = curr_tag == access_tag;
 
         for child_tag in node.children {
-            is_child |= self.node_access(child_tag, access_kind, ptr, size, access_tag)?;
+            is_child |= self.node_access(child_tag, access_kind, offset_in_alloc, size, access_tag)?;
         }
 
         // Indicates whether the `access_tag` is a child or foreign
         // *from the perspective of the `curr_tag`*
         let node_relation = if is_child { NodeRelation::Child } else { NodeRelation::Foreign };
 
-        for addr in ptr.addr..ptr.addr + size.bytes() {
-            self.permission_transition(curr_tag, addr, access_kind, node_relation)?;
+        let offset_start = offset_in_alloc.bytes();
+
+        for offset in offset_start..offset_start + size.bytes() {
+            let curr_permission = node.permissions[offset];
+            let next_permission = Node::permission_transition(curr_permission, access_kind, node_relation)?;
+            node.permissions.set(offset, next_permission);
         }
+
+        self.nodes.insert(curr_tag, node);
 
         ret(is_child)
     }
 
     /// Recusively do permission transition starting from the root node.
     /// This method will throw UBs, representing the undefined behavior captured by Tree Borrows.
-    fn tree_access(
+    fn access(
         &mut self, 
         base: BorTag, 
         access_kind: AccessKind,
-        ptr: Pointer<TreeBorrowsProvenance>,
+        offset_in_alloc: Size,
         size: Size
     ) -> Result {
         // Each node is a descendant of the root node.
-        self.node_access(self.tree.root_tag, access_kind, ptr, size, base)?;
+        self.node_access(self.root_tag, access_kind, offset_in_alloc, size, base)?;
         ret(())
     }
 }

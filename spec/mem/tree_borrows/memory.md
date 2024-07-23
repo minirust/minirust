@@ -48,12 +48,12 @@ Here we define some helper methods to implement the memory interface.
 
 ```rust
 impl<T: Target> TreeBorrowsMemory<T> {
-    /// Given the permission, start address, and the allocation size,
-    /// create an initialized permission map for an allocation.
-    fn init_alloc_permissions(permission: Permission, addr_start: Address, alloc_size: Size) -> Map<Address, Permission> {
-        let mut permissions = Map::new();
-        for addr in addr_start..addr_start + alloc_size.bytes() {
-            permissions.insert(addr, permission);
+    /// Given the permission and the allocation size,
+    /// create an initialized permission list for an allocation.
+    fn init_alloc_permissions(permission: Permission, alloc_size: Size) -> List<Permission> {
+        let mut permissions = List::new();
+        for _ in Int::ZERO..alloc_size.bytes() {
+            permissions.push(permission);
         }
 
         permissions
@@ -66,20 +66,15 @@ impl<T: Target> TreeBorrowsMemory<T> {
         pointee_size: Size,
         permission: Permission
     ) -> Result<Pointer<TreeBorrowsProvenance>> {
-        // For zero-sized accesses, there is nothing to do.
-        if pointee_size.is_zero() {
+        let Some((parent_tag, alloc_id, offset)) = self.check_ptr(ptr, pointee_size)? else {
             return ret(ptr);
-        }
-
-        let Some((parent_tag, alloc_id)) = ptr.provenance else {
-            throw_ub!("Tree Borrows: Pointer does not contain provenance");
         };
 
         let mut tree_alloc = self.tree_allocs[alloc_id.0];
         let allocation = tree_alloc.allocation;
 
         // Create the new child node
-        let child_permissions = Self::init_alloc_permissions(permission, allocation.addr, allocation.size());
+        let child_permissions = Self::init_alloc_permissions(permission, allocation.size());
         let child_node = Node {
             parent: Some(parent_tag),
             children: List::new(),
@@ -96,7 +91,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
         tree_alloc.tree.insert_node(child_tag, child_node);
 
         // Perform child read to all nodes
-        tree_alloc.tree_access(child_tag, AccessKind::Read, ptr, pointee_size)?;
+        tree_alloc.tree.access(child_tag, AccessKind::Read, offset, pointee_size)?;
 
         self.tree_allocs.set(alloc_id.0, tree_alloc);
 
@@ -160,7 +155,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         let root_node = Node { 
             parent: None,
             children: List::new(),
-            permissions: Self::init_alloc_permissions(Permission::Active, addr, size),
+            permissions: Self::init_alloc_permissions(Permission::Active, size),
         };
 
         let mut nodes = Map::new();
@@ -218,7 +213,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         }
 
         // check that ptr has the permission to write the entire allocation
-        tree_alloc.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
+        tree_alloc.tree.access(bor_tag, AccessKind::Write, Size::ZERO, size)?;
 
         // Mark it as dead. That's it.
         self.tree_allocs.mutate_at(alloc_id.0, |tree_alloc| {
@@ -247,7 +242,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
         // Recursively update the tree and check the existence of UBs 
         let mut tree_alloc = self.tree_allocs[alloc_id.0];
-        tree_alloc.tree_access(bor_tag, AccessKind::Read, ptr, len)?;
+        tree_alloc.tree.access(bor_tag, AccessKind::Read, offset, len)?;
 
         self.tree_allocs.set(alloc_id.0, tree_alloc);
 
@@ -274,7 +269,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         };
 
         let mut tree_alloc = self.tree_allocs[alloc_id.0];
-        tree_alloc.tree_access(bor_tag, AccessKind::Write, ptr, size)?;
+        tree_alloc.tree.access(bor_tag, AccessKind::Write, offset, size)?;
 
         // Slice into the contents, and put the new bytes there.
         tree_alloc.allocation.data.write_subslice_at_index(offset.bytes(), bytes);

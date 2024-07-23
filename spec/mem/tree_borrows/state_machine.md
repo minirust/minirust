@@ -11,84 +11,62 @@ pub enum Permission {
     Active,
     /// Represents a shared (immutable) reference
     Frozen,
+    /// Represents a dead reference
+    Disabled,
 }
 ```
 
 Then we define the transition table.
 
 ```rust
-impl TreeBorrowsAllocation {
-    fn child_read(permission: Option<Permission>) -> Result<Option<Permission>> {
-        let Some(permission) = permission else {
-            throw_ub!("Tree Borrows: Child reading a pointer without permission")
-        };
-
-        ret(Some(
+impl Node {
+    fn child_read(permission: Permission) -> Result<Permission> {
+        ret(
             match permission {
                 Permission::Reserved => Permission::Reserved,
                 Permission::Active => Permission::Active,
                 Permission::Frozen => Permission::Frozen,
+                Permission::Disabled => throw_ub!("Tree Borrows: Child reading a pointer without permission"),
             }
-        ))
+        )
     }
 
-    fn child_write(permission: Option<Permission>) -> Result<Option<Permission>> {
-        let Some(permission) = permission else {
-            throw_ub!("Tree Borrows: Child writing a pointer without permission")
-        };
-
+    fn child_write(permission: Permission) -> Result<Permission> {
         match permission {
-            Permission::Reserved => ret(Some(Permission::Active)),
-            Permission::Active => ret(Some(Permission::Active)),
+            Permission::Reserved => ret(Permission::Active),
+            Permission::Active => ret(Permission::Active),
             Permission::Frozen => throw_ub!("Tree Borrows: Child writing a pointer with the Frozen permission"),
+            Permission::Disabled => throw_ub!("Tree Borrows: Child writing a pointer without permission"),
         }
     }
 
-    fn foreign_read(permission: Option<Permission>) -> Result<Option<Permission>> {
-        let Some(permission) = permission else {
-            return ret(permission)
-        };
-
+    fn foreign_read(permission: Permission) -> Result<Permission> {
         ret(
             match permission {
-                Permission::Reserved => Some(Permission::Reserved),
-                Permission::Active => Some(Permission::Frozen),
-                Permission::Frozen => Some(Permission::Frozen),
+                Permission::Reserved => Permission::Reserved,
+                Permission::Active => Permission::Frozen,
+                Permission::Frozen => Permission::Frozen,
+                Permission::Disabled => Permission::Disabled,
             }
         )
     }
 
     // FIXME: consider interior mutability
-    fn foreign_write(_permission: Option<Permission>) -> Result<Option<Permission>> {
-        ret(None)
+    fn foreign_write(_permission: Permission) -> Result<Permission> {
+        ret(Permission::Disabled)
     }
 
     fn permission_transition(
-        &mut self,
-        tag: BorTag,
-        addr: Address,
+        curr_permission: Permission,
         access_kind: AccessKind,
         node_relation: NodeRelation,
-    ) -> Result {
-        let Some(mut node) = self.tree.nodes.get(tag) else { throw_ub!("Tree Borrows: node not existed"); };
-
-        let curr_permission = node.permissions.get(addr);
-
-        let next_permission = match (node_relation, access_kind) {
-            (NodeRelation::Foreign, AccessKind::Write) => Self::foreign_write(curr_permission)?,
-            (NodeRelation::Foreign, AccessKind::Read) => Self::foreign_read(curr_permission)?,
-            (NodeRelation::Child, AccessKind::Read) => Self::child_read(curr_permission)?,
-            (NodeRelation::Child, AccessKind::Write) => Self::child_write(curr_permission)?,
-        };
-
-        if let Some(permission) = next_permission {
-            node.permissions.insert(addr, permission);
-        } else {
-            node.permissions.remove(addr);
+    ) -> Result<Permission> {
+        match (node_relation, access_kind) {
+            (NodeRelation::Foreign, AccessKind::Write) => Self::foreign_write(curr_permission),
+            (NodeRelation::Foreign, AccessKind::Read) => Self::foreign_read(curr_permission),
+            (NodeRelation::Child, AccessKind::Read) => Self::child_read(curr_permission),
+            (NodeRelation::Child, AccessKind::Write) => Self::child_write(curr_permission),
         }
-
-        self.tree.nodes.insert(tag, node);
-        ret(())
     }
 }
 ```
