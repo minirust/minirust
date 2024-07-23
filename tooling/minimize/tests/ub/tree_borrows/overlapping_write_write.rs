@@ -1,6 +1,3 @@
-extern crate intrinsics;
-use intrinsics::*;
-
 //@ compile-flags: --minimize-tree-borrows
 fn main() {
     let parent = &mut 31; // (parent, Reserved)   
@@ -10,7 +7,7 @@ fn main() {
 
     unsafe { 
         *x = 57; // (parent, Reserved) -> (y, Disabled)
-        print(*x); // (parent, Reserved) -> (y, Disabled)
+        assert!(*x == 57); // (parent, Reserved) -> (y, Disabled)
     } 
 
     *y = 31; // UB! Child Write to Disabled 

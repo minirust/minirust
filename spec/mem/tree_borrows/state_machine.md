@@ -1,6 +1,7 @@
-# State Machine For the Tree Borrows
+# State Machine for Tree Borrows
 
-The core of the Tree Borrows is a state machine. We track a state machine for each node on the tree. We call the state as *Permission*.
+The core of Tree Borrows is a state machine for each node and each location.
+We call the state a *Permission*.
 
 ```rust
 pub enum Permission {

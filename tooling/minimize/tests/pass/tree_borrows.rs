@@ -1,7 +1,8 @@
+//@ compile-flags: --minimize-tree-borrows
+
 include!("../helper/transmute.rs");
 use std::ptr;
 
-//@ compile-flags: --minimize-tree-borrows
 fn main() {
     aliasing_read_only_mutable_refs();
     two_mut_protected_same_alloc();

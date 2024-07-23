@@ -1,6 +1,3 @@
-extern crate intrinsics;
-use intrinsics::*;
-
 #[allow(dead_code)]
 struct Foo {
     bar: u8, 
@@ -22,7 +19,7 @@ fn main() {
 
         *x.add(1) = 42; 
 
-        print(*yraw.add(0));
+        assert!(*yraw.add(0) == 42);
 
         *yraw.add(1) = 57;
     }
