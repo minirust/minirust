@@ -4,7 +4,7 @@ The core of Tree Borrows is a state machine for each node and each location.
 
 We first track the *permission* of each node to access each location.
 ```rust
-pub enum Permission {
+enum Permission {
     /// Represents a two-phase borrow during its reservation phase
     Reserved, 
     /// Represents an activated (written to) mutable reference
@@ -19,7 +19,7 @@ pub enum Permission {
 In addition, we also need to track whether a location has already been accessed.
 
 ```rust
-pub enum Accessed {
+enum Accessed {
     /// This address has been accessed (read, written, or the initial implicit read upon retag)
     /// with this borrow tag.
     Yes,
@@ -31,7 +31,7 @@ pub enum Accessed {
 
 Then we define the state for the Tree Borrows state machine.
 ```rust
-pub struct LocationState {
+struct LocationState {
     accessed: Accessed,
     permission: Permission,
 }

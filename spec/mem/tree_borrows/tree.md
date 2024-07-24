@@ -3,13 +3,13 @@
 The core data structure of the Tree Borrows is a *Tree*. We use a tree to track reborrows in each allocation. The tree consists of several nodes, each corresponding to a borrow tag (i.e., a reborrow operation). Each node has a parent and a list of children. Additionally, on memory locations (bytes) within the allocation, we track each tag's state defined in [state_machine.md](state_machine.md).
 
 ```rust
-pub struct Tree {
+struct Tree {
     root_tag: BorTag, 
     /// Map a borrow tag to a node
     nodes: Map<BorTag, Node>,
 }
 
-pub struct Node {
+struct Node {
     /// Borrow tag of the parent node
     parent: Option<BorTag>, 
     /// Borrow tags of the children node
@@ -22,7 +22,7 @@ pub struct Node {
 During each memory access, we update states according to the state machine defined in [state_machine.md](state_machine.md). When a node is accessed, each node in the tree can be divided into two disjoint sets: *Child* and *Foreign*, based on its relative position to the accessed node. The Child set includes the node itself and all its descendants, while the Foreign set contains all other nodes.
 
 ```rust
-pub enum NodeRelation {
+enum NodeRelation {
     Child, 
     Foreign,
 }
@@ -31,7 +31,7 @@ pub enum NodeRelation {
 The state transition depends on both the node relation and the type of access operation.
 
 ```rust
-pub enum AccessKind {
+enum AccessKind {
     Read, 
     Write,
 }

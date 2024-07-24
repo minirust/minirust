@@ -23,7 +23,7 @@ impl<T: Target> Memory for BasicMemory<T> {
 The data tracked by the memory is fairly simple: for each allocation, we track its data contents, its absolute integer address in memory, the alignment it was created with (the size is implicit in the length of the contents), and whether it is still alive (or has already been deallocated).
 
 ```rust
-struct Allocation<Provenance> {
+struct Allocation<Provenance, Extra = ()> {
     /// The data stored in this allocation.
     data: List<AbstractByte<Provenance>>,
     /// The address where this allocation starts.
@@ -36,14 +36,16 @@ struct Allocation<Provenance> {
     kind: AllocationKind,
     /// Whether this allocation is still live.
     live: bool,
+    /// Additional information needed for the memory model
+    extra: Extra,
 }
 ```
 
 Memory then consists of a map tracking the allocation for each ID, stored as a list (since we assign IDs consecutively).
 
 ```rust
-pub struct BasicMemory<T: Target> {
-    allocations: List<Allocation<AllocId>>,
+pub struct BasicMemory<T: Target, AllocExtra = ()> {
+    allocations: List<Allocation<AllocId, AllocExtra>>,
 
     // FIXME: specr should add this automatically
     _phantom: std::marker::PhantomData<T>,
@@ -63,7 +65,7 @@ impl<T: Target> Memory for BasicMemory<T> {
 We start with some helper operations.
 
 ```rust
-impl<Provenance> Allocation<Provenance> {
+impl<Provenance, Extra> Allocation<Provenance, Extra> {
     fn size(self) -> Size { Size::from_bytes(self.data.len()).unwrap() }
 
     fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
@@ -118,8 +120,7 @@ impl<Provenance> Allocation<Provenance> {
         ret(Offset::from_bytes(offset_in_alloc).unwrap())
     }
 
-    /// Slice into the contents, and copy them to a new list.
-    fn read(&self, addr: Address, offset: Size, len: Size, align: Align) -> Result<List<AbstractByte<Provenance>>> {
+    fn load(&self, addr: Address, offset: Size, len: Size, align: Align) -> Result<List<AbstractByte<Provenance>>> {
         if !align.is_aligned(addr) {
             throw_ub!("load from a misaligned pointer");
         }
@@ -127,23 +128,18 @@ impl<Provenance> Allocation<Provenance> {
         ret(self.data.subslice_with_length(offset.bytes(), len.bytes()))
     }
 
-    /// Slice into the contents, and put the new bytes there.
-    fn write(&mut self, addr: Address, offset: Size, bytes: List<AbstractByte<Provenance>>, align: Align) -> Result {
+    fn store(&mut self, addr: Address, offset: Size, bytes: List<AbstractByte<Provenance>>, align: Align) -> Result {
         if !align.is_aligned(addr) {
             throw_ub!("store to a misaligned pointer");
         }
 
+        // Slice into the contents, and put the new bytes there.
         self.data.write_subslice_at_index(offset.bytes(), bytes);
+
         ret(())
     }
-}
-```
 
-Then we implement creating and removing allocations.
-
-```rust
-impl<T: Target> Memory for BasicMemory<T> {
-    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
+    fn pick_base_address<T: Target>(allocations: List<Allocation<Provenance, Extra>>, size: Size, align: Align) -> NdResult<Int> {
         // Reject too large allocations. Size must fit in `isize`.
         if !T::valid_size(size) {
             throw_ub!("asking for a too large allocation");
@@ -154,21 +150,54 @@ impl<T: Target> Memory for BasicMemory<T> {
         // which is not what we want.
         let distr = libspecr::IntDistribution {
             start: Int::ONE,
-            end: Int::from(2).pow(Self::T::PTR_SIZE.bits()),
+            end: Int::from(2).pow(T::PTR_SIZE.bits()),
             divisor: align.bytes(),
         };
-        let addr = pick(distr, |addr: Address| {
-            // Pick a strictly positive integer...
-            if addr <= 0 { return false; }
-            // ... that is suitably aligned...
-            if !align.is_aligned(addr) { return false; }
-            // ... such that addr+size is in-bounds of a `usize`...
-            if !(addr+size.bytes()).in_bounds(Unsigned, Self::T::PTR_SIZE) { return false; }
-            // ... and it does not overlap with any existing live allocation.
-            if self.allocations.any(|a| a.live && a.overlaps(addr, size)) { return false; }
-            // If all tests pass, we are good!
-            true
-        })?;
+
+        let addr = pick(
+            distr,
+            |addr: Address| {
+                if addr <= 0 {
+                    return false;
+                }
+                if !align.is_aligned(addr) {
+                    return false;
+                }
+                if !(addr + size.bytes()).in_bounds(Unsigned, T::PTR_SIZE) {
+                    return false;
+                }
+                if allocations.any(|a| a.live && a.overlaps(addr, size)) {
+                    return false;
+                }
+                true
+            },
+        )?;
+
+        ret(addr)
+    }
+
+    fn leak_check(allocations: List<Allocation<Provenance, Extra>>) -> Result {
+        for allocation in allocations {
+            if allocation.live {
+                match allocation.kind {
+                    // These should all be gone.
+                    AllocationKind::Heap => throw_memory_leak!(),
+                    // These we can still have at the end.
+                    AllocationKind::Global | AllocationKind::Function | AllocationKind::Stack => {}
+                }
+            }
+        }
+        ret(())
+    }
+}
+```
+
+Then we implement creating and removing allocations.
+
+```rust
+impl<T: Target> Memory for BasicMemory<T> {
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
+        let addr = Allocation::pick_base_address::<T>(self.allocations, size, align)?;
 
         // Compute allocation.
         let allocation = Allocation {
@@ -177,6 +206,7 @@ impl<T: Target> Memory for BasicMemory<T> {
             kind,
             live: true,
             data: list![AbstractByte::Uninit; size.bytes()],
+            extra: (),
         };
 
         // Insert it into list, and remember where.
@@ -243,7 +273,7 @@ impl<T: Target> Memory for BasicMemory<T> {
             return ret(list![]);
         };
         let allocation = &self.allocations[id.0];
-        allocation.read(ptr.addr, offset, len, align)
+        allocation.load(ptr.addr, offset, len, align)
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
@@ -253,7 +283,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         };
 
         let mut allocation = self.allocations[id.0];
-        allocation.write(ptr.addr, offset, bytes, align)?;
+        allocation.store(ptr.addr, offset, bytes, align)?;
         self.allocations.set(id.0, allocation);
 
         ret(())
@@ -272,17 +302,7 @@ Stack allocations are fine; they get automatically cleaned up when a function re
 ```rust
 impl<T: Target> Memory for BasicMemory<T> {
     fn leak_check(&self) -> Result {
-        for allocation in self.allocations {
-            if allocation.live {
-                match allocation.kind {
-                    // These should all be gone.
-                    AllocationKind::Heap => throw_memory_leak!(),
-                    // These we can still have at the end.
-                    AllocationKind::Global | AllocationKind::Function | AllocationKind::Stack => {}
-                }
-            }
-        }
-        ret(())
+        Allocation::leak_check(self.allocations)
     }
 }
 ```
