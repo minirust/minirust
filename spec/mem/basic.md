@@ -80,6 +80,62 @@ impl<Provenance> Allocation<Provenance> {
             true
         }
     }
+
+    /// Check whether the deallocation is valid.
+    fn deallocation_check(self, ptr_addr: Address, kind: AllocationKind, size: Size, align: Align) -> Result {
+        if !self.live {
+            throw_ub!("double-free");
+        }
+        if ptr_addr != self.addr {
+            throw_ub!("deallocating with pointer not to the beginning of its allocation");
+        }
+        if kind != self.kind {
+            throw_ub!("deallocating {:?} memory with {:?} deallocation operation", self.kind, kind);
+        }
+        if size != self.size() {
+            throw_ub!("deallocating with incorrect size information");
+        }
+        if align != self.align {
+            throw_ub!("deallocating with incorrect alignment information");
+        }
+
+        ret(())
+    }
+
+    /// Compute relative offset, and ensure we are in-bounds.
+    /// We don't need a null ptr check, we just have an invariant that no allocation
+    /// contains the null address.
+    fn offset_in_alloc(&self, addr: Address, pointee_size: Size) -> Result<Size> {
+        if !self.live {
+            throw_ub!("dereferencing pointer to dead allocation");
+        }
+
+        let offset_in_alloc = addr - self.addr;
+        if offset_in_alloc < 0 || offset_in_alloc + pointee_size.bytes() > self.size().bytes() {
+            throw_ub!("dereferencing pointer outside the bounds of its allocation");
+        }
+
+        ret(Offset::from_bytes(offset_in_alloc).unwrap())
+    }
+
+    /// Slice into the contents, and copy them to a new list.
+    fn read(&self, addr: Address, offset: Size, len: Size, align: Align) -> Result<List<AbstractByte<Provenance>>> {
+        if !align.is_aligned(addr) {
+            throw_ub!("load from a misaligned pointer");
+        }
+
+        ret(self.data.subslice_with_length(offset.bytes(), len.bytes()))
+    }
+
+    /// Slice into the contents, and put the new bytes there.
+    fn write(&mut self, addr: Address, offset: Size, bytes: List<AbstractByte<Provenance>>, align: Align) -> Result {
+        if !align.is_aligned(addr) {
+            throw_ub!("store to a misaligned pointer");
+        }
+
+        self.data.write_subslice_at_index(offset.bytes(), bytes);
+        ret(())
+    }
 }
 ```
 
@@ -138,22 +194,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         // This lookup will definitely work, since AllocId cannot be faked.
         let allocation = self.allocations[id.0];
 
-        // Check a bunch of things.
-        if !allocation.live {
-            throw_ub!("double-free");
-        }
-        if ptr.addr != allocation.addr {
-            throw_ub!("deallocating with pointer not to the beginning of its allocation");
-        }
-        if kind != allocation.kind {
-            throw_ub!("deallocating {:?} memory with {:?} deallocation operation", allocation.kind, kind);
-        }
-        if size != allocation.size() {
-            throw_ub!("deallocating with incorrect size information");
-        }
-        if align != allocation.align {
-            throw_ub!("deallocating with incorrect alignment information");
-        }
+        allocation.deallocation_check(ptr.addr, kind, size, align)?;
 
         // Mark it as dead. That's it.
         self.allocations.mutate_at(id.0, |allocation| {
@@ -188,49 +229,32 @@ impl<T: Target> BasicMemory<T> {
         };
         let allocation = self.allocations[id.0];
 
-        if !allocation.live {
-            throw_ub!("dereferencing pointer to dead allocation");
-        }
+        // Compute relative offset
+        let offset = allocation.offset_in_alloc(ptr.addr, len)?;
 
-        // Compute relative offset, and ensure we are in-bounds.
-        // We don't need a null ptr check, we just have an invariant that no allocation
-        // contains the null address.
-        let offset_in_alloc = ptr.addr - allocation.addr;
-        if offset_in_alloc < 0 || offset_in_alloc + len.bytes() > allocation.size().bytes() {
-            throw_ub!("dereferencing pointer outside the bounds of its allocation");
-        }
         // All is good!
-        ret(Some((id, Offset::from_bytes(offset_in_alloc).unwrap())))
+        ret(Some((id, offset)))
     }
 }
 
 impl<T: Target> Memory for BasicMemory<T> {
     fn load(&mut self, ptr: Pointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
-        if !align.is_aligned(ptr.addr) {
-            throw_ub!("load from a misaligned pointer");
-        }
         let Some((id, offset)) = self.check_ptr(ptr, len)? else {
             return ret(list![]);
         };
         let allocation = &self.allocations[id.0];
-
-        // Slice into the contents, and copy them to a new list.
-        ret(allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
+        allocation.read(ptr.addr, offset, len, align)
     }
 
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
-        if !align.is_aligned(ptr.addr) {
-            throw_ub!("store to a misaligned pointer");
-        }
         let size = Size::from_bytes(bytes.len()).unwrap();
         let Some((id, offset)) = self.check_ptr(ptr, size)? else {
             return ret(());
         };
 
-        // Slice into the contents, and put the new bytes there.
-        self.allocations.mutate_at(id.0, |allocation| {
-            allocation.data.write_subslice_at_index(offset.bytes(), bytes);
-        });
+        let mut allocation = self.allocations[id.0];
+        allocation.write(ptr.addr, offset, bytes, align)?;
+        self.allocations.set(id.0, allocation);
 
         ret(())
     }

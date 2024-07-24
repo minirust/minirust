@@ -17,13 +17,6 @@ pub struct Node {
     /// State for each location
     location_states: List<LocationState>,
 }
-
-impl Tree {
-    /// Insert a node into the tree
-    fn insert_node(&mut self, tag: BorTag, node: Node) {
-        self.nodes.insert(tag, node);
-    }
-}
 ```
 
 During each memory access, we update states according to the state machine defined in [state_machine.md](state_machine.md). When a node is accessed, each node in the tree can be divided into two disjoint sets: *Child* and *Foreign*, based on its relative position to the accessed node. The Child set includes the node itself and all its descendants, while the Foreign set contains all other nodes.
@@ -35,7 +28,7 @@ pub enum NodeRelation {
 }
 ```
 
-The permission update depends on both the node relation and the type of access operation.
+The state transition depends on both the node relation and the type of access operation.
 
 ```rust
 pub enum AccessKind {
@@ -100,4 +93,31 @@ impl Tree {
         ret(())
     }
 }
+```
+
+We also implement some helper methods for manipulating Trees.
+
+```rust
+impl Tree {
+    /// Add a new child node to the parent's children list
+    fn add_child(
+        &mut self,
+        parent_tag: BorTag,
+        child_tag: BorTag,
+        child_node: Node
+    ) -> Result {
+        let Some(mut parent_node) = self.nodes.get(parent_tag) else {
+            throw_ub!("Tree Borrows: Parent pointer does not exist in the tree");
+        };
+
+        parent_node.children.push(child_tag);
+
+        self.nodes.insert(parent_tag, parent_node);
+        self.nodes.insert(child_tag, child_node);
+
+        ret(())
+    }
+}
+
+
 ```
