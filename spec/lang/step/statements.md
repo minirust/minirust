@@ -83,7 +83,8 @@ impl<M: Memory> Machine<M> {
         let (place, ty) = self.eval_place(place)?;
 
         let val = self.mem.place_load(place, ty)?;
-        let val = self.mem.retag_val(val, ty, fn_entry)?;
+        let frame_id = self.cur_frame().id;
+        let val = self.mem.retag_val(val, ty, fn_entry, frame_id)?;
         self.mem.place_store(place, val, ty)?;
 
         ret(())

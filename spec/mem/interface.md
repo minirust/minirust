@@ -59,6 +59,9 @@ pub enum AllocationKind {
     Function,
 }
 
+/// The ID of each function call (i.e stack frame)
+type CallId = Int;
+
 /// *Note*: All memory operations can be non-deterministic, which means that
 /// executing the same operation on the same memory can have different results.
 /// We also let read operations potentially mutate memory (they actually can
@@ -114,12 +117,18 @@ pub trait Memory {
     // (IOW, it cannot be more defined than the default implementation).
     ///
     /// Return the retagged pointer.
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool, _call_id: CallId) -> Result<Pointer<Self::Provenance>> {
         if let Some(layout) = ptr_type.safe_pointee() {
             self.dereferenceable(ptr, layout.size)?;
         }
         ret(ptr)
     }
+
+    /// Memory model inserted at the beginning of each function call.
+    fn begin_call(&mut self) -> Result { ret(()) }
+
+    /// Memory model hook inserted at the end of each function call.
+    fn end_call(&mut self) -> Result { ret(()) }
 
     /// Check if there are any memory leaks.
     fn leak_check(&self) -> Result;

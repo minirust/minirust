@@ -98,8 +98,8 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     /// Return the retagged pointer.
-    pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
-        self.memory.retag_ptr(ptr, ptr_type, fn_entry)
+    pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool, call_id: CallId) -> Result<Pointer<M::Provenance>> {
+        self.memory.retag_ptr(ptr, ptr_type, fn_entry, call_id)
     }
 
     /// Check if there are any memory leaks.
