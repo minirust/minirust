@@ -258,6 +258,8 @@ impl<M: Memory> Machine<M> {
             arguments,
         )?;
 
+        self.mem.begin_call(frame.id.0)?;
+
         // Push new stack frame, so it is executed next.
         self.mutate_cur_stack(|stack| stack.push(frame));
         ret(())
@@ -312,6 +314,8 @@ impl<M: Memory> Machine<M> {
         while let Some(local) = frame.locals.keys().next() {
             frame.storage_dead(&mut self.mem, local)?;
         }
+
+        self.mem.end_call(frame.id.0)?;
 
         // Perform the return action.
         match frame.return_action {

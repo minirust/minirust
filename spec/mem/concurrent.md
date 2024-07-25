@@ -102,6 +102,16 @@ impl<M: Memory> ConcurrentMemory<M> {
         self.memory.retag_ptr(ptr, ptr_type, fn_entry, call_id)
     }
 
+    /// Memory model hook inserted at the beginning of each function call.
+    pub fn begin_call(&mut self, call_id: CallId) -> Result {
+        self.memory.begin_call(call_id)
+    }
+
+    /// Memory model hook inserted at the end of each function call.
+    pub fn end_call(&mut self, call_id: CallId) -> Result {
+        self.memory.end_call(call_id)
+    }
+
     /// Check if there are any memory leaks.
     pub fn leak_check(&self) -> Result {
         self.memory.leak_check()

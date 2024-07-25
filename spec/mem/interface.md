@@ -124,11 +124,11 @@ pub trait Memory {
         ret(ptr)
     }
 
-    /// Memory model inserted at the beginning of each function call.
-    fn begin_call(&mut self) -> Result { ret(()) }
+    /// Memory model hook inserted at the beginning of each function call.
+    fn begin_call(&mut self, _call_id: CallId) -> Result { ret(()) }
 
     /// Memory model hook inserted at the end of each function call.
-    fn end_call(&mut self) -> Result { ret(()) }
+    fn end_call(&mut self, _call_id: CallId) -> Result { ret(()) }
 
     /// Check if there are any memory leaks.
     fn leak_check(&self) -> Result;
