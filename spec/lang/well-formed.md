@@ -662,8 +662,9 @@ impl<M: Memory> Value<M> {
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure_wf(ptr_ty.addr_valid(ptr.addr), "Value::Ptr: invalid pointer address")?;
-                ensure_wf(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+                // FIXME: Check pointer meta matches ptr_ty expected meta!
+                ensure_wf(ptr_ty.addr_valid(ptr.thin_pointer.addr), "Value::Ptr: invalid pointer address")?;
+                ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
                 ensure_wf(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;

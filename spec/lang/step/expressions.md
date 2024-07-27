@@ -35,19 +35,19 @@ impl<M: Memory> Machine<M> {
             Constant::Bool(b) => Value::Bool(b),
             Constant::GlobalPointer(relocation) => {
                 let ptr = self.global_ptrs[relocation.name].wrapping_offset::<M::T>(relocation.offset.bytes());
-                Value::Ptr(ptr)
+                Value::Ptr(ptr.widen(None))
             },
             Constant::FnPointer(fn_name) => {
-                Value::Ptr(Pointer {
+                Value::Ptr((ThinPointer {
                     addr: self.fn_addrs[fn_name],
                     provenance: None,
-                })
+                }).widen(None))
             },
             Constant::PointerWithoutProvenance(addr) => {
-                Value::Ptr(Pointer {
+                Value::Ptr((ThinPointer {
                     addr,
                     provenance: None,
-                })
+                }).widen(None))
             }
         })
     }
@@ -112,7 +112,7 @@ impl<M: Memory> Machine<M> {
         // We don't require the variant to be valid,
         // we are only interested in the bytes that the discriminator actually touches.
         let accessor = |idx: Offset, size: Size| {
-            let ptr = self.ptr_offset_inbounds(place.ptr, idx.bytes())?;
+            let ptr = self.ptr_offset_inbounds(place.ptr.thin_pointer, idx.bytes())?;
             // We have ensured that the place is aligned, so no alignment requirement here.
             self.mem.load(ptr, size, Align::ONE, Atomicity::None)
         };
@@ -136,7 +136,7 @@ impl<M: Memory> ConcurrentMemory<M> {
             throw_ub!("loading from a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        ret(self.typed_load(place.ptr, ty, Align::ONE, Atomicity::None)?)
+        ret(self.typed_load(place.ptr.thin_pointer, ty, Align::ONE, Atomicity::None)?)
     }
 }
 
@@ -160,7 +160,7 @@ impl<M: Memory> Machine<M> {
         let (place, _ty) = self.eval_place(target)?;
         // Make sure the new pointer has a valid address.
         // Remember that places are basically raw pointers so this is not guaranteed!
-        if !ptr_ty.addr_valid(place.ptr.addr) {
+        if !ptr_ty.addr_valid(place.ptr.thin_pointer.addr) {
             throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
         }
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
@@ -224,7 +224,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("access to a dead local");
         };
 
-        ret((Place { ptr, aligned: true }, ty))
+        ret((Place { ptr: ptr.widen(None), aligned: true }, ty))
     }
 }
 ```
@@ -243,13 +243,13 @@ impl<M: Memory> Machine<M> {
         // We know the pointer is valid for its type, but make sure safe pointers are also dereferenceable.
         // (We don't do a full retag here, this is not considered creating a new pointer.)
         if let Some(layout) = ptr_type.safe_pointee() {
-            assert!(layout.align.is_aligned(ptr.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr, layout.size)?;
+            assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
+            self.mem.dereferenceable(ptr.thin_pointer, layout.size)?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
         // However, they cannot be loaded from.
-        let aligned = ty.align::<M::T>().is_aligned(ptr.addr);
+        let aligned = ty.align::<M::T>().is_aligned(ptr.thin_pointer.addr);
 
         ret((Place { ptr, aligned }, ty))
     }
@@ -269,8 +269,8 @@ impl<M: Memory> Machine<M> {
         };
         assert!(offset <= ty.size::<M::T>());
 
-        let ptr = self.ptr_offset_inbounds(root.ptr, offset.bytes())?;
-        ret((Place { ptr, ..root }, field_ty))
+        let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
+        ret((Place { ptr: ptr.widen(root.ptr.metadata), ..root }, field_ty))
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> Result<(Place<M>, Type)> {
@@ -290,8 +290,8 @@ impl<M: Memory> Machine<M> {
         };
         assert!(offset <= ty.size::<M::T>());
 
-        let ptr = self.ptr_offset_inbounds(root.ptr, offset.bytes())?;
-        ret((Place { ptr, ..root }, field_ty))
+        let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
+        ret((Place { ptr: ptr.widen(None), ..root }, field_ty))
     }
 
     fn eval_place(&mut self, PlaceExpr::Downcast { root, discriminant }: PlaceExpr) -> Result<(Place<M>, Type)> {

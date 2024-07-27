@@ -9,7 +9,7 @@ enum Value<M: Memory> {
     Int(Int),
     /// A Boolean value, used for `bool`.
     Bool(bool),
-    /// A pointer value, used for (thin) references and raw pointers.
+    /// A pointer value, used for references and raw pointers.
     Ptr(Pointer<M::Provenance>),
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<Value<M>>),

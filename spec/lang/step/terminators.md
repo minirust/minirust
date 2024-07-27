@@ -137,7 +137,7 @@ impl<M: Memory> Machine<M> {
         // Make the old value unobservable because the callee might work on it in-place.
         // This also checks that the memory is dereferenceable, and crucially ensures we are aligned
         // *at the given type* -- the callee does not care about packed field projections or things like that!
-        self.mem.deinit(place.ptr, ty.size::<M::T>(), ty.align::<M::T>())?;
+        self.mem.deinit(place.ptr.thin_pointer, ty.size::<M::T>(), ty.align::<M::T>())?;
         // FIXME: This also needs aliasing model support.
 
         ret(())
@@ -227,7 +227,7 @@ impl<M: Memory> Machine<M> {
         self.prepare_for_inplace_passing(caller_ret_place, caller_ret_ty)?;
 
         // Then evaluate the function that will be called.
-        let (Value::Ptr(ptr), Type::Ptr(PtrType::FnPtr)) = self.eval_value(callee)? else {
+        let (Value::Ptr(Pointer { thin_pointer: ptr, .. }), Type::Ptr(PtrType::FnPtr)) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
         let func = self.fn_from_addr(ptr.addr)?;
@@ -240,7 +240,7 @@ impl<M: Memory> Machine<M> {
         // Set up the stack frame.
         let return_action = ReturnAction::ReturnToCaller {
             next_block,
-            ret_val_ptr: caller_ret_place.ptr,
+            ret_val_ptr: caller_ret_place.ptr.thin_pointer,
         };
         let frame = self.create_frame(
             func,

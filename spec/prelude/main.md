@@ -35,6 +35,7 @@ pub enum TerminationInfo {
 
 /// Some macros for convenient yeeting, i.e., return an error from a
 /// `Option`/`Result`-returning function.
+#[macro_export]
 macro_rules! throw {
     ($($tt:tt)*) => {
         do yeet ()

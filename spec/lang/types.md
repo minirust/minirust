@@ -137,7 +137,7 @@ impl Type {
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes_const(1),
-            Ptr(_) => T::PTR_SIZE,
+            Ptr(_) => T::PTR_SIZE, // FIXME: sometimes 2 words
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size::<T>() * count,
         }

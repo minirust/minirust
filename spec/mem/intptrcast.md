@@ -20,14 +20,14 @@ impl<Provenance> IntPtrCast<Provenance> {
         Self { exposed: Set::new() }
     }
 
-    pub fn expose(&mut self, ptr: Pointer<Provenance>) {
+    pub fn expose(&mut self, ptr: ThinPointer<Provenance>) {
         if let Some(provenance) = ptr.provenance {
             // Remember this provenance as having been exposed.
             self.exposed.insert(provenance);
         }
     }
 
-    pub fn int2ptr(&self, addr: Int) -> NdResult<Pointer<Provenance>> {
+    pub fn int2ptr(&self, addr: Int) -> NdResult<ThinPointer<Provenance>> {
         // Predict a suitable provenance. It must be either `None` or already exposed.
         let provenance = predict(|prov: Option<Provenance>| {
             prov.map_or(
@@ -37,7 +37,7 @@ impl<Provenance> IntPtrCast<Provenance> {
         })?;
 
         // Construct a pointer with that provenance.
-        ret(Pointer { addr, provenance })
+        ret(ThinPointer { addr, provenance })
     }
 }
 ```

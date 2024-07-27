@@ -40,7 +40,7 @@ impl<M: Memory> Machine<M> {
         if arguments.len() != 1 {
             throw_ub!("invalid number of arguments for `PointerExposeProvenance` intrinsic");
         }
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, ..}) = arguments[0].0 else {
             throw_ub!("invalid argument for `PointerExposeProvenance` intrinsic: not a pointer");
         };
         if ret_ty != Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE }) {
@@ -67,7 +67,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let ptr = self.intptrcast.int2ptr(addr)?;
-        ret(Value::Ptr(ptr))
+        ret(Value::Ptr(ptr.widen(None)))
     }
 }
 ```
@@ -231,7 +231,7 @@ impl<M: Memory> Machine<M> {
 
         let alloc = self.mem.allocate(AllocationKind::Heap, size, align)?;
 
-        ret(Value::Ptr(alloc))
+        ret(Value::Ptr(alloc.widen(None)))
     }
 
     fn eval_intrinsic(
@@ -244,7 +244,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `Deallocate` intrinsic");
         }
 
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        // Is it UB to call this with a wide pointer?
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Deallocate` intrinsic: not a pointer");
         };
 
@@ -300,7 +301,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `Spawn` intrinsic");
         }
 
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Spawn` intrinsic: not a pointer");
         };
         let func = self.fn_from_addr(ptr.addr)?;
@@ -367,7 +368,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
         let Layout { size, align, .. } = pointee;
-        let bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
+        let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
 
         // FIXME: This violates provenance monotonicity
         if bytes.any(|byte| byte.provenance() != None) {
@@ -437,7 +438,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicStore` intrinsic");
         }
 
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `AtomicStore` intrinsic: not a pointer");
         };
 
@@ -468,7 +469,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicLoad` intrinsic");
         }
     
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a pointer");
         };
 
@@ -494,7 +495,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicCompareExchange` intrinsic");
         }
 
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer");
         };
 
@@ -545,7 +546,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicFetchAndOp` intrinsic");
         }
 
-        let Value::Ptr(ptr) = arguments[0].0 else {
+        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer");
         };
 
