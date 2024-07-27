@@ -25,7 +25,7 @@ impl<M: Memory> ConcurrentMemory<M> {
             throw_ub!("storing to a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        self.typed_store(place.ptr, val, ty, Align::ONE, Atomicity::None)?;
+        self.typed_store(place.ptr.thin_pointer, val, ty, Align::ONE, Atomicity::None)?;
         ret(())
     }
 }
@@ -62,7 +62,7 @@ impl<M: Memory> Machine<M> {
         // Write the tag directly into memory.
         // This should be fine as we don't allow encoded data and the tag to overlap for valid enum variants.
         let accessor = |offset: Offset, bytes| {
-            let ptr = self.ptr_offset_inbounds(place.ptr, offset.bytes())?;
+            let ptr = self.ptr_offset_inbounds(place.ptr.thin_pointer, offset.bytes())?;
             // We have ensured that the place is aligned, so no alignment requirement here
             self.mem.store(ptr, bytes, Align::ONE, Atomicity::None)
         };
@@ -97,7 +97,7 @@ This statement replaces the contents of a place with `Uninit`.
 
 ```rust
 impl<M: Memory> ConcurrentMemory<M> {
-    fn deinit(&mut self, ptr: Pointer<M::Provenance>, len: Size, align: Align) -> Result {
+    fn deinit(&mut self, ptr: ThinPointer<M::Provenance>, len: Size, align: Align) -> Result {
         self.store(ptr, list![AbstractByte::Uninit; len.bytes()], align, Atomicity::None)?;
         ret(())
     }
@@ -110,7 +110,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("de-initializing a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        self.mem.deinit(p.ptr, ty.size::<M::T>(), Align::ONE)?;
+        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>(), Align::ONE)?;
 
         ret(())
     }

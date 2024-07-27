@@ -234,7 +234,7 @@ impl<M: Memory> Machine<M> {
         match val {
             Value::Int(i) => i,
             Value::Bool(b) => if b { Int::from(1) } else { Int::from(0) },
-            Value::Ptr(p) => p.addr,
+            Value::Ptr(p) => p.thin_pointer.addr,
             _ => panic!("invalid value for relational operator"),
         }
     }
@@ -257,19 +257,20 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     /// Perform a wrapping offset on the given pointer. (Can never fail.)
-    fn ptr_offset_wrapping(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Pointer<M::Provenance> {
+    fn ptr_offset_wrapping(&self, ptr: ThinPointer<M::Provenance>, offset: Int) -> ThinPointer<M::Provenance> {
         ptr.wrapping_offset::<M::T>(offset)
     }
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    fn ptr_offset_inbounds(&self, ptr: Pointer<M::Provenance>, offset: Int) -> Result<Pointer<M::Provenance>> {
+    // Question: Do we not care about the size here anymore? Or am I missing something?
+    fn ptr_offset_inbounds(&self, ptr: ThinPointer<M::Provenance>, offset: Int) -> Result<ThinPointer<M::Provenance>> {
         // Ensure dereferenceability. This also ensures that `offset` fits in an `isize`, since no allocation
         // can be bigger than `isize`, and it ensures that the arithmetic does not overflow, since no
         // allocation wraps around the edge of the address space.
         self.mem.signed_dereferenceable(ptr, offset)?;
         // All checked!
-        ret(Pointer { addr: ptr.addr + offset, ..ptr })
+        ret(ThinPointer { addr: ptr.addr + offset, ..ptr })
     }
 
     fn eval_bin_op(
@@ -278,15 +279,17 @@ impl<M: Memory> Machine<M> {
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Value::Ptr(left) = left else { panic!("non-pointer left input to `PtrOffset`") };
+        let Value::Ptr(Pointer { thin_pointer: left, metadata: left_meta }) = left else {
+            panic!("non-pointer left input to `PtrOffsetFrom`")
+        };
         let Value::Int(right) = right else { panic!("non-integer right input to `PtrOffset`") };
 
-        let result = if inbounds {
+        let offset_ptr = if inbounds {
             self.ptr_offset_inbounds(left, right)?
         } else {
             self.ptr_offset_wrapping(left, right)
         };
-        ret((Value::Ptr(result), l_ty))
+        ret((Value::Ptr(offset_ptr.widen(left_meta)), l_ty))
     }
 
     fn eval_bin_op(
@@ -295,8 +298,12 @@ impl<M: Memory> Machine<M> {
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Value::Ptr(left) = left else { panic!("non-pointer left input to `PtrOffsetFrom`") };
-        let Value::Ptr(right) = right else { panic!("non-integer right input to `PtrOffsetFrom`") };
+        let Value::Ptr(Pointer { thin_pointer: left, .. }) = left else {
+            panic!("non-pointer left input to `PtrOffsetFrom`")
+        };
+        let Value::Ptr(Pointer { thin_pointer: right, .. }) = right else {
+            panic!("non-pointer right input to `PtrOffsetFrom`")
+        };
 
         let distance = left.addr - right.addr;
         let distance = if inbounds {

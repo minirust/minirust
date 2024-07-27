@@ -87,7 +87,7 @@ Then we implement creating and removing allocations.
 
 ```rust
 impl<T: Target> Memory for BasicMemory<T> {
-    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<AllocId>> {
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<ThinPointer<AllocId>> {
         // Reject too large allocations. Size must fit in `isize`.
         if !T::valid_size(size) {
             throw_ub!("asking for a too large allocation");
@@ -128,10 +128,10 @@ impl<T: Target> Memory for BasicMemory<T> {
         self.allocations.push(allocation);
 
         // And we are done!
-        ret(Pointer { addr, provenance: Some(id) })
+        ret(ThinPointer { addr, provenance: Some(id) })
     }
 
-    fn deallocate(&mut self, ptr: Pointer<AllocId>, kind: AllocationKind, size: Size, align: Align) -> Result {
+    fn deallocate(&mut self, ptr: ThinPointer<AllocId>, kind: AllocationKind, size: Size, align: Align) -> Result {
         let Some(id) = ptr.provenance else {
             throw_ub!("deallocating invalid pointer")
         };
@@ -173,7 +173,7 @@ impl<T: Target> BasicMemory<T> {
     /// Check if the given pointer is dereferenceable for an access of the given
     /// length. For dereferenceable, return the allocation ID and
     /// offset; this can be missing for invalid pointers and accesses of size 0.
-    fn check_ptr(&self, ptr: Pointer<AllocId>, len: Size) -> Result<Option<(AllocId, Size)>> {
+    fn check_ptr(&self, ptr: ThinPointer<AllocId>, len: Size) -> Result<Option<(AllocId, Size)>> {
         // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
@@ -205,7 +205,7 @@ impl<T: Target> BasicMemory<T> {
 }
 
 impl<T: Target> Memory for BasicMemory<T> {
-    fn load(&mut self, ptr: DataPointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
+    fn load(&mut self, ptr: ThinPointer<AllocId>, len: Size, align: Align) -> Result<List<AbstractByte<AllocId>>> {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("load from a misaligned pointer");
         }
@@ -218,7 +218,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         ret(allocation.data.subslice_with_length(offset.bytes(), len.bytes()))
     }
 
-    fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
+    fn store(&mut self, ptr: ThinPointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("store to a misaligned pointer");
         }
@@ -235,7 +235,7 @@ impl<T: Target> Memory for BasicMemory<T> {
         ret(())
     }
 
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result {
+    fn dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Size) -> Result {
         self.check_ptr(ptr, len)?;
         ret(())
     }

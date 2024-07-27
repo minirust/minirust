@@ -6,6 +6,8 @@ This becomes even more prominent with aliasing models such as [Stacked Borrows].
 The memory model hence takes the stance that a pointer consists of the *address* (which truly is just an integer of appropriate size) and a *provenance*.
 What exactly [provenance] *is* is up to the memory model.
 As far as the interface is concerned, this is some opaque extra data that we carry around with our pointers and that places restrictions on which pointers may be used to do what when.
+Additionally, in rust the term *pointer* is used for the primitive that might contain metadata.
+We therefore use a separate *thin pointer* type when metadata is not needed. 
 
 [pointers-complicated]: https://www.ralfj.de/blog/2018/07/24/pointers-and-bytes.html
 [pointers-complicated-2]: https://www.ralfj.de/blog/2020/12/14/provenance.html
@@ -13,6 +15,7 @@ As far as the interface is concerned, this is some opaque extra data that we car
 [provenance]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#pointer-provenance
 [Stacked Borrows]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md
 
+## Pointer Types
 ```rust
 /// An "address" is a location in memory. This corresponds to the actual
 /// location in the real program.
@@ -20,50 +23,45 @@ As far as the interface is concerned, this is some opaque extra data that we car
 /// of the address space.
 pub type Address = Int;
 
-/// A "data pointer" is an address together with its Provenance.
+/// A "thin pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
-pub struct DataPointer<Provenance> {
+pub struct ThinPointer<Provenance> {
     pub addr: Address,
     pub provenance: Option<Provenance>,
 }
 
-// This naming of "data pointer" as the part without metadata is used in the docs at:
-// <https://doc.rust-lang.org/std/primitive.pointer.html>.
-// An alternative might be calling it `MemPointer`.
-// I believe it is more consistent to call the whole thing `Pointer`, rather than just the data part,
-// as this is how most of Rusts references are written (ignoring any metadata fields).
-
-/// A "pointer" is the data pointer with optionally some metadata.
+/// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.
 /// Corresponds to the rust primitive "pointer", as well as references and boxes.
 pub struct Pointer<Provenance> {
-    pub data_pointer: DataPointer<Provenance>,
-    pub metadata: Option<PointerMeta>
+    pub thin_pointer: ThinPointer<Provenance>,
+    pub metadata: Option<PointerMeta>,
 }
 
-impl<Provenance> DataPointer<Provenance> {
+/// The metadata that can be stored in a wide pointer.
+pub enum PointerMeta {
+    ElementCount(Int),
+}
+
+impl<Provenance> ThinPointer<Provenance> {
     /// Offsets a pointer in bytes using wrapping arithmetic.
     /// This does not check whether the pointer is still in-bounds of its allocation.
     pub fn wrapping_offset<T: Target>(self, offset: Int) -> Self {
         let addr = self.addr + offset;
         let addr = addr.bring_in_bounds(Unsigned, T::PTR_SIZE);
-        DataPointer { addr, ..self }
+        ThinPointer { addr, ..self }
+    }
+
+    pub fn widen(self, metadata: Option<PointerMeta>) -> Pointer<Provenance> {
+        Pointer {
+            thin_pointer: self,
+            metadata,
+        }
     }
 }
 ```
 
-```rust
-// This doesn't make a lot of sense in this file, maybe rather values.md.
-// (Similarly the PtrType is only used for retagging in mem.rs, and it felt out of place when reading ?)
-/// The metadata that can be stored in a fat pointer.
-pub enum PointerMeta {
-    ElementCount(Int),
-    // TODO
-    VTable
-}
-```
-
-
+## Layout
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
 
 ```rust

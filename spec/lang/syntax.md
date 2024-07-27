@@ -201,6 +201,7 @@ pub enum BinOp {
     Rel(RelOp),
 
     /// Add a byte-offset to a pointer (with or without inbounds requirement).
+    /// For non-Sized pointees this leaves the metadata untouched.
     /// Takes a pointer as left operand and an integer as right operand;
     /// returns a pointer.
     PtrOffset { inbounds: bool },

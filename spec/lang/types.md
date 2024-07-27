@@ -132,15 +132,14 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> SizeStrategy {
+    pub fn size<T: Target>(self) -> Size {
         use Type::*;
-        use SizeStrategy::*;
         match self {
-            Int(int_type) => Sized(int_type.size),
-            Bool => Sized(Size::from_bytes_const(1)),
-            Ptr(_) => Sized(T::PTR_SIZE),
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
-            Array { elem, count } => Sized(elem.size::<T>().unwrap_size() * count),
+            Int(int_type) => int_type.size,
+            Bool => Size::from_bytes_const(1),
+            Ptr(_) => T::PTR_SIZE, // FIXME: sometimes 2 words
+            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
+            Array { elem, count } => elem.size::<T>() * count,
         }
     }
 
@@ -172,41 +171,6 @@ impl Type {
             size: self.size::<T>(),
             align: self.align::<T>(),
             inhabited: self.inhabited(),
-        }
-    }
-}
-
-pub enum SizeStrategy {
-    /// The type is statically `Sized`.
-    Sized(Size),
-
-    /// The size of the type is given by `min_size + element_size * len`,
-    /// where `len` is found in the wide pointer metadata.
-    FixPlusTail {
-        min_size: Size,
-        element_size: Size,
-    },
-
-    /// TODO
-    VTable,
-}
-
-impl SizeStrategy {
-    /// Returns the size when the type must be statically sized
-    pub fn unwrap_size(self) -> Size {
-        match self {
-            SizeStrategy::Sized(size) => size,
-            _ => panic!("Expected a sized type"), // TODO: is panicing the right thing to do?
-        }
-    }
-
-    // TODO: this needs to access memory for trait objects, support this with function arguments
-    pub fn resolve(self, meta: Option<PointerMeta>) -> Size {
-        match (self, meta) {
-            (SizeStrategy::Sized(size), None) => size,
-            (SizeStrategy::FixPlusTail { min_size, element_size }, Some(PointerMeta::ElementCount(num))) => min_size + element_size * num,
-            (SizeStrategy::VTable, Some(PointerMeta::VTable)) => unimplemented!("trait object support is missing"),
-            _ => panic!("Pointer meta data does not match type"),
         }
     }
 }

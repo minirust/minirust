@@ -78,29 +78,31 @@ pub trait Memory {
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
     ///
     /// This is the only non-deterministic operation in the memory interface.
-    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>;
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<ThinPointer<Self::Provenance>>;
 
     /// Remove an allocation.
-    fn deallocate(&mut self, ptr: Pointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result;
+    fn deallocate(&mut self, ptr: ThinPointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result;
 
     /// Write some bytes to memory.
-    fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result;
+    fn store(&mut self, ptr: ThinPointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result;
 
     /// Read some bytes from memory.
     ///
     /// Needs `&mut self` because in the aliasing model, reading changes the machine state.
-    fn load(&mut self, ptr: DataPointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
+    fn load(&mut self, ptr: ThinPointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>>;
 
     /// Test whether the given pointer is dereferenceable for the given size.
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result;
+    fn dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Size) -> Result;
 
     /// A derived form of `dereferenceable` that works with a signed notion of "length".
-    fn signed_dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Int) -> Result {
+    // Question: This seems wrong to me, since the the "ranges" check are only
+    // the difference between the two pointers, independent of size ?
+    fn signed_dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Int) -> Result {
         if len > 0 {
             self.dereferenceable(ptr, Size::from_bytes(len).unwrap())
         } else {
             // Compute a pointer to the beginning of the range, and check `dereferenceable` from there.
-            let begin_ptr = Pointer { addr: ptr.addr + len, ..ptr };
+            let begin_ptr = ThinPointer { addr: ptr.addr + len, ..ptr };
             // `ptr.addr + len` might be negative, but then `dereferenceable` will surely fail.
             self.dereferenceable(begin_ptr, Size::from_bytes(-len).unwrap())
         }
@@ -116,7 +118,7 @@ pub trait Memory {
     /// Return the retagged pointer.
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         if let Some(layout) = ptr_type.safe_pointee() {
-            self.dereferenceable(ptr, layout.size)?;
+            self.dereferenceable(ptr.thin_pointer, layout.size)?;
         }
         ret(ptr)
     }
