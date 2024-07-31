@@ -24,3 +24,4 @@ pub mod run;
 
 pub type DefaultTarget = x86_64;
 pub type BasicMem = BasicMemory<DefaultTarget>;
+pub type TreeBorrowMem = TreeBorrowsMemory<DefaultTarget>;

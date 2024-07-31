@@ -1,0 +1,1 @@
+fatal error: UB: Tree Borrows: reading from the child of a pointer with Disabled permission
