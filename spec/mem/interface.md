@@ -95,8 +95,6 @@ pub trait Memory {
     fn dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Size) -> Result;
 
     /// A derived form of `dereferenceable` that works with a signed notion of "length".
-    // Question: This seems wrong to me, since the the "ranges" check are only
-    // the difference between the two pointers, independent of size ?
     fn signed_dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Int) -> Result {
         if len > 0 {
             self.dereferenceable(ptr, Size::from_bytes(len).unwrap())
@@ -118,7 +116,7 @@ pub trait Memory {
     /// Return the retagged pointer.
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         if let Some(layout) = ptr_type.safe_pointee() {
-            self.dereferenceable(ptr.thin_pointer, layout.size)?;
+            self.dereferenceable(ptr.thin_pointer, layout.size.resolve(ptr.metadata))?;
         }
         ret(ptr)
     }

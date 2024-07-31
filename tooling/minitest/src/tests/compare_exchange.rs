@@ -4,7 +4,7 @@ use crate::*;
 fn compare_exchange_success() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let addr0 = addr_of(local(0), ptr_ty);
 
@@ -52,7 +52,7 @@ fn compare_exchange_success() {
 fn compare_exchange_arg_count() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(
@@ -93,7 +93,7 @@ fn compare_exchange_arg_1_value() {
     let p = program(&[f]);
     assert_ub::<BasicMem>(
         p,
-        "invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer",
+        "invalid first argument to `AtomicCompareExchange` intrinsic: not a thin pointer",
     );
 }
 
@@ -101,7 +101,7 @@ fn compare_exchange_arg_1_value() {
 fn compare_exchange_ret_type() {
     let locals = [<[u8; 3]>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
     let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type());
 
@@ -125,7 +125,7 @@ fn compare_exchange_ret_type() {
 fn compare_exchange_arg_1_type() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(
@@ -148,7 +148,7 @@ fn compare_exchange_arg_1_type() {
 fn compare_exchange_arg_2_type() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(
@@ -171,7 +171,7 @@ fn compare_exchange_arg_2_type() {
 fn compare_exchange_arg_size_max() {
     let locals = [<u128>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let addr0 = addr_of(local(0), ptr_ty);
 
     let b0 = block!(

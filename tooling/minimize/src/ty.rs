@@ -8,7 +8,7 @@ impl<'tcx> Ctxt<'tcx> {
         let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
 
-        Layout { size, align, inhabited }
+        Layout { size: SizeStrategy::Sized(size), align, inhabited }
     }
 
     pub fn layout_of_smir(&self, ty: smir::Ty) -> Layout {
@@ -75,8 +75,8 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Ptr(PtrType::Ref { pointee, mutbl })
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
-                let _pointee = self.layout_of(*ty); // just to make sure that we can translate this type
-                Type::Ptr(PtrType::Raw)
+                let pointee = self.layout_of(*ty); // just to make sure that we can translate this type
+                Type::Ptr(PtrType::Raw { pointee })
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()));

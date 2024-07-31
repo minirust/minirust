@@ -254,7 +254,7 @@ fn dealloc_wrongarg1() {
     let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ub::<BasicMem>(p, "invalid first argument to `Deallocate` intrinsic: not a pointer");
+    assert_ub::<BasicMem>(p, "invalid first argument to `Deallocate` intrinsic: not a thin pointer");
 }
 
 #[test]

@@ -38,7 +38,7 @@ fn thread_spawn_spurious_race() {
     let pp_ptype = <*const *const ()>::get_type(); // Pointer pointer place type.
     let locals = [pp_ptype, <u32>::get_type()];
 
-    let size = const_int_typed::<usize>(<*const ()>::get_size().bytes());
+    let size = const_int_typed::<usize>(<*const ()>::get_size().unwrap_size().bytes());
     let align = const_int_typed::<usize>(<*const ()>::get_align().bytes());
 
     let b0 = block!(storage_live(0), allocate(size, align, local(0), 1));

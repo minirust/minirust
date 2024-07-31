@@ -137,7 +137,7 @@ impl<M: Memory> Machine<M> {
         // Make the old value unobservable because the callee might work on it in-place.
         // This also checks that the memory is dereferenceable, and crucially ensures we are aligned
         // *at the given type* -- the callee does not care about packed field projections or things like that!
-        self.mem.deinit(place.ptr.thin_pointer, ty.size::<M::T>(), ty.align::<M::T>())?;
+        self.mem.deinit(place.ptr.thin_pointer, ty.size::<M::T>().unwrap_size(), ty.align::<M::T>())?;
         // FIXME: This also needs aliasing model support.
 
         ret(())

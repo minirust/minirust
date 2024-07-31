@@ -1,9 +1,10 @@
 use crate::build::*;
 
-pub fn layout(size: Size, align: Align) -> Layout {
+pub fn layout(size: SizeStrategy, align: Align) -> Layout {
     Layout {
         size,
         align,
+        // FIXME: enums do exist, is this still good?
         inhabited: true, // currently everything is inhabited (enums don't exist yet).
     }
 }
@@ -28,8 +29,13 @@ pub fn box_ty(pointee: Layout) -> Type {
     Type::Ptr(PtrType::Box { pointee })
 }
 
-pub fn raw_ptr_ty() -> Type {
-    Type::Ptr(PtrType::Raw)
+pub fn raw_ptr_ty(pointee: Layout) -> Type {
+    Type::Ptr(PtrType::Raw { pointee })
+}
+
+pub fn raw_void_ptr_ty() -> Type {
+    let pointee = layout(SizeStrategy::Sized(Size::ZERO), Align::ONE);
+    raw_ptr_ty(pointee)
 }
 
 pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {

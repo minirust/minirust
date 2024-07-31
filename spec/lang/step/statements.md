@@ -110,7 +110,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("de-initializing a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>(), Align::ONE)?;
+        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>().resolve(p.ptr.metadata), Align::ONE)?;
 
         ret(())
     }
@@ -129,7 +129,7 @@ impl<M: Memory> StackFrame<M> {
         self.storage_dead(mem, local)?;
         // Then allocate the new storage.
         let layout = self.func.locals[local].layout::<M::T>();
-        let ptr = mem.allocate(AllocationKind::Stack, layout.size, layout.align)?;
+        let ptr = mem.allocate(AllocationKind::Stack, layout.size.unwrap_size(), layout.align)?;
         self.locals.insert(local, ptr);
         ret(())
     }
@@ -137,7 +137,7 @@ impl<M: Memory> StackFrame<M> {
     fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
         let layout = self.func.locals[local].layout::<M::T>();
         if let Some(ptr) = self.locals.remove(local) {
-            mem.deallocate(ptr, AllocationKind::Stack, layout.size, layout.align)?;
+            mem.deallocate(ptr, AllocationKind::Stack, layout.size.unwrap_size(), layout.align)?;
         }
         ret(())
     }

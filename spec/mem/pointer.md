@@ -6,8 +6,9 @@ This becomes even more prominent with aliasing models such as [Stacked Borrows].
 The memory model hence takes the stance that a pointer consists of the *address* (which truly is just an integer of appropriate size) and a *provenance*.
 What exactly [provenance] *is* is up to the memory model.
 As far as the interface is concerned, this is some opaque extra data that we carry around with our pointers and that places restrictions on which pointers may be used to do what when.
-Additionally, in rust the term *pointer* is used for the primitive that might contain metadata.
-We therefore use a separate *thin pointer* type when metadata is not needed. 
+
+On top of this basic concept of a pointer, Rust also knows pointers with metadata (such as `*const [i32]`).
+We therefore use the term *thin pointer* for what has been described above, and *pointer* for a pointer that optionally carries some metadata.
 
 [pointers-complicated]: https://www.ralfj.de/blog/2018/07/24/pointers-and-bytes.html
 [pointers-complicated-2]: https://www.ralfj.de/blog/2020/12/14/provenance.html
@@ -16,6 +17,7 @@ We therefore use a separate *thin pointer* type when metadata is not needed.
 [Stacked Borrows]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md
 
 ## Pointer Types
+
 ```rust
 /// An "address" is a location in memory. This corresponds to the actual
 /// location in the real program.
@@ -32,7 +34,7 @@ pub struct ThinPointer<Provenance> {
 }
 
 /// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.
-/// Corresponds to the rust primitive "pointer", as well as references and boxes.
+/// This corresponds to the Rust raw pointer types, as well as references and boxes.
 pub struct Pointer<Provenance> {
     pub thin_pointer: ThinPointer<Provenance>,
     pub metadata: Option<PointerMeta>,
@@ -62,14 +64,53 @@ impl<Provenance> ThinPointer<Provenance> {
 ```
 
 ## Layout
+
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
+However, for unsized types the layout might depend on the pointer metadata, which gives rise to the "size strategy".
 
 ```rust
 /// A "layout" describes what we know about data behind a pointer.
 pub struct Layout {
-    pub size: Size,
+    pub size: SizeStrategy,
     pub align: Align,
     pub inhabited: bool,
+}
+
+/// This describes how the size of the value can be determined.
+pub enum SizeStrategy {
+    /// The type is statically `Sized`.
+    Sized(Size),
+
+    /// The size of the type is given by `min_size + element_size * len`,
+    /// where `len` is found in the wide pointer metadata.
+    SliceTail {
+        min_size: Size,
+        element_size: Size,
+    },
+}
+
+impl SizeStrategy {
+    pub fn is_sized(self) -> bool {
+        matches!(self, SizeStrategy::Sized(_))
+    }
+
+    /// Returns the size when the type must be statically sized
+    pub fn unwrap_size(self) -> Size {
+        match self {
+            SizeStrategy::Sized(size) => size,
+            _ => panic!("Expected a sized type"),
+        }
+    }
+
+    pub fn resolve(self, meta: Option<PointerMeta>) -> Size {
+        match (self, meta) {
+            (SizeStrategy::Sized(size), None) => size,
+            (SizeStrategy::SliceTail { min_size, element_size }, Some(PointerMeta::ElementCount(num))) => {
+                min_size + element_size * num
+            }
+            _ => panic!("Pointer meta data does not match type"),
+        }
+    }
 }
 
 pub enum PtrType {
@@ -77,23 +118,43 @@ pub enum PtrType {
         /// Indicates a shared vs mutable reference.
         /// FIXME: also indicate presence of `UnsafeCell`.
         mutbl: Mutability,
-        /// We only need to know the layout of the pointee.
+        /// We only need to know the layout of the pointee, not the full type.
         /// (This also means we have a finite representation even when the Rust type is recursive.)
         pointee: Layout,
     },
     Box {
         pointee: Layout,
     },
-    Raw,
+    Raw {
+        /// This is not a safe pointer, but we still need to know what kind of metadata is needed.
+        pointee: Layout,
+    },
     FnPtr,
 }
 
 impl PtrType {
-    /// If this is a safe pointer, return the pointee layout.
+    pub fn pointee(self) -> Option<Layout> {
+        match self {
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } | PtrType::Raw { pointee, .. } => Some(pointee),
+            PtrType::FnPtr => None,
+        }
+    }
+
+    /// If this is a safe pointer, only then return the pointee layout.
     pub fn safe_pointee(self) -> Option<Layout> {
         match self {
-            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
-            PtrType::Raw | PtrType::FnPtr => None,
+            PtrType::Raw { .. } => None,
+            _ => self.pointee(),
+        }
+    }
+
+    pub fn matches_meta(self, meta: Option<PointerMeta>) -> bool {
+        let pointee_size = self.pointee().map(|l| l.size);
+        match (pointee_size, meta) {
+            (None, None) => true,
+            (Some(SizeStrategy::Sized(_)), None) => true,
+            (Some(SizeStrategy::SliceTail { .. }), Some(PointerMeta::ElementCount(_))) => true,
+            _ => false,
         }
     }
 

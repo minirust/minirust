@@ -244,7 +244,7 @@ impl<M: Memory> Machine<M> {
         // (We don't do a full retag here, this is not considered creating a new pointer.)
         if let Some(layout) = ptr_type.safe_pointee() {
             assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr.thin_pointer, layout.size)?;
+            self.mem.dereferenceable(ptr.thin_pointer, layout.size.resolve(ptr.metadata))?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
@@ -267,10 +267,11 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M::T>());
+        assert!(offset <= ty.size::<M::T>().resolve(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
-        ret((Place { ptr: ptr.widen(root.ptr.metadata), ..root }, field_ty))
+        // FIXME: for DST structs None metadata becomes invalid
+        ret((Place { ptr: ptr.widen(None), ..root }, field_ty))
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> Result<(Place<M>, Type)> {
@@ -281,14 +282,14 @@ impl<M: Memory> Machine<M> {
         let (offset, field_ty) = match ty {
             Type::Array { elem, count } => {
                 if index >= 0 && index < count {
-                    (index * elem.size::<M::T>(), elem)
+                    (index * elem.size::<M::T>().unwrap_size(), elem)
                 } else {
                     throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset <= ty.size::<M::T>());
+        assert!(offset <= ty.size::<M::T>().resolve(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         ret((Place { ptr: ptr.widen(None), ..root }, field_ty))

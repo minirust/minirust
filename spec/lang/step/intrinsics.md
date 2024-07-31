@@ -62,10 +62,13 @@ impl<M: Memory> Machine<M> {
         let Value::Int(addr) = arguments[0].0 else {
             throw_ub!("invalid argument for `PointerWithExposedProvenance` intrinsic: not an integer");
         };
-        if !matches!(ret_ty, Type::Ptr(_)) {
-            throw_ub!("invalid return type for `PointerWithExposedProvenance` intrinsic")
+        let Type::Ptr(ret_ptr_ty) = ret_ty else {
+            throw_ub!("invalid return type for `PointerWithExposedProvenance` intrinsic");
+        };
+        if !ret_ptr_ty.matches_meta(None) {
+            throw_ub!("unsized pointee requested for `PointerWithExposedProvenance` intrinsic");
         }
-
+        
         let ptr = self.intptrcast.int2ptr(addr)?;
         ret(Value::Ptr(ptr.widen(None)))
     }
@@ -225,8 +228,11 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid alignment for `Allocate` intrinsic: not a power of 2");
         };
 
-        if !matches!(ret_ty, Type::Ptr(_)) {
-            throw_ub!("invalid return type for `Allocate` intrinsic")
+        let Type::Ptr(ret_ptr_ty) = ret_ty else {
+            throw_ub!("invalid return type for `Allocate` intrinsic");
+        };
+        if !ret_ptr_ty.matches_meta(None) {
+            throw_ub!("unsized pointee requested for `Allocate` intrinsic");
         }
 
         let alloc = self.mem.allocate(AllocationKind::Heap, size, align)?;
@@ -244,9 +250,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `Deallocate` intrinsic");
         }
 
-        // Is it UB to call this with a wide pointer?
-        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Deallocate` intrinsic: not a pointer");
+        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `Deallocate` intrinsic: not a thin pointer");
         };
 
         let Value::Int(size) = arguments[1].0 else {
@@ -367,7 +372,9 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        let Layout { size, align, .. } = pointee;
+        let Layout { size: SizeStrategy::Sized(size), align, .. } = pointee else {
+            throw_ub!("invalid argument to `RawEq` intrinsic: pointee is unsized");
+        };
         let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
 
         // FIXME: This violates provenance monotonicity
@@ -438,12 +445,14 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicStore` intrinsic");
         }
 
-        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `AtomicStore` intrinsic: not a pointer");
+        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `AtomicStore` intrinsic: not a thin pointer");
         };
 
         let (val, ty) = arguments[1];
-        let size = ty.size::<M::T>();
+        let SizeStrategy::Sized(size) = ty.size::<M::T>() else {
+            throw_ub!("invalid second argument to `AtomicStore` intrinsic: unsized type");
+        };
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid second argument to `AtomicStore` intrinsic: size not power of two");
         };
@@ -469,11 +478,13 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicLoad` intrinsic");
         }
     
-        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a pointer");
+        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a thin pointer");
         };
 
-        let size = ret_ty.size::<M::T>();
+        let SizeStrategy::Sized(size) = ret_ty.size::<M::T>() else {
+            throw_ub!("invalid return type to `AtomicLoad` intrinsic: unsized type");
+        };
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid return type for `AtomicLoad` intrinsic: size not power of two");
         };
@@ -495,8 +506,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicCompareExchange` intrinsic");
         }
 
-        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `AtomicCompareExchange` intrinsic: not a pointer");
+        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `AtomicCompareExchange` intrinsic: not a thin pointer");
         };
 
         let (current, curr_ty) = arguments[1];
@@ -513,8 +524,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
         }
 
-        let size = ret_ty.size::<M::T>();
-        // All integer sizes are powers of two.
+        // All integers are sized with a power of two size.
+        let size = ret_ty.size::<M::T>().unwrap_size();
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicCompareExchange` intrinsic: size too big");
@@ -546,8 +557,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `AtomicFetchAndOp` intrinsic");
         }
 
-        let Value::Ptr(Pointer { thin_pointer: ptr, .. }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer");
+        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
+            throw_ub!("invalid first argument to `AtomicFetchAndOp` intrinsic: not a thin pointer");
         };
 
         let (other, other_ty) = arguments[1];
@@ -559,8 +570,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
         };
 
-        let size = ret_ty.size::<M::T>();
-        // All integer sizes are powers of two.
+        // All integers are sized with a power of two size.
+        let size = ret_ty.size::<M::T>().unwrap_size();
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: size too big");

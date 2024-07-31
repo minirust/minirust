@@ -8,7 +8,7 @@ pub trait TypeConv {
     fn get_type() -> Type;
 
     // Convenience methods, these should not be overridden.
-    fn get_size() -> Size {
+    fn get_size() -> SizeStrategy {
         Self::get_type().size::<DefaultTarget>()
     }
     fn get_align() -> Align {
@@ -48,13 +48,13 @@ type_conv_int_impl!(isize, Signed, DefaultTarget::PTR_SIZE);
 
 impl<T: TypeConv> TypeConv for *const T {
     fn get_type() -> Type {
-        raw_ptr_ty()
+        raw_ptr_ty(T::get_layout())
     }
 }
 
 impl<T: TypeConv> TypeConv for *mut T {
     fn get_type() -> Type {
-        raw_ptr_ty()
+        raw_ptr_ty(T::get_layout())
     }
 }
 

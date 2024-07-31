@@ -98,10 +98,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::AddrOf { target, ptr_ty }
             }
             smir::Rvalue::AddressOf(_mutbl, place) => {
+                let ty = place.ty(&self.locals_smir).unwrap();
+                let pointee = self.layout_of_smir(ty);
+
                 let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
 
-                let ptr_ty = PtrType::Raw;
+                let ptr_ty = PtrType::Raw { pointee };
 
                 ValueExpr::AddrOf { target, ptr_ty }
             }

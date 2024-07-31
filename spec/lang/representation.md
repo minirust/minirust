@@ -4,7 +4,7 @@ The main purpose of [types](types.md) is to define how [values](values.md) are (
 This is the *[representation relation]*, which is defined in the following.
 `decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
 `encode` inverts `decode`; it will always work when the value is [well-formed][well-formed-value] for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
-Unsized types cannot be represented as values and thus a call to `encode` or `decode` in a well formed program is a spec bug.
+Unsized types cannot be represented as values and thus a call to `encode` or `decode` for such types can never occur in a well-formed program.
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
 [well-formed-value]: well-formed.md#well-formed-values
@@ -20,7 +20,7 @@ impl Type {
     /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
     /// `decode` must satisfy the following property:
     /// ```
-    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size() && ty.inhabited()`
+    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size().unwrap_size() && ty.inhabited()`
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
@@ -137,7 +137,9 @@ impl Type {
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
-        encode_ptr::<M>(ptr.thin_pointer).iter().chain(encode_ptr_meta::<M>(ptr.metadata).iter()).collect()
+        let thin_pointer_bytes = encode_ptr::<M>(ptr.thin_pointer);
+        let metadata_bytes = encode_ptr_meta::<M>(ptr.metadata);
+        thin_pointer_bytes.iter().chain(metadata_bytes.iter()).collect()
     }
 }
 ```
@@ -159,7 +161,7 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
-                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M::T>().bytes());
+                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M::T>().unwrap_size().bytes());
                 ty.decode::<M>(subslice)
             })?
         ))
@@ -185,7 +187,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M::T>();
+        let elem_size = elem.size::<M::T>().unwrap_size();
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { throw!(); }
@@ -203,7 +205,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M::T>().bytes());
+            assert_eq!(bytes.len(), elem.size::<M::T>().unwrap_size().bytes());
             bytes
         })
     }
@@ -386,8 +388,7 @@ Similarly, on `Pointer` we say that adding provenance makes it more defined:
 impl<Provenance> DefinedRelation for Pointer<Provenance> {
     fn le_defined(self, other: Self) -> bool {
         self.thin_pointer.addr == other.thin_pointer.addr &&
-        // Feedback wanted: Using `Option<PointerMeta> as DefinedRelation` would be okay aswell, 
-        // since all antecedents garantee that either both or none have metadata in the first place?
+        // TODO: There might be provenance in the meta to check in the future.
         self.metadata == other.metadata && 
             match (self.thin_pointer.provenance, other.thin_pointer.provenance) {
                 (None, _) => true,
@@ -493,7 +494,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
+        let bytes = self.load(ptr, ty.size::<M::T>().unwrap_size(), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);

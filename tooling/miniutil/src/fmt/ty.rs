@@ -41,19 +41,25 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let layout_str = fmt_layout(pointee);
             FmtExpr::Atomic(format!("Box<{layout_str}>"))
         }
-        PtrType::Raw => FmtExpr::NonAtomic(format!("*raw")),
+        PtrType::Raw { pointee } => {
+            let layout_str = fmt_layout(pointee);
+            FmtExpr::NonAtomic(format!("*{layout_str}"))
+        }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
     }
 }
 
 fn fmt_layout(layout: Layout) -> String {
-    let size = layout.size.bytes();
+    let size_str = match layout.size {
+        SizeStrategy::Sized(size) => format!("{}", size.bytes()),
+        SizeStrategy::SliceTail { min_size, element_size } => format!("{} + {}*len", min_size.bytes(), element_size.bytes()),
+    };
     let align = layout.align.bytes();
     let uninhab_str = match layout.inhabited {
         true => "",
         false => ", uninhabited",
     };
-    format!("layout(size={size}, align={align}{uninhab_str})")
+    format!("layout(size={size_str}, align={align}{uninhab_str})")
 }
 
 /////////////////////

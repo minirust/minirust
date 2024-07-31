@@ -132,14 +132,15 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> Size {
+    pub fn size<T: Target>(self) -> SizeStrategy {
         use Type::*;
+        use SizeStrategy::*;
         match self {
-            Int(int_type) => int_type.size,
-            Bool => Size::from_bytes_const(1),
-            Ptr(_) => T::PTR_SIZE, // FIXME: sometimes 2 words
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
-            Array { elem, count } => elem.size::<T>() * count,
+            Int(int_type) => Sized(int_type.size),
+            Bool => Sized(Size::from_bytes_const(1)),
+            Ptr(ptr_type) => Sized(if ptr_type.matches_meta(None) { T::PTR_SIZE } else { T::PTR_SIZE + T::PTR_SIZE }),
+            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
+            Array { elem, count } => Sized(elem.size::<T>().unwrap_size() * count),
         }
     }
 

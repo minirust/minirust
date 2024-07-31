@@ -223,6 +223,10 @@ pub fn size(bytes: impl Into<Int>) -> Size {
     Size::from_bytes(bytes).unwrap()
 }
 
+pub fn sized_size(bytes: impl Into<Int>) -> SizeStrategy {
+    SizeStrategy::Sized(Size::from_bytes(bytes).unwrap())
+}
+
 pub fn offset(bytes: impl Into<Int>) -> Offset {
     size(bytes)
 }

@@ -28,20 +28,48 @@ impl IntType {
     }
 }
 
+impl SizeStrategy {
+    fn check_wf<T: Target>(self) -> Result<()> {
+        match self {
+            SizeStrategy::Sized(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: size not valid")?; }
+            SizeStrategy::SliceTail { min_size, element_size }  => {
+                ensure_wf(T::valid_size(min_size), "SizeStrategy: min size not valid")?;
+                ensure_wf(T::valid_size(element_size), "SizeStrategy: element size not valid")?;
+            }
+        };
+
+        ret(())
+    }
+}
+
 impl Layout {
     fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        ensure_wf(T::valid_size(self.size), "Layout: size not valid")
+        self.size.check_wf::<T>()
+    }
+
+    fn check_aligned(self) -> Result<()> {
+        match self.size {
+            SizeStrategy::Sized(size) => {
+                ensure_wf(size.bytes() % self.align.bytes() == 0, "Layout: size not aligned")?;
+            }
+            SizeStrategy::SliceTail { min_size, element_size }  => {
+                ensure_wf(min_size.bytes() % self.align.bytes() == 0, "Layout: min size not aligned")?;
+                ensure_wf(element_size.bytes() % self.align.bytes() == 0, "Layout: element size not aligned")?;
+            }
+        };
+
+        ret(())
     }
 }
 
 impl PtrType {
     fn check_wf<T: Target>(self) -> Result<()> {
         match self {
-            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } | PtrType::Raw { pointee, .. } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw | PtrType::FnPtr => ()
+            PtrType::FnPtr => (),
         }
 
         ret(())
@@ -53,10 +81,9 @@ impl Type {
         use Type::*;
 
         // Ensure that the size is valid and a multiple of the alignment.
-        let size = self.size::<T>();
-        ensure_wf(T::valid_size(size), "Type: size not valid")?;
-        let align = self.align::<T>();
-        ensure_wf(size.bytes() % align.bytes() == 0, "Type: size is not multiple of alignment")?;
+        let layout = self.layout::<T>();
+        layout.check_wf::<T>()?;
+        layout.check_aligned()?;
 
         match self {
             Int(int_type) => {
@@ -74,9 +101,11 @@ impl Type {
                 for (offset, ty) in fields {
                     // Recursively check the field type.
                     ty.check_wf::<T>()?;
+                    // Ensure it is a sized type.
+                    ensure_wf(ty.size::<T>().is_sized(), "Type::Tuple: unsized field type")?;
                     // And ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
-                    last_end = offset + ty.size::<T>();
+                    last_end = offset + ty.size::<T>().unwrap_size();
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
@@ -84,14 +113,16 @@ impl Type {
             }
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
+                ensure_wf(elem.size::<T>().is_sized(), "Type::Array: unsized element type")?;
                 elem.check_wf::<T>()?;
             }
             Union { fields, size, chunks, align: _ } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
                     ty.check_wf::<T>()?;
+                    ensure_wf(ty.size::<T>().is_sized(), "Type::Union: unsized field type")?;
                     ensure_wf(
-                        size >= offset + ty.size::<T>(),
+                        size >= offset + ty.size::<T>().unwrap_size(),
                         "Type::Union: field size does not fit union",
                     )?;
                     // This field may overlap with gaps between the chunks. That's perfectly normal
@@ -127,11 +158,11 @@ impl Type {
 
                     variant.ty.check_wf::<T>()?;
                     ensure_wf(
-                        size == variant.ty.size::<T>(),
+                        SizeStrategy::Sized(size) == variant.ty.size::<T>(),
                         "Type::Enum: variant size is not the same as enum size"
                     )?;
                     ensure_wf(
-                        variant.ty.align::<T>().bytes() <= align.bytes(),
+                        variant.ty.align::<T>().bytes() <= self.align::<T>().bytes(),
                        "Type::Enum: invalid align requirement"
                     )?;
                     for (offset, (value_type, value)) in variant.tagger {
@@ -197,6 +228,7 @@ impl Constant {
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
                 relocation.check_wf(prog.globals)?;
             }
+            // Question: do we not care about the pointer type?
             (Constant::FnPointer(fn_name), Type::Ptr(_)) => {
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
             }
@@ -281,7 +313,9 @@ impl ValueExpr {
                 Type::Int(discriminant_ty)
             }
             Load { source } => {
-                source.check_wf::<T>(locals, prog)?
+                let val_ty = source.check_wf::<T>(locals, prog)?;
+                ensure_wf(val_ty.size::<T>().is_sized(), "ValueExpr::Load: unsized value type")?;
+                val_ty
             }
             AddrOf { target, ptr_ty } => {
                 target.check_wf::<T>(locals, prog)?;
@@ -349,13 +383,28 @@ impl ValueExpr {
                         }
                     }
                     PtrOffset { inbounds: _ } => {
-                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffset: invalid left type")?;
+                        let Type::Ptr(left_ptr_ty) = left else {
+                            throw_ill_formed!("BinOp::PtrOffset: invalid left type");
+                        };
+                        if !left_ptr_ty.matches_meta(None) {
+                            throw_ill_formed!("BinOp::PtrOffset: invalid left type: unsized");
+                        }
                         ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
                     PtrOffsetFrom { inbounds: _ } => {
-                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid left type")?;
-                        ensure_wf(matches!(right, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid right type")?;
+                        let Type::Ptr(left_ptr_ty) = left else {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid left type");
+                        };
+                        if !left_ptr_ty.matches_meta(None) {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid left type: unsized");
+                        }
+                        let Type::Ptr(right_ptr_ty) = right else {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid right type");
+                        };
+                        if !right_ptr_ty.matches_meta(None) {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid right type: unsized");
+                        }
                         let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
                         Type::Int(isize_int)
                     }
@@ -376,13 +425,30 @@ impl PlaceExpr {
                 }
             },
             Deref { operand, ty } => {
+                use SizeStrategy::*;
+
                 let op_ty = operand.check_wf::<T>(locals, prog)?;
-                ensure_wf(matches!(op_ty, Type::Ptr(_)), "PlaceExpr::Deref: invalid type")?;
+                let Type::Ptr(op_ptr_ty) = op_ty else {
+                    throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
+                };
+                let Some(pointee_layout) = op_ptr_ty.pointee() else {
+                    throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
+                };
+                // This breaks some tests, so this is well formed, but just UB?
+                // ensure_wf(ty.size::<T>() == pointee_layout.size, "PlaceExpr::Deref: incompatible return type layout")?;
+                match (ty.size::<T>(), pointee_layout.size) {
+                    (Sized(_), Sized(_)) => (),
+                    (SliceTail { .. }, SliceTail { .. }) => (),
+                    _ => throw_ill_formed!("PlaceExpr::Deref: Sizestrategy of operand and type don't match"),
+                };
+                
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 ty
             }
             Field { root, field } => {
                 let root = root.check_wf::<T>(locals, prog)?;
+                // TODO: this needs to be relaxed for unsized structs
+                ensure_wf(root.size::<T>().is_sized(), "PlaceExpr::Field: root is unsized")?;
                 let (_offset, field_ty) = match root {
                     Type::Tuple { fields, .. } | Type::Union { fields, .. } => {
                         match fields.get(field) {
@@ -444,7 +510,9 @@ impl Statement {
             Assign { destination, source } => {
                 let left = destination.check_wf::<T>(func.locals, prog)?;
                 let right = source.check_wf::<T>(func.locals, prog)?;
+                // FIXME: to fix 2 tests, I would need an exception here for `Ptr(PtrType::Raw)` where the layout doesn't matter.
                 ensure_wf(left == right, "Statement::Assign: destination and source type differ")?;
+                assert!(right.size::<T>().is_sized(), "ValueExpr always return sized types");
             }
             SetDiscriminant { destination, value } => {
                 let Type::Enum { variants, .. } = destination.check_wf::<T>(func.locals, prog)? else {
@@ -462,7 +530,8 @@ impl Statement {
                 }
             }
             Validate { place, fn_entry: _ } => {
-                place.check_wf::<T>(func.locals, prog)?;
+                let ty = place.check_wf::<T>(func.locals, prog)?;
+                ensure_wf(ty.size::<T>().is_sized(), "Statement::Validate: unsized place")?;
             }
             Deinit { place } => {
                 place.check_wf::<T>(func.locals, prog)?;
@@ -549,10 +618,12 @@ impl Terminator {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
 
-                // Return and argument expressions must all typecheck with some type.
-                ret.check_wf::<T>(func.locals, prog)?;
+                // Return and argument expressions must all typecheck with some sized type.
+                let ret_ty = ret.check_wf::<T>(func.locals, prog)?;
+                ensure_wf(ret_ty.size::<T>().is_sized(), "Terminator::Call: unsized return type")?;
                 for arg in arguments {
-                    arg.check_wf::<T>(func.locals, prog)?;
+                    let arg_ty = arg.check_wf::<T>(func.locals, prog)?;
+                    ensure_wf(arg_ty.size::<T>().is_sized(), "Terminator::Call: unsized argument type")?;
                 }
 
                 if let Some(next_block) = next_block {
@@ -570,6 +641,7 @@ impl Function {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // Ensure all locals have a valid type.
         for ty in self.locals.values() {
+            ensure_wf(ty.size::<T>().is_sized(), "Function: unsized local variable")?;
             ty.check_wf::<T>()?;
         }
 
@@ -629,7 +701,7 @@ impl Program {
         ensure_wf(start.calling_convention == CallingConvention::C, "Program: start function has invalid calling convention")?;
         let ret_layout = start.locals[start.ret].layout::<T>();
         ensure_wf(
-            ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE,
+            ret_layout.size == SizeStrategy::Sized(Size::ZERO) && ret_layout.align == Align::ONE,
             "Program: start function return local has invalid layout"
         )?;
         ensure_wf(start.args.is_empty(), "Program: start function has arguments")?;
@@ -662,7 +734,7 @@ impl<M: Memory> Value<M> {
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                // FIXME: Check pointer meta matches ptr_ty expected meta!
+                ensure_wf(ptr_ty.matches_meta(ptr.metadata), "Value::Ptr: invalid metadata")?;
                 ensure_wf(ptr_ty.addr_valid(ptr.thin_pointer.addr), "Value::Ptr: invalid pointer address")?;
                 ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
             }

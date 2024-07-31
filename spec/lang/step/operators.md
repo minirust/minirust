@@ -48,9 +48,15 @@ impl<M: Memory> Machine<M> {
                 ret((Value::Int(result), Type::Int(int_ty)))
             }
             Transmute(new_ty) => {
+                // Question: Why is this not a well-formedness constraint?
+                // `core::intrinsics::transmute` states:
+                // "Both types must have the same size. Compilation will fail if this is not guaranteed."
                 if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
                     throw_ub!("transmute between types of different size")
-                };
+                }
+                if !old_ty.size::<M::T>().is_sized() {
+                    throw_ub!("transmute of unsized types")
+                }
                 let Some(val) = transmute(operand, old_ty, new_ty) else {
                     throw_ub!("transmuted value is not valid at new type")
                 };
@@ -263,7 +269,6 @@ impl<M: Memory> Machine<M> {
 
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
-    // Question: Do we not care about the size here anymore? Or am I missing something?
     fn ptr_offset_inbounds(&self, ptr: ThinPointer<M::Provenance>, offset: Int) -> Result<ThinPointer<M::Provenance>> {
         // Ensure dereferenceability. This also ensures that `offset` fits in an `isize`, since no allocation
         // can be bigger than `isize`, and it ensures that the arithmetic does not overflow, since no
