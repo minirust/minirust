@@ -1,0 +1,37 @@
+#!/bin/bash
+# Helper script for working with MiniRust.
+# Usage:
+# - `./mini test`: run the test suite
+# - `./mini run file.rs`: run a Rust file with MiniRust
+##############################################################
+set -e
+
+## The part that is always needed
+
+# Fixed specr-transpile version
+SPECR_VERSION="0.1.30"
+
+# Stricter checks on CI
+if [ -n "$CI" ]; then
+    export RUSTFLAGS="-D warnings"
+    export CARGOFLAGS="--locked"
+fi
+
+cargo install "specr-transpile@${SPECR_VERSION}"
+specr-transpile specr.toml --check
+
+## Dispath to specific command
+COMMAND="$1"
+shift
+case "$COMMAND" in
+    test)
+        cargo test --manifest-path=tooling/minitest/Cargo.toml $CARGOFLAGS "$@"
+        cargo test --manifest-path=tooling/minimize/Cargo.toml $CARGOFLAGS "$@"
+        ;;
+    run)
+        exec cargo run --manifest-path=tooling/minimize/Cargo.toml -- "$@"
+        ;;
+    *)
+        echo "Invalid command."
+        exit 1
+esac
