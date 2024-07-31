@@ -368,7 +368,7 @@ pub enum IntrinsicOp {
     Deallocate,
     Spawn,
     Join,
-    /// Determines whether the raw bytes of the two values are equal.
+    /// Determines whether the raw bytes pointed to by two pointers are equal.
     RawEq,
     AtomicStore,
     AtomicLoad,
