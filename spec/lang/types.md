@@ -39,6 +39,11 @@ pub enum Type {
         count: Int,
         // TODO: store whether this is a (SIMD) vector, and something about alignment?
     },
+    /// Slices, i.e. `[T]` are unsized types which therefore cannot be represented as values.
+    Slice {
+        #[specr::indirection]
+        elem: Type,
+    },
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
         /// they are irrelevant for the representation relation.
@@ -141,6 +146,7 @@ impl Type {
             Ptr(ptr_type) => Sized(if ptr_type.matches_meta(None) { T::PTR_SIZE } else { T::PTR_SIZE + T::PTR_SIZE }),
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
             Array { elem, count } => Sized(elem.size::<T>().unwrap_size() * count),
+            Slice { elem } => SliceTail { min_size: Size::ZERO, element_size: elem.size::<T>().unwrap_size() },
         }
     }
 
@@ -151,7 +157,7 @@ impl Type {
             Bool => Align::ONE,
             Ptr(_) => T::PTR_ALIGN,
             Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
-            Array { elem, .. } => elem.align::<T>(),
+            Array { elem, .. } | Slice { elem } => elem.align::<T>(),
         }
     }
 
@@ -162,6 +168,7 @@ impl Type {
             Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
+            Slice { elem } => elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }

@@ -116,6 +116,10 @@ impl Type {
                 ensure_wf(elem.size::<T>().is_sized(), "Type::Array: unsized element type")?;
                 elem.check_wf::<T>()?;
             }
+            Slice { elem } => {
+                ensure_wf(elem.size::<T>().is_sized(), "Type::Slice: unsized element type")?;
+                elem.check_wf::<T>()?;
+            }
             Union { fields, size, chunks, align: _ } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
@@ -465,8 +469,8 @@ impl PlaceExpr {
                 let index = index.check_wf::<T>(locals, prog)?;
                 ensure_wf(matches!(index, Type::Int(_)), "PlaceExpr::Index: invalid index type")?;
                 match root {
-                    Type::Array { elem, .. } => elem,
-                    _ => throw_ill_formed!("PlaceExpr::Index: expression does not match Array type"),
+                    Type::Array { elem, .. } | Type::Slice { elem } => elem,
+                    _ => throw_ill_formed!("PlaceExpr::Index: expression type is not indexable"),
                 }
             }
             Downcast { root, discriminant } => {

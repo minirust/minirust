@@ -93,6 +93,15 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ### Pointers
 
+Pointers are significantly more complex to represent than just the integer address.
+For one, they need to encode the provenance and decode it only when
+all bytes match.
+On the other hand, some pointers are wide pointers which also need
+to encode their metadata.
+The helpers `decode_ptr` and `encode_ptr` deal with the thin pointers,
+and the `decode_ptr_meta` helper inferrs the metadata kind from the
+pointee layout.
+
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<ThinPointer<M::Provenance>> {
     if bytes.len() != M::T::PTR_SIZE.bytes() { throw!(); }
@@ -115,6 +124,18 @@ fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M
     
 }
 
+fn decode_ptr_meta<M: Memory>(layout: Layout, bytes: List<AbstractByte<M::Provenance>>) -> Option<Option<PointerMeta>> {
+    match layout.size {
+        SizeStrategy::Sized(_) if bytes.is_empty() => ret(None),
+        SizeStrategy::SliceTail { .. } if bytes.len() == M::T::PTR_SIZE.bytes() => {
+            let bytes_data = bytes.try_map(|b| b.data())?;
+            let elements = M::T::ENDIANNESS.decode(Unsigned, bytes_data);
+            ret(Some(PointerMeta::ElementCount(elements)))
+        }
+        _ => { throw!(); }
+    }
+}
+
 fn encode_ptr_meta<M: Memory>(meta: Option<PointerMeta>) -> List<AbstractByte<M::Provenance>> {
     match meta {
         None => list!(),
@@ -130,10 +151,19 @@ impl Type {
         if bytes.len() < M::T::PTR_SIZE.bytes() { throw!(); }
         let ptr = decode_ptr::<M>(bytes.subslice_with_length(Int::ZERO, M::T::PTR_SIZE.bytes()))?;
         if !ptr_type.addr_valid(ptr.addr) {
-            return None;
+            throw!();
         }
-        // TODO: Decode wide pointers, but needs slight changes in PtrType & Layout
-        ret(Value::Ptr(ptr.widen(None)))
+        let remaining_bytes = bytes.subslice_with_length(M::T::PTR_SIZE.bytes(), bytes.len() - M::T::PTR_SIZE.bytes());
+        match ptr_type.pointee() {
+            // Function pointer
+            None if remaining_bytes.is_empty() => ret(Value::Ptr(ptr.widen(None))),
+            // Maybe wide pointer
+            Some(layout) => {
+                let meta = decode_ptr_meta::<M>(layout, remaining_bytes)?;
+                ret(Value::Ptr(ptr.widen(meta)))
+            }
+            _ => { throw!(); }
+        }
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
@@ -331,6 +361,19 @@ impl Type {
             ret(())
         }, tagger).unwrap();
         bytes
+    }
+}
+```
+
+### Unrepresentable types
+
+```rust
+impl Type {
+    fn decode<M: Memory>(Type::Slice { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("Tried to decode a slice")
+    }
+    fn encode<M: Memory>(Type::Slice { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("Tried to endoce a slice")
     }
 }
 ```

@@ -287,6 +287,16 @@ impl<M: Memory> Machine<M> {
                     throw_ub!("out-of-bounds array access");
                 }
             }
+            Type::Slice { elem } => {
+                let Some(PointerMeta::ElementCount(count)) = root.ptr.metadata else {
+                    panic!("eval_place should always return a ptr which matches meta for the SizeStrategy of ty");
+                };
+                if index >= 0 && index < count {
+                    (index * elem.size::<M::T>().unwrap_size(), elem)
+                } else {
+                    throw_ub!("out-of-bounds array access");
+                }
+            }
             _ => panic!("index projection on non-indexable type"),
         };
         assert!(offset <= ty.size::<M::T>().resolve(root.ptr.metadata));

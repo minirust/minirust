@@ -14,6 +14,10 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             let elem = fmt_type(elem.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("[{elem}; {count}]"))
         }
+        Type::Slice { elem } => {
+            let elem = fmt_type(elem.extract(), comptypes).to_string();
+            FmtExpr::Atomic(format!("[{elem}]"))
+        }
     }
 }
 
@@ -52,7 +56,8 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
 fn fmt_layout(layout: Layout) -> String {
     let size_str = match layout.size {
         SizeStrategy::Sized(size) => format!("{}", size.bytes()),
-        SizeStrategy::SliceTail { min_size, element_size } => format!("{} + {}*len", min_size.bytes(), element_size.bytes()),
+        SizeStrategy::SliceTail { min_size, element_size } =>
+            format!("{} + {}*len", min_size.bytes(), element_size.bytes()),
     };
     let align = layout.align.bytes();
     let uninhab_str = match layout.inhabited {

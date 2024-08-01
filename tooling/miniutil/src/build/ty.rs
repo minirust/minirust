@@ -51,6 +51,10 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
     Type::Array { elem: GcCow::new(elem), count: count.into() }
 }
 
+pub fn slice_ty(elem: Type) -> Type {
+    Type::Slice { elem: GcCow::new(elem) }
+}
+
 pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {
     Variant { ty, tagger: tagger.iter().copied().collect() }
 }
