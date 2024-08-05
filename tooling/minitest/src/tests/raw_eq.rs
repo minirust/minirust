@@ -89,37 +89,6 @@ fn uninit_raw_eq() {
 }
 
 #[test]
-fn provenance_raw_eq() {
-    let mut p = ProgramBuilder::new();
-    let mut f = p.declare_function();
-    let dest = f.declare_local::<bool>();
-    let left = f.declare_local::<[*const i64; 2]>();
-    let right = f.declare_local::<[*const i64; 2]>();
-
-    let pointee = layout(size(2), align(1));
-    let ptr_ty = ref_ty(pointee);
-
-    let left_ptr = addr_of(left, ptr_ty);
-    let right_ptr = addr_of(right, ptr_ty);
-
-    let int_var = f.declare_local::<i64>();
-    let int_ptr = addr_of(int_var, <*const i64>::get_type());
-
-    f.storage_live(dest);
-    f.storage_live(int_var);
-    f.storage_live(left);
-    f.storage_live(right);
-
-    f.assign(left, array(&[int_ptr; 2], <*const i64>::get_type()));
-    f.raw_eq(dest, left_ptr, right_ptr);
-    f.exit();
-
-    let f = p.finish_function(f);
-    let p = p.finish_program(f);
-    assert_ub::<BasicMem>(p, "invalid argument to `RawEq` intrinsic: byte has provenance");
-}
-
-#[test]
 fn raw_ptr_raw_eq() {
     let mut p = ProgramBuilder::new();
     let mut f = p.declare_function();

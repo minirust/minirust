@@ -369,11 +369,6 @@ impl<M: Memory> Machine<M> {
         let Layout { size, align, .. } = pointee;
         let bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
 
-        // FIXME: This violates provenance monotonicity
-        if bytes.any(|byte| byte.provenance() != None) {
-            throw_ub!("invalid argument to `RawEq` intrinsic: byte has provenance");
-        }
-
         let Some(data) =  bytes.try_map(|byte| byte.data()) else {
             throw_ub!("invalid argument to `RawEq` intrinsic: byte is uninitialized");
         };
