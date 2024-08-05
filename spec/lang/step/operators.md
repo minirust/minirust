@@ -51,11 +51,8 @@ impl<M: Memory> Machine<M> {
                 // Question: Why is this not a well-formedness constraint?
                 // `core::intrinsics::transmute` states:
                 // "Both types must have the same size. Compilation will fail if this is not guaranteed."
-                if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
+                if old_ty.size::<M::T>().unwrap_size() != new_ty.size::<M::T>().unwrap_size() {
                     throw_ub!("transmute between types of different size")
-                }
-                if !old_ty.size::<M::T>().is_sized() {
-                    throw_ub!("transmute of unsized types")
                 }
                 let Some(val) = transmute(operand, old_ty, new_ty) else {
                     throw_ub!("transmuted value is not valid at new type")

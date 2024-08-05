@@ -98,7 +98,7 @@ impl SizeStrategy {
     pub fn unwrap_size(self) -> Size {
         match self {
             SizeStrategy::Sized(size) => size,
-            _ => panic!("Expected a sized type"),
+            _ => panic!("unwrap_size called with unsized type"),
         }
     }
 

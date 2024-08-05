@@ -168,7 +168,7 @@ impl Type {
             Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
-            Slice { elem } => elem.inhabited(),
+            Slice { .. } => true, // the empty slice always exists
             Union { .. } => true,
             Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }

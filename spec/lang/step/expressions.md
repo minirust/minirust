@@ -166,6 +166,12 @@ impl<M: Memory> Machine<M> {
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
         let ptr = self.mem.retag_ptr(place.ptr, ptr_ty, /* fn_entry */ false)?;
 
+        if !ptr_ty.matches_meta(ptr.metadata) {
+            // FIXME: this might be a well-formedness constraint or even a spec bug.
+            // Or maybe this is a chance to do the unsizing here?
+            throw_ub!("Trying to store the address into a pointer with mismatched metadata kind");
+        }
+
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
 }
@@ -294,7 +300,7 @@ impl<M: Memory> Machine<M> {
                 if index >= 0 && index < count {
                     (index * elem.size::<M::T>().unwrap_size(), elem)
                 } else {
-                    throw_ub!("out-of-bounds array access");
+                    throw_ub!("out-of-bounds slice access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),

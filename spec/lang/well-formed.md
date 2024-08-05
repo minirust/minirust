@@ -80,11 +80,6 @@ impl Type {
     fn check_wf<T: Target>(self) -> Result<()> {
         use Type::*;
 
-        // Ensure that the size is valid and a multiple of the alignment.
-        let layout = self.layout::<T>();
-        layout.check_wf::<T>()?;
-        layout.check_aligned()?;
-
         match self {
             Int(int_type) => {
                 int_type.check_wf()?;
@@ -183,6 +178,11 @@ impl Type {
                 discriminator.check_wf::<T>(size, variants)?;
             }
         }
+
+        // Ensure that the size is valid and a multiple of the alignment.
+        let layout = self.layout::<T>();
+        layout.check_wf::<T>()?;
+        layout.check_aligned()?;
 
         ret(())
     }
@@ -322,7 +322,9 @@ impl ValueExpr {
                 val_ty
             }
             AddrOf { target, ptr_ty } => {
+                ptr_ty.check_wf::<T>()?;
                 target.check_wf::<T>(locals, prog)?;
+                // FIXME: should I check any sort of place-ptr compatiblity here? Not it is just UB.
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 Type::Ptr(ptr_ty)
             }
@@ -345,6 +347,8 @@ impl ValueExpr {
                                 Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
+                                ensure_wf(operand.size::<T>().is_sized(), "Cast::Transmute: unsized source type")?;
+                                ensure_wf(new_ty.size::<T>().is_sized(), "Cast::Transmute: unsized target type")?;
                                 new_ty
                             }
                         }
@@ -431,6 +435,7 @@ impl PlaceExpr {
             Deref { operand, ty } => {
                 use SizeStrategy::*;
 
+                ty.check_wf::<T>()?;
                 let op_ty = operand.check_wf::<T>(locals, prog)?;
                 let Type::Ptr(op_ptr_ty) = op_ty else {
                     throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
