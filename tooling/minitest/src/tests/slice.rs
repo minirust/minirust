@@ -1,5 +1,4 @@
 use crate::*;
-use std::{u32, u8};
 
 /// Tests that slices can occur behind different pointer types
 #[test]
@@ -180,14 +179,14 @@ fn invalid_index_ub() {
     for_index(2);
 }
 
-fn make_slice_ptr_tuple<T: TypeConv>() -> Type {
-    tuple_ty(&[(size(0), <*mut T>::get_type()), (size(8), <u64>::get_type())], size(16), align(1))
-}
-
-fn ref_as_slice<T: TypeConv>(f: &mut FunctionBuilder, arr: PlaceExpr, known_len: u64) -> PlaceExpr {
+pub fn ref_as_slice<T: TypeConv>(
+    f: &mut FunctionBuilder,
+    arr: PlaceExpr,
+    known_len: u64,
+) -> PlaceExpr {
     // construct fake wide ptr
     let arr_ref = addr_of(arr, raw_ptr_ty(T::get_layout()));
-    let fake_ptr = f.declare_local_with_ty(make_slice_ptr_tuple::<T>());
+    let fake_ptr = f.declare_local_with_ty(slice_ptr_tuple_ty::<T>());
     f.storage_live(fake_ptr);
     f.assign(field(fake_ptr, 0), arr_ref);
     f.assign(field(fake_ptr, 1), const_int(known_len));

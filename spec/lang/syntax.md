@@ -116,6 +116,8 @@ pub enum UnOp {
     Int(IntUnOp),
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
+    /// Getting the dynamic size of the pointee behind the argument.
+    SizeOfVal
 }
 
 pub enum IntBinOp {

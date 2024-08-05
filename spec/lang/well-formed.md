@@ -353,6 +353,10 @@ impl ValueExpr {
                             }
                         }
                     }
+                    SizeOfVal => {
+                        ensure_wf(matches!(operand, Type::Ptr(_)), "UnOp::SizeOfVal invalid operand")?;
+                        Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })
+                    }
                 }
             }
             BinOp { operator, left, right } => {

@@ -38,6 +38,12 @@ pub fn raw_void_ptr_ty() -> Type {
     raw_ptr_ty(pointee)
 }
 
+/// A type `(*mut T, usize)` that is compatible with `*mut [T]`.
+pub fn slice_ptr_tuple_ty<T: TypeConv>() -> Type {
+    assert_eq!(<usize>::get_size().unwrap_size().bytes(), 8, "Assumes 8 byte pointers");
+    tuple_ty(&[(size(0), <*mut T>::get_type()), (size(8), <usize>::get_type())], size(16), align(1))
+}
+
 pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
     Type::Tuple { fields: f.iter().copied().collect(), size, align }
 }

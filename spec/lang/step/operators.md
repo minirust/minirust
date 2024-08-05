@@ -67,6 +67,21 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Size of value
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_un_op(&self, UnOp::SizeOfVal: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let Type::Ptr(ptr_ty) = op_ty else { panic!("non-pointer input to size of val") };
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to size of val") };
+
+        // Calculate the size with the metadata, else it is a zero sized function pointer.
+        let size = ptr_ty.pointee().map(|l| l.size.resolve(ptr.metadata)).unwrap_or(Size::ZERO);
+        ret((Value::Int(size.bytes()), Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE })))
+    }
+}
+```
+
 ## Binary operators
 
 ```rust
