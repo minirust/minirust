@@ -14,9 +14,8 @@ pub trait TypeConv {
     fn get_align() -> Align {
         Self::get_type().align::<DefaultTarget>()
     }
-    fn get_layout() -> Layout {
-        Self::get_type().layout::<DefaultTarget>()
-    }
+
+    const FREEZE: bool = true;
 }
 
 macro_rules! type_conv_int_impl {
@@ -58,21 +57,31 @@ impl<T: TypeConv> TypeConv for *mut T {
     }
 }
 
+impl TypeConv for bool {
+    fn get_type() -> Type {
+        bool_ty()
+    }
+}
+
 impl<T: TypeConv> TypeConv for &T {
     fn get_type() -> Type {
-        ref_ty(T::get_layout())
+        ref_ty(PointeeInfo {
+            size: T::get_size(),
+            align: T::get_align(),
+            inhabited: true,
+            freeze: T::FREEZE,
+        })
     }
 }
 
 impl<T: TypeConv> TypeConv for &mut T {
     fn get_type() -> Type {
-        ref_mut_ty(T::get_layout())
-    }
-}
-
-impl TypeConv for bool {
-    fn get_type() -> Type {
-        bool_ty()
+        ref_mut_ty(PointeeInfo {
+            size: T::get_size(),
+            align: T::get_align(),
+            inhabited: true,
+            freeze: T::FREEZE,
+        })
     }
 }
 

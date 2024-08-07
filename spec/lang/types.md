@@ -165,14 +165,6 @@ impl Type {
             Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }
     }
-
-    pub fn layout<T: Target>(self) -> Layout {
-        Layout {
-            size: self.size::<T>(),
-            align: self.align::<T>(),
-            inhabited: self.inhabited(),
-        }
-    }
 }
 ```
 
