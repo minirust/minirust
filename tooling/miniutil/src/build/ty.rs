@@ -1,13 +1,5 @@
 use crate::build::*;
 
-pub fn layout(size: Size, align: Align) -> Layout {
-    Layout {
-        size,
-        align,
-        inhabited: true, // currently everything is inhabited (enums don't exist yet).
-    }
-}
-
 pub fn int_ty(signed: Signedness, size: Size) -> Type {
     Type::Int(IntType { signed, size })
 }
@@ -16,15 +8,15 @@ pub fn bool_ty() -> Type {
     Type::Bool
 }
 
-pub fn ref_ty(pointee: Layout) -> Type {
+pub fn ref_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Immutable, pointee })
 }
 
-pub fn ref_mut_ty(pointee: Layout) -> Type {
+pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Mutable, pointee })
 }
 
-pub fn box_ty(pointee: Layout) -> Type {
+pub fn box_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Box { pointee })
 }
 

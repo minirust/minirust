@@ -6,7 +6,9 @@ We first track the *permission* of each node to access each location.
 ```rust
 enum Permission {
     /// Represents a two-phase borrow during its reservation phase
-    Reserved, 
+    Reserved,
+    /// Represents a interior mutable two-phase borrow during its reservation phase
+    ReservedIM,
     /// Represents an activated (written to) mutable reference
     Active,
     /// Represents a shared (immutable) reference
@@ -44,37 +46,36 @@ impl Permission {
     fn child_read(self) -> Result<Permission> {
         ret(
             match self {
-                Permission::Reserved => Permission::Reserved,
-                Permission::Active => Permission::Active,
-                Permission::Frozen => Permission::Frozen,
                 Permission::Disabled => throw_ub!("Tree Borrows: reading from the child of a pointer with Disabled permission"),
+                _ => self,
             }
         )
     }
 
     fn child_write(self) -> Result<Permission> {
         match self {
-            Permission::Reserved => ret(Permission::Active),
-            Permission::Active => ret(Permission::Active),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the child of a pointer with Frozen permission"),
             Permission::Disabled => throw_ub!("Tree Borrows: writing to the child of a pointer with Disabled permission"),
+            _ => ret(Permission::Active),
         }
     }
 
     fn foreign_read(self) -> Result<Permission> {
         ret(
             match self {
-                Permission::Reserved => Permission::Reserved,
                 Permission::Active => Permission::Frozen,
-                Permission::Frozen => Permission::Frozen,
-                Permission::Disabled => Permission::Disabled,
+                _ => self,
             }
         )
     }
 
-    // FIXME: consider interior mutability
     fn foreign_write(self) -> Result<Permission> {
-        ret(Permission::Disabled)
+       ret(
+            match self {
+                Permission::ReservedIM => self,
+                _ => Permission::Disabled,
+            }
+        )
     }
 
     fn transition(
@@ -87,6 +88,14 @@ impl Permission {
             (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(),
             (NodeRelation::Child, AccessKind::Read) => self.child_read(),
             (NodeRelation::Child, AccessKind::Write) => self.child_write(),
+        }
+    }
+
+    fn default(mutbl: Mutability, freeze: bool) -> Permission {
+        match mutbl {
+            Mutability::Mutable if !freeze => Permission::ReservedIM,
+            Mutability::Mutable => Permission::Reserved,
+            Mutability::Immutable => Permission::Frozen,
         }
     }
 }

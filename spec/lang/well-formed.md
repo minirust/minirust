@@ -28,7 +28,7 @@ impl IntType {
     }
 }
 
-impl Layout {
+impl PointeeInfo {
     fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
         ensure_wf(T::valid_size(self.size), "Layout: size not valid")
@@ -627,9 +627,10 @@ impl Program {
             throw_ill_formed!("Program: start function does not exist");
         };
         ensure_wf(start.calling_convention == CallingConvention::C, "Program: start function has invalid calling convention")?;
-        let ret_layout = start.locals[start.ret].layout::<T>();
+        let ret_size = start.locals[start.ret].size::<T>();
+        let ret_align = start.locals[start.ret].align::<T>();
         ensure_wf(
-            ret_layout.size == Size::ZERO && ret_layout.align == Align::ONE,
+            ret_size == Size::ZERO && ret_align == Align::ONE,
             "Program: start function return local has invalid layout"
         )?;
         ensure_wf(start.args.is_empty(), "Program: start function has arguments")?;

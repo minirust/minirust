@@ -256,14 +256,9 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
     fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
         match ptr_type {
-            PtrType::Ref { mutbl, pointee } => {
-                let permission = match mutbl {
-                    Mutability::Mutable => Permission::Reserved,
-                    Mutability::Immutable => Permission::Frozen,
-                };
-                self.reborrow(ptr, pointee.size, permission)
-            },
-            PtrType::Box { pointee } => self.reborrow(ptr, pointee.size, Permission::Reserved),
+            PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => ret(ptr),
+            PtrType::Ref { mutbl, pointee } => self.reborrow(ptr, pointee.size, Permission::default(mutbl, pointee.freeze)),
+            PtrType::Box { pointee } => self.reborrow(ptr, pointee.size, Permission::default(Mutability::Mutable, pointee.freeze)),
             _ => ret(ptr),
         }
     }
