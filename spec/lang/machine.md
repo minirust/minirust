@@ -46,7 +46,13 @@ pub struct Machine<M: Memory> {
     stdout: DynWrite,
     /// This is where the `PrintStderr` intrinsic writes to.
     stderr: DynWrite,
+
+    /// Next unused stack frame id.
+    next_frame_id: FrameId
 }
+
+/// Identifier for each stack frame
+struct FrameId(Int);
 
 /// The data that makes up a stack frame.
 struct StackFrame<M: Memory> {
@@ -66,6 +72,9 @@ struct StackFrame<M: Memory> {
     /// If `next_stmt` is equal to the number of statements in this block (an
     /// out-of-bounds index in the statement list), it refers to the terminator.
     next_stmt: Int,
+
+    /// The *unique* identifier for each stack frame
+    id: FrameId,
 }
 
 enum ReturnAction<M: Memory> {
@@ -166,6 +175,7 @@ impl<M: Memory> Machine<M> {
             synchronized_threads: Set::new(),
             stdout,
             stderr,
+            next_frame_id: FrameId(Int::ZERO),
         };
 
         // Create initial thread.

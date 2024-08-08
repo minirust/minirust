@@ -164,7 +164,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
         }
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
-        let ptr = self.mem.retag_ptr(place.ptr, ptr_ty, /* fn_entry */ false)?;
+        let ptr = self.mem.retag_ptr(place.ptr, ptr_ty, /* fn_entry */ false, self.cur_frame().id.0)?;
 
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }

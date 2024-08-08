@@ -6,7 +6,10 @@ We first track the *permission* of each node to access each location.
 ```rust
 enum Permission {
     /// Represents a two-phase borrow during its reservation phase
-    Reserved,
+    Reserved {
+        /// Indicates whether a foreign has read from this.
+        conflicted: bool,
+    },
     /// Represents a interior mutable two-phase borrow during its reservation phase
     ReservedIM,
     /// Represents an activated (written to) mutable reference
@@ -52,50 +55,63 @@ impl Permission {
         )
     }
 
-    fn child_write(self) -> Result<Permission> {
+    fn child_write(self, actively_protected: bool) -> Result<Permission> {
         match self {
+            Permission::Reserved { conflicted: true } if actively_protected =>
+                throw_ub!("Tree Borrows: writing to the child of an actively protected pointer with Conflicted Reserved permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the child of a pointer with Frozen permission"),
             Permission::Disabled => throw_ub!("Tree Borrows: writing to the child of a pointer with Disabled permission"),
             _ => ret(Permission::Active),
         }
     }
 
-    fn foreign_read(self) -> Result<Permission> {
-        ret(
-            match self {
-                Permission::Active => Permission::Frozen,
-                _ => self,
-            }
-        )
+    fn foreign_read(self, actively_protected: bool) -> Result<Permission> {
+        match self {
+            Permission::Active if actively_protected =>
+                throw_ub!("Tree Borrows: reading from the foreign of an actively protected pointer with Active permission"),
+            Permission::Reserved { .. } if actively_protected => ret(Permission::Reserved { conflicted: true }),
+            Permission::Active => ret(Permission::Frozen),
+            _ => ret(self),
+        }
     }
 
-    fn foreign_write(self) -> Result<Permission> {
-       ret(
+    fn foreign_write(self, actively_protected: bool) -> Result<Permission> {
+        if !actively_protected {
             match self {
-                Permission::ReservedIM => self,
-                _ => Permission::Disabled,
+                Permission::ReservedIM => return ret(self),
+                _ => return ret(Permission::Disabled),
             }
-        )
+        }
+
+        match self {
+            Permission::Reserved { .. } => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Reserved permission"),
+            Permission::Active => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Active permission"),
+            Permission::Frozen => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Frozen permission"),
+            Permission::Disabled => panic!("Permission::foreign_write: Protected + Disabled"),
+            Permission::ReservedIM => panic!("Permission::foreign_write: Protected + ReservedIM"),
+        }
     }
 
     fn transition(
         self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
+        actively_protected: bool,
     ) -> Result<Permission> {
         match (node_relation, access_kind) {
-            (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
-            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(),
+            (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(actively_protected),
+            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(actively_protected),
+            (NodeRelation::Child, AccessKind::Write) => self.child_write(actively_protected),
             (NodeRelation::Child, AccessKind::Read) => self.child_read(),
-            (NodeRelation::Child, AccessKind::Write) => self.child_write(),
         }
     }
 
-    fn default(mutbl: Mutability, freeze: bool) -> Permission {
+    fn default(mutbl: Mutability, freeze: bool, fn_entry: bool) -> Result<Permission> {
         match mutbl {
-            Mutability::Mutable if !freeze => Permission::ReservedIM,
-            Mutability::Mutable => Permission::Reserved,
-            Mutability::Immutable => Permission::Frozen,
+            Mutability::Mutable if !freeze && !fn_entry => ret(Permission::ReservedIM),
+            Mutability::Mutable => ret(Permission::Reserved { conflicted: false }),
+            Mutability::Immutable if freeze => ret(Permission::Frozen),
+            Mutability::Immutable => panic!("Permission::default: interior-mutable shared reference")
         }
     }
 }
@@ -116,8 +132,10 @@ impl LocationState {
         &mut self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
+        protected: bool,
     ) -> Result {
-        self.permission = self.permission.transition(access_kind, node_relation)?;
+        let actively_protected = self.accessed == Accessed::Yes && protected;
+        self.permission = self.permission.transition(access_kind, node_relation, actively_protected)?;
         self.accessed = self.accessed.transition(node_relation);
         ret(())
     }
