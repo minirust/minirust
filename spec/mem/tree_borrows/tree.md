@@ -15,6 +15,16 @@ enum Protected {
     Weak,
     No,
 }
+
+impl Protected {
+    fn yes(self) -> bool {
+        self != Protected::No
+    }
+
+    fn active(self, accessed: Accessed) -> bool {
+        self.yes() && accessed == Accessed::Yes
+    }
+}
 ```
 
 Then we can define the node. Structurally, we use the usual function representation of a tree: we store a list of children.
@@ -64,11 +74,10 @@ impl Node {
         offset_in_alloc: Size,
         size: Size,
     ) -> Result {
-        let protected = self.protected != Protected::No;
         let offset_start = offset_in_alloc.bytes();
         for offset in offset_start..offset_start + size.bytes() {
             self.location_states.mutate_at(offset, |location_state|{
-                location_state.transition(access_kind, node_relation, protected)
+                location_state.transition(access_kind, node_relation, self.protected)
             })?;
         }
 
@@ -199,10 +208,8 @@ impl Node {
                 _ => AccessKind::Read,
             };
 
-            let protected = self.protected != Protected::No;
-
             self.location_states.mutate_at(Int::from(offset), |location_state|{
-                location_state.transition(access_kind, node_relation, protected)
+                location_state.transition(access_kind, node_relation, self.protected)
             })?;
         }
 

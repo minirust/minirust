@@ -55,9 +55,9 @@ impl Permission {
         )
     }
 
-    fn child_write(self, actively_protected: bool) -> Result<Permission> {
+    fn child_write(self, protected: Protected, accessed: Accessed) -> Result<Permission> {
         match self {
-            Permission::Reserved { conflicted: true } if actively_protected =>
+            Permission::Reserved { conflicted: true } if protected.active(accessed) =>
                 throw_ub!("Tree Borrows: writing to the child of an actively protected pointer with Conflicted Reserved permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the child of a pointer with Frozen permission"),
             Permission::Disabled => throw_ub!("Tree Borrows: writing to the child of a pointer with Disabled permission"),
@@ -65,18 +65,18 @@ impl Permission {
         }
     }
 
-    fn foreign_read(self, actively_protected: bool) -> Result<Permission> {
+    fn foreign_read(self, protected: Protected, accessed: Accessed) -> Result<Permission> {
         match self {
-            Permission::Active if actively_protected =>
+            Permission::Active if protected.active(accessed) =>
                 throw_ub!("Tree Borrows: reading from the foreign of an actively protected pointer with Active permission"),
-            Permission::Reserved { .. } if actively_protected => ret(Permission::Reserved { conflicted: true }),
+            Permission::Reserved { .. } if protected.yes() => ret(Permission::Reserved { conflicted: true }),
             Permission::Active => ret(Permission::Frozen),
             _ => ret(self),
         }
     }
 
-    fn foreign_write(self, actively_protected: bool) -> Result<Permission> {
-        if !actively_protected {
+    fn foreign_write(self, protected: Protected, accessed: Accessed) -> Result<Permission> {
+        if !protected.active(accessed) {
             match self {
                 Permission::ReservedIM => return ret(self),
                 _ => return ret(Permission::Disabled),
@@ -87,7 +87,7 @@ impl Permission {
             Permission::Reserved { .. } => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Reserved permission"),
             Permission::Active => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Active permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Frozen permission"),
-            Permission::Disabled => panic!("Permission::foreign_write: Protected + Disabled"),
+            Permission::Disabled => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Disabled permission"),
             Permission::ReservedIM => panic!("Permission::foreign_write: Protected + ReservedIM"),
         }
     }
@@ -96,12 +96,13 @@ impl Permission {
         self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
-        actively_protected: bool,
+        protected: Protected,
+        accessed: Accessed,
     ) -> Result<Permission> {
         match (node_relation, access_kind) {
-            (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(actively_protected),
-            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(actively_protected),
-            (NodeRelation::Child, AccessKind::Write) => self.child_write(actively_protected),
+            (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(protected, accessed),
+            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(protected, accessed),
+            (NodeRelation::Child, AccessKind::Write) => self.child_write(protected, accessed),
             (NodeRelation::Child, AccessKind::Read) => self.child_read(),
         }
     }
@@ -132,10 +133,9 @@ impl LocationState {
         &mut self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
-        protected: bool,
+        protected: Protected,
     ) -> Result {
-        let actively_protected = self.accessed == Accessed::Yes && protected;
-        self.permission = self.permission.transition(access_kind, node_relation, actively_protected)?;
+        self.permission = self.permission.transition(access_kind, node_relation, protected, self.accessed)?;
         self.accessed = self.accessed.transition(node_relation);
         ret(())
     }
