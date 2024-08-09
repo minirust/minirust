@@ -293,12 +293,12 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         match ptr_type {
             PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => ret(ptr),
             PtrType::Ref { mutbl, pointee } => {
-                let protected = if fn_entry { Protected::Strong } else { Protected::No };
+                let protected = Protected::new(fn_entry, false);
                 let permission = Permission::default(mutbl, pointee.freeze, fn_entry)?;
                 self.reborrow(ptr, pointee.size, permission, protected, call_id)
             },
             PtrType::Box { pointee } => {
-                let protected = if fn_entry { Protected::Weak } else { Protected::No };
+                let protected = Protected::new(fn_entry, true);
                 let permission = Permission::default(Mutability::Mutable, pointee.freeze, fn_entry)?;
                 self.reborrow(ptr, pointee.size, permission, protected, call_id)
             },

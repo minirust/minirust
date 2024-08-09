@@ -24,6 +24,14 @@ impl Protected {
     fn active(self, accessed: Accessed) -> bool {
         self.yes() && accessed == Accessed::Yes
     }
+
+    fn new(fn_entry: bool, is_box: bool) -> Self {
+        match (fn_entry, is_box) {
+            (true, true) => Protected::Weak,
+            (true, false) => Protected::Strong,
+            _ => Protected::No,
+        }
+    }
 }
 ```
 

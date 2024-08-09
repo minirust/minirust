@@ -87,8 +87,8 @@ impl Permission {
             Permission::Reserved { .. } => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Reserved permission"),
             Permission::Active => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Active permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Frozen permission"),
-            Permission::Disabled => throw_ub!("Tree Borrows: writing to the foreign of an actively protected pointer with Disabled permission"),
-            Permission::ReservedIM => panic!("Permission::foreign_write: Protected + ReservedIM"),
+            Permission::Disabled => panic!("Permission::foreign_write: Impossible Combination (Accessed + Protected + Disabled)"),
+            Permission::ReservedIM => panic!("Permission::foreign_write: Impossible Combination (Accessed + Protected + ReservedIM)"),
         }
     }
 
