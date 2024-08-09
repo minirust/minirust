@@ -1,0 +1,1 @@
+fatal error: UB: Tree Borrows: writing to the foreign of an actively protected pointer with Frozen permission

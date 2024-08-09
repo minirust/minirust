@@ -50,6 +50,8 @@ type TreeBorrowsAllocation = Allocation<TreeBorrowsProvenance, TreeBorrowsAlloca
 ```rust
 pub struct TreeBorrowsMemory<T: Target> {
     allocations: List<TreeBorrowsAllocation>,
+    /// Map from active call IDs to their protecting nodes.
+    active_calls: Map<CallId, List<TreeBorrowsProvenance>>,
     // FIXME: specr should add this automatically
     _phantom: std::marker::PhantomData<T>,
 }
@@ -59,7 +61,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
     type T = T;
 
     fn new() -> Self {
-        Self { allocations: List::new(), _phantom: std::marker::PhantomData }
+        Self { allocations: List::new(), active_calls: Map::new(), _phantom: std::marker::PhantomData }
     }
 }
 ```
@@ -68,7 +70,7 @@ Here we define some helper methods to implement the memory interface.
 
 ```rust
 impl<T: Target> TreeBorrowsMemory<T> {
-    /// create a location state list for an allocation:
+    /// Create a location state list for an allocation:
     /// all locations inside the permission have the given permission.
     fn init_location_states(permission: Permission, alloc_size: Size) -> List<LocationState> {
         let mut location_states = List::new();
@@ -82,12 +84,21 @@ impl<T: Target> TreeBorrowsMemory<T> {
         location_states
     }
 
+    /// Add a new protector for a function call
+    fn add_protector(&mut self, call_id: CallId, alloc_id: AllocId, path: Path) {
+        let mut protectors = self.active_calls[call_id];
+        protectors.push((alloc_id, path));
+        self.active_calls.insert(call_id, protectors);
+    }
+
     /// Create a new node for a pointer (reborrow)
     fn reborrow(
         &mut self, 
         ptr: Pointer<TreeBorrowsProvenance>,
         pointee_size: Size,
-        permission: Permission
+        permission: Permission,
+        protected: Protected,
+        call_id: CallId,
     ) -> Result<Pointer<TreeBorrowsProvenance>> {
         let Some((alloc_id, parent_path, offset)) = self.check_ptr(ptr, pointee_size)? else {
             return ret(ptr);
@@ -98,6 +109,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
             let child_node = Node {
                 children: List::new(),
                 location_states: Self::init_location_states(permission, allocation.size()),
+                protected,
             };
 
             // Add the new node to the tree
@@ -109,6 +121,9 @@ impl<T: Target> TreeBorrowsMemory<T> {
             ret::<Result<Path>>(child_path)
         })?;
 
+        // Track the new protector
+        if protected != Protected::No { self.add_protector(call_id, alloc_id, child_path); }
+
         // Create the child pointer and return it 
         ret(Pointer {
             provenance: Some((alloc_id, child_path)),
@@ -116,6 +131,20 @@ impl<T: Target> TreeBorrowsMemory<T> {
         })
     }
 
+    /// Perform a special implicit access on all locations that have been accessed.
+    fn release_protector(
+        &mut self,
+        alloc_id: AllocId,
+        path: Path,
+    ) -> Result {
+        self.allocations.mutate_at(alloc_id.0, |allocation| {
+            // Special case for the `Box`, since the `Box` could be deallocated during the execution of the function
+            if !allocation.live { return ret(()); }
+
+            let protected_node = allocation.extra.root.get_node(path)?;
+            allocation.extra.root.release_protector(Some(path), &protected_node.location_states, &self.active_calls)
+        })
+    }
 
     /// Return the borrow tag, allocation ID and offset
     fn check_ptr(&self, ptr: Pointer<TreeBorrowsProvenance>, len: Size) -> Result<Option<(AllocId, Path, Size)>> {
@@ -162,6 +191,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         let root = Node {
             children: List::new(),
             location_states: Self::init_location_states(Permission::Active, size),
+            protected: Protected::No,
         };
 
         // Path to the root node
@@ -194,6 +224,11 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
         // Check that ptr has the permission to write the entire allocation.
         allocation.extra.root.access(Some(path), AccessKind::Write, Size::ZERO, size)?;
+
+        // Check that allocation is not strongly protected.
+        if allocation.extra.root.contain_strong_protector() {
+            throw_ub!("Tree Borrows: deallocating strongly protected allocation")
+        }
 
         // Mark it as dead. That's it.
         self.allocations.mutate_at(alloc_id.0, |allocation| {
@@ -254,18 +289,37 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, fn_entry: bool, call_id: CallId) -> Result<Pointer<Self::Provenance>> {
         match ptr_type {
+            PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => ret(ptr),
             PtrType::Ref { mutbl, pointee } => {
-                let permission = match mutbl {
-                    Mutability::Mutable => Permission::Reserved,
-                    Mutability::Immutable => Permission::Frozen,
-                };
-                self.reborrow(ptr, pointee.size, permission)
+                let protected = Protected::new(fn_entry, false);
+                let permission = Permission::default(mutbl, pointee.freeze, fn_entry)?;
+                self.reborrow(ptr, pointee.size, permission, protected, call_id)
             },
-            PtrType::Box { pointee } => self.reborrow(ptr, pointee.size, Permission::Reserved),
+            PtrType::Box { pointee } => {
+                let protected = Protected::new(fn_entry, true);
+                let permission = Permission::default(Mutability::Mutable, pointee.freeze, fn_entry)?;
+                self.reborrow(ptr, pointee.size, permission, protected, call_id)
+            },
             _ => ret(ptr),
         }
+    }
+}
+```
+
+### Function Call Hook
+```rust
+impl<T: Target> Memory for TreeBorrowsMemory<T> {
+    fn begin_call(&mut self, call_id: CallId) -> Result {
+        self.active_calls.insert(call_id, List::new());
+        ret(())
+    }
+
+    fn end_call(&mut self, call_id: CallId) -> Result {
+        self.active_calls[call_id].try_map(|(alloc_id, path)| self.release_protector(alloc_id, path))?;
+        self.active_calls.remove(call_id);
+        ret(())
     }
 }
 ```

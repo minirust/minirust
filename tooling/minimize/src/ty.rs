@@ -1,18 +1,20 @@
 use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
-    pub fn layout_of(&self, ty: rs::Ty<'tcx>) -> Layout {
+    pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
         assert!(layout.is_sized(), "encountered unsized type: {ty}");
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
+        let param_env = rs::ParamEnv::reveal_all();
+        let freeze = ty.is_freeze(self.tcx, param_env);
 
-        Layout { size, align, inhabited }
+        PointeeInfo { size, align, inhabited, freeze }
     }
 
-    pub fn layout_of_smir(&self, ty: smir::Ty) -> Layout {
-        self.layout_of(smir::internal(self.tcx, ty))
+    pub fn pointee_info_of_smir(&self, ty: smir::Ty) -> PointeeInfo {
+        self.pointee_info_of(smir::internal(self.tcx, ty))
     }
 
     pub fn translate_ty_smir(&mut self, ty: smir::Ty, span: rs::Span) -> Type {
@@ -55,7 +57,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.boxed_ty();
-                let pointee = self.layout_of(ty);
+                let pointee = self.pointee_info_of(ty);
                 Type::Ptr(PtrType::Box { pointee })
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
@@ -70,12 +72,12 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
                 self.translate_enum(ty, *adt_def, sref, span),
             rs::TyKind::Ref(_, ty, mutbl) => {
-                let pointee = self.layout_of(*ty);
+                let pointee = self.pointee_info_of(*ty);
                 let mutbl = translate_mutbl(*mutbl);
                 Type::Ptr(PtrType::Ref { pointee, mutbl })
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
-                let _pointee = self.layout_of(*ty); // just to make sure that we can translate this type
+                let _pointee = self.pointee_info_of(*ty); // just to make sure that we can translate this type
                 Type::Ptr(PtrType::Raw)
             }
             rs::TyKind::Array(ty, c) => {

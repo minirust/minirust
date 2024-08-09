@@ -1,0 +1,1 @@
+fatal error: UB: Tree Borrows: reading from the foreign of an actively protected pointer with Active permission

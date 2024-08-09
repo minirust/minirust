@@ -164,6 +164,13 @@ impl<M: Memory> Machine<M> {
         })
     }
 
+    /// Create a new unused ID for the stack frame
+    fn next_frame_id(&mut self) -> FrameId {
+        let id = FrameId(self.next_frame_id.0);
+        self.next_frame_id = FrameId(self.next_frame_id.0 + Int::ONE);
+        id
+    }
+
     /// Creates a stack frame for the given function, initializes the arguments,
     /// and ensures that calling convention and argument/return value ABIs are all matching up.
     fn create_frame(
@@ -180,6 +187,7 @@ impl<M: Memory> Machine<M> {
             return_action,
             next_block: func.start,
             next_stmt: Int::ZERO,
+            id: self.next_frame_id(),
         };
 
         // Allocate all the initially live locals.
@@ -250,6 +258,8 @@ impl<M: Memory> Machine<M> {
             arguments,
         )?;
 
+        self.mem.begin_call(frame.id.0)?;
+
         // Push new stack frame, so it is executed next.
         self.mutate_cur_stack(|stack| stack.push(frame));
         ret(())
@@ -304,6 +314,8 @@ impl<M: Memory> Machine<M> {
         while let Some(local) = frame.locals.keys().next() {
             frame.storage_dead(&mut self.mem, local)?;
         }
+
+        self.mem.end_call(frame.id.0)?;
 
         // Perform the return action.
         match frame.return_action {

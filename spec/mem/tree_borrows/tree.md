@@ -4,13 +4,47 @@ The core data structure of Tree Borrows is a *tree*, with a state machine in eac
 We use a tree to track reborrows in each allocation; each reborrow adds a new node to the tree.
 The per-node state machine is defined in [state_machine.md](state_machine.md).
 
-Structurally, we use the usual function representation of a tree: we store a list of children.
+When a reborrow occurs at function entry (i.e. the original reference is passed as an argument), we add a *protector* to the reborrow.
+There are two types of protectors: *strong* and *weak*. A *strong* protector corresponds to a normal reference, while a *weak* protector corresponds to a `Box`.
+The key difference is that only allocations without a strong protector can be deallocated during the execution of a function call.
+We use the following enum to represent whether the node is protected or not, and when it is protected, what type the protector is.
+
+```rust
+enum Protected {
+    Strong,
+    Weak,
+    No,
+}
+
+impl Protected {
+    fn yes(self) -> bool {
+        self != Protected::No
+    }
+
+    fn active(self, accessed: Accessed) -> bool {
+        self.yes() && accessed == Accessed::Yes
+    }
+
+    fn new(fn_entry: bool, is_box: bool) -> Self {
+        match (fn_entry, is_box) {
+            (true, true) => Protected::Weak,
+            (true, false) => Protected::Strong,
+            _ => Protected::No,
+        }
+    }
+}
+```
+
+Then we can define the node. Structurally, we use the usual function representation of a tree: we store a list of children.
 
 ```rust
 struct Node {
     children: List<Node>,
     /// State for each location
     location_states: List<LocationState>,
+    /// Indicates whether the node is protected by a function call,
+    /// i.e., whether the original reference passed as an argument of a function call.
+    protected: Protected,
 }
 ```
 
@@ -46,12 +80,12 @@ impl Node {
         node_relation: NodeRelation,
         access_kind: AccessKind,
         offset_in_alloc: Size,
-        size: Size
+        size: Size,
     ) -> Result {
         let offset_start = offset_in_alloc.bytes();
         for offset in offset_start..offset_start + size.bytes() {
             self.location_states.mutate_at(offset, |location_state|{
-                location_state.transition(access_kind, node_relation)
+                location_state.transition(access_kind, node_relation, self.protected)
             })?;
         }
 
@@ -130,5 +164,78 @@ impl Node {
         })
     }
 
+    /// Get a node from the tree
+    /// `path` is the path from `self` to the `node`.
+    fn get_node(&mut self, path: Path) -> Result<Node> {
+        let Some((sub_root_id, sub_path)) = path.split_first() else {
+            return ret(*self);
+        };
+
+        if self.children.len() == Int::ZERO {
+            panic!("Node::get_child_location_states: invalid child path");
+        }
+
+        self.children[sub_root_id].get_node(sub_path)
+    }
+
+}
+```
+
+In addition, we implement some methods for protector-related semantics.
+```rust
+impl Node {
+    /// Release the protector, and perform a special access for the protector end semantics.
+    /// Recusively do state transition on all foreigns of the protected node.
+    /// `path` is the path from `self` to the proctected node.
+    /// `path` is None when the protected node is not a descendant of `self`.
+    /// `location_states` are the location states of the protected node.
+    fn release_protector(
+        &mut self,
+        path: Option<Path>, // self -> protected node
+        location_states: &List<LocationState>,
+        active_calls: &Map<CallId, List<TreeBorrowsProvenance>>,
+    ) -> Result {
+        let node_relation = if path.is_some() { NodeRelation::Child } else { NodeRelation::Foreign };
+
+        // If `self` is the protected node, we are done.
+        if path.is_some_and(|p| p.is_empty()) {
+            self.protected = Protected::No;
+            return ret(());
+        }
+
+        for offset in Int::ZERO..location_states.len() {
+            let LocationState { accessed, permission } = location_states[offset];
+
+            // If the location has never been accessed, there is no need to perform an access here.
+            if accessed != Accessed::Yes { continue; }
+
+            // If there was a write to the location (i.e. if the permission is Active),
+            // we perform a write access here. Otherwise, we perform a read access here.
+            let access_kind = match permission {
+                Permission::Active => AccessKind::Write,
+                _ => AccessKind::Read,
+            };
+
+            self.location_states.mutate_at(Int::from(offset), |location_state|{
+                location_state.transition(access_kind, node_relation, self.protected)
+            })?;
+        }
+
+        for child_id in Int::ZERO..self.children.len() {
+            let sub_path = match path.and_then(|p| p.split_first()) {
+                Some((head, tail)) if head == child_id => Some(tail),
+                _ => None,
+            };
+
+            self.children.mutate_at(child_id, |child| { child.release_protector(sub_path, &location_states, active_calls) })?;
+        }
+
+        ret(())
+    }
+
+    /// Recusively check whether there is a protected node in `self` and all its descendants.
+    fn contain_strong_protector(&self) -> bool {
+        self.protected != Protected::No || self.children.any(|child| child.contain_strong_protector())
+    }
 }
 ```
