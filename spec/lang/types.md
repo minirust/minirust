@@ -184,6 +184,24 @@ impl Type {
 }
 ```
 
+```rust
+impl<Provenance> Pointer<Provenance> {
+    pub fn try_unsize(self, pointee_ty: Type, target_ptr_ty: PtrType) -> Option<Pointer<Provenance>> {
+        if self.metadata.is_some() {
+            throw!();
+        }
+        match (pointee_ty, target_ptr_ty.pointee().map(|l| l.size)) {
+            (Type::Array { count, .. }, Some(SizeStrategy::SliceTail { .. })) => {
+                // Layouts and sizes don't have to match
+                ret(self.thin_pointer.widen(Some(PointerMeta::ElementCount(count))))
+            }
+            _ => throw!(),
+        }
+    }
+}
+
+```
+
 ## Integer type convenience functions
 
 ```rust

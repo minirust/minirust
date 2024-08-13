@@ -324,7 +324,8 @@ impl ValueExpr {
             AddrOf { target, ptr_ty } => {
                 ptr_ty.check_wf::<T>()?;
                 target.check_wf::<T>(locals, prog)?;
-                // FIXME: should I check any sort of place-ptr compatiblity here? Not it is just UB.
+                // FIXME: Here again, there seems to be a need for incompatible layouts
+                // ensure_wf(Some(target.layout::<T>()) == ptr_ty.pointee(), "ValueExpr::AddrOf: incompatible layouts")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 Type::Ptr(ptr_ty)
             }

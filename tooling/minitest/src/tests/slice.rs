@@ -151,6 +151,31 @@ fn index_with_transmuted() {
     assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &["43"]);
 }
 
+/// Tests that a wide pointer can be transmuted from a `(*T, usize)`.
+#[test]
+fn unsize_coercion() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 3]>();
+        f.storage_live(arr);
+        f.assign(index(arr, const_int(0)), const_int(42_u32));
+        f.assign(index(arr, const_int(1)), const_int(43_u32));
+        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        let slice_ptr = addr_of(arr, <&[u32]>::get_type());
+        // Print slice[1]
+        let loaded_val = load(index(deref(slice_ptr, <[u32]>::get_type()), const_int(1)));
+        f.print(loaded_val);
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &["43"]);
+}
+
 /// Tests that indexing into a slice throws UB for invalid indices
 #[test]
 fn invalid_index_ub() {

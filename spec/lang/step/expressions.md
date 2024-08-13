@@ -157,20 +157,24 @@ The `&` operators simply converts a place to the pointer it denotes.
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> Result<(Value<M>, Type)> {
-        let (place, _ty) = self.eval_place(target)?;
+        let (place, ty) = self.eval_place(target)?;
         // Make sure the new pointer has a valid address.
         // Remember that places are basically raw pointers so this is not guaranteed!
         if !ptr_ty.addr_valid(place.ptr.thin_pointer.addr) {
             throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
         }
-        // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
-        let ptr = self.mem.retag_ptr(place.ptr, ptr_ty, /* fn_entry */ false)?;
+        let ptr = if ptr_ty.matches_meta(place.ptr.metadata) {
+            place.ptr
+        } else {
+            let Some(unsized_ptr) = place.ptr.try_unsize(ty, ptr_ty) else {
+                // FIXME: this might be a well-formedness constraint or even a spec bug.
+                throw_ub!("Trying to store the address into a pointer with mismatched metadata kind");
+            };
+            unsized_ptr
+        };
 
-        if !ptr_ty.matches_meta(ptr.metadata) {
-            // FIXME: this might be a well-formedness constraint or even a spec bug.
-            // Or maybe this is a chance to do the unsizing here?
-            throw_ub!("Trying to store the address into a pointer with mismatched metadata kind");
-        }
+        // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
+        let ptr = self.mem.retag_ptr(ptr, ptr_ty, /* fn_entry */ false)?;
 
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
