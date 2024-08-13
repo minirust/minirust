@@ -30,30 +30,34 @@ pub(super) fn fmt_int_type(int_ty: IntType) -> String {
 pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
     match ptr_ty {
         PtrType::Ref { mutbl: Mutability::Mutable, pointee } => {
-            let layout_str = fmt_layout(pointee);
-            FmtExpr::NonAtomic(format!("&mut {layout_str}"))
+            let pointee_info_str = fmt_pointee_info(pointee);
+            FmtExpr::NonAtomic(format!("&mut {pointee_info_str}"))
         }
         PtrType::Ref { mutbl: Mutability::Immutable, pointee } => {
-            let layout_str = fmt_layout(pointee);
-            FmtExpr::NonAtomic(format!("&{layout_str}"))
+            let pointee_info_str = fmt_pointee_info(pointee);
+            FmtExpr::NonAtomic(format!("&{pointee_info_str}"))
         }
         PtrType::Box { pointee } => {
-            let layout_str = fmt_layout(pointee);
-            FmtExpr::Atomic(format!("Box<{layout_str}>"))
+            let pointee_info_str = fmt_pointee_info(pointee);
+            FmtExpr::Atomic(format!("Box<{pointee_info_str}>"))
         }
         PtrType::Raw => FmtExpr::NonAtomic(format!("*raw")),
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
     }
 }
 
-fn fmt_layout(layout: Layout) -> String {
-    let size = layout.size.bytes();
-    let align = layout.align.bytes();
-    let uninhab_str = match layout.inhabited {
+fn fmt_pointee_info(pointee: PointeeInfo) -> String {
+    let size = pointee.size.bytes();
+    let align = pointee.align.bytes();
+    let uninhab_str = match pointee.inhabited {
         true => "",
         false => ", uninhabited",
     };
-    format!("layout(size={size}, align={align}{uninhab_str})")
+    let freeze_str = match pointee.inhabited {
+        true => ", freeze",
+        false => "",
+    };
+    format!("pointee_info(size={size}, align={align}{uninhab_str}{freeze_str})")
 }
 
 /////////////////////

@@ -128,16 +128,18 @@ impl<M: Memory> StackFrame<M> {
         // This means the same address may be re-used for the new stoage.
         self.storage_dead(mem, local)?;
         // Then allocate the new storage.
-        let layout = self.func.locals[local].layout::<M::T>();
-        let ptr = mem.allocate(AllocationKind::Stack, layout.size, layout.align)?;
+        let pointee_size = self.func.locals[local].size::<M::T>();
+        let pointee_align = self.func.locals[local].align::<M::T>();
+        let ptr = mem.allocate(AllocationKind::Stack, pointee_size, pointee_align)?;
         self.locals.insert(local, ptr);
         ret(())
     }
 
     fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
-        let layout = self.func.locals[local].layout::<M::T>();
+        let pointee_size = self.func.locals[local].size::<M::T>();
+        let pointee_align = self.func.locals[local].align::<M::T>();
         if let Some(ptr) = self.locals.remove(local) {
-            mem.deallocate(ptr, AllocationKind::Stack, layout.size, layout.align)?;
+            mem.deallocate(ptr, AllocationKind::Stack, pointee_size, pointee_align)?;
         }
         ret(())
     }

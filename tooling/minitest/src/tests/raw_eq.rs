@@ -8,8 +8,7 @@ fn true_raw_eq() {
     let left = f.declare_local::<[u8; 2]>();
     let right = f.declare_local::<[u8; 2]>();
 
-    let pointee = layout(size(2), align(1));
-    let ptr_ty = ref_ty(pointee);
+    let ptr_ty = <&[u8; 2]>::get_type();
 
     let left_ptr = addr_of(left, ptr_ty);
     let right_ptr = addr_of(right, ptr_ty);
@@ -39,8 +38,7 @@ fn false_raw_eq() {
     let left = f.declare_local::<[u8; 2]>();
     let right = f.declare_local::<[u8; 2]>();
 
-    let pointee = layout(size(2), align(1));
-    let ptr_ty = ref_ty(pointee);
+    let ptr_ty = <&[u8; 2]>::get_type();
 
     let left_ptr = addr_of(left, ptr_ty);
     let right_ptr = addr_of(right, ptr_ty);
@@ -74,8 +72,7 @@ fn uninit_raw_eq() {
     f.storage_live(left);
     f.storage_live(right);
 
-    let pointee = layout(size(2), align(1));
-    let ptr_ty = ref_ty(pointee);
+    let ptr_ty = <&[u8; 2]>::get_type();
 
     let left_ptr = addr_of(left, ptr_ty);
     let right_ptr = addr_of(right, ptr_ty);
@@ -121,8 +118,7 @@ fn invalid_ret_ty_raw_eq() {
     let left = f.declare_local::<[u8; 2]>();
     let right = f.declare_local::<[u8; 2]>();
 
-    let pointee = layout(size(2), align(1));
-    let ptr_ty = ref_ty(pointee);
+    let ptr_ty = <&[u8; 2]>::get_type();
 
     let left_ptr = addr_of(left, ptr_ty);
     let right_ptr = addr_of(right, ptr_ty);
@@ -147,11 +143,9 @@ fn unequal_args_ty_raw_eq() {
     let left = f.declare_local::<[u8; 2]>();
     let right = f.declare_local::<[u8; 3]>(); // not the same type as `left`
 
-    let l_pointee = layout(size(2), align(1));
-    let l_ptr_ty = ref_ty(l_pointee);
+    let l_ptr_ty = <&[u8; 2]>::get_type();
 
-    let r_pointee = layout(size(3), align(1));
-    let r_ptr_ty = ref_ty(r_pointee);
+    let r_ptr_ty = <&[u8; 3]>::get_type();
 
     let left_ptr = addr_of(left, l_ptr_ty);
     let right_ptr = addr_of(right, r_ptr_ty);
