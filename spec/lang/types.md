@@ -21,6 +21,11 @@ In the future, we might want to separate a type from its layout, and consider th
 pub enum Type {
     Int(IntType),
     Bool,
+    /// `Ptr` represents all pointer types: references, raw pointers, boxes, and function pointers.
+    /// A pointer type does *not* need the full pointee type, since (de)serializing a pointer does not
+    /// require knowledge about the pointee. We only track basic pointee information like size and
+    /// alignment that is required to check reference validity. This also means types have a finite
+    /// representation even when the Rust type is recursive.
     Ptr(PtrType),
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
@@ -163,14 +168,6 @@ impl Type {
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
-        }
-    }
-
-    pub fn layout<T: Target>(self) -> Layout {
-        Layout {
-            size: self.size::<T>(),
-            align: self.align::<T>(),
-            inhabited: self.inhabited(),
         }
     }
 }

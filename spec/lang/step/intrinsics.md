@@ -366,7 +366,7 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        let Layout { size, align, .. } = pointee;
+        let PointeeInfo { size, align, .. } = pointee;
         let bytes = self.mem.load(ptr, size, align, Atomicity::None)?;
 
         let Some(data) =  bytes.try_map(|byte| byte.data()) else {

@@ -43,32 +43,31 @@ impl<Provenance> Pointer<Provenance> {
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
 
 ```rust
-/// A "layout" describes what we know about data behind a pointer.
-pub struct Layout {
+/// Describes what we know about data behind a pointer.
+pub struct PointeeInfo {
     pub size: Size,
     pub align: Align,
     pub inhabited: bool,
+    pub freeze: bool,
 }
 
 pub enum PtrType {
     Ref {
         /// Indicates a shared vs mutable reference.
-        /// FIXME: also indicate presence of `UnsafeCell`.
         mutbl: Mutability,
-        /// We only need to know the layout of the pointee.
-        /// (This also means we have a finite representation even when the Rust type is recursive.)
-        pointee: Layout,
+        /// Describes what we know about the pointee.
+        pointee: PointeeInfo,
     },
     Box {
-        pointee: Layout,
+        pointee: PointeeInfo,
     },
     Raw,
     FnPtr,
 }
 
 impl PtrType {
-    /// If this is a safe pointer, return the pointee layout.
-    pub fn safe_pointee(self) -> Option<Layout> {
+    /// If this is a safe pointer, return the pointee information.
+    pub fn safe_pointee(self) -> Option<PointeeInfo> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
             PtrType::Raw | PtrType::FnPtr => None,
