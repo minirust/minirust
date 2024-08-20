@@ -19,7 +19,7 @@ extern crate rustc_target;
 extern crate stable_mir;
 
 mod rs {
-    pub use rustc_const_eval::const_eval::{mk_eval_cx_for_const_val, CompileTimeInterpreter};
+    pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::span_bug;
@@ -29,6 +29,9 @@ mod rs {
     pub use rustc_span::{Span, DUMMY_SP};
     pub use rustc_target::abi::{self, call::*, Align, FieldIdx, Layout, Size};
     pub use rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
+
+    pub type CompileTimeInterpCx<'tcx> =
+        InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
 }
 // Traits
 pub use rustc_middle::ty::layout::IntegerExt as _;

@@ -12,14 +12,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         self.translate_const_val(v, &mut ecx, span)
     }
 
-    pub fn translate_const_smir(&mut self, c: &smir::Const, span: rs::Span) -> ValueExpr {
+    pub fn translate_const_smir(&mut self, c: &smir::MirConst, span: rs::Span) -> ValueExpr {
         self.translate_const(&smir::internal(self.tcx, c), span)
     }
 
-    fn translate_const_val<'mir>(
+    fn translate_const_val(
         &mut self,
         val: rs::OpTy<'tcx>,
-        ecx: &mut rs::InterpCx<'mir, 'tcx, rs::CompileTimeInterpreter<'mir, 'tcx>>,
+        ecx: &mut rs::CompileTimeInterpCx<'tcx>,
         span: rs::Span,
     ) -> ValueExpr {
         let ty = self.translate_ty(val.layout.ty, span);

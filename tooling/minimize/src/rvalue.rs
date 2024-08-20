@@ -244,7 +244,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
     pub fn translate_operand_smir(&mut self, operand: &smir::Operand, span: rs::Span) -> ValueExpr {
         match operand {
-            smir::Operand::Constant(c) => self.translate_const_smir(&c.literal, span),
+            smir::Operand::Constant(c) => self.translate_const_smir(&c.const_, span),
             smir::Operand::Copy(place) =>
                 ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
             smir::Operand::Move(place) =>

@@ -210,9 +210,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
         let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
         let param_env = rs::ParamEnv::reveal_all();
-        let instance = rs::Instance::expect_resolve(self.tcx, param_env, f, substs_ref);
+        let instance = rs::Instance::expect_resolve(self.tcx, param_env, f, substs_ref, span);
 
-        if let rs::InstanceDef::Intrinsic(def_id) = instance.def {
+        if let rs::InstanceKind::Intrinsic(def_id) = instance.def {
             // A Rust intrinsic.
             let intrinsic_name = self.tcx.item_name(def_id);
             match intrinsic_name.as_str() {
