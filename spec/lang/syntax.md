@@ -358,6 +358,8 @@ pub enum IntrinsicLockOp {
 }
 
 /// The intrinsic operations supported by MiniRust.
+/// Generally we only make things intrinsics if they cannot be operands, i.e.
+/// they are non-deterministic or mutate the global state.
 pub enum IntrinsicOp {
     Assume,
     Exit,
