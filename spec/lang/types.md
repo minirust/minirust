@@ -142,7 +142,8 @@ impl Type {
         match self {
             Int(int_type) => int_type.size,
             Bool => Size::from_bytes_const(1),
-            Ptr(_) => T::PTR_SIZE,
+            Ptr(p) if p.meta_kind() == PointerMetaKind::None => T::PTR_SIZE,
+            Ptr(_) => libspecr::Int::from(2) * T::PTR_SIZE,
             Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
             Array { elem, count } => elem.size::<T>() * count,
         }
@@ -163,12 +164,18 @@ impl Type {
         use Type::*;
         match self {
             Int(..) | Bool | Ptr(PtrType::Raw { .. }) | Ptr(PtrType::FnPtr) => true,
-            Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee }) => pointee.inhabited,
+            Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. }) => pointee.inhabited,
             Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
             Array { elem, count } => count == 0 || elem.inhabited(),
             Union { .. } => true,
             Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
         }
+    }
+
+    /// Returns the metadata kind when this type is used as a pointee.
+    pub fn meta_kind(self) -> PointerMetaKind {
+        // TODO(UnsizedTypes): other kinds
+        PointerMetaKind::None
     }
 }
 ```

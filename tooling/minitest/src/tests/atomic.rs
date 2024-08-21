@@ -4,7 +4,7 @@ use crate::*;
 fn atomic_store_success() {
     let locals = [<u32>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     // We show that atomic store actually writes by writing 1 to local(0)
 
@@ -49,14 +49,17 @@ fn atomic_store_arg_type1() {
 
     let f = function(Ret::No, 0, &[], &[b0, b1]);
     let p = program(&[f]);
-    assert_ub::<BasicMem>(p, "invalid first argument to `AtomicStore` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(
+        p,
+        "invalid first argument to `AtomicStore` intrinsic: not a thin pointer",
+    )
 }
 
 #[test]
 fn atomic_store_arg_type_pow() {
     let locals = [<[u8; 3]>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let arr =
         array(&[const_int::<u8>(0), const_int::<u8>(1), const_int::<u8>(69)], <u8>::get_type());
 
@@ -84,7 +87,7 @@ fn atomic_store_arg_type_pow() {
 fn atomic_store_arg_type_size() {
     let locals = [<[u64; 2]>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
     let arr = array(&[const_int::<u64>(0), const_int::<u64>(1)], <u64>::get_type());
 
     let b0 = block!(
@@ -107,7 +110,7 @@ fn atomic_store_arg_type_size() {
 fn atomic_store_ret_type() {
     let locals = [<u64>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -129,7 +132,7 @@ fn atomic_store_ret_type() {
 fn atomic_load_success() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     // We show that atomic load actually reads by reading 1 from local(1).
     let b0 = block!(
@@ -184,14 +187,14 @@ fn atomic_load_arg_type() {
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub::<BasicMem>(p, "invalid first argument to `AtomicLoad` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(p, "invalid first argument to `AtomicLoad` intrinsic: not a thin pointer")
 }
 
 #[test]
 fn atomic_load_ret_type_pow() {
     let locals = [<()>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(storage_live(0), atomic_load(local(0), addr_of(local(0), ptr_ty), 1));
     let b1 = block!(exit());
@@ -209,7 +212,7 @@ fn atomic_load_ret_type_pow() {
 fn atomic_load_ret_type_size() {
     let locals = [<[u64; 2]>::get_type()];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(storage_live(0), atomic_load(local(0), addr_of(local(0), ptr_ty), 1));
     let b1 = block!(exit());

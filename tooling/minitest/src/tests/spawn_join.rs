@@ -91,7 +91,7 @@ fn spawn_arg_value() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
     let p = program(&[f]);
-    assert_ub::<BasicMem>(p, "invalid first argument to `Spawn` intrinsic: not a pointer")
+    assert_ub::<BasicMem>(p, "invalid first argument to `Spawn` intrinsic: not a thin pointer")
 }
 
 fn no_args() -> Function {

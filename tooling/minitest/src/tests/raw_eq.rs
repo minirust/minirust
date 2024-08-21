@@ -93,7 +93,7 @@ fn raw_ptr_raw_eq() {
     let left = f.declare_local::<[u8; 2]>();
     let right = f.declare_local::<[u8; 2]>();
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let left_ptr = addr_of(left, ptr_ty);
     let right_ptr = addr_of(right, ptr_ty);

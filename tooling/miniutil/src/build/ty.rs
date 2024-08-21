@@ -20,8 +20,12 @@ pub fn box_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Box { pointee })
 }
 
-pub fn raw_ptr_ty() -> Type {
-    Type::Ptr(PtrType::Raw)
+pub fn raw_ptr_ty(meta_kind: PointerMetaKind) -> Type {
+    Type::Ptr(PtrType::Raw { meta_kind })
+}
+
+pub fn raw_void_ptr_ty() -> Type {
+    raw_ptr_ty(PointerMetaKind::None)
 }
 
 pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {

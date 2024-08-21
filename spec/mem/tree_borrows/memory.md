@@ -83,12 +83,12 @@ impl<T: Target> TreeBorrowsMemory<T> {
     /// Create a new node for a pointer (reborrow)
     fn reborrow(
         &mut self, 
-        ptr: Pointer<TreeBorrowsProvenance>,
+        ptr: ThinPointer<TreeBorrowsProvenance>,
         pointee_size: Size,
         permission: Permission,
         protected: Protected,
         frame_extra: &mut TreeBorrowsFrameExtra,
-    ) -> Result<Pointer<TreeBorrowsProvenance>> {
+    ) -> Result<ThinPointer<TreeBorrowsProvenance>> {
         let Some((alloc_id, parent_path)) = ptr.provenance else {
             // Pointers without provenance cannot access any memory, so giving them a new
             // tag makes no sense. If the pointee also has size zero, this is fine, otherwise UB.
@@ -119,7 +119,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
         if protected.yes() { frame_extra.protectors.push((alloc_id, child_path)); }
 
         // Create the child pointer and return it 
-        ret(Pointer {
+        ret(ThinPointer {
             provenance: Some((alloc_id, child_path)),
             ..ptr
         })
@@ -148,7 +148,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
     }
 
     /// Return the provenance of the pointer and offset of the pointer in the allocation.
-    fn check_ptr(&self, ptr: Pointer<TreeBorrowsProvenance>, len: Size) -> Result<Option<(TreeBorrowsProvenance, Size)>> {
+    fn check_ptr(&self, ptr: ThinPointer<TreeBorrowsProvenance>, len: Size) -> Result<Option<(TreeBorrowsProvenance, Size)>> {
         // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
@@ -181,7 +181,7 @@ We create a new tree for one allocation
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>  {
+    fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<ThinPointer<Self::Provenance>>  {
         let addr = Allocation::pick_base_address::<T>(self.allocations, size, align)?;
 
         // Calculate the provenance for the root node.
@@ -209,12 +209,12 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
         self.allocations.push(allocation);
 
-        ret(Pointer { addr, provenance: Some((alloc_id, path)) })
+        ret(ThinPointer { addr, provenance: Some((alloc_id, path)) })
     }
 }
 
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn deallocate(&mut self, ptr: Pointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
+    fn deallocate(&mut self, ptr: ThinPointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
         let Some((alloc_id, path)) = ptr.provenance else {
             throw_ub!("deallocating invalid pointer")
         };
@@ -247,7 +247,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>> {
+    fn load(&mut self, ptr: ThinPointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>> {
        let Some(((alloc_id, path), offset)) = self.check_ptr(ptr, len)? else {
             return ret(list![]);
         };
@@ -269,7 +269,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
+    fn store(&mut self, ptr: ThinPointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let size = Size::from_bytes(bytes.len()).unwrap();
         let Some(((alloc_id, path), offset)) = self.check_ptr(ptr, size)? else {
             return ret(());
@@ -299,23 +299,24 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr_type: PtrType,
         fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
-        match ptr_type {
+        let ptr = match ptr_type {
             PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => {
                 // Shared reference to interior mutable type: retagging is a NOP.
-                ret(ptr)
+                ptr
             },
             PtrType::Ref { mutbl, pointee } => {
                 let protected = if fn_entry { Protected::Strong } else { Protected::No };
                 let permission = Permission::default(mutbl, pointee, protected);
-                self.reborrow(ptr, pointee.size, permission, protected, frame_extra)
+                self.reborrow(ptr.thin_pointer, pointee.size, permission, protected, frame_extra)?.widen(ptr.metadata)
             },
             PtrType::Box { pointee } => {
                 let protected = if fn_entry { Protected::Weak } else { Protected::No };
                 let permission = Permission::default(Mutability::Mutable, pointee, protected);
-                self.reborrow(ptr, pointee.size, permission, protected, frame_extra)
+                self.reborrow(ptr.thin_pointer, pointee.size, permission, protected, frame_extra)?.widen(ptr.metadata)
             },
-            _ => ret(ptr),
-        }
+            _ => ptr,
+        };
+        ret(ptr)
     }
 }
 ```
@@ -334,7 +335,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn dereferenceable(&self, ptr: Pointer<Self::Provenance>, len: Size) -> Result {
+    fn dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Size) -> Result {
         self.check_ptr(ptr, len)?;
         ret(())
     }
