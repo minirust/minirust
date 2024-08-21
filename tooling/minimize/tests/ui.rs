@@ -52,7 +52,7 @@ fn run_tests(mut configs: Vec<Config>) -> Result<()> {
         if bless {
             config.output_conflict_handling = OutputConflictHandling::Bless;
         }
-        config.bless_command = Some("BLESS=1 ./test.sh".into());
+        config.bless_command = Some("BLESS=1 ./mini test".into());
     }
 
     let text = match args.format {
