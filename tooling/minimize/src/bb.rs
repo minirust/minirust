@@ -108,6 +108,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     arguments: list![op],
                 };
             }
+            rs::StatementKind::PlaceMention(place) => {
+                let place = self.translate_place(place, span);
+                Statement::PlaceMention(place)
+            }
             x => rs::span_bug!(span, "StatementKind not supported: {x:?}"),
         })
     }

@@ -263,6 +263,9 @@ pub enum Statement {
         destination: PlaceExpr,
         source: ValueExpr,
     },
+    /// Evaluate a place without accessing it.
+    /// This is the result of translating e.g. `let _ = place;`.
+    PlaceMention(PlaceExpr),
     /// Set the discriminant of the variant at `destination` to `value`.
     SetDiscriminant {
         destination: PlaceExpr,

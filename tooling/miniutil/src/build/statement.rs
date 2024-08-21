@@ -5,6 +5,10 @@ impl FunctionBuilder {
         self.cur_block().statements.push(Statement::Assign { destination, source });
     }
 
+    pub fn place_mention(&mut self, place: PlaceExpr) {
+        self.cur_block().statements.push(Statement::PlaceMention(place));
+    }
+
     pub fn set_discriminant(&mut self, destination: PlaceExpr, value: impl Into<Int>) {
         self.cur_block()
             .statements
@@ -28,6 +32,10 @@ impl FunctionBuilder {
 
 pub fn assign(destination: PlaceExpr, source: ValueExpr) -> Statement {
     Statement::Assign { destination, source }
+}
+
+pub fn place_mention(place: PlaceExpr) -> Statement {
+    Statement::PlaceMention(place)
 }
 
 pub fn set_discriminant(destination: PlaceExpr, value: impl Into<Int>) -> Statement {

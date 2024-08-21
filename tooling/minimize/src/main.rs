@@ -98,8 +98,7 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Zmir-emit-retag",
     "-Zmir-opt-level=0",
     "-Zmir-enable-passes=-CheckAlignment",
-    // FIXME: this one is not supported yet.
-    // "-Zmir-keep-place-mention",
+    "-Zmir-keep-place-mention",
 ];
 
 fn show_error(msg: &impl std::fmt::Display) -> ! {

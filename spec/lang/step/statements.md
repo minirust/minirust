@@ -41,6 +41,21 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+## Mentioning a place without accessing it
+
+This is what `let _ = place;` compiles to.
+The place expression is still evaluated (so e.g. projections in there must be in-bounds), but no load occurs.
+This means `let _ = *danling_ptr;` is legal.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_statement(&mut self, Statement::PlaceMention(place): Statement) -> NdResult {
+        self.eval_place(place)?;
+        ret(())
+    }
+}
+```
+
 ## Setting a discriminant
 
 ```rust

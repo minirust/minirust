@@ -89,6 +89,10 @@ fn fmt_statement(st: Statement, comptypes: &mut Vec<CompType>) -> String {
             let right = fmt_value_expr(source, comptypes).to_string();
             format!("    {left} = {right};")
         }
+        Statement::PlaceMention(place) => {
+            let place = fmt_place_expr(place, comptypes).to_string();
+            format!("    _ = {place};")
+        }
         Statement::SetDiscriminant { destination, value } => {
             let left = fmt_place_expr(destination, comptypes).to_string();
             format!("    discriminant({left}) = {value};")

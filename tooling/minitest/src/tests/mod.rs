@@ -25,6 +25,7 @@ mod no_preserve_prov;
 mod null;
 mod packed;
 mod panic;
+mod place_mention;
 mod print;
 mod ptr;
 mod ptr_offset;

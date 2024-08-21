@@ -446,6 +446,9 @@ impl Statement {
                 let right = source.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(left == right, "Statement::Assign: destination and source type differ")?;
             }
+            PlaceMention(place) => {
+                place.check_wf::<T>(func.locals, prog)?;
+            }
             SetDiscriminant { destination, value } => {
                 let Type::Enum { variants, .. } = destination.check_wf::<T>(func.locals, prog)? else {
                     throw_ill_formed!("Statement::SetDiscriminant: invalid type");
