@@ -91,13 +91,15 @@ use std::collections::HashMap;
 use std::env::Args;
 
 pub const DEFAULT_ARGS: &[&str] = &[
+    // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
     "--cfg=miri",
     "-Zalways-encode-mir",
-    "-Zmir-opt-level=0",
-    // This generates annoying checked operators containing Asserts.
-    "-Cdebug-assertions=off",
-    // This enable emitting MIR `Retag`s.
+    "-Zextra-const-ub-checks",
     "-Zmir-emit-retag",
+    "-Zmir-opt-level=0",
+    "-Zmir-enable-passes=-CheckAlignment",
+    // FIXME: this one is not supported yet.
+    // "-Zmir-keep-place-mention",
 ];
 
 fn show_error(msg: &impl std::fmt::Display) -> ! {

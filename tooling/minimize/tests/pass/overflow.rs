@@ -1,3 +1,4 @@
+//@compile-flags: -Coverflow-checks=no
 extern crate intrinsics;
 use intrinsics::*;
 
