@@ -72,6 +72,9 @@ pub trait Memory {
     /// The type of pointer provenance.
     type Provenance;
 
+    /// Extra information for each stack frame.
+    type FrameExtra;
+
     fn new() -> Self;
 
     /// Create a new allocation.
@@ -114,12 +117,24 @@ pub trait Memory {
     // (IOW, it cannot be more defined than the default implementation).
     ///
     /// Return the retagged pointer.
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+    fn retag_ptr(
+        &mut self,
+        _frame_extra: &mut Self::FrameExtra,
+        ptr: Pointer<Self::Provenance>,
+        ptr_type: PtrType,
+        _fn_entry: bool,
+    ) -> Result<Pointer<Self::Provenance>> {
         if let Some(layout) = ptr_type.safe_pointee() {
             self.dereferenceable(ptr, layout.size)?;
         }
         ret(ptr)
     }
+
+    /// Create the extra information for a stack frame.
+    fn new_call() -> Self::FrameExtra;
+
+    /// Memory model hook invoked at the end of each function call.
+    fn end_call(&mut self, _extra: Self::FrameExtra) -> Result { ret(()) }
 
     /// Check if there are any memory leaks.
     fn leak_check(&self) -> Result;

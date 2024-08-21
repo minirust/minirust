@@ -98,8 +98,19 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     /// Return the retagged pointer.
-    pub fn retag_ptr(&mut self, ptr: Pointer<M::Provenance>, ptr_type: PtrType, fn_entry: bool) -> Result<Pointer<M::Provenance>> {
-        self.memory.retag_ptr(ptr, ptr_type, fn_entry)
+    pub fn retag_ptr(
+        &mut self,
+        frame_extra: &mut M::FrameExtra,
+        ptr: Pointer<M::Provenance>,
+        ptr_type: PtrType,
+        fn_entry: bool,
+    ) -> Result<Pointer<M::Provenance>> {
+        self.memory.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)
+    }
+
+    /// Memory model hook invoked at the end of each function call.
+    pub fn end_call(&mut self, extra: M::FrameExtra) -> Result {
+        self.memory.end_call(extra)
     }
 
     /// Check if there are any memory leaks.

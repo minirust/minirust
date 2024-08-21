@@ -102,6 +102,7 @@ But we also need to ensure the entire document stays coherent, and I already hav
   * [Pointer](spec/mem/pointer.md): the definition of what even is a pointer in MiniRust
   * [Memory interface](spec/mem/interface.md): the API via which the MiniRust Abstract Machine interacts with memory
   * [Basic memory model](spec/mem/basic.md): an implementation of the memory interface that ignores aliasing concerns
+  * [Tree Borrows memory model](spec/mem/tree_borrows/memory.md): an alternative implementation of the memory interface that abstracts reborrowings as a *tree*.
   * [Integer-pointer cast model](spec/mem/intptrcast.md): a memory-model independent way of defining integer-pointer casts
 * MiniRust language
   * [Prelude](spec/lang/prelude.md): common definitions and parameters of the language

@@ -1,7 +1,7 @@
 //@ compile-flags: --minimize-tree-borrows
 
 // The tests were taken from Miri Tree Borrows 
-// https://github.com/rust-lang/miri/blob/6680b2fa09496b60c40c6ce09449f46efbf253d5/tests/pass/tree_borrows/tree-borrows.rs
+// https://github.com/rust-lang/miri/blob/master/tests/pass/tree_borrows/tree-borrows.rs
 // FIXME: Some tests in the original test suite are not currently supported by MiniRust 
 // Missing tests:
 // string_as_mut_ptr

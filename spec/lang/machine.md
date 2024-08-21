@@ -66,6 +66,9 @@ struct StackFrame<M: Memory> {
     /// If `next_stmt` is equal to the number of statements in this block (an
     /// out-of-bounds index in the statement list), it refers to the terminator.
     next_stmt: Int,
+
+    /// The memory model is given the ability to track some extra per-frame data.
+    extra: M::FrameExtra,
 }
 
 enum ReturnAction<M: Memory> {
@@ -208,7 +211,7 @@ impl<M: Memory> Machine<M> {
             // Bump up PC, evaluate this statement.
             let stmt = block.statements[frame.next_stmt];
             self.eval_statement(stmt)?;
-            self.mutate_cur_frame(|frame, _mem| {
+            self.try_mutate_cur_frame(|frame, _mem| {
                 frame.next_stmt += 1;
                 ret(())
             })?;
@@ -234,8 +237,12 @@ impl<M: Memory> Machine<M> {
         self.active_thread().cur_frame()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> NdResult<O>) -> NdResult<O> {
-        self.threads.try_mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(|frame| f(frame, &mut self.mem)))
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> O) -> O {
+        self.threads.mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(|frame| f(frame, &mut self.mem)))
+    }
+
+    fn try_mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> NdResult<O>) -> NdResult<O> {
+        self.threads.try_mutate_at(self.active_thread, |thread| thread.try_mutate_cur_frame(|frame| f(frame, &mut self.mem)))
     }
 
     fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
@@ -248,9 +255,18 @@ impl<M: Memory> Thread<M> {
         self.stack.last().unwrap()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
+    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
         if self.stack.is_empty() {
             panic!("`mutate_cur_frame` called on empty stack!");
+        }
+
+        let last_idx = self.stack.len() - 1;
+        self.stack.mutate_at(last_idx, f)
+    }
+
+    fn try_mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
+        if self.stack.is_empty() {
+            panic!("`try_mutate_cur_frame` called on empty stack!");
         }
 
         let last_idx = self.stack.len() - 1;

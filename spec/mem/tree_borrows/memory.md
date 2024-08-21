@@ -54,13 +54,25 @@ pub struct TreeBorrowsMemory<T: Target> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+pub struct TreeBorrowsFrameExtra {
+    /// Our per-frame state is the list of nodes that are protected by this call.
+    protectors: List<TreeBorrowsProvenance>,
+}
+
+impl TreeBorrowsFrameExtra {
+    fn new() -> Self { Self { protectors: List::new() } }
+}
+
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
     type Provenance = TreeBorrowsProvenance;
+    type FrameExtra = TreeBorrowsFrameExtra;
     type T = T;
 
     fn new() -> Self {
         Self { allocations: List::new(), _phantom: std::marker::PhantomData }
     }
+
+    fn new_call() -> Self::FrameExtra {  Self::FrameExtra::new() }
 }
 ```
 
@@ -68,46 +80,43 @@ Here we define some helper methods to implement the memory interface.
 
 ```rust
 impl<T: Target> TreeBorrowsMemory<T> {
-    /// create a location state list for an allocation:
-    /// all locations inside the permission have the given permission.
-    fn init_location_states(permission: Permission, alloc_size: Size) -> List<LocationState> {
-        let mut location_states = List::new();
-        for _ in Int::ZERO..alloc_size.bytes() {
-            location_states.push(LocationState {
-                accessed: Accessed::No,
-                permission,
-            });
-        }
-
-        location_states
-    }
-
     /// Create a new node for a pointer (reborrow)
     fn reborrow(
         &mut self, 
         ptr: Pointer<TreeBorrowsProvenance>,
         pointee_size: Size,
-        permission: Permission
+        permission: Permission,
+        protected: Protected,
+        frame_extra: &mut TreeBorrowsFrameExtra,
     ) -> Result<Pointer<TreeBorrowsProvenance>> {
-        let Some((alloc_id, parent_path, offset)) = self.check_ptr(ptr, pointee_size)? else {
-            return ret(ptr);
+        let Some((alloc_id, parent_path)) = ptr.provenance else {
+            // Pointers without provenance cannot access any memory, so giving them a new
+            // tag makes no sense. If the pointee also has size zero, this is fine, otherwise UB.
+            if pointee_size.is_zero() { return ret(ptr);}
+            throw_ub!("Tree Borrows: non-zero-sized reborrow of a pointer without provenance");
         };
+
+        let offset = self.allocations[alloc_id.0].offset_in_alloc(ptr.addr, pointee_size)?;
 
         let child_path = self.allocations.mutate_at(alloc_id.0, |allocation| {
             // Create the new child node
             let child_node = Node {
                 children: List::new(),
-                location_states: Self::init_location_states(permission, allocation.size()),
+                location_states: LocationState::new_list(permission, allocation.size()),
+                protected,
             };
 
             // Add the new node to the tree
-            let child_path = allocation.extra.root.add_node(parent_path, child_node)?;
+            let child_path = allocation.extra.root.add_node(parent_path, child_node);
 
             // Perform read on the new child, updating all nodes accordingly.
             allocation.extra.root.access(Some(child_path), AccessKind::Read, offset, pointee_size)?;
 
             ret::<Result<Path>>(child_path)
         })?;
+
+        // Track the new protector
+        if protected.yes() { frame_extra.protectors.push((alloc_id, child_path)); }
 
         // Create the child pointer and return it 
         ret(Pointer {
@@ -116,9 +125,30 @@ impl<T: Target> TreeBorrowsMemory<T> {
         })
     }
 
+    /// Remove the protector.
+    /// `provenance` is the provenance of the protector.
+    /// Perform a special implicit access on all locations that have been accessed.
+    fn release_protector(&mut self, provenance: TreeBorrowsProvenance) -> Result {
+        let (alloc_id, path) = provenance;
+        self.allocations.mutate_at(alloc_id.0, |allocation| {
+            let protected_node = allocation.extra.root.get_node(path);
 
-    /// Return the borrow tag, allocation ID and offset
-    fn check_ptr(&self, ptr: Pointer<TreeBorrowsProvenance>, len: Size) -> Result<Option<(AllocId, Path, Size)>> {
+            if !allocation.live {
+                match protected_node.protected {
+                    Protected::Weak => return ret(()),
+                    Protected::Strong =>
+                        panic!("TreeBorrowsMemory::release_protector: Strongly protected allocations can't be dead"),
+                    Protected::No =>
+                        panic!("TreeBorrowsMemory::release_protector: No protector"),
+                }
+            }
+
+            allocation.extra.root.release_protector(Some(path), &protected_node.location_states)
+        })
+    }
+
+    /// Return the provenance of the pointer and offset of the pointer in the allocation.
+    fn check_ptr(&self, ptr: Pointer<TreeBorrowsProvenance>, len: Size) -> Result<Option<(TreeBorrowsProvenance, Size)>> {
         // For zero-sized accesses, there is nothing to check.
         // (Provenance monotonicity says that if we allow zero-sized accesses
         // for `None` provenance we have to allow it for all provenance.)
@@ -137,7 +167,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
         let offset = allocation.offset_in_alloc(ptr.addr, len)?;
 
         // All is good!
-        ret(Some((alloc_id, path, offset)))
+        ret(Some(((alloc_id, path), offset)))
     }
 }
 ```
@@ -154,14 +184,15 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
     fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<Self::Provenance>>  {
         let addr = Allocation::pick_base_address::<T>(self.allocations, size, align)?;
 
-        // Calculate the proverance for the root node.
+        // Calculate the provenance for the root node.
         let alloc_id = AllocId(self.allocations.len());
 
         // Create the root node for the tree.
         // Initially, we set the permission as `Active`.
         let root = Node {
             children: List::new(),
-            location_states: Self::init_location_states(Permission::Active, size),
+            location_states: LocationState::new_list(Permission::Active, size),
+            protected: Protected::No,
         };
 
         // Path to the root node
@@ -193,12 +224,19 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         allocation.deallocation_check(ptr.addr, kind, size, align)?;
 
         // Check that ptr has the permission to write the entire allocation.
-        allocation.extra.root.access(Some(path), AccessKind::Write, Size::ZERO, size)?;
+        allocation.extra.root.access(Some(path), AccessKind::Write, Offset::ZERO, size)?;
+
+        // Check that allocation is not strongly protected.
+        // TODO: This makes it UB to deallocate memory even if the strong protector covers 0 bytes!
+        // That's different from SB, and we might want to change it in the future.
+        if allocation.extra.root.contains_strong_protector() {
+            throw_ub!("Tree Borrows: deallocating strongly protected allocation")
+        }
 
         // Mark it as dead. That's it.
-        self.allocations.mutate_at(alloc_id.0, |allocation| {
-            allocation.live = false;
-        });
+        allocation.live = false;
+
+        self.allocations.set(alloc_id.0, allocation);
 
         ret(())
     }
@@ -210,7 +248,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
     fn load(&mut self, ptr: Pointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>> {
-       let Some((alloc_id, path, offset)) = self.check_ptr(ptr, len)? else {
+       let Some(((alloc_id, path), offset)) = self.check_ptr(ptr, len)? else {
             return ret(list![]);
         };
 
@@ -233,7 +271,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
     fn store(&mut self, ptr: Pointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let size = Size::from_bytes(bytes.len()).unwrap();
-        let Some((alloc_id, path, offset)) = self.check_ptr(ptr, size)? else {
+        let Some(((alloc_id, path), offset)) = self.check_ptr(ptr, size)? else {
             return ret(());
         };
 
@@ -254,18 +292,40 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
 ```rust
 impl<T: Target> Memory for TreeBorrowsMemory<T> {
-    fn retag_ptr(&mut self, ptr: Pointer<Self::Provenance>, ptr_type: PtrType, _fn_entry: bool) -> Result<Pointer<Self::Provenance>> {
+    fn retag_ptr(
+        &mut self,
+        frame_extra: &mut Self::FrameExtra,
+        ptr: Pointer<Self::Provenance>,
+        ptr_type: PtrType,
+        fn_entry: bool,
+    ) -> Result<Pointer<Self::Provenance>> {
         match ptr_type {
-            PtrType::Ref { mutbl, pointee } => {
-                let permission = match mutbl {
-                    Mutability::Mutable => Permission::Reserved,
-                    Mutability::Immutable => Permission::Frozen,
-                };
-                self.reborrow(ptr, pointee.size, permission)
+            PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => {
+                // Shared reference to interior mutable type: retagging is a NOP.
+                ret(ptr)
             },
-            PtrType::Box { pointee } => self.reborrow(ptr, pointee.size, Permission::Reserved),
+            PtrType::Ref { mutbl, pointee } => {
+                let protected = if fn_entry { Protected::Strong } else { Protected::No };
+                let permission = Permission::default(mutbl, pointee, protected);
+                self.reborrow(ptr, pointee.size, permission, protected, frame_extra)
+            },
+            PtrType::Box { pointee } => {
+                let protected = if fn_entry { Protected::Weak } else { Protected::No };
+                let permission = Permission::default(Mutability::Mutable, pointee, protected);
+                self.reborrow(ptr, pointee.size, permission, protected, frame_extra)
+            },
             _ => ret(ptr),
         }
+    }
+}
+```
+
+### Function Call Hook
+```rust
+impl<T: Target> Memory for TreeBorrowsMemory<T> {
+    fn end_call(&mut self, extra: Self::FrameExtra) -> Result {
+        extra.protectors.try_map(|provenance| self.release_protector(provenance))?;
+        ret(())
     }
 }
 ```

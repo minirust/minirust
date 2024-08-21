@@ -17,6 +17,11 @@ pub struct AllocId(Int);
 
 impl<T: Target> Memory for BasicMemory<T> {
     type Provenance = AllocId;
+
+    /// The basic memory model does not need any per-frame data,
+    /// so we set `FrameExtra` to the unit type.
+    type FrameExtra = ();
+    fn new_call() -> Self::FrameExtra {}
 }
 ```
 
