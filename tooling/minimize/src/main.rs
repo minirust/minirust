@@ -96,8 +96,6 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Zmir-opt-level=0",
     // This generates annoying checked operators containing Asserts.
     "-Cdebug-assertions=off",
-    // This removes Resume and similar stuff.
-    "-Cpanic=abort",
     // This enable emitting MIR `Retag`s.
     "-Zmir-emit-retag",
 ];

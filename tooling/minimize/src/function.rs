@@ -80,6 +80,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate(mut self) -> Function {
         // associate names for each mir BB.
         for bb_id in self.body.basic_blocks.indices() {
+            if self.body.basic_blocks[bb_id].is_cleanup {
+                // We don't support unwinding, so we don't translate cleanup blocks.
+                continue;
+            }
             let bb_name = self.fresh_bb_name();
             self.bb_name_map.insert(bb_id, bb_name);
         }
