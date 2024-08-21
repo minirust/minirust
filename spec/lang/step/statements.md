@@ -83,7 +83,9 @@ impl<M: Memory> Machine<M> {
         let (place, ty) = self.eval_place(place)?;
 
         let val = self.mem.place_load(place, ty)?;
-        let val = self.mem.retag_val(val, ty, fn_entry)?;
+
+        let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
+
         self.mem.place_store(place, val, ty)?;
 
         ret(())
@@ -147,13 +149,13 @@ impl<M: Memory> StackFrame<M> {
 
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::StorageLive(local): Statement) -> NdResult {
-        self.mutate_cur_frame(|frame, mem| {
+        self.try_mutate_cur_frame(|frame, mem| {
             frame.storage_live(mem, local)
         })
     }
 
     fn eval_statement(&mut self, Statement::StorageDead(local): Statement) -> NdResult {
-        self.mutate_cur_frame(|frame, mem| {
+        self.try_mutate_cur_frame(|frame, mem| {
             frame.storage_dead(mem, local)
         })
     }

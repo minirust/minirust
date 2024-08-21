@@ -1,11 +1,10 @@
 //@ compile-flags: --minimize-tree-borrows
 
 // The tests were taken from Miri Tree Borrows 
-// https://github.com/rust-lang/miri/blob/6680b2fa09496b60c40c6ce09449f46efbf253d5/tests/pass/tree_borrows/sb_fails.rs
+// https://github.com/rust-lang/miri/blob/master/tests/pass/tree_borrows/sb_fails.rs
 // FIXME: Some tests in the original test suite are not currently supported by MiniRust 
 // Missing tests:
 // static_memory_modification
-// interior_mut_reborrow
 
 mod fnentry_invalidation {
     // Copied directly from fail/stacked_borrows/fnentry_invalidation.rs
@@ -61,8 +60,19 @@ mod return_invalid_mut {
     }
 }
 
+#[allow(unused_assignments)] // spurious warning
+fn interior_mut_reborrow() {
+    use std::cell::UnsafeCell;
+
+    let mut c = UnsafeCell::new(42);
+    let ptr = c.get(); // first create interior mutable ptr
+    c = UnsafeCell::new(13); // then write to parent
+    unsafe { assert!( *ptr == 13); } // then read through previous ptr
+}
+
 fn main() {
     fnentry_invalidation::main();
     pass_invalid_mut::main();
     return_invalid_mut::main();
+    interior_mut_reborrow();
 }

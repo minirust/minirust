@@ -18,7 +18,7 @@ The simplest terminator: jump to the (beginning of the) given block.
 ```rust
 impl<M: Memory> Machine<M> {
     fn jump_to_block(&mut self, block: BbName) -> NdResult {
-        self.mutate_cur_frame(|frame, _mem| {
+        self.try_mutate_cur_frame(|frame, _mem| {
             frame.jump_to_block(block);
             ret(())
         })
@@ -180,6 +180,7 @@ impl<M: Memory> Machine<M> {
             return_action,
             next_block: func.start,
             next_stmt: Int::ZERO,
+            extra: M::new_call(),
         };
 
         // Allocate all the initially live locals.
@@ -304,6 +305,9 @@ impl<M: Memory> Machine<M> {
         while let Some(local) = frame.locals.keys().next() {
             frame.storage_dead(&mut self.mem, local)?;
         }
+
+        // Inform the memory model that this call has ended.
+        self.mem.end_call(frame.extra)?;
 
         // Perform the return action.
         match frame.return_action {
