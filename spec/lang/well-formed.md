@@ -31,17 +31,19 @@ impl IntType {
 impl PointeeInfo {
     fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        ensure_wf(T::valid_size(self.size), "Layout: size not valid")
+        // TODO(UnsizedTypes): ensure pointee size and align fit with metadata kind.
+        ensure_wf(self.meta_kind == PointerMetaKind::None, "PointeeInfo: Unimplemented meta kind found")?;
+        ensure_wf(T::valid_size(self.size), "PointeeInfo: size not valid")
     }
 }
 
 impl PtrType {
     fn check_wf<T: Target>(self) -> Result<()> {
         match self {
-            PtrType::Ref { pointee, mutbl: _ } | PtrType::Box { pointee } => {
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw | PtrType::FnPtr => ()
+            PtrType::Raw { .. } | PtrType::FnPtr => ()
         }
 
         ret(())
@@ -284,7 +286,9 @@ impl ValueExpr {
                 source.check_wf::<T>(locals, prog)?
             }
             AddrOf { target, ptr_ty } => {
-                target.check_wf::<T>(locals, prog)?;
+                ptr_ty.check_wf::<T>()?;
+                let target_ty = target.check_wf::<T>(locals, prog)?;
+                ensure_wf(target_ty.meta_kind() == ptr_ty.meta_kind(), "ValueExpr::AddrOf: mismatched metadata kind")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 Type::Ptr(ptr_ty)
             }
@@ -343,19 +347,38 @@ impl ValueExpr {
                     Rel(rel_op) => {
                         ensure_wf(matches!(left, Type::Int(_) | Type::Bool | Type::Ptr(_)), "BinOp::Rel: invalid left type")?;
                         ensure_wf(right == left, "BinOp::Rel: invalid right type")?;
+                        if let Type::Ptr(ptr_ty) = left {
+                            // TODO(UnsizedTypes): add support for this
+                            ensure_wf(ptr_ty.meta_kind() == PointerMetaKind::None, "BinOp::Rel: cannot compare wide pointers (yet)")?;
+                        }
                         match rel_op {
                             RelOp::Cmp => Type::Int(IntType::I8),
                             _ => Type::Bool,
                         }
                     }
                     PtrOffset { inbounds: _ } => {
-                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffset: invalid left type")?;
+                        let Type::Ptr(left_ptr_ty) = left else {
+                            throw_ill_formed!("BinOp::PtrOffset: invalid left type: not a pointer");
+                        };
+                        if left_ptr_ty.meta_kind() != PointerMetaKind::None {
+                            throw_ill_formed!("BinOp::PtrOffset: invalid left type: unsized pointee");
+                        }
                         ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
                     PtrOffsetFrom { inbounds: _ } => {
-                        ensure_wf(matches!(left, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid left type")?;
-                        ensure_wf(matches!(right, Type::Ptr(_)), "BinOp::PtrOffsetFrom: invalid right type")?;
+                        let Type::Ptr(left_ptr_ty) = left else {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid left type: not a pointer");
+                        };
+                        if left_ptr_ty.meta_kind() != PointerMetaKind::None {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid left type: unsized pointee");
+                        }
+                        let Type::Ptr(right_ptr_ty) = right else {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid right type: not a pointer");
+                        };
+                        if right_ptr_ty.meta_kind() != PointerMetaKind::None {
+                            throw_ill_formed!("BinOp::PtrOffsetFrom: invalid right type: unsized pointee");
+                        }
                         let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
                         Type::Int(isize_int)
                     }
@@ -376,8 +399,12 @@ impl PlaceExpr {
                 }
             },
             Deref { operand, ty } => {
+                ty.check_wf::<T>()?;
                 let op_ty = operand.check_wf::<T>(locals, prog)?;
-                ensure_wf(matches!(op_ty, Type::Ptr(_)), "PlaceExpr::Deref: invalid type")?;
+                let Type::Ptr(op_ptr_ty) = op_ty else {
+                    throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
+                };
+                ensure_wf(op_ptr_ty.meta_kind() == ty.meta_kind(), "PlaceExpr::Deref: Metadata kind of operand and type don't match")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 ty
             }
@@ -666,8 +693,9 @@ impl<M: Memory> Value<M> {
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure_wf(ptr_ty.addr_valid(ptr.addr), "Value::Ptr: invalid pointer address")?;
-                ensure_wf(ptr.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+                ensure_wf(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
+                ensure_wf(ptr_ty.addr_valid(ptr.thin_pointer.addr), "Value::Ptr: invalid pointer address")?;
+                ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
                 ensure_wf(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;

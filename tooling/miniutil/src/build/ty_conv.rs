@@ -45,15 +45,15 @@ type_conv_int_impl!(i128, Signed, size(16));
 type_conv_int_impl!(usize, Unsigned, DefaultTarget::PTR_SIZE);
 type_conv_int_impl!(isize, Signed, DefaultTarget::PTR_SIZE);
 
-impl<T: TypeConv> TypeConv for *const T {
+impl<T: TypeConv + ?Sized> TypeConv for *const T {
     fn get_type() -> Type {
-        raw_ptr_ty()
+        raw_ptr_ty(T::get_type().meta_kind())
     }
 }
 
-impl<T: TypeConv> TypeConv for *mut T {
+impl<T: TypeConv + ?Sized> TypeConv for *mut T {
     fn get_type() -> Type {
-        raw_ptr_ty()
+        raw_ptr_ty(T::get_type().meta_kind())
     }
 }
 
@@ -63,24 +63,26 @@ impl TypeConv for bool {
     }
 }
 
-impl<T: TypeConv> TypeConv for &T {
+impl<T: TypeConv + ?Sized> TypeConv for &T {
     fn get_type() -> Type {
         ref_ty(PointeeInfo {
             size: T::get_size(),
             align: T::get_align(),
             inhabited: true,
             freeze: T::FREEZE,
+            meta_kind: T::get_type().meta_kind(),
         })
     }
 }
 
-impl<T: TypeConv> TypeConv for &mut T {
+impl<T: TypeConv + ?Sized> TypeConv for &mut T {
     fn get_type() -> Type {
         ref_mut_ty(PointeeInfo {
             size: T::get_size(),
             align: T::get_align(),
             inhabited: true,
             freeze: T::FREEZE,
+            meta_kind: T::get_type().meta_kind(),
         })
     }
 }

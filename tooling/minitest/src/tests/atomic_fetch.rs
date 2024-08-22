@@ -4,7 +4,7 @@ use crate::*;
 fn atomic_fetch_success() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -66,7 +66,7 @@ fn atomic_fetch_arg_1() {
 
     assert_ub::<BasicMem>(
         p,
-        "invalid first argument to `AtomicFetchAndOp` intrinsic: not a pointer",
+        "invalid first argument to `AtomicFetchAndOp` intrinsic: not a thin pointer",
     );
 }
 
@@ -74,7 +74,7 @@ fn atomic_fetch_arg_1() {
 fn atomic_fetch_arg_2() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -97,7 +97,7 @@ fn atomic_fetch_arg_2() {
 fn atomic_fetch_ret_ty() {
     let locals = [<[u8; 3]>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let const_arr = array(&[const_int::<u8>(0); 3], <u8>::get_type());
 
@@ -122,7 +122,7 @@ fn atomic_fetch_ret_ty() {
 fn atomic_fetch_int_size() {
     let locals = [<u128>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(
         storage_live(0),
@@ -142,7 +142,7 @@ fn atomic_fetch_int_size() {
 fn atomic_fetch_op() {
     let locals = [<u32>::get_type(); 2];
 
-    let ptr_ty = raw_ptr_ty();
+    let ptr_ty = raw_void_ptr_ty();
 
     let b0 = block!(
         storage_live(0),

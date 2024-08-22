@@ -41,8 +41,17 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let pointee_info_str = fmt_pointee_info(pointee);
             FmtExpr::Atomic(format!("Box<{pointee_info_str}>"))
         }
-        PtrType::Raw => FmtExpr::NonAtomic(format!("*raw")),
+        PtrType::Raw { meta_kind } => {
+            let meta_kind_str = fmt_meta_kind(meta_kind);
+            FmtExpr::NonAtomic(format!("*raw{meta_kind_str}"))
+        }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
+    }
+}
+
+fn fmt_meta_kind(kind: PointerMetaKind) -> &'static str {
+    match kind {
+        PointerMetaKind::None => "(thin)",
     }
 }
 
@@ -57,7 +66,10 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         true => ", freeze",
         false => "",
     };
-    format!("pointee_info(size={size}, align={align}{uninhab_str}{freeze_str})")
+    let meta_str = match pointee.meta_kind {
+        PointerMetaKind::None => ", thin",
+    };
+    format!("pointee_info(size={size}, align={align}{meta_str}{uninhab_str}{freeze_str})")
 }
 
 /////////////////////

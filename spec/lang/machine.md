@@ -36,8 +36,8 @@ pub struct Machine<M: Memory> {
     /// The Locks
     locks: List<LockState>,
 
-    /// Stores a pointer to each of the global allocations.
-    global_ptrs: Map<GlobalName, Pointer<M::Provenance>>,
+    /// Stores a pointer to each of the global allocations, which are all `Sized`.
+    global_ptrs: Map<GlobalName, ThinPointer<M::Provenance>>,
 
     /// Stores an address for each function name.
     fn_addrs: Map<FnName, mem::Address>,
@@ -54,7 +54,7 @@ struct StackFrame<M: Memory> {
     func: Function,
 
     /// For each live local, the location in memory where its value is stored.
-    locals: Map<LocalName, Pointer<M::Provenance>>,
+    locals: Map<LocalName, ThinPointer<M::Provenance>>,
 
     /// Expresses what happens after the callee (this function) returns.
     return_action: ReturnAction<M>,
@@ -81,7 +81,7 @@ enum ReturnAction<M: Memory> {
         next_block: Option<BbName>,
         /// The location where the caller wants to see the return value.
         /// The caller type already been checked to be suitably compatible with the callee return type.
-        ret_val_ptr: Pointer<M::Provenance>,
+        ret_val_ptr: ThinPointer<M::Provenance>,
     }
 }
 ```

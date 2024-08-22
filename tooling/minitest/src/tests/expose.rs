@@ -32,6 +32,6 @@ fn requires_pointer() {
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_ub::<BasicMem>(
         program,
-        "invalid argument for `PointerExposeProvenance` intrinsic: not a pointer",
+        "invalid argument for `PointerExposeProvenance` intrinsic: not a thin pointer",
     );
 }

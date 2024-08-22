@@ -187,7 +187,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ty = place.ty(&self.body, self.tcx).ty;
                 let drop_in_place_fn = rs::Instance::resolve_drop_in_place(self.tcx, ty);
                 let place = self.translate_place(place, span);
-                let ptr_to_drop = build::addr_of(place, build::raw_ptr_ty());
+                let ptr_to_drop = build::addr_of(place, build::raw_void_ptr_ty());
 
                 Terminator::Call {
                     callee: build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn)),

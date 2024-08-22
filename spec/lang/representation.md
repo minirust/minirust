@@ -4,6 +4,7 @@ The main purpose of [types](types.md) is to define how [values](values.md) are (
 This is the *[representation relation]*, which is defined in the following.
 `decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
 `encode` inverts `decode`; it will always work when the value is [well-formed][well-formed-value] for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
+Unsized types cannot be represented as values and thus a call to `encode` or `decode` for such types can never occur in a well-formed program.
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
 [well-formed-value]: well-formed.md#well-formed-values
@@ -92,8 +93,16 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 
 ### Pointers
 
+Pointers are significantly more complex to represent than just the integer address.
+For one, they need to encode the provenance.
+When decoding, we have to deal with the possibility of the pointer bytes not all having the same provenance;
+this is define to yield a pointer without provenance.
+On the other hand, some pointers are wide pointers which also need to encode their metadata.
+The helpers `decode_ptr` and `encode_ptr` deal with the thin pointers,
+and the `decode_ptr_meta` helper inferrs the metadata kind from the pointee layout.
+
 ```rust
-fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Pointer<M::Provenance>> {
+fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<ThinPointer<M::Provenance>> {
     if bytes.len() != M::T::PTR_SIZE.bytes() { throw!(); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.try_map(|b| b.data())?;
@@ -105,25 +114,28 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Poi
             provenance = None;
         }
     }
-    ret(Pointer { addr, provenance })
+    ret(ThinPointer { addr, provenance })
 }
 
-fn encode_ptr<M: Memory>(ptr: Pointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
+fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
     let bytes_data = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, ptr.addr).unwrap();
     bytes_data.map(|b| AbstractByte::Init(b, ptr.provenance))
+    
 }
 
 impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        // TODO(UnsizedTypes): Decode pointer metadata
         let ptr = decode_ptr::<M>(bytes)?;
         if !ptr_type.addr_valid(ptr.addr) {
-            return None;
+            throw!();
         }
-        ret(Value::Ptr(ptr))
+        ret(Value::Ptr(ptr.widen(None)))
     }
     fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Ptr(ptr) = val else { panic!() };
-        encode_ptr::<M>(ptr)
+        assert!(ptr.metadata.is_none(), "Metadata doesn't exist yet!");
+        encode_ptr::<M>(ptr.thin_pointer)
     }
 }
 ```
@@ -367,9 +379,9 @@ impl<Provenance> DefinedRelation for AbstractByte<Provenance> {
 }
 ```
 
-Similarly, on `Pointer` we say that adding provenance makes it more defined:
+Similarly, on `Pointer` we say that adding provenance in the thin pointer or metadata makes it more defined:
 ```rust
-impl<Provenance> DefinedRelation for Pointer<Provenance> {
+impl<Provenance> DefinedRelation for ThinPointer<Provenance> {
     fn le_defined(self, other: Self) -> bool {
         self.addr == other.addr &&
             match (self.provenance, other.provenance) {
@@ -377,6 +389,14 @@ impl<Provenance> DefinedRelation for Pointer<Provenance> {
                 (Some(prov1), Some(prov2)) => prov1 == prov2,
                 _ => false,
             }
+    }
+}
+
+impl<Provenance> DefinedRelation for Pointer<Provenance> {
+    fn le_defined(self, other: Self) -> bool {
+        self.thin_pointer.le_defined(other.thin_pointer) &&
+            // TODO(UnsizedTypes): There might be provenance in the meta to check in the future.
+            self.metadata == other.metadata
     }
 }
 ```
@@ -467,7 +487,7 @@ We also use this to lift retagging from pointers to compound values.
 
 ```rust
 impl<M: Memory> ConcurrentMemory<M> {
-    fn typed_store(&mut self, ptr: Pointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
+    fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
         assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
         let bytes = ty.encode::<M>(val);
         self.store(ptr, bytes, align, atomicity)?;
@@ -475,7 +495,7 @@ impl<M: Memory> ConcurrentMemory<M> {
         ret(())
     }
 
-    fn typed_load(&mut self, ptr: Pointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
+    fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
         let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {

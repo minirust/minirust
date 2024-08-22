@@ -51,17 +51,17 @@ impl<M: Memory> ConcurrentMemory<M> {
 
     /// Create a new allocation.
     /// The initial contents of the allocation are `AbstractByte::Uninit`.
-    pub fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<Pointer<M::Provenance>> {
+    pub fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<ThinPointer<M::Provenance>> {
         self.memory.allocate(kind, size, align)
     }
 
     /// Remove an allocation.
-    pub fn deallocate(&mut self, ptr: Pointer<M::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
+    pub fn deallocate(&mut self, ptr: ThinPointer<M::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
         self.memory.deallocate(ptr, kind, size, align)
     }
 
     /// Write some bytes to memory and check for data races.
-    pub fn store(&mut self, ptr: Pointer<M::Provenance>, bytes: List<AbstractByte<M::Provenance>>, align: Align, atomicity: Atomicity) -> Result {
+    pub fn store(&mut self, ptr: ThinPointer<M::Provenance>, bytes: List<AbstractByte<M::Provenance>>, align: Align, atomicity: Atomicity) -> Result {
         let access = Access {
             ty: AccessType::Store,
             atomicity,
@@ -74,7 +74,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     /// Read some bytes from memory and check for data races.
-    pub fn load(&mut self, ptr: Pointer<M::Provenance>, len: Size, align: Align, atomicity: Atomicity) -> Result<List<AbstractByte<M::Provenance>>> {
+    pub fn load(&mut self, ptr: ThinPointer<M::Provenance>, len: Size, align: Align, atomicity: Atomicity) -> Result<List<AbstractByte<M::Provenance>>> {
         let access = Access {
             ty: AccessType::Load,
             atomicity,
@@ -88,12 +88,12 @@ impl<M: Memory> ConcurrentMemory<M> {
 
     /// Test whether the given pointer is dereferenceable for the given size.
     /// Raises UB if that is not the case.
-    pub fn dereferenceable(&self, ptr: Pointer<M::Provenance>, len: Size) -> Result {
+    pub fn dereferenceable(&self, ptr: ThinPointer<M::Provenance>, len: Size) -> Result {
         self.memory.dereferenceable(ptr, len)
     }
 
     /// A derived form of `dereferenceable` that works with a signed notion on "length".
-    pub fn signed_dereferenceable(&self, ptr: Pointer<M::Provenance>, len: Int) -> Result {
+    pub fn signed_dereferenceable(&self, ptr: ThinPointer<M::Provenance>, len: Int) -> Result {
         self.memory.signed_dereferenceable(ptr, len)
     }
 
