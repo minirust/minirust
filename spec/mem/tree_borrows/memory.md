@@ -139,7 +139,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
 
     /// Compute the reborrow settings for the given pointer type.
     /// `None` indicates that no reborrow should happen.
-    fn ptr_permissions(ptr_type: PtrType, fn_entry: bool) -> Option<(Permission, Size, Protected)> {
+    fn ptr_permissions(ptr_type: PtrType, fn_entry: bool) -> Option<(Permission, SizeStrategy, Protected)> {
         match ptr_type {
             PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => {
                 // Shared reference to interior mutable type: retagging is a NOP.
@@ -236,7 +236,8 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(if let Some((permission, size, protected)) = Self::ptr_permissions(ptr_type, fn_entry) {
-            self.reborrow(ptr.thin_pointer, size, permission, protected, frame_extra)?.widen(ptr.metadata)
+            let pointee_size = size.compute(ptr.metadata);
+            self.reborrow(ptr.thin_pointer, pointee_size, permission, protected, frame_extra)?.widen(ptr.metadata)
         } else {
             ptr
         })

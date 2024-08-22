@@ -125,7 +125,7 @@ pub trait Memory {
         _fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
         if let Some(layout) = ptr_type.safe_pointee() {
-            self.dereferenceable(ptr.thin_pointer, layout.size)?;
+            self.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
         }
         ret(ptr)
     }

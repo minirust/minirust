@@ -26,7 +26,7 @@ fn too_large_local() {
     let stmts = &[];
 
     let prog = small_program(locals, stmts);
-    assert_ill_formed::<BasicMem>(prog, "Type: size not valid");
+    assert_ill_formed::<BasicMem>(prog, "SizeStrategy: size not valid");
 }
 
 #[test]

@@ -97,6 +97,7 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(place)?;
 
+        // WF ensures all validate expressions are sized.
         let val = self.mem.place_load(place, ty)?;
 
         let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
@@ -127,7 +128,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("de-initializing a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>(), Align::ONE)?;
+        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>().expect_sized("WF ensures deinits are sized"), Align::ONE)?;
 
         ret(())
     }
@@ -145,7 +146,7 @@ impl<M: Memory> StackFrame<M> {
         // This means the same address may be re-used for the new stoage.
         self.storage_dead(mem, local)?;
         // Then allocate the new storage.
-        let pointee_size = self.func.locals[local].size::<M::T>();
+        let pointee_size = self.func.locals[local].size::<M::T>().expect_sized("WF ensures all locals are sized");
         let pointee_align = self.func.locals[local].align::<M::T>();
         let ptr = mem.allocate(AllocationKind::Stack, pointee_size, pointee_align)?;
         self.locals.insert(local, ptr);
@@ -153,7 +154,7 @@ impl<M: Memory> StackFrame<M> {
     }
 
     fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
-        let pointee_size = self.func.locals[local].size::<M::T>();
+        let pointee_size = self.func.locals[local].size::<M::T>().expect_sized("WF ensures all locals are sized");
         let pointee_align = self.func.locals[local].align::<M::T>();
         if let Some(ptr) = self.locals.remove(local) {
             mem.deallocate(ptr, AllocationKind::Stack, pointee_size, pointee_align)?;

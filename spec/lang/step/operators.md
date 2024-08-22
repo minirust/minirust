@@ -48,7 +48,9 @@ impl<M: Memory> Machine<M> {
                 ret((Value::Int(result), Type::Int(int_ty)))
             }
             Transmute(new_ty) => {
-                if old_ty.size::<M::T>() != new_ty.size::<M::T>() {
+                if old_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
+                    != new_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
+                {
                     throw_ub!("transmute between types of different size")
                 }
                 let Some(val) = transmute(operand, old_ty, new_ty) else {

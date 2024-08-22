@@ -8,7 +8,7 @@ pub trait TypeConv {
     fn get_type() -> Type;
 
     // Convenience methods, these should not be overridden.
-    fn get_size() -> Size {
+    fn get_size() -> SizeStrategy {
         Self::get_type().size::<DefaultTarget>()
     }
     fn get_align() -> Align {
@@ -72,7 +72,6 @@ impl<T: TypeConv + ?Sized> TypeConv for &T {
             inhabited: true,
             freeze: T::FREEZE,
             unpin: T::UNPIN,
-            meta_kind: T::get_type().meta_kind(),
         })
     }
 }
@@ -85,7 +84,6 @@ impl<T: TypeConv + ?Sized> TypeConv for &mut T {
             inhabited: true,
             freeze: T::FREEZE,
             unpin: T::UNPIN,
-            meta_kind: T::get_type().meta_kind(),
         })
     }
 }

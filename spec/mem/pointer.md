@@ -65,23 +65,39 @@ impl<Provenance> ThinPointer<Provenance> {
         }
     }
 }
+
+impl PointerMetaKind {
+    pub fn matches(self, meta: Option<PointerMeta>) -> bool {
+        match (self, meta) {
+            (PointerMetaKind::None, None) => true,
+            _ => false,
+        }
+    }
+}
 ```
 
 ## Pointee
 
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
+However, for unsized types the layout might depend on the pointer metadata, which gives rise to the "size strategy".
 
 ```rust
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
-    pub meta_kind: PointerMetaKind,
-    pub size: Size,
+    pub size: SizeStrategy,
     pub align: Align,
     pub inhabited: bool,
     pub freeze: bool,
     pub unpin: bool,
 }
 
+/// Describes how the size of the value can be determined.
+pub enum SizeStrategy {
+    /// The type is statically `Sized`.
+    Sized(Size),
+}
+
+/// Stores all the information that we need to know about a pointer.
 pub enum PtrType {
     Ref {
         /// Indicates a shared vs mutable reference.
@@ -97,6 +113,39 @@ pub enum PtrType {
         meta_kind: PointerMetaKind,
     },
     FnPtr,
+}
+```
+
+
+```rust
+impl SizeStrategy {
+    pub fn is_sized(self) -> bool {
+        matches!(self, SizeStrategy::Sized(_))
+    }
+
+    /// Returns the size when the type must be statically sized.
+    pub fn expect_sized(self, _msg: &str) -> Size {
+        match self {
+            SizeStrategy::Sized(size) => size,
+            // TODO(UnsizedTypes): Panic on other variants
+        }
+    }
+
+    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    pub fn compute(self, meta: Option<PointerMeta>) -> Size {
+        match (self, meta) {
+            (SizeStrategy::Sized(size), None) => size,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Returns the metadata kind which is needed to compute this strategy,
+    /// i.e `self.meta_kind().matches(meta)` implies `self.compute(meta)` is well-defined.
+    pub fn meta_kind(self) -> PointerMetaKind {
+        match self {
+            SizeStrategy::Sized(_) => PointerMetaKind::None,
+        }
+    }
 }
 
 impl PtrType {
@@ -120,18 +169,9 @@ impl PtrType {
 
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
-            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.meta_kind,
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.size.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
             PtrType::FnPtr => PointerMetaKind::None,
-        }
-    }
-}
-
-impl PointerMetaKind {
-    pub fn matches(self, meta: Option<PointerMeta>) -> bool {
-        match (self, meta) {
-            (PointerMetaKind::None, None) => true,
-            _ => false,
         }
     }
 }

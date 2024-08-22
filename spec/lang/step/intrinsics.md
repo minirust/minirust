@@ -372,8 +372,8 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        // TODO(UnsizedTypes): Add UB if the argument is unsized.
-        let PointeeInfo { size, align, .. } = pointee;
+        // TODO(UnsizedTypes): Throw UB if the pointee is unsized.
+        let PointeeInfo { size: SizeStrategy::Sized(size), align, .. } = pointee;
         let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
 
         let Some(data) =  bytes.try_map(|byte| byte.data()) else {
@@ -444,7 +444,8 @@ impl<M: Memory> Machine<M> {
         };
 
         let (val, ty) = arguments[1];
-        let size = ty.size::<M::T>();
+        // TODO(UnsizedTypes): Throw UB if the type is unsized
+        let SizeStrategy::Sized(size) = ty.size::<M::T>();
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid second argument to `AtomicStore` intrinsic: size not power of two");
         };
@@ -474,7 +475,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a thin pointer");
         };
 
-        let size = ret_ty.size::<M::T>();
+        let size = ret_ty.size::<M::T>().expect_sized("WF ensures intrinsic return types are sized");
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid return type for `AtomicLoad` intrinsic: size not power of two");
         };
@@ -482,6 +483,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `AtomicLoad` intrinsic: size too big");
         }
 
+        // `ret_ty` is ensured to be sized above.
         let val = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
         ret(val)
     }
@@ -514,8 +516,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
         }
 
-        let size = ret_ty.size::<M::T>();
-        // All integer sizes are powers of two.
+        // All integers are sized with a power of two size.
+        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicCompareExchange` intrinsic: size too big");
@@ -560,8 +562,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
         };
 
-        let size = ret_ty.size::<M::T>();
-        // All integer sizes are powers of two.
+        // All integers are sized with a power of two size.
+        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: size too big");

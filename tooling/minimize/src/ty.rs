@@ -4,15 +4,14 @@ impl<'tcx> Ctxt<'tcx> {
     pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
         assert!(layout.is_sized(), "encountered unsized type: {ty}");
-        let meta_kind = PointerMetaKind::None;
-        let size = translate_size(layout.size());
+        let size = SizeStrategy::Sized(translate_size(layout.size()));
         let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
         let param_env = rs::ParamEnv::reveal_all();
         let freeze = ty.is_freeze(self.tcx, param_env);
         let unpin = ty.is_unpin(self.tcx, param_env);
 
-        PointeeInfo { size, align, inhabited, freeze, unpin, meta_kind }
+        PointeeInfo { size, align, inhabited, freeze, unpin }
     }
 
     pub fn pointee_info_of_smir(&self, ty: smir::Ty) -> PointeeInfo {
@@ -80,7 +79,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
                 let pointee = self.pointee_info_of(*ty);
-                Type::Ptr(PtrType::Raw { meta_kind: pointee.meta_kind })
+                Type::Ptr(PtrType::Raw { meta_kind: pointee.size.meta_kind() })
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()));

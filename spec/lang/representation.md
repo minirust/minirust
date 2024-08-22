@@ -20,7 +20,7 @@ impl Type {
     /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
     /// `decode` must satisfy the following property:
     /// ```
-    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size() && ty.inhabited()`
+    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size().expect_sized(..) && ty.inhabited()`
     /// ```
     /// In other words, all valid low-level representations must have the length given by the size of the type,
     /// and the existence of a valid low-level representation implies that the type is inhabited.
@@ -157,7 +157,10 @@ impl Type {
         if bytes.len() != size.bytes() { throw!(); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
-                let subslice = bytes.subslice_with_length(offset.bytes(), ty.size::<M::T>().bytes());
+                let subslice = bytes.subslice_with_length(
+                    offset.bytes(),
+                    ty.size::<M::T>().expect_sized("WF ensures all tuple fields are sized").bytes()
+                );
                 ty.decode::<M>(subslice)
             })?
         ))
@@ -183,7 +186,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M::T>();
+        let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { throw!(); }
@@ -201,7 +204,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M::T>().bytes());
+            assert_eq!(bytes.len(), elem.size::<M::T>().expect_sized("WF ensures array element is sized").bytes());
             bytes
         })
     }
@@ -496,7 +499,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.size::<M::T>(), align, atomicity)?;
+        let bytes = self.load(ptr, ty.size::<M::T>().expect_sized("the callers ensure `ty` is sized"), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
