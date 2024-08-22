@@ -97,6 +97,25 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 ValueExpr::AddrOf { target, ptr_ty }
             }
+            smir::Rvalue::NullaryOp(null_op, ty) => {
+                let ty = smir::internal(self.tcx, ty);
+                let layout = self.rs_layout_of(ty);
+                match null_op {
+                    smir::NullOp::UbChecks => build::const_bool(self.tcx.sess.ub_checks()),
+                    smir::NullOp::SizeOf => build::const_int(layout.size().bytes()),
+                    smir::NullOp::AlignOf => build::const_int(layout.align().abi.bytes()),
+                    smir::NullOp::OffsetOf(fields) => {
+                        let param_env = rs::ParamEnv::reveal_all();
+                        let ty_and_layout = self.tcx.layout_of(param_env.and(ty)).unwrap();
+                        let fields = fields.iter().map(|field| {
+                            (smir::internal(self.tcx, field.0), rs::FieldIdx::from_usize(field.1))
+                        });
+                        build::const_int(
+                            self.tcx.offset_of_subfield(param_env, ty_and_layout, fields).bytes(),
+                        )
+                    }
+                }
+            }
             smir::Rvalue::AddressOf(_mutbl, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let place = self.translate_place_smir(place, span);
@@ -230,11 +249,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let instance = smir::Instance::resolve(f, &substs_ref).unwrap();
 
                 build::fn_ptr_internal(self.cx.get_fn_name_smir(instance).0.get_internal())
-            }
-            smir::Rvalue::NullaryOp(smir::NullOp::UbChecks, _ty) => {
-                // Like Miri, since we are able to detect language UB ourselves we can disable these checks.
-                // TODO: reflect the current session's ub_checks flag instead, once we are on a new enough rustc.
-                build::const_bool(false)
             }
             x => rs::span_bug!(span, "rvalue failed to translate: {x:?}"),
         }
