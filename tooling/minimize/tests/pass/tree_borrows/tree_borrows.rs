@@ -8,7 +8,6 @@
 // disjoint_mutable_subborrows
 // raw_ref_to_part
 // wide_raw_ptr_in_tuple
-// not_unpin_not_protected
 
 include!("../../helper/transmute.rs");
 use std::ptr;
@@ -31,6 +30,7 @@ fn main() {
     mut_below_shr();
     write_does_not_invalidate_all_aliases();
     array_overlapping_read_read();
+    not_unpin_not_protected();
 }
 
 
@@ -269,4 +269,27 @@ fn array_overlapping_read_read() {
         assert!(*x.add(1) == 57); 
         assert!(*y.sub(1) == 42); 
     }
+}
+
+fn not_unpin_not_protected() {
+    extern crate intrinsics;
+    use intrinsics::*;
+
+    // `&mut !Unpin`, at least for now, does not get `noalias` nor `dereferenceable`, so we also
+    // don't add protectors. (We could, but until we have a better idea for where we want to go with
+    // the self-referential-coroutine situation, it does not seem worth the potential trouble.)
+    use std::marker::PhantomPinned;
+
+    pub struct NotUnpin(#[allow(dead_code)] i32, PhantomPinned);
+
+    fn f(x: &mut NotUnpin) {
+        // `f` is allowed to deallocate `x`.
+        let raw = x as *mut _ as *mut u8;
+        unsafe { deallocate(raw, 4, 4) };
+    }
+
+    let ptr = unsafe { allocate(4, 4) } as *mut NotUnpin;
+    unsafe { *ptr = NotUnpin(0, PhantomPinned) };
+
+    f(unsafe { &mut *ptr });
 }

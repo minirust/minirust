@@ -16,6 +16,7 @@ pub trait TypeConv {
     }
 
     const FREEZE: bool = true;
+    const UNPIN: bool = true;
 }
 
 macro_rules! type_conv_int_impl {
@@ -70,6 +71,7 @@ impl<T: TypeConv + ?Sized> TypeConv for &T {
             align: T::get_align(),
             inhabited: true,
             freeze: T::FREEZE,
+            unpin: T::UNPIN,
             meta_kind: T::get_type().meta_kind(),
         })
     }
@@ -82,6 +84,7 @@ impl<T: TypeConv + ?Sized> TypeConv for &mut T {
             align: T::get_align(),
             inhabited: true,
             freeze: T::FREEZE,
+            unpin: T::UNPIN,
             meta_kind: T::get_type().meta_kind(),
         })
     }

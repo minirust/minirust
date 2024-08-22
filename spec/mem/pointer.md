@@ -79,6 +79,7 @@ pub struct PointeeInfo {
     pub align: Align,
     pub inhabited: bool,
     pub freeze: bool,
+    pub unpin: bool,
 }
 
 pub enum PtrType {
