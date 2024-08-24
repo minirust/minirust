@@ -71,7 +71,7 @@ impl Type {
             throw!();
         }
         // Fails if any byte is `Uninit`.
-        let bytes_data = bytes.try_map(|b| b.data())?;
+        let bytes_data: List<u8> = bytes.try_map(|b| b.data())?;
         ret(Value::Int(M::T::ENDIANNESS.decode(signed, bytes_data)))
     }
     fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
