@@ -10,6 +10,13 @@ enum StatementResult {
     Intrinsic { intrinsic: IntrinsicOp, destination: PlaceExpr, arguments: List<ValueExpr> },
 }
 
+/// A MIR terminator becomes a MiniRust terminator, possibly preceded by a list
+/// of statements to execute at the end of the previous basic block.
+struct TerminatorResult {
+    stmts: List<Statement>,
+    terminator: Terminator,
+}
+
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// Translate the given basic block and insert it into `self` with the given name.
     /// May insert more than one block because some MIR statements turn into MiniRust terminators.
@@ -40,7 +47,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
             }
         }
-        let terminator = self.translate_terminator(bb.terminator());
+        let TerminatorResult { stmts, terminator } = self.translate_terminator(bb.terminator());
+        for stmt in stmts.iter() {
+            cur_block_statements.push(stmt);
+        }
         let cur_block = BasicBlock { statements: cur_block_statements, terminator };
         let old = self.blocks.insert(cur_block_name, cur_block);
         assert!(old.is_none()); // make sure we do not overwrite a bb
@@ -116,13 +126,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         })
     }
 
-    fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> Terminator {
+    fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> TerminatorResult {
         let span = terminator.source_info.span;
-        match &terminator.kind {
+        let terminator = match &terminator.kind {
             rs::TerminatorKind::Return => Terminator::Return,
             rs::TerminatorKind::Goto { target } => Terminator::Goto(self.bb_name_map[&target]),
             rs::TerminatorKind::Call { func, target, destination, args, .. } =>
-                self.translate_call(func, args, destination, target, span),
+                return self.translate_call(func, args, destination, target, span),
             rs::TerminatorKind::SwitchInt { discr, targets } => {
                 let ty = discr.ty(&self.body, self.tcx);
                 let ty = self.translate_ty(ty, span);
@@ -198,7 +208,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
             }
             x => rs::span_bug!(span, "terminator not supported: {x:?}"),
-        }
+        };
+
+        TerminatorResult { terminator, stmts: List::new() }
     }
 
     fn translate_call(
@@ -208,7 +220,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         destination: &rs::Place<'tcx>,
         target: &Option<rs::BasicBlock>,
         span: rs::Span,
-    ) -> Terminator {
+    ) -> TerminatorResult {
         // For now we only support calling specific functions, not function pointers.
         let rs::Operand::Constant(box f1) = func else { panic!() };
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
@@ -229,27 +241,45 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         .check_validity_requirement((requirement, param_env.and(ty)))
                         .unwrap();
 
-                    if should_panic {
-                        return Terminator::Intrinsic {
+                    let terminator = if should_panic {
+                        Terminator::Intrinsic {
                             intrinsic: IntrinsicOp::Panic,
                             arguments: list![],
                             ret: zst_place(),
                             next_block: None,
-                        };
+                        }
                     } else {
-                        return Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-                    }
+                        Terminator::Goto(self.bb_name_map[&target.unwrap()])
+                    };
+                    return TerminatorResult { terminator, stmts: List::new() };
                 }
                 "raw_eq" =>
-                    return Terminator::Intrinsic {
-                        intrinsic: IntrinsicOp::RawEq,
-                        arguments: args
-                            .iter()
-                            .map(|x| self.translate_operand(&x.node, x.span))
-                            .collect(),
-                        ret: self.translate_place(&destination, span),
-                        next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                    return TerminatorResult {
+                        stmts: List::new(),
+                        terminator: Terminator::Intrinsic {
+                            intrinsic: IntrinsicOp::RawEq,
+                            arguments: args
+                                .iter()
+                                .map(|x| self.translate_operand(&x.node, x.span))
+                                .collect(),
+                            ret: self.translate_place(&destination, span),
+                            next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                        },
                     },
+                "arith_offset" => {
+                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                    let destination = self.translate_place(&destination, span);
+
+                    let result = ValueExpr::BinOp {
+                        operator: BinOp::PtrOffset { inbounds: false },
+                        left: GcCow::new(self.translate_operand(&args[0].node, span)),
+                        right: GcCow::new(self.translate_operand(&args[1].node, span)),
+                    };
+
+                    let stmt = Statement::Assign { destination, source: result };
+
+                    return TerminatorResult { stmts: list!(stmt), terminator };
+                }
 
                 "unlikely" | "likely" => {
                     // FIXME: use the "fallback body" provided in the standard library.
@@ -293,7 +323,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             };
         }
 
-        if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
+        let terminator = if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             // Direct call to a MiniRust intrinsic.
             let intrinsic = match self.tcx.item_name(f).as_str() {
                 "print" => IntrinsicOp::PrintStdout,
@@ -354,7 +384,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
-        }
+        };
+        TerminatorResult { terminator, stmts: List::new() }
     }
 }
 
