@@ -26,7 +26,7 @@ mod rs {
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
-    pub use rustc_span::{Span, DUMMY_SP};
+    pub use rustc_span::{sym, Span, DUMMY_SP};
     pub use rustc_target::abi::{self, call::*, Align, FieldIdx, Layout, Size};
     pub use rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
 

@@ -213,6 +213,80 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         TerminatorResult { terminator, stmts: List::new() }
     }
 
+    fn translate_rs_intrinsic(
+        &mut self,
+        intrinsic: rs::Instance<'tcx>,
+        args: &[rs::Spanned<rs::Operand<'tcx>>],
+        destination: &rs::Place<'tcx>,
+        target: &Option<rs::BasicBlock>,
+        span: rs::Span,
+    ) -> TerminatorResult {
+        let param_env = rs::ParamEnv::reveal_all();
+        let intrinsic_name = self.tcx.item_name(intrinsic.def_id());
+        match intrinsic_name {
+            rs::sym::assert_inhabited
+            | rs::sym::assert_zero_valid
+            | rs::sym::assert_mem_uninitialized_valid => {
+                let ty = intrinsic.args.type_at(0);
+                let requirement =
+                    rs::layout::ValidityRequirement::from_intrinsic(intrinsic_name).unwrap();
+                let should_panic =
+                    !self.tcx.check_validity_requirement((requirement, param_env.and(ty))).unwrap();
+
+                let terminator = if should_panic {
+                    Terminator::Intrinsic {
+                        intrinsic: IntrinsicOp::Panic,
+                        arguments: list![],
+                        ret: zst_place(),
+                        next_block: None,
+                    }
+                } else {
+                    Terminator::Goto(self.bb_name_map[&target.unwrap()])
+                };
+                return TerminatorResult { terminator, stmts: List::new() };
+            }
+            rs::sym::raw_eq =>
+                return TerminatorResult {
+                    stmts: List::new(),
+                    terminator: Terminator::Intrinsic {
+                        intrinsic: IntrinsicOp::RawEq,
+                        arguments: args
+                            .iter()
+                            .map(|x| self.translate_operand(&x.node, x.span))
+                            .collect(),
+                        ret: self.translate_place(&destination, span),
+                        next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                    },
+                },
+            rs::sym::arith_offset => {
+                let destination = self.translate_place(&destination, span);
+
+                let val = ValueExpr::BinOp {
+                    operator: BinOp::PtrOffset { inbounds: false },
+                    left: GcCow::new(self.translate_operand(&args[0].node, span)),
+                    right: GcCow::new(self.translate_operand(&args[1].node, span)),
+                };
+
+                let stmt = Statement::Assign { destination, source: val };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+
+                return TerminatorResult { stmts: list!(stmt), terminator };
+            }
+
+            rs::sym::unlikely | rs::sym::likely => {
+                // FIXME: use the "fallback body" provided in the standard library.
+                let destination = self.translate_place(&destination, span);
+                let val = self.translate_operand(&args[0].node, span);
+
+                let stmt = Statement::Assign { destination, source: val };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+
+                return TerminatorResult { stmts: list!(stmt), terminator };
+            }
+            name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
+        }
+    }
+
     fn translate_call(
         &mut self,
         func: &rs::Operand<'tcx>,
@@ -228,71 +302,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let param_env = rs::ParamEnv::reveal_all();
         let instance = rs::Instance::expect_resolve(self.tcx, param_env, f, substs_ref, span);
 
-        if let rs::InstanceKind::Intrinsic(def_id) = instance.def {
+        if matches!(instance.def, rs::InstanceKind::Intrinsic(_)) {
             // A Rust intrinsic.
-            let intrinsic_name = self.tcx.item_name(def_id);
-            match intrinsic_name.as_str() {
-                "assert_inhabited" | "assert_zero_valid" | "assert_mem_uninitialized_valid" => {
-                    let ty = instance.args.type_at(0);
-                    let requirement =
-                        rs::layout::ValidityRequirement::from_intrinsic(intrinsic_name).unwrap();
-                    let should_panic = !self
-                        .tcx
-                        .check_validity_requirement((requirement, param_env.and(ty)))
-                        .unwrap();
-
-                    let terminator = if should_panic {
-                        Terminator::Intrinsic {
-                            intrinsic: IntrinsicOp::Panic,
-                            arguments: list![],
-                            ret: zst_place(),
-                            next_block: None,
-                        }
-                    } else {
-                        Terminator::Goto(self.bb_name_map[&target.unwrap()])
-                    };
-                    return TerminatorResult { terminator, stmts: List::new() };
-                }
-                "raw_eq" =>
-                    return TerminatorResult {
-                        stmts: List::new(),
-                        terminator: Terminator::Intrinsic {
-                            intrinsic: IntrinsicOp::RawEq,
-                            arguments: args
-                                .iter()
-                                .map(|x| self.translate_operand(&x.node, x.span))
-                                .collect(),
-                            ret: self.translate_place(&destination, span),
-                            next_block: target.as_ref().map(|t| self.bb_name_map[t]),
-                        },
-                    },
-                "arith_offset" => {
-                    let destination = self.translate_place(&destination, span);
-
-                    let val = ValueExpr::BinOp {
-                        operator: BinOp::PtrOffset { inbounds: false },
-                        left: GcCow::new(self.translate_operand(&args[0].node, span)),
-                        right: GcCow::new(self.translate_operand(&args[1].node, span)),
-                    };
-
-                    let stmt = Statement::Assign { destination, source: val };
-                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-
-                    return TerminatorResult { stmts: list!(stmt), terminator };
-                }
-
-                "unlikely" | "likely" => {
-                    // FIXME: use the "fallback body" provided in the standard library.
-                    let destination = self.translate_place(&destination, span);
-                    let val = self.translate_operand(&args[0].node, span);
-
-                    let stmt = Statement::Assign { destination, source: val };
-                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-
-                    return TerminatorResult { stmts: list!(stmt), terminator };
-                }
-                name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
-            };
+            return self.translate_rs_intrinsic(instance, args, destination, target, span);
         }
 
         let terminator = if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
