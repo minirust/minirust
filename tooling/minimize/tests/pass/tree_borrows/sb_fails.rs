@@ -2,9 +2,6 @@
 
 // The tests were taken from Miri Tree Borrows 
 // https://github.com/rust-lang/miri/blob/master/tests/pass/tree_borrows/sb_fails.rs
-// FIXME: Some tests in the original test suite are not currently supported by MiniRust 
-// Missing tests:
-// static_memory_modification
 
 mod fnentry_invalidation {
     // Copied directly from fail/stacked_borrows/fnentry_invalidation.rs
@@ -60,6 +57,21 @@ mod return_invalid_mut {
     }
 }
 
+mod static_memory_modification {
+    // Copied directly from fail/stacked_borrows/static_memory_modification.rs
+    // Version that fails TB: fail/tree_borrows/static_memory_modification.rs
+    static X: usize = 5;
+
+    #[allow(mutable_transmutes)]
+    pub fn main() {
+        let x = unsafe {
+            std::mem::transmute::<&usize, &mut usize>(&X) // In SB this mutable reborrow fails.
+            // But in TB we are allowed to transmute as long as we don't write.
+        };
+        assert!(*&*x == 5);
+    }
+}
+
 #[allow(unused_assignments)] // spurious warning
 fn interior_mut_reborrow() {
     use std::cell::UnsafeCell;
@@ -74,5 +86,6 @@ fn main() {
     fnentry_invalidation::main();
     pass_invalid_mut::main();
     return_invalid_mut::main();
+    static_memory_modification::main();
     interior_mut_reborrow();
 }
