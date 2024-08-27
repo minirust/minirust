@@ -267,57 +267,29 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         },
                     },
                 "arith_offset" => {
-                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                     let destination = self.translate_place(&destination, span);
 
-                    let result = ValueExpr::BinOp {
+                    let val = ValueExpr::BinOp {
                         operator: BinOp::PtrOffset { inbounds: false },
                         left: GcCow::new(self.translate_operand(&args[0].node, span)),
                         right: GcCow::new(self.translate_operand(&args[1].node, span)),
                     };
 
-                    let stmt = Statement::Assign { destination, source: result };
+                    let stmt = Statement::Assign { destination, source: val };
+                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
 
                     return TerminatorResult { stmts: list!(stmt), terminator };
                 }
 
                 "unlikely" | "likely" => {
                     // FIXME: use the "fallback body" provided in the standard library.
-                    // translate `unlikely`, `likely` intrinsic into functions that can be called
-                    let function_name = self.cx.get_fn_name(instance);
-                    if !self.functions.contains_key(function_name) {
-                        let ret = LocalName(Name::from_internal(0));
-                        let arg = LocalName(Name::from_internal(1));
+                    let destination = self.translate_place(&destination, span);
+                    let val = self.translate_operand(&args[0].node, span);
 
-                        let b0_name = BbName(Name::from_internal(0));
-                        let assign = Statement::Assign {
-                            destination: PlaceExpr::Local(ret),
-                            source: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(arg)) },
-                        };
-                        let b0 = BasicBlock {
-                            statements: list![assign],
-                            terminator: Terminator::Return,
-                        };
+                    let stmt = Statement::Assign { destination, source: val };
+                    let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
 
-                        let mut blocks = Map::new();
-                        blocks.insert(b0_name, b0);
-
-                        let mut locals = Map::new();
-                        locals.insert(ret, <bool>::get_type());
-                        locals.insert(arg, <bool>::get_type());
-
-                        let function = Function {
-                            locals,
-                            args: list![arg],
-                            ret,
-                            blocks,
-                            start: b0_name,
-                            calling_convention: CallingConvention::Rust,
-                        };
-                        // We can unwrap because we already checked that `function_name` is not in the `functions` map.
-                        self.cx.functions.try_insert(function_name, function).unwrap();
-                    }
-                    // Fall through to the regular function call handling below.
+                    return TerminatorResult { stmts: list!(stmt), terminator };
                 }
                 name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
             };
