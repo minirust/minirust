@@ -10,8 +10,9 @@ impl<'tcx> Ctxt<'tcx> {
         let inhabited = !layout.abi().is_uninhabited();
         let param_env = rs::ParamEnv::reveal_all();
         let freeze = ty.is_freeze(self.tcx, param_env);
+        let unpin = ty.is_unpin(self.tcx, param_env);
 
-        PointeeInfo { size, align, inhabited, freeze, meta_kind }
+        PointeeInfo { size, align, inhabited, freeze, unpin, meta_kind }
     }
 
     pub fn pointee_info_of_smir(&self, ty: smir::Ty) -> PointeeInfo {
