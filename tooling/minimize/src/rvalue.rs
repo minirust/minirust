@@ -194,63 +194,78 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ls = list![op; c];
                 ValueExpr::Tuple(ls, ty)
             }
-            smir::Rvalue::Cast(smir::CastKind::IntToInt, operand, ty) => {
-                let operand_ty = operand.ty(&self.locals_smir).unwrap();
-                let operand_ty = self.translate_ty_smir(operand_ty, span);
-                let operand = self.translate_operand_smir(operand, span);
-                let Type::Int(int_ty) = self.translate_ty_smir(*ty, span) else {
-                    rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
-                };
+            smir::Rvalue::Cast(cast_kind, operand, ty) => {
+                match cast_kind {
+                    smir::CastKind::IntToInt => {
+                        let operand_ty = operand.ty(&self.locals_smir).unwrap();
+                        let operand_ty = self.translate_ty_smir(operand_ty, span);
+                        let operand = self.translate_operand_smir(operand, span);
+                        let Type::Int(int_ty) = self.translate_ty_smir(*ty, span) else {
+                            rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
+                        };
 
-                let operand = match operand_ty {
-                    Type::Int(_) => operand,
-                    // bool2int casts first go to u8, and then to the final type.
-                    Type::Bool => build::transmute(operand, u8::get_type()),
-                    _ =>
-                        rs::span_bug!(
-                            span,
-                            "Attempting to cast non-int and non-boolean type to int!"
+                        let operand = match operand_ty {
+                            Type::Int(_) => operand,
+                            // bool2int casts first go to u8, and then to the final type.
+                            Type::Bool => build::transmute(operand, u8::get_type()),
+                            _ =>
+                                rs::span_bug!(
+                                    span,
+                                    "Attempting to cast non-int and non-boolean type to int!"
+                                ),
+                        };
+                        ValueExpr::UnOp {
+                            operator: UnOp::Cast(CastOp::IntToInt(int_ty)),
+                            operand: GcCow::new(operand),
+                        }
+                    }
+                    smir::CastKind::Transmute
+                    | smir::CastKind::PtrToPtr
+                    | smir::CastKind::FnPtrToPtr
+                    | smir::CastKind::PointerCoercion(smir::PointerCoercion::UnsafeFnPointer) => {
+                        let operand = self.translate_operand_smir(operand, span);
+                        let ty = self.translate_ty_smir(*ty, span);
+                        build::transmute(operand, ty)
+                    }
+                    smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer) => {
+                        let smir::Operand::Constant(f1) = operand else { panic!() };
+                        let smir::TyKind::RigidTy(smir::RigidTy::FnDef(f, substs_ref)) =
+                            f1.ty().kind()
+                        else {
+                            panic!()
+                        };
+                        let instance = smir::Instance::resolve(f, &substs_ref).unwrap();
+
+                        build::fn_ptr_internal(self.cx.get_fn_name_smir(instance).0.get_internal())
+                    }
+
+                    smir::CastKind::PointerExposeAddress =>
+                        unreachable!(
+                            "PointerExposeAddress should have been handled on the statement level"
                         ),
-                };
-                ValueExpr::UnOp {
-                    operator: UnOp::Cast(CastOp::IntToInt(int_ty)),
-                    operand: GcCow::new(operand),
+                    smir::CastKind::PointerWithExposedProvenance =>
+                        unreachable!(
+                            "PointerWithExposedProvenance should have been handled on the statement level"
+                        ),
+                    smir::CastKind::PointerCoercion(
+                        smir::PointerCoercion::MutToConstPointer
+                        | smir::PointerCoercion::ArrayToPointer,
+                    ) => unreachable!("{cast_kind:?} casts should not occur in runtime MIR"),
+
+                    smir::CastKind::FloatToFloat
+                    | smir::CastKind::FloatToInt
+                    | smir::CastKind::IntToFloat
+                    | smir::CastKind::DynStar
+                    | smir::CastKind::PointerCoercion(smir::PointerCoercion::ClosureFnPointer(
+                        ..,
+                    ))
+                    | smir::CastKind::PointerCoercion(smir::PointerCoercion::Unsize) =>
+                        rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
                 }
             }
-            smir::Rvalue::Cast(smir::CastKind::PointerExposeAddress, ..) => {
-                unreachable!(
-                    "PointerExposeAddress should have been handled on the statement level"
-                );
-            }
-            smir::Rvalue::Cast(smir::CastKind::PointerWithExposedProvenance, ..) => {
-                unreachable!(
-                    "PointerWithExposedProvenance should have been handled on the statement level"
-                );
-            }
-            smir::Rvalue::Cast(
-                smir::CastKind::Transmute | smir::CastKind::PtrToPtr | smir::CastKind::FnPtrToPtr,
-                operand,
-                ty,
-            ) => {
-                let operand = self.translate_operand_smir(operand, span);
-                let ty = self.translate_ty_smir(*ty, span);
-                build::transmute(operand, ty)
-            }
-            smir::Rvalue::Cast(
-                smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer),
-                func,
-                _,
-            ) => {
-                let smir::Operand::Constant(f1) = func else { panic!() };
-                let smir::TyKind::RigidTy(smir::RigidTy::FnDef(f, substs_ref)) = f1.ty().kind()
-                else {
-                    panic!()
-                };
-                let instance = smir::Instance::resolve(f, &substs_ref).unwrap();
 
-                build::fn_ptr_internal(self.cx.get_fn_name_smir(instance).0.get_internal())
-            }
-            x => rs::span_bug!(span, "rvalue failed to translate: {x:?}"),
+            smir::Rvalue::ShallowInitBox(..) | smir::Rvalue::ThreadLocalRef(..) =>
+                rs::span_bug!(span, "rvalue not supported: {rv:?}"),
         }
     }
 
