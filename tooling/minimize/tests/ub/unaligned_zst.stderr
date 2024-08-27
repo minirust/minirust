@@ -1,0 +1,1 @@
+fatal error: UB: loading from a place based on a misaligned pointer
