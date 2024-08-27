@@ -96,7 +96,6 @@ impl<T: Target> TreeBorrowsMemory<T> {
             throw_ub!("Tree Borrows: non-zero-sized reborrow of a pointer without provenance");
         };
 
-        let offset = self.allocations[alloc_id.0].offset_in_alloc(ptr.addr, pointee_size)?;
 
         let child_path = self.allocations.mutate_at(alloc_id.0, |allocation| {
             // Create the new child node
@@ -109,8 +108,11 @@ impl<T: Target> TreeBorrowsMemory<T> {
             // Add the new node to the tree
             let child_path = allocation.extra.root.add_node(parent_path, child_node);
 
-            // Perform read on the new child, updating all nodes accordingly.
-            allocation.extra.root.access(Some(child_path), AccessKind::Read, offset, pointee_size)?;
+            // If this is a non-zero-sized reborrow, perform read on the new child, updating all nodes accordingly.
+            if pointee_size.bytes() > 0 {
+                let offset = allocation.offset_in_alloc(ptr.addr, pointee_size)?;
+                allocation.extra.root.access(Some(child_path), AccessKind::Read, offset, pointee_size)?;
+            }
 
             ret::<Result<Path>>(child_path)
         })?;
