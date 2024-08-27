@@ -7,9 +7,8 @@
 //! All transmutations should work, as long as we don't do any actual accesses
 //! that violate immutability.
 
-include!("../../helper/transmute.rs");
-use core::cell::UnsafeCell;
-
+use std::cell::UnsafeCell;
+use std::mem::transmute;
 
 fn main() {
     unsafe {

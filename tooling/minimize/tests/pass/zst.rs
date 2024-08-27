@@ -1,4 +1,4 @@
-include!("../helper/transmute.rs");
+use std::mem::transmute;
 
 fn do_things_with_zst<ZST: Copy>(z: ZST) {
     unsafe {

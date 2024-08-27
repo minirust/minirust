@@ -289,7 +289,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     // Fall through to the regular function call handling below.
                 }
-                name => panic!("unsupported Rust intrinsic `{}`", name),
+                name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
             };
         }
 
