@@ -3,8 +3,6 @@
 extern crate intrinsics;
 use intrinsics::*;
 
-include!("../helper/eq.rs");
-
 fn call() -> i32 {
     fn increment(x: i32) -> i32 {
         x + 1
@@ -14,7 +12,7 @@ fn call() -> i32 {
 
 fn factorial_recursive() -> i64 {
     fn fact(n: u8) -> i64 {
-        if is_zero_u8(n) { 1 } else { (n as i64) * fact(n - 1) }
+        if n == 0 { 1 } else { (n as i64) * fact(n - 1) }
     }
     fact(10)
 }

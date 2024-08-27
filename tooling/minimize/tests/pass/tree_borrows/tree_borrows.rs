@@ -9,7 +9,7 @@
 // raw_ref_to_part
 // wide_raw_ptr_in_tuple
 
-include!("../../helper/transmute.rs");
+use std::mem::transmute;
 use std::ptr;
 
 fn main() {

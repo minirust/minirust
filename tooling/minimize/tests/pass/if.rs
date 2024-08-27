@@ -1,8 +1,6 @@
 extern crate intrinsics;
 use intrinsics::*;
 
-include!("../helper/transmute.rs");
-
 fn true_fn() -> bool { true }
 fn false_fn() -> bool { false }
 

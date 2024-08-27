@@ -1,1 +1,1 @@
-fatal error: UB: load at type Bool but the data in memory violates the validity invariant
+fatal error: UB: transmuted value is not valid at new type

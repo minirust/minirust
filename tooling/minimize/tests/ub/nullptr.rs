@@ -1,4 +1,4 @@
-include!("../helper/transmute.rs");
+use std::mem::transmute;
 
 fn main() {
     unsafe {

@@ -1,9 +1,9 @@
-include!("../helper/transmute.rs");
+//! This test case ensures that enums correctly mark their used bytes for unions and don't mark padding.
+//! It creates a union with all initialized bytes, and then after a copy tries to read all bytes.
+//! The read should fail as padding will get uninitialized during the copy.
+//! For alignment reasons the bytes are read as `u16`, as the enum is 2-byte aligned.
 
-/// This test case ensures that enums correctly mark their used bytes for unions and don't mark padding.
-/// It creates a union with all initialized bytes, and then after a copy tries to read all bytes.
-/// The read should fail as padding will get uninitialized during the copy.
-/// For alignment reasons the bytes are read as `u16`, as the enum is 2-byte aligned.
+use std::mem::transmute;
 
 #[derive(Clone, Copy)]
 #[repr(u16)]
