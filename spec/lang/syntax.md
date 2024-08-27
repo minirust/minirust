@@ -363,6 +363,8 @@ pub enum IntrinsicLockOp {
 /// The intrinsic operations supported by MiniRust.
 /// Generally we only make things intrinsics if they cannot be operands, i.e.
 /// they are non-deterministic or mutate the global state.
+/// We also make them intrinsic if they return `()`, because an operand that
+/// does not return anything is kind of odd.
 pub enum IntrinsicOp {
     Assume,
     Exit,
@@ -374,6 +376,7 @@ pub enum IntrinsicOp {
     Spawn,
     Join,
     /// Determines whether the raw bytes pointed to by two pointers are equal.
+    /// (Can't be an operand because it reads from memory.)
     RawEq,
     AtomicStore,
     AtomicLoad,
