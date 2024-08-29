@@ -12,5 +12,5 @@ fn negative_index() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_ub::<BasicMem>(p, "out-of-bounds array access");
+    assert_ub::<BasicMem>(p, "access to out-of-bounds index");
 }

@@ -44,6 +44,11 @@ pub enum Type {
         count: Int,
         // TODO: store whether this is a (SIMD) vector, and something about alignment?
     },
+    /// Slices, i.e. `[T]` are unsized types which therefore cannot be represented as values.
+    Slice {
+        #[specr::indirection]
+        elem: Type,
+    },
     Union {
         /// Fields *may* overlap. Fields only exist for field access place projections,
         /// they are irrelevant for the representation relation.
@@ -139,7 +144,7 @@ impl IntType {
 impl Type {
     pub fn size<T: Target>(self) -> SizeStrategy {
         use Type::*;
-        use SizeStrategy::*;
+        use SizeStrategy::Sized;
         match self {
             Int(int_type) => Sized(int_type.size),
             Bool => Sized(Size::from_bytes_const(1)),
@@ -149,6 +154,7 @@ impl Type {
             Array { elem, count } => Sized(
                 elem.size::<T>().expect_sized("WF ensures array element is sized") * count
             ),
+            Slice { elem } => SizeStrategy::Slice(elem.size::<T>().expect_sized("WF ensures slice element is sized")),
         }
     }
 
@@ -159,14 +165,16 @@ impl Type {
             Bool => Align::ONE,
             Ptr(_) => T::PTR_ALIGN,
             Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
-            Array { elem, .. } => elem.align::<T>(),
+            Array { elem, .. } | Slice { elem } => elem.align::<T>(),
         }
     }
 
     /// Returns the metadata kind when this type is used as a pointee.
     pub fn meta_kind(self) -> PointerMetaKind {
-        // TODO(UnsizedTypes): other kinds
-        PointerMetaKind::None
+        match self {
+            Type::Slice { .. } => PointerMetaKind::ElementCount,
+            _ => PointerMetaKind::None
+        }
     }
 }
 ```

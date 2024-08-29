@@ -238,7 +238,7 @@ impl<M: Memory> Machine<M> {
             Value::Bool(b) => if b { Int::from(1) } else { Int::from(0) },
             Value::Ptr(p) if p.metadata.is_none() => p.thin_pointer.addr,
             // TODO(UnsizedTypes): Prepare wide pointer for rel op: `addr * (MAX_META_VALUE+1) + meta_value`
-            Value::Ptr(_) => panic!("metadata does not exist yet"),
+            Value::Ptr(_) => unimplemented!("comparing pointer with metadata"),
             _ => panic!("invalid value for relational operator"),
         }
     }

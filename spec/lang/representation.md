@@ -96,10 +96,10 @@ This is required to achieve a "monotonicity" with respect to provenance (as disc
 Pointers are significantly more complex to represent than just the integer address.
 For one, they need to encode the provenance.
 When decoding, we have to deal with the possibility of the pointer bytes not all having the same provenance;
-this is define to yield a pointer without provenance.
+this is defined to yield a pointer without provenance.
 On the other hand, some pointers are wide pointers which also need to encode their metadata.
-The helpers `decode_ptr` and `encode_ptr` deal with the thin pointers,
-and the `decode_ptr_meta` helper inferrs the metadata kind from the pointee layout.
+The helpers `decode_ptr` and `encode_ptr` deal with thin pointers.
+For wide pointers, `PtrType::as_wide_pair` defines the pointer as a pair of a thin pointer and some metadata type.
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<ThinPointer<M::Provenance>> {
@@ -123,19 +123,83 @@ fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M
     
 }
 
+impl PointerMetaKind {
+    /// Returns the representable type of the metadata if there is any.
+    pub fn ty<T: Target>(self) -> Option<Type> {
+        match self {
+            PointerMetaKind::None => None,
+            PointerMetaKind::ElementCount => Some(Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })),
+        }
+    }
+}
+
+impl PtrType {
+    /// Returns a pair type representing this wide pointer or `None` if it is thin.
+    pub fn as_wide_pair<T: Target>(self) -> Option<Type> {
+        let meta_ty = self.meta_kind().ty::<T>()?;
+        let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let metadata_field = (T::PTR_SIZE, meta_ty);
+        ret(Type::Tuple {
+            fields: list![thin_pointer_field, metadata_field],
+            size: Int::from(2) * T::PTR_SIZE,
+            // This anyway does not matter as we only use this type to encode/decode values.
+            align: T::PTR_ALIGN,
+        })
+    }
+}
+
+impl PointerMeta {
+    fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
+        match value {
+            Value::Int(count) => Some(PointerMeta::ElementCount(count)),
+            _ => None,
+        }
+    }
+
+    fn into_value<M: Memory>(self) -> Value<M> {
+        match self {
+            PointerMeta::ElementCount(count) => Value::Int(count),
+        }
+    }
+}
+
 impl Type {
     fn decode<M: Memory>(Type::Ptr(ptr_type): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        // TODO(UnsizedTypes): Decode pointer metadata
-        let ptr = decode_ptr::<M>(bytes)?;
-        if !ptr_type.addr_valid(ptr.addr) {
-            throw!();
+        if let Some(pair_ty) = ptr_type.as_wide_pair::<M::T>() {
+            // This will recursively call this decode function again, but with a thin pointer type.
+            let Value::Tuple(parts) = pair_ty.decode::<M>(bytes)? else {
+                panic!("as_wide_pair always returns a tuple type");
+            };
+            let Value::Ptr(ptr) = parts[0] else {
+                panic!("as_wide_pair always returns tuple with the first field being a thin pointer");
+            };
+            let meta = PointerMeta::from_value(parts[1]);
+            assert!(meta.is_some(), "as_wide_pair always returns a suitable metadata type");
+            ret(Value::Ptr(ptr.thin_pointer.widen(meta)))
+        } else {
+            // Handle thin pointers.
+            let ptr = decode_ptr::<M>(bytes)?;
+            if !ptr_type.addr_valid(ptr.addr) {
+                throw!();
+            }
+            ret(Value::Ptr(ptr.widen(None)))
         }
-        ret(Value::Ptr(ptr.widen(None)))
     }
-    fn encode<M: Memory>(Type::Ptr(_): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        let Value::Ptr(ptr) = val else { panic!() };
-        assert!(ptr.metadata.is_none(), "Metadata doesn't exist yet!");
-        encode_ptr::<M>(ptr.thin_pointer)
+    fn encode<M: Memory>(Type::Ptr(ptr_type): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        let Value::Ptr(ptr) = val else { panic!("val is WF for a pointer") };
+
+        if let Some(pair_ty) = ptr_type.as_wide_pair::<M::T>() {
+            let thin_ptr_value = Value::Ptr(ptr.thin_pointer.widen(None));
+            let meta_data_value = ptr.metadata.expect("val is WF for ptr_type and it has metadata").into_value::<M>();
+            let tuple = Value::Tuple(list![thin_ptr_value, meta_data_value]);
+
+            // This will recursively call this encode function again, but with a thin pointer type.
+            pair_ty.encode::<M>(tuple)
+        } else {
+            // Handle thin pointers.
+            assert!(ptr.metadata.is_none(), "ptr_type and value have mismatching metadata");
+            encode_ptr::<M>(ptr.thin_pointer)
+        }
     }
 }
 ```
@@ -330,6 +394,21 @@ impl Type {
             ret(())
         }, tagger).unwrap();
         bytes
+    }
+}
+```
+
+### Unsized types
+
+Unsized types do not have values and thus there is no representation relation.
+
+```rust
+impl Type {
+    fn decode<M: Memory>(Type::Slice { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("tried to decode a slice")
+    }
+    fn encode<M: Memory>(Type::Slice { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("tried to endoce a slice")
     }
 }
 ```

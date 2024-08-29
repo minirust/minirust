@@ -372,8 +372,9 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        // TODO(UnsizedTypes): Throw UB if the pointee is unsized.
-        let PointeeInfo { size: SizeStrategy::Sized(size), align, .. } = pointee;
+        let PointeeInfo { size: SizeStrategy::Sized(size), align, .. } = pointee else {
+            throw_ub!("invalid argument to `RawEq` intrinsic: unsized pointee");
+        };
         let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
 
         let Some(data) =  bytes.try_map(|byte| byte.data()) else {
@@ -444,8 +445,9 @@ impl<M: Memory> Machine<M> {
         };
 
         let (val, ty) = arguments[1];
-        // TODO(UnsizedTypes): Throw UB if the type is unsized
-        let SizeStrategy::Sized(size) = ty.size::<M::T>();
+        let SizeStrategy::Sized(size) = ty.size::<M::T>() else {
+            throw_ub!("invalid second argument to `AtomicStore` intrinsic: unsized type");
+        };
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid second argument to `AtomicStore` intrinsic: size not power of two");
         };

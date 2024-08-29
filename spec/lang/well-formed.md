@@ -32,6 +32,7 @@ impl SizeStrategy {
     fn check_wf<T: Target>(self) -> Result<()> {
         match self {
             SizeStrategy::Sized(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: size not valid")?; }
+            SizeStrategy::Slice(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: element size not valid")?; }
         };
 
         ret(())
@@ -42,6 +43,9 @@ impl SizeStrategy {
             SizeStrategy::Sized(size) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned_to: size not a multiple of alignment")?;
             }
+            SizeStrategy::Slice(size) => {
+                ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned_to: element size not a multiple of alignment")?;
+            }
         };
 
         ret(())
@@ -51,7 +55,7 @@ impl SizeStrategy {
 impl PointeeInfo {
     fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        ensure_wf(matches!(self.size, SizeStrategy::Sized(_)), "PointeeInfo: Unimplemented size strategy found")?;
+        // TODO(UnsizedTypes): Ensure any future alignment strategy matches the size strategy.
         self.size.check_wf::<T>()?;
 
         ret(())
@@ -104,6 +108,10 @@ impl Type {
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
                 ensure_wf(elem.size::<T>().is_sized(), "Type::Array: unsized element type")?;
+                elem.check_wf::<T>()?;
+            }
+            Slice { elem } => {
+                ensure_wf(elem.size::<T>().is_sized(), "Type::Slice: unsized element type")?;
                 elem.check_wf::<T>()?;
             }
             Union { fields, size, chunks, align: _ } => {
@@ -456,8 +464,8 @@ impl PlaceExpr {
                 let index = index.check_wf::<T>(locals, prog)?;
                 ensure_wf(matches!(index, Type::Int(_)), "PlaceExpr::Index: invalid index type")?;
                 match root {
-                    Type::Array { elem, .. } => elem,
-                    _ => throw_ill_formed!("PlaceExpr::Index: expression does not match Array type"),
+                    Type::Array { elem, .. } | Type::Slice { elem } => elem,
+                    _ => throw_ill_formed!("PlaceExpr::Index: expression type is not indexable"),
                 }
             }
             Downcast { root, discriminant } => {
@@ -759,6 +767,7 @@ impl<M: Memory> Value<M> {
                 };
                 data.check_wf(variant.ty)?;
             }
+            (_, Type::Slice { .. }) => throw_ill_formed!("Value: slices cannot be represented as values"),
             _ => throw_ill_formed!("Value: value does not match type")
         }
 
