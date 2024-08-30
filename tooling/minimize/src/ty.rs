@@ -15,6 +15,16 @@ impl<'tcx> Ctxt<'tcx> {
         PointeeInfo { size, align, inhabited, freeze, unpin, meta_kind }
     }
 
+    pub fn size_of(&self, ty: rs::Ty<'tcx>) -> ValueExpr {
+        let layout = self.rs_layout_of(ty);
+        build::const_int(layout.size().bytes())
+    }
+
+    pub fn align_of(&self, ty: rs::Ty<'tcx>) -> ValueExpr {
+        let layout = self.rs_layout_of(ty);
+        build::const_int(layout.align().abi.bytes())
+    }
+
     pub fn pointee_info_of_smir(&self, ty: smir::Ty) -> PointeeInfo {
         self.pointee_info_of(smir::internal(self.tcx, ty))
     }
