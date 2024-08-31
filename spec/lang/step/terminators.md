@@ -137,7 +137,11 @@ impl<M: Memory> Machine<M> {
         // Make the old value unobservable because the callee might work on it in-place.
         // This also checks that the memory is dereferenceable, and crucially ensures we are aligned
         // *at the given type* -- the callee does not care about packed field projections or things like that!
-        self.mem.deinit(place.ptr.thin_pointer, ty.size::<M::T>(), ty.align::<M::T>())?;
+        self.mem.deinit(
+            place.ptr.thin_pointer,
+            ty.size::<M::T>().expect_sized("WF ensures arguments and return types are sized"),
+            ty.align::<M::T>()
+        )?;
         // FIXME: This also needs aliasing model support.
 
         ret(())
@@ -154,7 +158,7 @@ impl<M: Memory> Machine<M> {
             }
             ArgumentExpr::InPlace(place) => {
                 let (place, ty) = self.eval_place(place)?;
-                // Fetch the actual value.
+                // Fetch the actual value, WF ensures all Call arguments are sized.
                 let value = self.mem.place_load(place, ty)?;
                 // Make sure we can use it in-place.
                 self.prepare_for_inplace_passing(place, ty)?;
@@ -294,7 +298,7 @@ impl<M: Memory> Machine<M> {
             |stack| stack.pop().unwrap()
         );
 
-        // Load the return value.
+        // Load the return value, which is a local and therefore ensured to be sized.
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
         let callee_ty = frame.func.locals[frame.func.ret];

@@ -137,15 +137,18 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> Size {
+    pub fn size<T: Target>(self) -> SizeStrategy {
         use Type::*;
+        use SizeStrategy::*;
         match self {
-            Int(int_type) => int_type.size,
-            Bool => Size::from_bytes_const(1),
-            Ptr(p) if p.meta_kind() == PointerMetaKind::None => T::PTR_SIZE,
-            Ptr(_) => libspecr::Int::from(2) * T::PTR_SIZE,
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => size,
-            Array { elem, count } => elem.size::<T>() * count,
+            Int(int_type) => Sized(int_type.size),
+            Bool => Sized(Size::from_bytes_const(1)),
+            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE),
+            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE),
+            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
+            Array { elem, count } => Sized(
+                elem.size::<T>().expect_sized("WF ensures array element is sized") * count
+            ),
         }
     }
 

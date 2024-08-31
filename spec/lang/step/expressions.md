@@ -136,6 +136,7 @@ impl<M: Memory> ConcurrentMemory<M> {
             throw_ub!("loading from a place based on a misaligned pointer");
         }
         // Alignment was already checked.
+        // `ty` is ensured to be sized by WF of callers: Loads, Validates and InPlace arguments.
         ret(self.typed_load(place.ptr.thin_pointer, ty, Align::ONE, Atomicity::None)?)
     }
 }
@@ -143,6 +144,7 @@ impl<M: Memory> ConcurrentMemory<M> {
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, ty) = self.eval_place(source)?;
+        // WF ensures all load expressions are sized.
         let v = self.mem.place_load(place, ty)?;
 
         ret((v, ty))
@@ -250,7 +252,7 @@ impl<M: Memory> Machine<M> {
         // (We don't do a full retag here, this is not considered creating a new pointer.)
         if let Some(layout) = ptr_type.safe_pointee() {
             assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr.thin_pointer, layout.size)?;
+            self.mem.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
@@ -273,7 +275,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M::T>());
+        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
@@ -288,14 +290,15 @@ impl<M: Memory> Machine<M> {
         let (offset, field_ty) = match ty {
             Type::Array { elem, count } => {
                 if index >= 0 && index < count {
-                    (index * elem.size::<M::T>(), elem)
+                    let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
+                    (index * elem_size, elem)
                 } else {
                     throw_ub!("out-of-bounds array access");
                 }
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset <= ty.size::<M::T>());
+        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         ret((Place { ptr: ptr.widen(None), ..root }, field_ty))

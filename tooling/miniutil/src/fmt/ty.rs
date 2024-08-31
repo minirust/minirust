@@ -56,7 +56,9 @@ fn fmt_meta_kind(kind: PointerMetaKind) -> &'static str {
 }
 
 fn fmt_pointee_info(pointee: PointeeInfo) -> String {
-    let size = pointee.size.bytes();
+    let size_str = match pointee.size {
+        SizeStrategy::Sized(size) => format!("{}", size.bytes()),
+    };
     let align = pointee.align.bytes();
     let uninhab_str = match pointee.inhabited {
         true => "",
@@ -66,10 +68,10 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         true => ", freeze",
         false => "",
     };
-    let meta_str = match pointee.meta_kind {
+    let meta_str = match pointee.size.meta_kind() {
         PointerMetaKind::None => ", thin",
     };
-    format!("pointee_info(size={size}, align={align}{meta_str}{uninhab_str}{freeze_str})")
+    format!("pointee_info(size={size_str}, align={align}{meta_str}{uninhab_str}{freeze_str})")
 }
 
 /////////////////////
