@@ -312,7 +312,7 @@ fn ub_set_discriminant_on_misaligned_enum() {
     let prog = small_program(&locals, &stmts);
     assert_ub::<BasicMem>(
         prog,
-        "Setting the discriminant of a place based on a misaligned pointer",
+        "setting the discriminant of a place based on a misaligned pointer",
     );
 }
 

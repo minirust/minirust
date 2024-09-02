@@ -312,10 +312,10 @@ impl<M: Memory> Machine<M> {
     fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
         let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
         let Some((func_name, _)) = funcs.next() else {
-            throw_ub!("Dereferencing function pointer where there is no function.");
+            throw_ub!("dereferencing function pointer where there is no function");
         };
         if let Some(_) = funcs.next() {
-            panic!("There's more than one function with the same address!");
+            panic!("there's more than one function with the same address!");
         }
         let func = self.prog.functions[func_name];
 
