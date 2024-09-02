@@ -163,18 +163,6 @@ impl Type {
         }
     }
 
-    pub fn inhabited(self) -> bool {
-        use Type::*;
-        match self {
-            Int(..) | Bool | Ptr(PtrType::Raw { .. }) | Ptr(PtrType::FnPtr) => true,
-            Ptr(PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. }) => pointee.inhabited,
-            Tuple { fields, .. } => fields.all(|(_offset, ty)| ty.inhabited()),
-            Array { elem, count } => count == 0 || elem.inhabited(),
-            Union { .. } => true,
-            Enum { variants, .. } => variants.values().any(|variant| variant.ty.inhabited()),
-        }
-    }
-
     /// Returns the metadata kind when this type is used as a pointee.
     pub fn meta_kind(self) -> PointerMetaKind {
         // TODO(UnsizedTypes): other kinds
