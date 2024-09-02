@@ -102,7 +102,7 @@ pub fn assert_memory_leak<M: Memory>(prog: Program) {
 /// This automatically fails if the program does not terminate correctly if the data race did not occur.
 #[track_caller]
 pub fn has_data_race<M: Memory>(prog: Program) -> bool {
-    let data_race_string = minirust_rs::prelude::String::from_internal("Data race".to_string());
+    let data_race_string = minirust_rs::prelude::String::from_internal("data race".to_string());
 
     for _ in 0..32 {
         match run_program::<M>(prog) {

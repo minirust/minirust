@@ -140,7 +140,7 @@ impl<M: Memory> ConcurrentMemory<M> {
 
         for access in self.accesses {
             if prev_accesses.any(|prev_access| access.races(prev_access)) {
-                throw_ub!("Data race");
+                throw_ub!("data race");
             }
         }
 
