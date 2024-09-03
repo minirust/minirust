@@ -396,7 +396,7 @@ impl ValueExpr {
                         ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
-                    PtrOffsetFrom { inbounds: _ } => {
+                    PtrOffsetFrom { inbounds: _, nonneg: _ } => {
                         let Type::Ptr(left_ptr_ty) = left else {
                             throw_ill_formed!("BinOp::PtrOffsetFrom: invalid left type: not a pointer");
                         };

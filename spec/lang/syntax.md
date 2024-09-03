@@ -206,7 +206,8 @@ pub enum BinOp {
     PtrOffset { inbounds: bool },
     /// Compute the distance between two pointers in bytes (with or without inbounds requirement).
     /// Takes two pointers; returns a signed pointer-sized integer.
-    PtrOffsetFrom { inbounds: bool },
+    /// If `nonneg` is true, it is UB for the result to be negative.
+    PtrOffsetFrom { inbounds: bool, nonneg: bool },
 }
 ```
 

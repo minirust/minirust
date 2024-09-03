@@ -297,7 +297,7 @@ impl<M: Memory> Machine<M> {
 
     fn eval_bin_op(
         &self,
-        BinOp::PtrOffsetFrom { inbounds }: BinOp,
+        BinOp::PtrOffsetFrom { inbounds, nonneg }: BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
@@ -319,6 +319,10 @@ impl<M: Memory> Machine<M> {
         } else {
             distance.bring_in_bounds(Signed, M::T::PTR_SIZE)
         };
+
+        if nonneg && distance < Int::ZERO {
+            throw_ub!("PtrOffsetFrom: negative result with `nonneg` flag set");
+        }
 
         let isize_int = IntType { signed: Signed, size: M::T::PTR_SIZE };
         ret((Value::Int(distance), Type::Int(isize_int)))
