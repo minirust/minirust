@@ -353,6 +353,13 @@ impl ValueExpr {
                             }
                         }
                     }
+                    GetMetadata => {
+                        let Type::Ptr(ptr_ty) = operand else {
+                            throw_ill_formed!("UnOp::GetMetadata: invalid operand: not a pointer");
+                        };
+                        // If the pointer does not have metadata, this will still be well-formed but return the unit type.
+                        ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
+                    }
                 }
             }
             BinOp { operator, left, right } => {

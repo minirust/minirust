@@ -3,11 +3,7 @@ use crate::*;
 /// This helper is a workaround for the missing unsizing coercion.
 ///
 /// It builds code to create a `&[T]` place from an `[T; known_len]` place.
-pub fn ref_as_slice<T: TypeConv>(
-    f: &mut FunctionBuilder,
-    arr: PlaceExpr,
-    known_len: u64,
-) -> PlaceExpr {
+fn ref_as_slice<T: TypeConv>(f: &mut FunctionBuilder, arr: PlaceExpr, known_len: u64) -> PlaceExpr {
     // construct fake wide ptr
     let arr_ref = addr_of(arr, <*const T>::get_type());
     let pair_ty = PtrType::Raw { meta_kind: PointerMetaKind::ElementCount }
@@ -203,4 +199,29 @@ fn invalid_index_ub() {
 
     for_index(-1);
     for_index(2);
+}
+
+#[test]
+fn get_metadata_correct() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 3]>();
+        f.storage_live(arr);
+        f.assign(index(arr, const_int(0)), const_int(42_u32));
+        f.assign(index(arr, const_int(1)), const_int(43_u32));
+        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        // This is now a place with type `&[u32]`
+        let slice_ptr = ref_as_slice::<u32>(&mut f, arr, 3);
+        // Get the metadata && assert it to be correct
+        let loaded_len = get_metadata(load(slice_ptr));
+        f.assume(eq(loaded_len, const_int(3_usize)));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
 }

@@ -38,4 +38,5 @@ mod switch;
 mod too_large_alloc;
 mod uninit_read;
 mod unreachable;
+mod wide_ptr;
 mod zst;

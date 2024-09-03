@@ -103,6 +103,10 @@ pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Cast(CastOp::Transmute(t)), operand: GcCow::new(v) }
 }
 
+pub fn get_metadata(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::GetMetadata, operand: GcCow::new(v) }
+}
+
 fn int_binop(op: IntBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
     ValueExpr::BinOp { operator: BinOp::Int(op), left: GcCow::new(l), right: GcCow::new(r) }
 }

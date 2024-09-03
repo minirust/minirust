@@ -66,6 +66,24 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### Wide pointer operators
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_un_op(&self, UnOp::GetMetadata: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let Value::Ptr(ptr) = operand else { panic!("non pointer get-metadata") };
+
+        if let Some(meta) = ptr.metadata {
+            let meta_value = meta.into_value::<M>();
+            let meta_ty = meta.meta_kind().ty::<M::T>().expect("meta is not None");
+            ret((meta_value, meta_ty))
+        } else {
+            ret((unit_value::<M>(), unit_type()))
+        }
+    }
+}
+```
+
 ## Binary operators
 
 ```rust
