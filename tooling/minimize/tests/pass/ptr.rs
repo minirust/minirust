@@ -1,14 +1,19 @@
 //@revisions: basic tree
 //@[tree]compile-flags: --minimize-tree-borrows
+#![feature(ptr_sub_ptr)]
+
+use std::ptr;
 
 fn main() {
     ptr();
     ptr_mut();
     ptr_compare();
     ptr2ptr();
+    offset();
     wrapping_offset();
     wrapping_add();
     wrapping_sub();
+    offset_from();
 }
 
 fn ptr() {
@@ -39,6 +44,15 @@ fn ptr2ptr() {
     let x = -1;
     let y = &x as *const i32 as *const u32;
     assert!(unsafe { *y } == u32::MAX);
+}
+
+fn offset() {
+    let data = [1u8, 2, 3, 4, 5];
+    let first = &data[0] as *const u8;
+    unsafe {
+        let ptr = first.add(2);
+        assert!(*ptr == 3);
+    }
 }
 
 fn wrapping_offset() {
@@ -85,5 +99,14 @@ fn wrapping_sub() {
         assert!(*last.wrapping_sub(2) == 3);
         assert!(*last.wrapping_sub(4) == 1);
         assert!(*last.wrapping_sub(42).wrapping_add(42) == 5);
+    }
+}
+
+fn offset_from() {
+    let data = [1u8, 2, 3, 4, 5];
+    unsafe {
+        assert!(ptr::from_ref(&data[4]).offset_from(&data[0]) == 4);
+        assert!(ptr::from_ref(&data[0]).offset_from(&data[4]) == -4);
+        assert!(ptr::from_ref(&data[4]).sub_ptr(&data[0]) == 4);
     }
 }

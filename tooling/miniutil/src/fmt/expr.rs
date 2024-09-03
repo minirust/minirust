@@ -213,11 +213,12 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
         }
-        ValueExpr::BinOp { operator: BinOp::PtrOffsetFrom { inbounds }, left, right } => {
-            let offset_name = match inbounds {
-                true => "offset_from_inbounds",
-                false => "offset_from_wrapping",
-            };
+        ValueExpr::BinOp { operator: BinOp::PtrOffsetFrom { inbounds, nonneg }, left, right } => {
+            let offset_name = format!(
+                "offset_from_{}{}",
+                if inbounds { "inbounds" } else { "wrapping" },
+                if nonneg { "_nonneg" } else { "" },
+            );
             let l = fmt_value_expr(left.extract(), comptypes).to_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))

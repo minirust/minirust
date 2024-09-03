@@ -47,6 +47,29 @@ fn oob_success() {
 }
 
 #[test]
+fn nonneg() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+    let arr = f.declare_local::<[u32; 4]>();
+    let ptr1 = f.declare_local::<*const i32>();
+    let ptr2 = f.declare_local::<*const i32>();
+    f.storage_live(arr);
+    f.storage_live(ptr1);
+    f.storage_live(ptr2);
+    f.assign(ptr1, addr_of(index(arr, const_int(0i32)), <*const i32>::get_type()));
+    f.assign(ptr2, addr_of(index(arr, const_int(1i32)), <*const i32>::get_type()));
+    f.assume(eq(ptr_offset_from_nonneg(load(ptr2), load(ptr1), InBounds::Yes), const_int(4isize)));
+    f.assume(eq(ptr_offset_from_nonneg(load(ptr2), load(ptr1), InBounds::No), const_int(4isize)));
+    f.assume(eq(ptr_offset_from_nonneg(load(ptr1), load(ptr2), InBounds::Yes), const_int(-4isize)));
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_ub::<BasicMem>(p, "PtrOffsetFrom: negative result with `nonneg` flag set");
+}
+
+#[test]
 fn inbounds_cross_alloc() {
     let mut p = ProgramBuilder::new();
 

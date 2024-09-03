@@ -1,0 +1,1 @@
+fatal error: UB: PtrOffsetFrom: negative result with `nonneg` flag set

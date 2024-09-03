@@ -272,6 +272,24 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
+            rs::sym::ptr_offset_from | rs::sym::ptr_offset_from_unsigned => {
+                let destination = self.translate_place(&destination, span);
+                let unsigned = intrinsic_name == rs::sym::ptr_offset_from_unsigned;
+
+                let mut val = ValueExpr::BinOp {
+                    operator: BinOp::PtrOffsetFrom { inbounds: false, nonneg: unsigned },
+                    left: GcCow::new(self.translate_operand(&args[0].node, span)),
+                    right: GcCow::new(self.translate_operand(&args[1].node, span)),
+                };
+                if unsigned {
+                    val = build::int_cast::<usize>(val);
+                }
+
+                let stmt = Statement::Assign { destination, source: val };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+
+                return TerminatorResult { stmts: list!(stmt), terminator };
+            }
 
             rs::sym::unlikely | rs::sym::likely => {
                 // FIXME: use the "fallback body" provided in the standard library.

@@ -230,7 +230,21 @@ pub fn ptr_offset(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
 
 pub fn ptr_offset_from(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
     ValueExpr::BinOp {
-        operator: BinOp::PtrOffsetFrom { inbounds: matches!(inbounds, InBounds::Yes) },
+        operator: BinOp::PtrOffsetFrom {
+            inbounds: matches!(inbounds, InBounds::Yes),
+            nonneg: false,
+        },
+        left: GcCow::new(l),
+        right: GcCow::new(r),
+    }
+}
+
+pub fn ptr_offset_from_nonneg(l: ValueExpr, r: ValueExpr, inbounds: InBounds) -> ValueExpr {
+    ValueExpr::BinOp {
+        operator: BinOp::PtrOffsetFrom {
+            inbounds: matches!(inbounds, InBounds::Yes),
+            nonneg: true,
+        },
         left: GcCow::new(l),
         right: GcCow::new(r),
     }
