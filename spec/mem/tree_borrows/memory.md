@@ -127,9 +127,9 @@ impl<T: Target> TreeBorrowsMemory<T> {
                 match protected_node.protected {
                     Protected::Weak => return ret(()),
                     Protected::Strong =>
-                        panic!("TreeBorrowsMemory::release_protector: Strongly protected allocations can't be dead"),
+                        panic!("TreeBorrowsMemory::release_protector: strongly protected allocations can't be dead"),
                     Protected::No =>
-                        panic!("TreeBorrowsMemory::release_protector: No protector"),
+                        panic!("TreeBorrowsMemory::release_protector: no protector"),
                 }
             }
 

@@ -339,8 +339,8 @@ impl ValueExpr {
                                 Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
-                                ensure_wf(operand.size::<T>().is_sized(), "Cast::Transmute: Unsized source type")?;
-                                ensure_wf(new_ty.size::<T>().is_sized(), "Cast::Transmute: Unsized target type")?;
+                                ensure_wf(operand.size::<T>().is_sized(), "Cast::Transmute: unsized source type")?;
+                                ensure_wf(new_ty.size::<T>().is_sized(), "Cast::Transmute: unsized target type")?;
                                 new_ty
                             }
                         }
@@ -434,7 +434,7 @@ impl PlaceExpr {
                 let Type::Ptr(op_ptr_ty) = op_ty else {
                     throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
                 };
-                ensure_wf(op_ptr_ty.meta_kind() == ty.meta_kind(), "PlaceExpr::Deref: Metadata kind of operand and type don't match")?;
+                ensure_wf(op_ptr_ty.meta_kind() == ty.meta_kind(), "PlaceExpr::Deref: metadata kind of operand and type don't match")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
                 ty
             }

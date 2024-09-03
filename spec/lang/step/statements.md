@@ -62,16 +62,16 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::SetDiscriminant { destination, value }: Statement) -> NdResult {
         let (place, Type::Enum { variants, .. }) = self.eval_place(destination)? else {
-            panic!("Setting the discriminant type of a non-enum contradicts well-formedness.");
+            panic!("setting the discriminant type of a non-enum contradicts well-formedness");
         };
         if !place.aligned {
-            throw_ub!("Setting the discriminant of a place based on a misaligned pointer");
+            throw_ub!("setting the discriminant of a place based on a misaligned pointer");
         }
 
         let tagger = match variants.get(value) {
             Some(Variant { tagger, .. }) => tagger,
             // guaranteed unreachable by the well-formedness checks
-            None => panic!("Setting an invalid discriminant ({value})"),
+            None => panic!("setting an invalid discriminant ({value})"),
         };
 
         // Write the tag directly into memory.
