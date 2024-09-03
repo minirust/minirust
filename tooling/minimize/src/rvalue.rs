@@ -99,11 +99,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             smir::Rvalue::NullaryOp(null_op, ty) => {
                 let ty = smir::internal(self.tcx, ty);
-                let layout = self.rs_layout_of(ty);
                 match null_op {
                     smir::NullOp::UbChecks => build::const_bool(self.tcx.sess.ub_checks()),
-                    smir::NullOp::SizeOf => build::const_int(layout.size().bytes()),
-                    smir::NullOp::AlignOf => build::const_int(layout.align().abi.bytes()),
+                    smir::NullOp::SizeOf => self.size_of(ty),
+                    smir::NullOp::AlignOf => self.align_of(ty),
                     smir::NullOp::OffsetOf(fields) => {
                         let param_env = rs::ParamEnv::reveal_all();
                         let ty_and_layout = self.tcx.layout_of(param_env.and(ty)).unwrap();
