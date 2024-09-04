@@ -94,6 +94,12 @@ impl<T: TypeConv, const N: usize> TypeConv for [T; N] {
     }
 }
 
+impl<T: TypeConv> TypeConv for [T] {
+    fn get_type() -> Type {
+        slice_ty(T::get_type())
+    }
+}
+
 impl TypeConv for () {
     fn get_type() -> Type {
         tuple_ty(&[], size(0), align(1))

@@ -14,6 +14,10 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             let elem = fmt_type(elem.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("[{elem}; {count}]"))
         }
+        Type::Slice { elem } => {
+            let elem = fmt_type(elem.extract(), comptypes).to_string();
+            FmtExpr::Atomic(format!("[{elem}]"))
+        }
     }
 }
 
@@ -43,7 +47,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
         }
         PtrType::Raw { meta_kind } => {
             let meta_kind_str = fmt_meta_kind(meta_kind);
-            FmtExpr::NonAtomic(format!("*raw{meta_kind_str}"))
+            FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
     }
@@ -51,13 +55,15 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
 
 fn fmt_meta_kind(kind: PointerMetaKind) -> &'static str {
     match kind {
-        PointerMetaKind::None => "(thin)",
+        PointerMetaKind::None => "thin",
+        PointerMetaKind::ElementCount => "meta=len",
     }
 }
 
 fn fmt_pointee_info(pointee: PointeeInfo) -> String {
     let size_str = match pointee.size {
         SizeStrategy::Sized(size) => format!("{}", size.bytes()),
+        SizeStrategy::Slice(size) => format!("{}*len", size.bytes()),
     };
     let align = pointee.align.bytes();
     let uninhab_str = match pointee.inhabited {
@@ -68,10 +74,8 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         true => ", freeze",
         false => "",
     };
-    let meta_str = match pointee.size.meta_kind() {
-        PointerMetaKind::None => ", thin",
-    };
-    format!("pointee_info(size={size_str}, align={align}{meta_str}{uninhab_str}{freeze_str})")
+    let meta_str = fmt_meta_kind(pointee.size.meta_kind());
+    format!("pointee_info({meta_str}, size={size_str}, align={align}{uninhab_str}{freeze_str})")
 }
 
 /////////////////////

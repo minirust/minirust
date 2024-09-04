@@ -97,6 +97,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             Type::Union { .. } =>
                 rs::span_bug!(span, "Constant Unions are currently not supported!"),
+            Type::Slice { .. } => rs::span_bug!(span, "constant slices do not exist!"),
         }
     }
 

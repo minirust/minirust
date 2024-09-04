@@ -287,21 +287,29 @@ impl<M: Memory> Machine<M> {
         let (Value::Int(index), _) = self.eval_value(index)? else {
             panic!("non-integer operand for array index")
         };
-        let (offset, field_ty) = match ty {
-            Type::Array { elem, count } => {
-                if index >= 0 && index < count {
-                    let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
-                    (index * elem_size, elem)
-                } else {
-                    throw_ub!("out-of-bounds array access");
-                }
+        let (elem_ty, count) = match ty {
+            Type::Array { elem, count } => (elem, count),
+            Type::Slice { elem } => {
+                let Some(PointerMeta::ElementCount(count)) = root.ptr.metadata else {
+                    panic!("eval_place should always return a ptr which matches meta for the SizeStrategy of ty");
+                };
+                (elem, count)
             }
             _ => panic!("index projection on non-indexable type"),
         };
-        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
+        if index < 0 || index >= count {
+            throw_ub!("access to out-of-bounds index");
+        }
+
+        let elem_size = elem_ty.size::<M::T>().expect_sized("WF ensures array & slice elements are sized");
+        let offset = index * elem_size;
+        assert!(
+            offset <= ty.size::<M::T>().compute(root.ptr.metadata),
+            "sanity check: the indexed offset should not be outside what the type allows."
+        );
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
-        ret((Place { ptr: ptr.widen(None), ..root }, field_ty))
+        ret((Place { ptr: ptr.widen(None), ..root }, elem_ty))
     }
 
     fn eval_place(&mut self, PlaceExpr::Downcast { root, discriminant }: PlaceExpr) -> Result<(Place<M>, Type)> {

@@ -34,7 +34,9 @@ pub struct ThinPointer<Provenance> {
 }
 
 /// The runtime metadata that can be stored in a wide pointer.
-pub enum PointerMeta {}
+pub enum PointerMeta {
+    ElementCount(Int),
+}
 
 /// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.
 /// This corresponds to the Rust raw pointer types, as well as references and boxes.
@@ -47,6 +49,7 @@ pub struct Pointer<Provenance> {
 /// This has a one-to-one corresponcence with the variants of `Option<PointerMeta>`
 pub enum PointerMetaKind {
     None,
+    ElementCount,
 }
 
 impl<Provenance> ThinPointer<Provenance> {
@@ -70,6 +73,7 @@ impl PointerMetaKind {
     pub fn matches(self, meta: Option<PointerMeta>) -> bool {
         match (self, meta) {
             (PointerMetaKind::None, None) => true,
+            (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(_))) => true,
             _ => false,
         }
     }
@@ -95,6 +99,8 @@ pub struct PointeeInfo {
 pub enum SizeStrategy {
     /// The type is statically `Sized`.
     Sized(Size),
+    /// The type contains zero or more elements of the inner size.
+    Slice(Size),
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -124,10 +130,10 @@ impl SizeStrategy {
     }
 
     /// Returns the size when the type must be statically sized.
-    pub fn expect_sized(self, _msg: &str) -> Size {
+    pub fn expect_sized(self, msg: &str) -> Size {
         match self {
             SizeStrategy::Sized(size) => size,
-            // TODO(UnsizedTypes): Panic on other variants
+            _ => panic!("expect_sized called on unsized type: {msg}"),
         }
     }
 
@@ -135,6 +141,8 @@ impl SizeStrategy {
     pub fn compute(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
             (SizeStrategy::Sized(size), None) => size,
+            // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
+            (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
             _ => panic!("pointer meta data does not match type"),
         }
     }
@@ -144,6 +152,7 @@ impl SizeStrategy {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             SizeStrategy::Sized(_) => PointerMetaKind::None,
+            SizeStrategy::Slice(_) => PointerMetaKind::ElementCount,
         }
     }
 }

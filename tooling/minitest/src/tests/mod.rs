@@ -32,6 +32,7 @@ mod ptr_offset;
 mod ptr_offset_from;
 mod raw_eq;
 mod return_;
+mod slice;
 mod spawn_join;
 mod switch;
 mod too_large_alloc;
