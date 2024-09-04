@@ -1,4 +1,5 @@
 //@revisions: ub_check no_ub_check
+//@[ub_check]compile-flags: -Zub-checks=yes
 //@[no_ub_check]compile-flags: -Zub-checks=no
 
 
