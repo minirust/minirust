@@ -99,6 +99,8 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Zmir-opt-level=0",
     "-Zmir-enable-passes=-CheckAlignment",
     "-Zmir-keep-place-mention",
+    // Also disable UB checks (since `cfg(miri)` in the standard library do not trigger for us).
+    "-Zub-checks=false",
 ];
 
 fn show_error(msg: &impl std::fmt::Display) -> ! {

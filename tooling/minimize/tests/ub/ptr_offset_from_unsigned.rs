@@ -1,12 +1,11 @@
-#![allow(internal_features)]
-#![feature(ptr_sub_ptr, core_intrinsics)]
+#![feature(ptr_sub_ptr)]
 
-use std::intrinsics;
+use std::ptr;
 
 fn main() {
     let data = [1u8, 2, 3, 4, 5];
     unsafe {
-        // Negative offset in `ptr_offset_from_unsigned` is UB.
-        intrinsics::ptr_offset_from_unsigned(&data[0], &data[4]);
+        // Negative offset in `sub_ptr` is UB.
+        ptr::from_ref(&data[0]).sub_ptr(&data[4]);
     }
 }
