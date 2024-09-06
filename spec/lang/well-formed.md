@@ -353,6 +353,10 @@ impl ValueExpr {
                             }
                         }
                     }
+                    GetThinPointer => {
+                        ensure_wf(matches!(operand, Type::Ptr(_)), "UnOp::GetThinPointer: invalid operand: not a pointer")?;
+                        Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })
+                    }
                     GetMetadata => {
                         let Type::Ptr(ptr_ty) = operand else {
                             throw_ill_formed!("UnOp::GetMetadata: invalid operand: not a pointer");
@@ -426,6 +430,22 @@ impl ValueExpr {
                         }
                         let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
                         Type::Int(isize_int)
+                    }
+                    ConstructWidePointer(ptr_ty) => {
+                        let Type::Ptr(thin_ptr_ty) = left else {
+                            throw_ill_formed!("BinOp::ConstructWidePointer: invalid left type: not a pointer");
+                        };
+                        if thin_ptr_ty.meta_kind() != PointerMetaKind::None {
+                            throw_ill_formed!("BinOp::ConstructWidePointer: invalid left type: not a thin pointer");
+                        }
+
+                        // A thin pointer can also be the target type, with unit metadata.
+                        let meta_ty = ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
+                        if right != meta_ty {
+                            throw_ill_formed!("BinOp::ConstructWidePointer: invalid right type: not metadata of target");
+                        }
+
+                        Type::Ptr(ptr_ty)
                     }
                 }
             }

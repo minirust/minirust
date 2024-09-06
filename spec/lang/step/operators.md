@@ -70,8 +70,16 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
+    fn eval_un_op(&self, UnOp::GetThinPointer: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer GetThinPointer") };
+
+        let thin_ptr = Pointer { metadata: None, ..ptr };
+        let thin_ptr_ty = PtrType::Raw { meta_kind: PointerMetaKind::None };
+        ret((Value::Ptr(thin_ptr), Type::Ptr(thin_ptr_ty)))
+    }
+    
     fn eval_un_op(&self, UnOp::GetMetadata: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Value::Ptr(ptr) = operand else { panic!("non-pointer get-metadata") };
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer GetMetadata") };
 
         if let Some(meta) = ptr.metadata {
             let meta_value = meta.into_value::<M>();
@@ -360,6 +368,28 @@ impl<M: Memory> Machine<M> {
 
         let isize_int = IntType { signed: Signed, size: M::T::PTR_SIZE };
         ret((Value::Int(distance), Type::Int(isize_int)))
+    }
+}
+```
+
+### Wide pointer construction
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_bin_op(
+        &self,
+        BinOp::ConstructWidePointer(ptr_ty): BinOp,
+        (left, l_ty): (Value<M>, Type),
+        (right, _r_ty): (Value<M>, Type)
+    ) -> Result<(Value<M>, Type)> {
+        let Value::Ptr(Pointer { thin_pointer, metadata: None }) = left else {
+            panic!("non-thin-pointer left input to `ConstructWidePointer`")
+        };
+        let metadata = PointerMeta::from_value::<M>(right);
+        let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
+
+        wide_ptr.check_wf(Type::Ptr(ptr_ty)).expect("sanity check: constructed wide pointer is well-formed");
+        ret((wide_ptr, Type::Ptr(ptr_ty)))
     }
 }
 ```

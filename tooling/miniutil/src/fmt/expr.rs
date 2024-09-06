@@ -150,6 +150,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let new_ty = fmt_type(new_ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))
                 }
+                UnOp::GetThinPointer => FmtExpr::Atomic(format!("get_thin_ptr({operand})")),
                 UnOp::GetMetadata => FmtExpr::Atomic(format!("get_metadata({operand})")),
             }
         }
@@ -224,6 +225,12 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let l = fmt_value_expr(left.extract(), comptypes).to_string();
             let r = fmt_value_expr(right.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("{offset_name}({l}, {r})"))
+        }
+        ValueExpr::BinOp { operator: BinOp::ConstructWidePointer(ptr_ty), left, right } => {
+            let l = fmt_value_expr(left.extract(), comptypes).to_string();
+            let r = fmt_value_expr(right.extract(), comptypes).to_string();
+            let ptr_ty_str = fmt_ptr_type(ptr_ty).to_string();
+            FmtExpr::Atomic(format!("construct_ptr<{ptr_ty_str}>({l}, {r})"))
         }
     }
 }

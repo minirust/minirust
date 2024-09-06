@@ -1,9 +1,13 @@
 use crate::*;
 
-/// This helper is a workaround for the missing unsizing coercion.
+/// This helper implements unsizing coercion with a transmute, instead of a `ConstructWidePointer`.
 ///
 /// It builds code to create a `&[T]` place from an `[T; known_len]` place.
-fn ref_as_slice<T: TypeConv>(f: &mut FunctionBuilder, arr: PlaceExpr, known_len: u64) -> PlaceExpr {
+fn ref_as_transmuted_slice<T: TypeConv>(
+    f: &mut FunctionBuilder,
+    arr: PlaceExpr,
+    known_len: u64,
+) -> PlaceExpr {
     // construct fake wide ptr
     let arr_ref = addr_of(arr, <*const T>::get_type());
     let pair_ty = PtrType::Raw { meta_kind: PointerMetaKind::ElementCount }
@@ -161,16 +165,44 @@ fn index_with_transmuted() {
         f.assign(index(arr, const_int(0)), const_int(42_u32));
         f.assign(index(arr, const_int(1)), const_int(43_u32));
         f.assign(index(arr, const_int(2)), const_int(44_u32));
-        let slice_ptr = ref_as_slice::<u32>(&mut f, arr, 3);
+        let slice_ptr = ref_as_transmuted_slice::<u32>(&mut f, arr, 3);
         // Print slice[1]
         let loaded_val = load(index(deref(load(slice_ptr), <[u32]>::get_type()), const_int(1)));
-        f.print(loaded_val);
+        f.assume(eq(loaded_val, const_int(43_u32)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
-    assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &["43"]);
+    assert_stop::<BasicMem>(p);
+}
+
+#[test]
+fn index_with_constructed() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 3]>();
+        f.storage_live(arr);
+        f.assign(index(arr, const_int(0)), const_int(42_u32));
+        f.assign(index(arr, const_int(1)), const_int(43_u32));
+        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        let slice_ptr = construct_wide_pointer(
+            addr_of(arr, <&()>::get_type()),
+            const_int(3_usize),
+            <&[u32]>::get_type(),
+        );
+        // Print slice[1]
+        let loaded_val = load(index(deref(slice_ptr, <[u32]>::get_type()), const_int(1)));
+        f.assume(eq(loaded_val, const_int(43_u32)));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
 }
 
 /// Tests that indexing into a slice throws UB for invalid indices
@@ -185,10 +217,13 @@ fn invalid_index_ub() {
             f.storage_live(arr);
             f.assign(index(arr, const_int(0)), const_int(42_u32));
             f.assign(index(arr, const_int(1)), const_int(43_u32));
-            let slice_ptr = ref_as_slice::<u32>(&mut f, arr, 2);
+            let slice_ptr = construct_wide_pointer(
+                addr_of(arr, <&()>::get_type()),
+                const_int(2_usize),
+                <&[u32]>::get_type(),
+            );
             // This should UB
-            let loaded_val =
-                load(index(deref(load(slice_ptr), <[u32]>::get_type()), const_int(idx)));
+            let loaded_val = load(index(deref(slice_ptr, <[u32]>::get_type()), const_int(idx)));
             f.print(loaded_val);
             f.exit();
             p.finish_function(f)
@@ -213,11 +248,44 @@ fn get_metadata_correct() {
         f.assign(index(arr, const_int(0)), const_int(42_u32));
         f.assign(index(arr, const_int(1)), const_int(43_u32));
         f.assign(index(arr, const_int(2)), const_int(44_u32));
-        // This is now a place with type `&[u32]`
-        let slice_ptr = ref_as_slice::<u32>(&mut f, arr, 3);
-        // Get the metadata && assert it to be correct
-        let loaded_len = get_metadata(load(slice_ptr));
+        // Construct a slice reference
+        let slice_ptr = construct_wide_pointer(
+            addr_of(arr, <&()>::get_type()),
+            const_int(3_usize),
+            <&[u32]>::get_type(),
+        );
+        // Get the metadata again && assert it to be correct
+        let loaded_len = get_metadata(slice_ptr);
         f.assume(eq(loaded_len, const_int(3_usize)));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
+}
+
+#[test]
+fn get_thin_pointer_is_first_elem() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 3]>();
+        f.storage_live(arr);
+        f.assign(index(arr, const_int(0)), const_int(42_u32));
+        f.assign(index(arr, const_int(1)), const_int(43_u32));
+        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        // Construct a slice reference
+        let slice_ptr = construct_wide_pointer(
+            addr_of(arr, <&()>::get_type()),
+            const_int(3_usize),
+            <&[u32]>::get_type(),
+        );
+        // Get the thin pointer & load an u32 at this address, should be the first element
+        let loaded_start = get_thin_pointer(slice_ptr);
+        f.assume(eq(load(deref(loaded_start, <u32>::get_type())), const_int(42_u32)));
         f.exit();
         p.finish_function(f)
     };

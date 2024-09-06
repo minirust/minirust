@@ -116,6 +116,9 @@ pub enum UnOp {
     Int(IntUnOp),
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
+    // The following 2 operations correspond to the two parts of `<*const T>::to_raw_parts()`.
+    /// Returns a raw pointer with same thin pointer of the operand, but without the metadata.
+    GetThinPointer,
     /// Returns the metadata of a pointer as a value. For a thin pointer this is `()`.
     GetMetadata,
 }
@@ -215,6 +218,10 @@ pub enum BinOp {
     /// Takes two pointers; returns a signed pointer-sized integer.
     /// If `nonneg` is true, it is UB for the result to be negative.
     PtrOffsetFrom { inbounds: bool, nonneg: bool },
+    /// This corresponds to `core::ptr::from_raw_parts`
+    /// and takes a thin pointer and matching metadata to construct a pointer of the given type.
+    /// When the target type is a thin pointer and the metadata is `()`, this is just a pointer cast.
+    ConstructWidePointer(PtrType),
 }
 ```
 

@@ -180,6 +180,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ));
                         ValueExpr::Variant { discriminant, data, enum_ty: ty }
                     }
+                    Type::Ptr(PtrType::Raw { .. }) => {
+                        if operands.len() != 2 {
+                            rs::span_bug!(
+                                span,
+                                "Aggregating a pointer with {} operands",
+                                operands.len()
+                            );
+                        }
+                        let ptr = self.translate_operand_smir(&operands[0], span);
+                        let meta = self.translate_operand_smir(&operands[1], span);
+
+                        // We rely on MIR being well formed and matching our type-meta-pairings for this to be WF.
+                        build::construct_wide_pointer(ptr, meta, ty)
+                    }
                     x => rs::span_bug!(span, "Invalid aggregate type: {x:?}"),
                 }
             }
@@ -247,21 +261,61 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                     smir::CastKind::PtrToPtr => {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
-                        let Type::Ptr(old_ptr_ty) = self.translate_ty_smir(operand_ty, span) else {
-                            rs::span_bug!(span, "ptr to ptr cast on non-pointer");
+                        let Type::Ptr(PtrType::Raw { meta_kind: old_meta_kind }) =
+                            self.translate_ty_smir(operand_ty, span)
+                        else {
+                            rs::span_bug!(span, "ptr to ptr cast on non-raw-pointer");
                         };
+                        let Type::Ptr(PtrType::Raw { meta_kind: new_meta_kind }) =
+                            self.translate_ty_smir(*cast_ty, span)
+                        else {
+                            rs::span_bug!(span, "ptr to ptr cast to non-raw-pointer");
+                        };
+                        let operand = self.translate_operand_smir(operand, span);
+                        if old_meta_kind == new_meta_kind {
+                            // Since raw pointers do only know care about the meta kind, no transmute is necessary here.
+                            operand
+                        } else if new_meta_kind == PointerMetaKind::None {
+                            build::get_thin_pointer(operand)
+                        } else {
+                            rs::span_bug!(
+                                span,
+                                "PtrToPtr cast with wide target `{cast_ty:?}` that differes from source `{operand_ty:?}`"
+                            );
+                        }
+                    }
+                    smir::CastKind::PointerCoercion(smir::PointerCoercion::Unsize) => {
+                        let operand_ty = operand.ty(&self.locals_smir).unwrap();
+                        let old_pointee_rs_ty =
+                            smir::internal(self.tcx, operand_ty).builtin_deref(true).unwrap();
+                        let old_pointee_ty = self.translate_ty(old_pointee_rs_ty, span);
+                        let new_pointee_rs_ty =
+                            smir::internal(self.tcx, *cast_ty).builtin_deref(true).unwrap();
+                        let new_pointee_ty = self.translate_ty(new_pointee_rs_ty, span);
+
                         let Type::Ptr(new_ptr_ty) = self.translate_ty_smir(*cast_ty, span) else {
                             rs::span_bug!(span, "ptr to ptr cast to non-pointer");
                         };
-                        if old_ptr_ty.meta_kind() == new_ptr_ty.meta_kind() {
-                            let operand = self.translate_operand_smir(operand, span);
-                            build::transmute(operand, Type::Ptr(new_ptr_ty))
-                        } else {
-                            // TODO(UnsizedTypes): Implement this for wide to thin pointer casts
-                            rs::span_bug!(
-                                span,
-                                "Unimplemented: casting pointers with different metadata"
-                            );
+                        let operand = self.translate_operand_smir(operand, span);
+                        match (old_pointee_ty, new_pointee_ty) {
+                            (Type::Array { count, elem: a_elem }, Type::Slice { elem: s_elem }) => {
+                                if a_elem != s_elem {
+                                    rs::span_bug!(
+                                        span,
+                                        "Unsizing to slice with different element type"
+                                    );
+                                }
+                                build::construct_wide_pointer(
+                                    operand,
+                                    build::const_int_typed::<usize>(count),
+                                    Type::Ptr(new_ptr_ty),
+                                )
+                            }
+                            _ =>
+                                rs::span_bug!(
+                                    span,
+                                    "Unsupported unsizing coercion to {new_pointee_ty:?}"
+                                ),
                         }
                     }
                     smir::CastKind::Transmute
@@ -302,9 +356,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     | smir::CastKind::DynStar
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::ClosureFnPointer(
                         ..,
-                    ))
-                    | smir::CastKind::PointerCoercion(smir::PointerCoercion::Unsize) =>
-                        rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
+                    )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
                 }
             }
 
