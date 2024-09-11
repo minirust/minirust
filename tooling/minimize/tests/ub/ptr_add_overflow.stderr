@@ -1,1 +1,1 @@
-fatal error: UB: overflow in unchecked mul
+fatal error: UB: dereferencing pointer outside the bounds of its allocation
