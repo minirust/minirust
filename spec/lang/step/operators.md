@@ -122,6 +122,19 @@ impl<M: Memory> Machine<M> {
                 }
                 result
             }
+            DivExact => {
+                if right == 0 {
+                    throw_ub!("division by zero");
+                }
+                let result = left / right;
+                if !left_ty.can_represent(result) { // `int::MIN / -1` is UB
+                    throw_ub!("overflow in division");
+                }
+                if left % right != 0 {
+                    throw_ub!("non-zero remainder in exact division");
+                }
+                result
+            }
             Rem => {
                 if right == 0 {
                     throw_ub!("modulus of remainder is zero");

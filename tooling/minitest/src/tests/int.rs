@@ -36,7 +36,7 @@ fn div_zero() {
 
     let b0 = block!(
         storage_live(0),
-        assign(local(0), div(const_int::<i32>(1), const_int::<i32>(0),)),
+        assign(local(0), div(const_int::<i32>(1), const_int::<i32>(0))),
         exit()
     );
 
@@ -52,7 +52,7 @@ fn rem_zero() {
 
     let b0 = block!(
         storage_live(0),
-        assign(local(0), rem(const_int::<i32>(1), const_int::<i32>(0),)),
+        assign(local(0), rem(const_int::<i32>(1), const_int::<i32>(0))),
         exit()
     );
 
@@ -68,7 +68,7 @@ fn div_overflow() {
 
     let b0 = block!(
         storage_live(0),
-        assign(local(0), div(const_int::<i32>(i32::MIN), const_int::<i32>(-1),)),
+        assign(local(0), div(const_int::<i32>(i32::MIN), const_int::<i32>(-1))),
         exit()
     );
 
@@ -84,7 +84,7 @@ fn rem_overflow() {
 
     let b0 = block!(
         storage_live(0),
-        assign(local(0), rem(const_int::<i32>(i32::MIN), const_int::<i32>(-1),)),
+        assign(local(0), rem(const_int::<i32>(i32::MIN), const_int::<i32>(-1))),
         exit()
     );
 
@@ -92,6 +92,38 @@ fn rem_overflow() {
     let p = program(&[f]);
     dump_program(p);
     assert_ub::<BasicMem>(p, "overflow in remainder");
+}
+
+#[test]
+fn div_exact_arith() {
+    let mut p = ProgramBuilder::new();
+
+    let mut f = p.declare_function();
+
+    f.assume(eq(div_exact(const_int(4i32), const_int(2i32)), const_int(2i32)));
+    f.assume(eq(div_exact(const_int(4i32), const_int(-1i32)), const_int(-4i32)));
+
+    f.exit();
+    let f = p.finish_function(f);
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
+}
+
+#[test]
+fn div_exact_remainder() {
+    let locals = [<i32>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        assign(local(0), div_exact(const_int::<i32>(4), const_int::<i32>(3))),
+        exit()
+    );
+
+    let f = function(Ret::No, 0, &locals, &[b0]);
+    let p = program(&[f]);
+    dump_program(p);
+    assert_ub::<BasicMem>(p, "non-zero remainder in exact division");
 }
 
 /// Test that IntBinOp::BitAnd works for ints

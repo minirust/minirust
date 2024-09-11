@@ -128,6 +128,9 @@ pub fn mul_unchecked(l: ValueExpr, r: ValueExpr) -> ValueExpr {
 pub fn div(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Div, l, r)
 }
+pub fn div_exact(l: ValueExpr, r: ValueExpr) -> ValueExpr {
+    int_binop(IntBinOp::DivExact, l, r)
+}
 pub fn rem(l: ValueExpr, r: ValueExpr) -> ValueExpr {
     int_binop(IntBinOp::Rem, l, r)
 }

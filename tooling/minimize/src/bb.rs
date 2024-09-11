@@ -259,13 +259,21 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     },
                 },
             rs::sym::arith_offset => {
+                let lty = args[0].node.ty(&self.body, self.tcx);
+                let rty = args[1].node.ty(&self.body, self.tcx);
+
+                let l = self.translate_operand(&args[0].node, span);
+                let r = self.translate_operand(&args[1].node, span);
                 let destination = self.translate_place(&destination, span);
 
-                let val = ValueExpr::BinOp {
-                    operator: BinOp::PtrOffset { inbounds: false },
-                    left: GcCow::new(self.translate_operand(&args[0].node, span)),
-                    right: GcCow::new(self.translate_operand(&args[1].node, span)),
-                };
+                let pointee = lty.builtin_deref(true).unwrap();
+                let pointee = self.rs_layout_of(pointee);
+                assert!(pointee.is_sized());
+                let size = Int::from(pointee.size.bytes());
+                let size = ValueExpr::Constant(Constant::Int(size), self.translate_ty(rty, span));
+                let offset_bytes = build::mul_unchecked(r, size);
+
+                let val = build::ptr_offset(l, offset_bytes, build::InBounds::No);
 
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
@@ -273,24 +281,43 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
             rs::sym::ptr_offset_from | rs::sym::ptr_offset_from_unsigned => {
-                let destination = self.translate_place(&destination, span);
                 let unsigned = intrinsic_name == rs::sym::ptr_offset_from_unsigned;
+                let lty = args[0].node.ty(&self.body, self.tcx);
 
-                let mut val = ValueExpr::BinOp {
+                let l = self.translate_operand(&args[0].node, span);
+                let r = self.translate_operand(&args[1].node, span);
+                let destination = self.translate_place(&destination, span);
+
+                // Compute distance in bytes.
+                let offset_bytes = ValueExpr::BinOp {
                     operator: BinOp::PtrOffsetFrom { inbounds: false, nonneg: unsigned },
-                    left: GcCow::new(self.translate_operand(&args[0].node, span)),
-                    right: GcCow::new(self.translate_operand(&args[1].node, span)),
+                    left: GcCow::new(l),
+                    right: GcCow::new(r),
                 };
-                if unsigned {
-                    val = build::int_cast::<usize>(val);
-                }
+                // Divide by the size.
+                let pointee = lty.builtin_deref(true).unwrap();
+                let pointee = self.rs_layout_of(pointee);
+                assert!(pointee.is_sized());
+                let size = Int::from(pointee.size.bytes());
+                let offset = build::div_exact(offset_bytes, build::const_int_typed::<isize>(size));
+                // If required, cast to unsized type.
+                let offset = if unsigned { build::int_cast::<usize>(offset) } else { offset };
+
+                let stmt = Statement::Assign { destination, source: offset };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                return TerminatorResult { stmts: list!(stmt), terminator };
+            }
+            rs::sym::exact_div => {
+                let l = self.translate_operand(&args[0].node, span);
+                let r = self.translate_operand(&args[1].node, span);
+                let destination = self.translate_place(&destination, span);
+
+                let val = build::div_exact(l, r);
 
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
-
             rs::sym::unlikely | rs::sym::likely => {
                 // FIXME: use the "fallback body" provided in the standard library.
                 let destination = self.translate_place(&destination, span);

@@ -11,13 +11,28 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::BinaryOp(bin_op, l, r) => {
                 let lty_smir = l.ty(&self.locals_smir).unwrap();
                 let lty = self.translate_ty_smir(lty_smir, span);
+                let rty_smir = r.ty(&self.locals_smir).unwrap();
+                let rty = self.translate_ty_smir(rty_smir, span);
 
                 let l = self.translate_operand_smir(l, span);
                 let r = self.translate_operand_smir(r, span);
 
                 use smir::BinOp::*;
                 match (bin_op, lty) {
-                    (Offset, Type::Ptr(_)) => build::ptr_offset(l, r, build::InBounds::Yes),
+                    (Offset, Type::Ptr(_)) => {
+                        // We have to convert the units.
+                        let smir::TyKind::RigidTy(smir::RigidTy::RawPtr(pointee, _mutbl)) =
+                            lty_smir.kind()
+                        else {
+                            unreachable!()
+                        };
+                        let pointee = self.rs_layout_of_smir(pointee);
+                        assert!(pointee.is_sized());
+                        let size = Int::from(pointee.size.bytes());
+                        let size = ValueExpr::Constant(Constant::Int(size), rty);
+                        let offset_bytes = build::mul_unchecked(r, size);
+                        build::ptr_offset(l, offset_bytes, build::InBounds::Yes)
+                    }
 
                     (Add, Type::Int(_)) => build::add(l, r),
                     (Sub, Type::Int(_)) => build::sub(l, r),

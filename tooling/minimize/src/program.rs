@@ -96,6 +96,9 @@ impl<'tcx> Ctxt<'tcx> {
     pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
         self.tcx.layout_of(rs::ParamEnv::reveal_all().and(ty)).unwrap().layout
     }
+    pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rs::Layout<'tcx> {
+        self.rs_layout_of(smir::internal(self.tcx, ty))
+    }
 }
 
 fn mk_start_fn(entry: u32) -> Function {

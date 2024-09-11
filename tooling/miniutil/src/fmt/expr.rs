@@ -171,6 +171,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 AddUnchecked => return FmtExpr::Atomic(format!("AddUnchecked({l}, {r})")),
                 SubUnchecked => return FmtExpr::Atomic(format!("SubUnchecked({l}, {r})")),
                 MulUnchecked => return FmtExpr::Atomic(format!("MulUnchecked({l}, {r})")),
+                DivExact => return FmtExpr::Atomic(format!("DivExact({l}, {r})")),
                 ShlUnchecked => return FmtExpr::Atomic(format!("ShlUnchecked({l}, {r})")),
                 ShrUnchecked => return FmtExpr::Atomic(format!("ShrUnchecked({l}, {r})")),
             };

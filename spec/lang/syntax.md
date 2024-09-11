@@ -135,10 +135,13 @@ pub enum IntBinOp {
     /// Throws UB on overflow.
     MulUnchecked,
     /// Divide two integer values.
-    /// Division by zero is UB.
+    /// UB on division by zero and on `int::MIN / -1`.
     Div,
+    /// Divide two integer values.
+    /// UB on division by zero, on `int::MIN / -1`, and on a non-zero remainder.
+    DivExact,
     /// Remainder of a division, the `%` operator.
-    /// Throws UB, if the modulus (second operand) is zero.
+    /// UB if the modulos (right operand) is zero and on `int::MIN % -1`.
     Rem,
     /// Shift left `<<`
     Shl,
@@ -203,6 +206,8 @@ pub enum BinOp {
     /// Add a byte-offset to a pointer (with or without inbounds requirement).
     /// Takes a pointer as left operand and an integer as right operand;
     /// returns a pointer.
+    /// FIXME: should we make this in units of the pointee size? The thing is, for
+    /// raw pointers we do not have the pointee type...
     PtrOffset { inbounds: bool },
     /// Compute the distance between two pointers in bytes (with or without inbounds requirement).
     /// Takes two pointers; returns a signed pointer-sized integer.

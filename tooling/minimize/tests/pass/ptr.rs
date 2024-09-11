@@ -10,6 +10,7 @@ fn main() {
     ptr_compare();
     ptr2ptr();
     offset();
+    add();
     wrapping_offset();
     wrapping_add();
     wrapping_sub();
@@ -47,8 +48,19 @@ fn ptr2ptr() {
 }
 
 fn offset() {
-    let data = [1u8, 2, 3, 4, 5];
-    let first = &data[0] as *const u8;
+    let data = [1u16, 2, 3, 4, 5];
+    let first = &data[0] as *const u16;
+    unsafe {
+        let ptr = first.offset(2);
+        assert!(*ptr == 3);
+        let ptr = ptr.offset(-1);
+        assert!(*ptr == 2);
+    }
+}
+
+fn add() {
+    let data = [1u16, 2, 3, 4, 5];
+    let first = &data[0] as *const u16;
     unsafe {
         let ptr = first.add(2);
         assert!(*ptr == 3);
@@ -56,8 +68,8 @@ fn offset() {
 }
 
 fn wrapping_offset() {
-    let data = [1u8, 2, 3, 4, 5];
-    let first = &data[0] as *const u8;
+    let data = [1i32, 2, 3, 4, 5];
+    let first = &data[0] as *const i32;
 
     unsafe {
         assert!(*first == 1);
@@ -67,7 +79,7 @@ fn wrapping_offset() {
         assert!(*first.wrapping_offset(-42).wrapping_offset(42) == 1);
     }
 
-    let last = &data[4] as *const u8;
+    let last = &data[4] as *const i32;
 
     unsafe {
         assert!(*last == 5);
@@ -79,8 +91,8 @@ fn wrapping_offset() {
 }
 
 fn wrapping_add() {
-    let data = [1u8, 2, 3, 4, 5];
-    let first = &data[0] as *const u8;
+    let data = [1u64, 2, 3, 4, 5];
+    let first = &data[0] as *const u64;
 
     unsafe {
         assert!(*first == 1);
@@ -91,8 +103,8 @@ fn wrapping_add() {
 }
 
 fn wrapping_sub() {
-    let data = [1u8, 2, 3, 4, 5];
-    let last = &data[4] as *const u8;
+    let data = [1u64, 2, 3, 4, 5];
+    let last = &data[4] as *const u64;
 
     unsafe {
         assert!(*last == 5);
@@ -103,7 +115,7 @@ fn wrapping_sub() {
 }
 
 fn offset_from() {
-    let data = [1u8, 2, 3, 4, 5];
+    let data = [1u16, 2, 3, 4, 5];
     unsafe {
         assert!(ptr::from_ref(&data[4]).offset_from(&data[0]) == 4);
         assert!(ptr::from_ref(&data[0]).offset_from(&data[4]) == -4);
