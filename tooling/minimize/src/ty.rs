@@ -1,21 +1,34 @@
 use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
-    pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>) -> PointeeInfo {
+    pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
-        assert!(layout.is_sized(), "encountered unsized type: {ty}");
-        let size = SizeStrategy::Sized(translate_size(layout.size()));
-        let align = translate_align(layout.align().abi);
         let inhabited = !layout.abi().is_uninhabited();
         let param_env = rs::ParamEnv::reveal_all();
         let freeze = ty.is_freeze(self.tcx, param_env);
         let unpin = ty.is_unpin(self.tcx, param_env);
 
-        PointeeInfo { size, align, inhabited, freeze, unpin }
+        if layout.is_sized() {
+            let size = SizeStrategy::Sized(translate_size(layout.size()));
+            let align = translate_align(layout.align().abi);
+            return PointeeInfo { size, align, inhabited, freeze, unpin };
+        }
+
+        // Handle Unsized types:
+        match ty.kind() {
+            &rs::TyKind::Slice(elem_ty) => {
+                let elem_layout = self.rs_layout_of(elem_ty);
+                let size = SizeStrategy::Slice(translate_size(elem_layout.size()));
+                let align = translate_align(elem_layout.align().abi);
+
+                PointeeInfo { size, align, inhabited, freeze, unpin }
+            }
+            _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
+        }
     }
 
-    pub fn pointee_info_of_smir(&self, ty: smir::Ty) -> PointeeInfo {
-        self.pointee_info_of(smir::internal(self.tcx, ty))
+    pub fn pointee_info_of_smir(&self, ty: smir::Ty, span: rs::Span) -> PointeeInfo {
+        self.pointee_info_of(smir::internal(self.tcx, ty), span)
     }
 
     pub fn translate_ty_smir(&mut self, ty: smir::Ty, span: rs::Span) -> Type {
@@ -58,7 +71,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.boxed_ty();
-                let pointee = self.pointee_info_of(ty);
+                let pointee = self.pointee_info_of(ty, span);
                 Type::Ptr(PtrType::Box { pointee })
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
@@ -73,12 +86,12 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_enum() =>
                 self.translate_enum(ty, *adt_def, sref, span),
             rs::TyKind::Ref(_, ty, mutbl) => {
-                let pointee = self.pointee_info_of(*ty);
+                let pointee = self.pointee_info_of(*ty, span);
                 let mutbl = translate_mutbl(*mutbl);
                 Type::Ptr(PtrType::Ref { pointee, mutbl })
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
-                let pointee = self.pointee_info_of(*ty);
+                let pointee = self.pointee_info_of(*ty, span);
                 Type::Ptr(PtrType::Raw { meta_kind: pointee.size.meta_kind() })
             }
             rs::TyKind::Array(ty, c) => {
@@ -89,6 +102,10 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::FnPtr(_sig) => Type::Ptr(PtrType::FnPtr),
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
+            rs::TyKind::Slice(ty) => {
+                let elem = GcCow::new(self.translate_ty(*ty, span));
+                Type::Slice { elem }
+            }
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         };
         self.ty_cache.insert(ty, mini_ty);

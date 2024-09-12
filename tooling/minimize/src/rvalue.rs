@@ -96,13 +96,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     (Neg, Type::Int(_)) => build::neg(operand),
                     (Not, Type::Int(_)) => build::bit_not(operand),
                     (Not, Type::Bool) => build::not(operand),
+                    (PtrMetadata, Type::Ptr(_)) => build::get_metadata(operand),
                     (op, _) =>
                         rs::span_bug!(span, "UnOp {op:?} called with unsupported type {ty_smir}."),
                 }
             }
             smir::Rvalue::Ref(_, bkind, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
-                let pointee = self.pointee_info_of_smir(ty);
+                let pointee = self.pointee_info_of_smir(ty, span);
 
                 let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
@@ -135,7 +136,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
-                let meta_kind = self.pointee_info_of_smir(ty).size.meta_kind();
+                let meta_kind = self.pointee_info_of_smir(ty, span).size.meta_kind();
 
                 let ptr_ty = PtrType::Raw { meta_kind };
 
@@ -185,12 +186,21 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::CopyForDeref(place) =>
                 ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
             smir::Rvalue::Len(place) => {
-                // as slices are unsupported as of now, we only need to care for arrays.
                 let ty = place.ty(&self.locals_smir).unwrap();
-                let Type::Array { elem: _, count } = self.translate_ty_smir(ty, span) else {
-                    panic!()
-                };
-                ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
+                match self.translate_ty_smir(ty, span) {
+                    Type::Array { elem: _, count } => {
+                        // FIXME: still evaluate the place -- it might have UB after all.
+                        ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
+                    }
+                    Type::Slice { .. } => {
+                        // Convert the place to a value first, so our `get_metadata` is applicable.
+                        build::get_metadata(build::addr_of(
+                            self.translate_place_smir(place, span),
+                            build::raw_ptr_ty(PointerMetaKind::ElementCount),
+                        ))
+                    }
+                    _ => rs::span_bug!(span, "Rvalue::Len only supported for arrays & slices"),
+                }
             }
             smir::Rvalue::Discriminant(place) =>
                 ValueExpr::GetDiscriminant {
@@ -234,8 +244,27 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             operand: GcCow::new(operand),
                         }
                     }
+
+                    smir::CastKind::PtrToPtr => {
+                        let operand_ty = operand.ty(&self.locals_smir).unwrap();
+                        let Type::Ptr(old_ptr_ty) = self.translate_ty_smir(operand_ty, span) else {
+                            rs::span_bug!(span, "ptr to ptr cast on non-pointer");
+                        };
+                        let Type::Ptr(new_ptr_ty) = self.translate_ty_smir(*ty, span) else {
+                            rs::span_bug!(span, "ptr to ptr cast to non-pointer");
+                        };
+                        if old_ptr_ty.meta_kind() == new_ptr_ty.meta_kind() {
+                            let operand = self.translate_operand_smir(operand, span);
+                            build::transmute(operand, Type::Ptr(new_ptr_ty))
+                        } else {
+                            // TODO(UnsizedTypes): Implement this for wide to thin pointer casts
+                            rs::span_bug!(
+                                span,
+                                "Unimplemented: casting pointers with different metadata"
+                            );
+                        }
+                    }
                     smir::CastKind::Transmute
-                    | smir::CastKind::PtrToPtr
                     | smir::CastKind::FnPtrToPtr
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::UnsafeFnPointer) => {
                         let operand = self.translate_operand_smir(operand, span);

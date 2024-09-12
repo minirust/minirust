@@ -116,6 +116,8 @@ pub enum UnOp {
     Int(IntUnOp),
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
+    /// Returns the metadata of a pointer as a value. For a thin pointer this is `()`.
+    GetMetadata,
 }
 
 pub enum IntBinOp {

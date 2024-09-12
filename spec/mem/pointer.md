@@ -69,13 +69,18 @@ impl<Provenance> ThinPointer<Provenance> {
     }
 }
 
+impl PointerMeta {
+    pub fn meta_kind(self) -> PointerMetaKind {
+        match self {
+            PointerMeta::ElementCount(_) => PointerMetaKind::ElementCount,
+        }
+    }
+}
+
 impl PointerMetaKind {
     pub fn matches(self, meta: Option<PointerMeta>) -> bool {
-        match (self, meta) {
-            (PointerMetaKind::None, None) => true,
-            (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(_))) => true,
-            _ => false,
-        }
+        let expected_kind = meta.map(PointerMeta::meta_kind).unwrap_or(PointerMetaKind::None);
+        self == expected_kind
     }
 }
 ```

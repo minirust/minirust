@@ -150,6 +150,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let new_ty = fmt_type(new_ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("transmute<{new_ty}>({operand})"))
                 }
+                UnOp::GetMetadata => FmtExpr::Atomic(format!("get_metadata({operand})")),
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {
