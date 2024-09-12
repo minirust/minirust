@@ -219,13 +219,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ls = list![op; c];
                 ValueExpr::Tuple(ls, ty)
             }
-            smir::Rvalue::Cast(cast_kind, operand, ty) => {
+            smir::Rvalue::Cast(cast_kind, operand, cast_ty) => {
                 match cast_kind {
                     smir::CastKind::IntToInt => {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
                         let operand_ty = self.translate_ty_smir(operand_ty, span);
                         let operand = self.translate_operand_smir(operand, span);
-                        let Type::Int(int_ty) = self.translate_ty_smir(*ty, span) else {
+                        let Type::Int(int_ty) = self.translate_ty_smir(*cast_ty, span) else {
                             rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
                         };
 
@@ -250,7 +250,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let Type::Ptr(old_ptr_ty) = self.translate_ty_smir(operand_ty, span) else {
                             rs::span_bug!(span, "ptr to ptr cast on non-pointer");
                         };
-                        let Type::Ptr(new_ptr_ty) = self.translate_ty_smir(*ty, span) else {
+                        let Type::Ptr(new_ptr_ty) = self.translate_ty_smir(*cast_ty, span) else {
                             rs::span_bug!(span, "ptr to ptr cast to non-pointer");
                         };
                         if old_ptr_ty.meta_kind() == new_ptr_ty.meta_kind() {
@@ -268,7 +268,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     | smir::CastKind::FnPtrToPtr
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::UnsafeFnPointer) => {
                         let operand = self.translate_operand_smir(operand, span);
-                        let ty = self.translate_ty_smir(*ty, span);
+                        let ty = self.translate_ty_smir(*cast_ty, span);
                         build::transmute(operand, ty)
                     }
                     smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer) => {
@@ -367,7 +367,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             self.discriminant_for_variant_smir(this_ty, *variant_idx, span);
                         PlaceExpr::Downcast { root, discriminant }
                     }
-                    x => rs::span_bug!(span, "Place Projection not supported: {:?}", x),
+
+                    stable_mir::mir::ProjectionElem::ConstantIndex { .. }
+                    | stable_mir::mir::ProjectionElem::Subslice { .. }
+                    | stable_mir::mir::ProjectionElem::OpaqueCast(_)
+                    | stable_mir::mir::ProjectionElem::Subtype(_) => {
+                        rs::span_bug!(span, "Place Projection not supported: {:?}", proj);
+                    }
                 };
                 (this_expr, this_ty)
             });

@@ -108,21 +108,34 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     value: discriminant,
                 }
             }
-            rs::StatementKind::Intrinsic(box rs::NonDivergingIntrinsic::Assume(op)) => {
-                let op = self.translate_operand(op, span);
-                // Doesn't return anything, get us a dummy place.
-                let destination = build::zst_place();
-                return StatementResult::Intrinsic {
-                    intrinsic: IntrinsicOp::Assume,
-                    destination,
-                    arguments: list![op],
-                };
+            rs::StatementKind::Intrinsic(box intrinsic) => {
+                match intrinsic {
+                    rs::NonDivergingIntrinsic::Assume(op) => {
+                        let op = self.translate_operand(op, span);
+                        // Doesn't return anything, get us a dummy place.
+                        let destination = build::zst_place();
+                        return StatementResult::Intrinsic {
+                            intrinsic: IntrinsicOp::Assume,
+                            destination,
+                            arguments: list![op],
+                        };
+                    }
+                    rs::NonDivergingIntrinsic::CopyNonOverlapping(_) =>
+                        rs::span_bug!(span, "NonDivergingIntrinsic not supported: {intrinsic:?}"),
+                }
             }
             rs::StatementKind::PlaceMention(place) => {
                 let place = self.translate_place(place, span);
                 Statement::PlaceMention(place)
             }
-            x => rs::span_bug!(span, "statement not supported: {x:?}"),
+
+            rs::StatementKind::FakeRead(_)
+            | rs::StatementKind::AscribeUserType(_, _)
+            | rs::StatementKind::Coverage(_)
+            | rs::StatementKind::ConstEvalCounter
+            | rs::StatementKind::Nop => {
+                rs::span_bug!(span, "Statement not supported: {:?}", stmt.kind);
+            }
         })
     }
 
@@ -207,7 +220,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     next_block: Some(self.bb_name_map[&target]),
                 }
             }
-            x => rs::span_bug!(span, "terminator not supported: {x:?}"),
+
+            rs::TerminatorKind::UnwindResume
+            | rs::TerminatorKind::UnwindTerminate(_)
+            | rs::TerminatorKind::TailCall { .. }
+            | rs::TerminatorKind::Yield { .. }
+            | rs::TerminatorKind::CoroutineDrop
+            | rs::TerminatorKind::FalseEdge { .. }
+            | rs::TerminatorKind::FalseUnwind { .. }
+            | rs::TerminatorKind::InlineAsm { .. } => {
+                rs::span_bug!(span, "Terminator not supported: {:?}", terminator.kind);
+            }
         };
 
         TerminatorResult { terminator, stmts: List::new() }
