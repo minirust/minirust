@@ -173,15 +173,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::Len(place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 match self.translate_ty_smir(ty, span) {
-                    Type::Array { elem: _, count } =>
-                        ValueExpr::Constant(Constant::Int(count), <usize>::get_type()),
-                    Type::Slice { .. } =>
-                    // convert the place to a value first, so our `get_metadata` is applicable.
+                    Type::Array { elem: _, count } => {
+                        // FIXME: still evaluate the place -- it might have UB after all.
+                        ValueExpr::Constant(Constant::Int(count), <usize>::get_type())
+                    }
+                    Type::Slice { .. } => {
+                        // Convert the place to a value first, so our `get_metadata` is applicable.
                         build::get_metadata(build::addr_of(
                             self.translate_place_smir(place, span),
                             build::raw_ptr_ty(PointerMetaKind::ElementCount),
-                        )),
-                    _ => rs::span_bug!(span, "RValue::Len only supported for arrays & slices"),
+                        ))
+                    }
+                    _ => rs::span_bug!(span, "Rvalue::Len only supported for arrays & slices"),
                 }
             }
             smir::Rvalue::Discriminant(place) =>

@@ -71,7 +71,7 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_un_op(&self, UnOp::GetMetadata: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Value::Ptr(ptr) = operand else { panic!("non pointer get-metadata") };
+        let Value::Ptr(ptr) = operand else { panic!("non-pointer get-metadata") };
 
         if let Some(meta) = ptr.metadata {
             let meta_value = meta.into_value::<M>();
