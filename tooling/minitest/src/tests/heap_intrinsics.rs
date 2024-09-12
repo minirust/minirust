@@ -162,7 +162,7 @@ fn dealloc_success() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(4)],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -180,7 +180,7 @@ fn dealloc_argcount() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1))),
     },);
     let b1 = block!(exit());
@@ -202,7 +202,7 @@ fn dealloc_align_err() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(13)], // 13 is not a power of two!
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -224,7 +224,7 @@ fn dealloc_size_err() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -246,7 +246,7 @@ fn dealloc_wrongarg1() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![const_bool(true), const_int::<usize>(4), const_int::<usize>(4)], // bool unexpected here
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -271,7 +271,7 @@ fn dealloc_wrongarg2() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_bool(true), const_int::<usize>(4)], // bool unexpected here
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -293,7 +293,7 @@ fn dealloc_wrongarg3() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<usize>(4), const_bool(true)], // bool unexpected here
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -337,7 +337,7 @@ fn mem_dealloc_wrong_size() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<usize>(5), const_int::<usize>(4)],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());
@@ -359,7 +359,7 @@ fn mem_dealloc_wrong_align() {
     let b1 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![load(local(0)), const_int::<usize>(4), const_int::<usize>(8)],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(2))),
     },);
     let b2 = block!(exit());

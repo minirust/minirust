@@ -293,7 +293,7 @@ pub fn downcast(root: PlaceExpr, discriminant: impl Into<Int>) -> PlaceExpr {
 }
 
 /// A place suited for 1-aligned zero-sized accesses.
-pub fn zst_place() -> PlaceExpr {
+pub fn unit_place() -> PlaceExpr {
     let ptr =
         ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()), <*const ()>::get_type());
     PlaceExpr::Deref { operand: GcCow::new(ptr), ty: <()>::get_type() }

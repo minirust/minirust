@@ -53,7 +53,7 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
-pub use miniutil::build::{self, zst_place, TypeConv as _};
+pub use miniutil::build::{self, unit_place, TypeConv as _};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 pub use miniutil::BasicMem;

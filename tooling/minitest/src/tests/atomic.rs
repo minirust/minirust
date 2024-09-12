@@ -27,7 +27,7 @@ fn atomic_store_arg_count() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::AtomicStore,
         arguments: list!(),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1)))
     });
     let b1 = block!(exit());
@@ -42,7 +42,7 @@ fn atomic_store_arg_type1() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::AtomicStore,
         arguments: list!(const_int::<u32>(0), const_int::<u32>(0)),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1)))
     });
     let b1 = block!(exit());
@@ -68,7 +68,7 @@ fn atomic_store_arg_type_pow() {
         Terminator::Intrinsic {
             intrinsic: IntrinsicOp::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: zst_place(),
+            ret: unit_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );
@@ -95,7 +95,7 @@ fn atomic_store_arg_type_size() {
         Terminator::Intrinsic {
             intrinsic: IntrinsicOp::AtomicStore,
             arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: zst_place(),
+            ret: unit_place(),
             next_block: Some(BbName(Name::from_internal(1)))
         }
     );

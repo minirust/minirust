@@ -112,7 +112,7 @@ fn mk_start_fn(entry: u32) -> Function {
             callee: build::fn_ptr_internal(entry),
             calling_convention: CallingConvention::Rust,
             arguments: List::new(),
-            ret: build::zst_place(),
+            ret: build::unit_place(),
             next_block: Some(b1_name),
         },
     };
@@ -122,7 +122,7 @@ fn mk_start_fn(entry: u32) -> Function {
         terminator: Terminator::Intrinsic {
             intrinsic: IntrinsicOp::Exit,
             arguments: List::new(),
-            ret: build::zst_place(),
+            ret: build::unit_place(),
             next_block: None,
         },
     };

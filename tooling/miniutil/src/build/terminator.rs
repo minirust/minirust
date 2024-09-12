@@ -60,7 +60,7 @@ impl FunctionBuilder {
             callee: fn_ptr(f),
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
-            ret: zst_place(),
+            ret: unit_place(),
             next_block: Some(next_block),
         });
         self.set_cur_block(next_block);
@@ -303,7 +303,7 @@ pub fn assume(val: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Assume,
         arguments: list![val],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -312,7 +312,7 @@ pub fn print(arg: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::PrintStdout,
         arguments: list![arg],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -321,7 +321,7 @@ pub fn eprint(arg: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::PrintStderr,
         arguments: list![arg],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -339,7 +339,7 @@ pub fn deallocate(ptr: ValueExpr, size: ValueExpr, align: ValueExpr, next: u32) 
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Deallocate,
         arguments: list![ptr, size, align],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -348,7 +348,7 @@ pub fn exit() -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Exit,
         arguments: list![],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: None,
     }
 }
@@ -357,7 +357,7 @@ pub fn panic() -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Panic,
         arguments: list![],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: None,
     }
 }
@@ -379,7 +379,7 @@ pub fn join(thread_id: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Join,
         arguments: list!(thread_id),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -397,7 +397,7 @@ pub fn atomic_store(ptr: ValueExpr, src: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::AtomicStore,
         arguments: list!(ptr, src),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -482,7 +482,7 @@ pub fn lock_acquire(lock_id: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
         arguments: list!(lock_id),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }
@@ -491,7 +491,7 @@ pub fn lock_release(lock_id: ValueExpr, next: u32) -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
         arguments: list!(lock_id),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }

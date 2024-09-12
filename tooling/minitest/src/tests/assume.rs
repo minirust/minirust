@@ -26,7 +26,7 @@ fn assume_wrong_argnum() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Assume,
         arguments: list![], // no arguments
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1))),
     });
     let b1 = block!(exit());
@@ -41,7 +41,7 @@ fn assume_wrong_argty() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Assume,
         arguments: list![const_int::<i32>(0)], // should be bool, not int
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1))),
     });
     let b1 = block!(exit());

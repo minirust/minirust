@@ -139,7 +139,7 @@ fn acquire_arg_count() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
         arguments: list![],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1))),
     });
     let b1 = block!(exit());
@@ -206,7 +206,7 @@ fn release_arg_count() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
         arguments: list![],
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1))),
     });
     let b1 = block!(exit());
@@ -288,7 +288,7 @@ fn create_arg_count() {
         Terminator::Intrinsic {
             intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
             arguments: list![load(local(0))],
-            ret: zst_place(),
+            ret: unit_place(),
             next_block: Some(BbName(Name::from_internal(1))),
         }
     );

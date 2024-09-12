@@ -38,7 +38,7 @@ fn atomic_fetch_arg_count() {
     let b0 = block!(Terminator::Intrinsic {
         intrinsic: IntrinsicOp::AtomicFetchAndOp(IntBinOp::Add),
         arguments: list!(),
-        ret: zst_place(),
+        ret: unit_place(),
         next_block: Some(BbName(Name::from_internal(1)))
     });
     let b1 = block!(exit());

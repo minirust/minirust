@@ -113,7 +113,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     rs::NonDivergingIntrinsic::Assume(op) => {
                         let op = self.translate_operand(op, span);
                         // Doesn't return anything, get us a dummy place.
-                        let destination = build::zst_place();
+                        let destination = build::unit_place();
                         return StatementResult::Intrinsic {
                             intrinsic: IntrinsicOp::Assume,
                             destination,
@@ -216,7 +216,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     callee: build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn)),
                     calling_convention: CallingConvention::Rust,
                     arguments: list![ArgumentExpr::ByValue(ptr_to_drop)],
-                    ret: zst_place(),
+                    ret: unit_place(),
                     next_block: Some(self.bb_name_map[&target]),
                 }
             }
@@ -260,7 +260,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     Terminator::Intrinsic {
                         intrinsic: IntrinsicOp::Panic,
                         arguments: list![],
-                        ret: zst_place(),
+                        ret: unit_place(),
                         next_block: None,
                     }
                 } else {
@@ -407,7 +407,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             Terminator::Intrinsic {
                 intrinsic: IntrinsicOp::Panic,
                 arguments: list![],
-                ret: zst_place(),
+                ret: unit_place(),
                 next_block: None,
             }
         } else {
