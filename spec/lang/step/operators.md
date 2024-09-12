@@ -281,10 +281,13 @@ impl<M: Memory> Machine<M> {
     /// Perform in-bounds arithmetic on the given pointer. This must not wrap,
     /// and the offset must stay in bounds of a single allocation.
     fn ptr_offset_inbounds(&self, ptr: ThinPointer<M::Provenance>, offset: Int) -> Result<ThinPointer<M::Provenance>> {
-        // Ensure dereferenceability. This also ensures that `offset` fits in an `isize`, since no allocation
+        // Ensure dereferenceability.
+        self.mem.signed_dereferenceable(ptr, offset)?;
+        // This also ensures that `offset` fits in an `isize`, since no allocation
         // can be bigger than `isize`, and it ensures that the arithmetic does not overflow, since no
         // allocation wraps around the edge of the address space.
-        self.mem.signed_dereferenceable(ptr, offset)?;
+        assert!(offset.in_bounds(Signed, M::T::PTR_SIZE));
+        assert!((ptr.addr + offset).in_bounds(Unsigned, M::T::PTR_SIZE));
         // All checked!
         ret(ThinPointer { addr: ptr.addr + offset, ..ptr })
     }
