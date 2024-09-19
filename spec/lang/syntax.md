@@ -102,6 +102,8 @@ pub enum IntUnOp {
     Neg,
     /// Bitwise-invert an integer value
     BitNot,
+    /// Used for the intrinsic ˋctpopˋ.
+    CountOnes,
 }
 pub enum CastOp {
     /// Argument can be any integer type; returns the given integer type.

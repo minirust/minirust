@@ -40,9 +40,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 if let PtrType::FnPtr = ptr_ty {
                     rs::span_bug!(span, "Function pointers are currently not supported")
                 }
-                let ptr = ecx.read_pointer(&val).unwrap();
-                let (prov, offset) = ptr.into_parts();
-                let c = match prov {
+
+                let (thin_ptr, meta) = match ptr_ty.meta_kind() {
+                    PointerMetaKind::None => (ecx.read_pointer(&val).unwrap(), None),
+                    PointerMetaKind::ElementCount => {
+                        let (thin, meta) = ecx.read_immediate(&val).unwrap().to_scalar_and_meta();
+                        let el_count = meta.unwrap_meta().to_target_usize(ecx).unwrap();
+                        (thin.to_pointer(ecx).unwrap(), Some(build::const_int(el_count)))
+                    }
+                };
+                // Depending on the provenance of the pointer, a different constant is built.
+                let (prov, offset) = thin_ptr.into_parts();
+                let ptr = match prov {
                     None => {
                         let addr: Int = offset.bytes_usize().into();
                         Constant::PointerWithoutProvenance(addr)
@@ -53,7 +62,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         Constant::GlobalPointer(rel)
                     }
                 };
-                ValueExpr::Constant(c, ty)
+                // A thin pointer is directly a constant, a wide pointer is first aggregated from the parts.
+                match meta {
+                    None => ValueExpr::Constant(ptr, ty),
+                    Some(meta_val) =>
+                        build::construct_wide_pointer(
+                            ValueExpr::Constant(ptr, build::raw_void_ptr_ty()),
+                            meta_val,
+                            ty,
+                        ),
+                }
             }
             Type::Tuple { fields, .. } => {
                 let mut t: List<ValueExpr> = List::new();

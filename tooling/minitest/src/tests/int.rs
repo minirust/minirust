@@ -215,7 +215,7 @@ fn bit_xor_int_works() {
     assert_stop::<BasicMem>(prog);
 }
 
-/// Test that BinUnOp::Not works for ints
+/// Test that IntUnOp::Not works for ints
 #[test]
 fn bit_int_not_works() {
     let locals = [];
@@ -231,6 +231,27 @@ fn bit_int_not_works() {
 
     let prog = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_stop::<BasicMem>(prog);
+}
+
+#[test]
+fn count_ones_works() {
+    let mut p = ProgramBuilder::new();
+    let mut f = p.declare_function();
+
+    fn check<T: TypeConv + Into<Int>>(f: &mut FunctionBuilder, val: T, expect: u32) {
+        f.assume(eq(count_ones(const_int(val)), const_int(expect)));
+    }
+
+    check(&mut f, 0_u8, 0_u8.count_ones());
+    check(&mut f, -128_i8, (-128_i8).count_ones());
+    check(&mut f, 2934823_i32, 2934823_i32.count_ones());
+    check(&mut f, -90238485_i32, (-90238485_i32).count_ones());
+    check(&mut f, 98238923898093_u64, 98238923898093_u64.count_ones());
+
+    f.exit();
+    let f = p.finish_function(f);
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
 }
 
 #[test]
