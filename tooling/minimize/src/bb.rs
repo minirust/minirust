@@ -330,6 +330,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
+            rs::sym::ctpop => {
+                
+            }
             rs::sym::exact_div => {
                 let l = self.translate_operand(&args[0].node, span);
                 let r = self.translate_operand(&args[1].node, span);

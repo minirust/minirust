@@ -20,6 +20,9 @@ impl<M: Memory> Machine<M> {
         ret(match op {
             Neg => -operand,
             BitNot => !operand,
+            CountOnes => {
+                
+            }
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
