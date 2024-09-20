@@ -446,5 +446,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
 // HACK to skip translating some functions we can't handle yet.
 fn is_panic_fn(name: &str) -> bool {
-    name == "core::panicking::panic" || name == "core::panicking::panic_nounwind"
+    let fns = [
+        "core::panicking::panic",
+        "core::panicking::panic_nounwind",
+        "core::slice::index::slice_start_index_len_fail",
+    ];
+    fns.contains(name)
 }
