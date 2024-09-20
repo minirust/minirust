@@ -10,6 +10,8 @@ pub fn change_some_elements(a: &mut [u8]) {
     a[1] -= 1;
 }
 
+const THE_SLICE: &'static [u16] = &[1, 2, 3, 4, 5, 6, 7, 8];
+
 fn main() {
     // Check unsizing
     let x: [i32; 5] = [50, -40, 30, -20, 10];
@@ -23,6 +25,10 @@ fn main() {
     assert!(a2[0] == 2);
 
     assert!(slice.len() == 5);
+
+    // Check constant slices
+    assert!(THE_SLICE.len() == 8);
+    assert!(THE_SLICE[3] == 4);
 
     // Check iterators
     assert!(slice.iter().count() == 5);

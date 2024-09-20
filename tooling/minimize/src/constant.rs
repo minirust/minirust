@@ -40,6 +40,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 if let PtrType::FnPtr = ptr_ty {
                     rs::span_bug!(span, "Function pointers are currently not supported")
                 }
+
+                // FIXME(UnsizedTypes): this `read_pointer` fails when the pointer is wide.
                 let ptr = ecx.read_pointer(&val).unwrap();
                 let (prov, offset) = ptr.into_parts();
                 let c = match prov {
