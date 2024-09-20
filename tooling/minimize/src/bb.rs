@@ -331,7 +331,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
             rs::sym::ctpop => {
-                
+                let v = self.translate_operand(&args[0].node, span);
+                let destination = self.translate_place(&destination, span);
+
+                let val = build::count_ones(v);
+                let stmt = Statement::Assign { destination, source: val };
+
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                return TerminatorResult { stmts: list!(stmt), terminator };
             }
             rs::sym::exact_div => {
                 let l = self.translate_operand(&args[0].node, span);

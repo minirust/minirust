@@ -35,6 +35,11 @@ fn main() {
     }
     assert!(sign == -1);
 
+    // Check `from_raw_parts`
+    // FIXME: This is still broken to to missing `str` type
+    let elem1_ptr = unsafe { slice.as_ptr().add(1) };
+    let sub_slice = unsafe { core::slice::from_raw_parts::<'_, i32>(elem1_ptr, 4) };
+
     // Check subslicing
     let sub_slice = &slice[1..];
     assert!(sub_slice.len() == 4);
