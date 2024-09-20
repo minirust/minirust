@@ -103,8 +103,24 @@ pub fn transmute(v: ValueExpr, t: Type) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Cast(CastOp::Transmute(t)), operand: GcCow::new(v) }
 }
 
+pub fn get_thin_pointer(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::GetThinPointer, operand: GcCow::new(v) }
+}
+
 pub fn get_metadata(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::GetMetadata, operand: GcCow::new(v) }
+}
+
+pub fn construct_wide_pointer(ptr: ValueExpr, meta: ValueExpr, ptr_ty: Type) -> ValueExpr {
+    let Type::Ptr(ptr_ty) = ptr_ty else {
+        panic!("construct_wide_pointer requires Type::Ptr argument!");
+    };
+
+    ValueExpr::BinOp {
+        operator: BinOp::ConstructWidePointer(ptr_ty),
+        left: GcCow::new(ptr),
+        right: GcCow::new(meta),
+    }
 }
 
 fn int_binop(op: IntBinOp, l: ValueExpr, r: ValueExpr) -> ValueExpr {
