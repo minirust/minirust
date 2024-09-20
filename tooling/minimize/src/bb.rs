@@ -455,6 +455,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 fn is_panic_fn(name: &str) -> bool {
     let fns = [
         "core::panicking::panic",
+        "core::panicking::panic_fmt",
         "core::panicking::panic_nounwind",
         "core::slice::index::slice_start_index_len_fail",
         "core::slice::index::slice_end_index_len_fail",

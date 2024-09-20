@@ -23,6 +23,11 @@ impl<'tcx> Ctxt<'tcx> {
 
                 PointeeInfo { size, align, inhabited, freeze, unpin }
             }
+            &rs::TyKind::Str => {
+                let size = SizeStrategy::Slice(Size::from_bytes_const(1));
+                let align = Align::ONE;
+                PointeeInfo { size, align, inhabited, freeze, unpin }
+            }
             _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
         }
     }
@@ -104,6 +109,13 @@ impl<'tcx> Ctxt<'tcx> {
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             rs::TyKind::Slice(ty) => {
                 let elem = GcCow::new(self.translate_ty(*ty, span));
+                Type::Slice { elem }
+            }
+            rs::TyKind::Str => {
+                let elem = GcCow::new(Type::Int(IntType {
+                    size: Size::from_bytes_const(1),
+                    signed: Signedness::Unsigned,
+                }));
                 Type::Slice { elem }
             }
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
