@@ -337,6 +337,7 @@ impl ValueExpr {
                         let Type::Int(int_ty) = operand else {
                             throw_ill_formed!("UnOp::Int: invalid operand");
                         };
+                        // FIXME: stdlib `count_ones` always returns a u32.
                         Type::Int(int_ty)
                     }
                     Cast(cast_op) => {

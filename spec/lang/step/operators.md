@@ -15,13 +15,19 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_un_op(op: IntUnOp, operand: Int) -> Result<Int> {
+    fn eval_int_un_op(op: IntUnOp, operand: Int, int_ty: IntType) -> Result<Int> {
         use IntUnOp::*;
         ret(match op {
             Neg => -operand,
             BitNot => !operand,
             CountOnes => {
-                
+                let mut ones = Int::ZERO;
+                let mut remaining_bits = operand;
+                for _ in Int::ZERO..int_ty.size.bits() {
+                    ones += remaining_bits & Int::ONE;
+                    remaining_bits >>= 1;
+                }
+                ones
             }
         })
     }
@@ -30,7 +36,7 @@ impl<M: Memory> Machine<M> {
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         // Perform the operation.
-        let result = Self::eval_int_un_op(op, operand)?;
+        let result = Self::eval_int_un_op(op, operand, int_ty)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
         ret((Value::Int(result), Type::Int(int_ty)))
