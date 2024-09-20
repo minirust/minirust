@@ -450,6 +450,8 @@ fn is_panic_fn(name: &str) -> bool {
         "core::panicking::panic",
         "core::panicking::panic_nounwind",
         "core::slice::index::slice_start_index_len_fail",
+        "core::slice::index::slice_end_index_len_fail",
+        "core::slice::index::slice_index_order_fail",
     ];
-    fns.contains(name)
+    fns.contains(&name)
 }

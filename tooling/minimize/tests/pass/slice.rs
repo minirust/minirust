@@ -11,6 +11,7 @@ pub fn change_some_elements(a: &mut [u8]) {
 }
 
 fn main() {
+    // Check unsizing
     let x: [i32; 5] = [50, -40, 30, -20, 10];
     let slice: &[i32] = &x;
 
@@ -22,9 +23,11 @@ fn main() {
     assert!(a2[0] == 2);
 
     assert!(slice.len() == 5);
+
+    // Check iterators
     assert!(slice.iter().count() == 5);
 
-    // Check the iterator in a for loop, checking alternating signs
+    // check the iterator in a for loop, checking alternating signs
     let mut sign = 1;
     for elem in slice {
         assert!(sign * elem > 0);
@@ -32,11 +35,16 @@ fn main() {
     }
     assert!(sign == -1);
 
-    // This is currently broken:
-    // // Check subslicing, which uses `from_raw_parts`
-    // let sub_slice = unsafe { core::slice::from_raw_parts::<'_, i32>(&slice[1] as *const i32, 4) };
-    // // let sub_slice = &slice[1..];
-    // assert!(sub_slice.len() == 4);
-    // assert!(sub_slice[0] == -40);
-    // let x = slice;
+    // Check subslicing
+    let sub_slice = &slice[1..];
+    assert!(sub_slice.len() == 4);
+    assert!(sub_slice[0] == -40);
+
+    let sub_slice = &slice[1..4];
+    assert!(sub_slice.len() == 3);
+    assert!(sub_slice[0] == -40);
+
+    let sub_slice = &slice[..4];
+    assert!(sub_slice.len() == 4);
+    assert!(sub_slice[0] == 50);
 }
