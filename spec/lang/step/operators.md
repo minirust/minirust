@@ -35,11 +35,16 @@ impl<M: Memory> Machine<M> {
         let Type::Int(int_ty) = op_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
+        let ret_ty = match op {
+            IntUnOp::CountOnes => IntType { signed: Unsigned, size: Size::from_bytes(4).unwrap() },
+            _ => int_ty,
+        };
+
         // Perform the operation.
         let result = Self::eval_int_un_op(op, operand, int_ty)?;
         // Put the result into the right range (in case of overflow).
-        let result = int_ty.bring_in_bounds(result);
-        ret((Value::Int(result), Type::Int(int_ty)))
+        let result = ret_ty.bring_in_bounds(result);
+        ret((Value::Int(result), Type::Int(ret_ty)))
     }
 }
 ```
