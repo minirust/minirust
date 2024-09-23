@@ -364,6 +364,14 @@ impl ValueExpr {
                         // If the pointer does not have metadata, this will still be well-formed but return the unit type.
                         ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
                     }
+                    SizeOfVal => {
+                        // TODO(UnsizedTypes): Support raw pointers as well.
+                        ensure_wf(
+                            matches!(operand, Type::Ptr(PtrType::Ref { .. })),
+                            "UnOp::SizeOfVal: invalid operand: not a reference"
+                        )?;
+                        Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })
+                    }
                 }
             }
             BinOp { operator, left, right } => {
