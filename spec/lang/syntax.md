@@ -121,6 +121,9 @@ pub enum UnOp {
     GetThinPointer,
     /// Returns the metadata of a pointer as a value. For a thin pointer this is `()`.
     GetMetadata,
+    /// Returns the dynamic size of the pointee behind the operand.
+    /// The operand must be a reference.
+    SizeOfVal,
 }
 
 pub enum IntBinOp {
