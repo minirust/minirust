@@ -452,6 +452,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 }
 
 // HACK to skip translating some functions we can't handle yet.
+// These always panic so we just turn them into the panic intrinsic.
 fn is_panic_fn(name: &str) -> bool {
     let fns = [
         "core::panicking::panic",

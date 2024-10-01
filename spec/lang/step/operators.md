@@ -18,17 +18,11 @@ impl<M: Memory> Machine<M> {
     fn eval_int_un_op(op: IntUnOp, operand: Int, int_ty: IntType) -> Result<Int> {
         use IntUnOp::*;
         ret(match op {
-            Neg => -operand,
-            BitNot => !operand,
-            CountOnes => {
-                let mut ones = Int::ZERO;
-                let mut remaining_bits = operand;
-                for _ in Int::ZERO..int_ty.size.bits() {
-                    ones += remaining_bits & Int::ONE;
-                    remaining_bits >>= 1;
-                }
-                ones
-            }
+            // Put the result into the right range (in case of overflow).
+            Neg => int_ty.bring_in_bounds(-operand),
+            BitNot => int_ty.bring_in_bounds(!operand),
+            // This can never overflow, as the total number of bits is below `u32::MAX`.
+            CountOnes => Self::eval_count_ones(operand, int_ty),
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
@@ -41,10 +35,33 @@ impl<M: Memory> Machine<M> {
         };
 
         // Perform the operation.
-        let result = Self::eval_int_un_op(op, operand, int_ty)?;
-        // Put the result into the right range (in case of overflow).
-        let result = ret_ty.bring_in_bounds(result);
-        ret((Value::Int(result), Type::Int(ret_ty)))
+        let result = Value::Int(Self::eval_int_un_op(op, operand, int_ty)?);
+
+        result.check_wf(Type::Int(ret_ty))
+            .expect("sanity check: result of UnOp::Int does not fit in the return type");
+        ret((result, Type::Int(ret_ty)))
+    }
+}
+```
+
+The `CountOnes` aka `ctpop` is a rust intrinsic on different integer types that always returns a `u32`.
+This is not a pure function on mathematical integers,
+since the bit representation for non-negative values has infinite zeros,
+and infinite ones for negatives values.
+Therefore, the bit width is important, and iterating until `remaining_bits = 0` is not correct.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_count_ones(operand: Int, int_ty: IntType) -> Int {
+        let mut ones = Int::ZERO;
+        let mut remaining_bits = operand;
+        // Iterate once per bit in the bit width, afterwards the remaining bits are leading bits only.
+        for _ in Int::ZERO..int_ty.size.bits() {
+            // Extract the least significant bit and set `remaining_bits` to all other bits.
+            ones += remaining_bits & Int::ONE;
+            remaining_bits >>= 1;
+        }
+        ones
     }
 }
 ```

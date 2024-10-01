@@ -239,7 +239,7 @@ fn count_ones_works() {
     let mut f = p.declare_function();
 
     fn check<T: TypeConv + Into<Int>>(f: &mut FunctionBuilder, val: T, expect: u32) {
-        f.assume(eq(count_ones(const_int(val)), const_int_typed::<T>(expect.into())));
+        f.assume(eq(count_ones(const_int(val)), const_int(expect)));
     }
 
     check(&mut f, 0_u8, 0_u8.count_ones());
