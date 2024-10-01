@@ -461,6 +461,7 @@ fn is_panic_fn(name: &str) -> bool {
         "core::slice::index::slice_start_index_len_fail",
         "core::slice::index::slice_end_index_len_fail",
         "core::slice::index::slice_index_order_fail",
+        "core::str::slice_error_fail",
     ];
     fns.contains(&name)
 }
