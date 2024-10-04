@@ -94,10 +94,10 @@ impl Type {
                     // Recursively check the field type.
                     ty.check_wf::<T>()?;
                     // Ensure it is a sized type.
-                    ensure_wf(ty.size::<T>().is_sized(), "Type::Tuple: unsized field type")?;
+                    ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type")?;
                     // And ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
-                    last_end = offset + ty.size::<T>().expect_sized("ensured to be sized above");
+                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
@@ -105,20 +105,20 @@ impl Type {
             }
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
-                ensure_wf(elem.size::<T>().is_sized(), "Type::Array: unsized element type")?;
+                ensure_wf(elem.layout::<T>().is_sized(), "Type::Array: unsized element type")?;
                 elem.check_wf::<T>()?;
             }
             Slice { elem } => {
-                ensure_wf(elem.size::<T>().is_sized(), "Type::Slice: unsized element type")?;
+                ensure_wf(elem.layout::<T>().is_sized(), "Type::Slice: unsized element type")?;
                 elem.check_wf::<T>()?;
             }
             Union { fields, size, chunks, align: _ } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
                     ty.check_wf::<T>()?;
-                    ensure_wf(ty.size::<T>().is_sized(), "Type::Union: unsized field type")?;
+                    ensure_wf(ty.layout::<T>().is_sized(), "Type::Union: unsized field type")?;
                     ensure_wf(
-                        size >= offset + ty.size::<T>().expect_sized("ensured to be sized above"),
+                        size >= offset + ty.layout::<T>().expect_size("ensured to be sized above"),
                         "Type::Union: field size does not fit union",
                     )?;
                     // This field may overlap with gaps between the chunks. That's perfectly normal
@@ -141,7 +141,7 @@ impl Type {
                 // And they must all fit into the size.
                 ensure_wf(size >= last_end, "Type::Union: chunks do not fit union")?;
             }
-            Enum { variants, size, discriminator, discriminant_ty, .. } => {
+            Enum { variants, size, align, discriminator, discriminant_ty } => {
                 // All the variants need to be well-formed and be the size of the enum so
                 // we don't have to handle different sizes in the memory representation.
                 // Also their alignment may not be larger than the total enum alignment and
@@ -153,14 +153,11 @@ impl Type {
                     )?;
 
                     variant.ty.check_wf::<T>()?;
-                    ensure_wf(
-                        SizeStrategy::Sized(size) == variant.ty.size::<T>(),
-                        "Type::Enum: variant size is not the same as enum size"
-                    )?;
-                    ensure_wf(
-                        variant.ty.align::<T>().bytes() <= self.align::<T>().bytes(),
-                       "Type::Enum: invalid align requirement"
-                    )?;
+                    let LayoutStrategy::Sized(var_size, var_align) = variant.ty.layout::<T>() else {
+                        throw_ill_formed!("Type::Enum: variant type is unsized")
+                    };
+                    ensure_wf(var_size == size, "Type::Enum: variant size is not the same as enum size")?;
+                    ensure_wf(var_align <= align, "Type::Enum: invalid align requirement")?;
                     for (offset, (value_type, value)) in variant.tagger {
                         value_type.check_wf()?;
                         ensure_wf(value_type.can_represent(value), "Type::Enum: invalid tagger value")?;
@@ -316,7 +313,7 @@ impl ValueExpr {
             }
             Load { source } => {
                 let val_ty = source.check_wf::<T>(locals, prog)?;
-                ensure_wf(val_ty.size::<T>().is_sized(), "ValueExpr::Load: unsized value type")?;
+                ensure_wf(val_ty.layout::<T>().is_sized(), "ValueExpr::Load: unsized value type")?;
                 val_ty
             }
             AddrOf { target, ptr_ty } => {
@@ -351,8 +348,8 @@ impl ValueExpr {
                                 Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
-                                ensure_wf(operand.size::<T>().is_sized(), "Cast::Transmute: unsized source type")?;
-                                ensure_wf(new_ty.size::<T>().is_sized(), "Cast::Transmute: unsized target type")?;
+                                ensure_wf(operand.layout::<T>().is_sized(), "Cast::Transmute: unsized source type")?;
+                                ensure_wf(new_ty.layout::<T>().is_sized(), "Cast::Transmute: unsized target type")?;
                                 new_ty
                             }
                         }
@@ -549,7 +546,7 @@ impl Statement {
                 let left = destination.check_wf::<T>(func.locals, prog)?;
                 let right = source.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(left == right, "Statement::Assign: destination and source type differ")?;
-                assert!(right.size::<T>().is_sized(), "ValueExpr always return sized types");
+                assert!(right.layout::<T>().is_sized(), "ValueExpr always return sized types");
             }
             PlaceMention(place) => {
                 place.check_wf::<T>(func.locals, prog)?;
@@ -571,11 +568,11 @@ impl Statement {
             }
             Validate { place, fn_entry: _ } => {
                 let ty = place.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(ty.size::<T>().is_sized(), "Statement::Validate: unsized place")?;
+                ensure_wf(ty.layout::<T>().is_sized(), "Statement::Validate: unsized place")?;
             }
             Deinit { place } => {
                 let ty = place.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(ty.size::<T>().is_sized(), "Statement::Deinit: unsized place")?;
+                ensure_wf(ty.layout::<T>().is_sized(), "Statement::Deinit: unsized place")?;
             }
             StorageLive(local) => {
                 ensure_wf(func.locals.contains_key(local), "Statement::StorageLive: invalid local variable")?;
@@ -637,10 +634,10 @@ impl Terminator {
             Intrinsic { intrinsic, arguments, ret, next_block } => {
                 // Return and argument expressions must all typecheck with some type.
                 let ret_ty = ret.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(ret_ty.size::<T>().is_sized(), "Terminator::Intrinsic: unsized return type")?;
+                ensure_wf(ret_ty.layout::<T>().is_sized(), "Terminator::Intrinsic: unsized return type")?;
                 for arg in arguments {
                     let arg_ty = arg.check_wf::<T>(func.locals, prog)?;
-                    ensure_wf(arg_ty.size::<T>().is_sized(), "Terminator::Intrinsic: unsized argument type")?;
+                    ensure_wf(arg_ty.layout::<T>().is_sized(), "Terminator::Intrinsic: unsized argument type")?;
                 }
 
                 // Currently only AtomicFetchAndOp has special well-formedness requirements.
@@ -663,10 +660,10 @@ impl Terminator {
 
                 // Return and argument expressions must all typecheck with some sized type.
                 let ret_ty = ret.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(ret_ty.size::<T>().is_sized(), "Terminator::Call: unsized return type")?;
+                ensure_wf(ret_ty.layout::<T>().is_sized(), "Terminator::Call: unsized return type")?;
                 for arg in arguments {
                     let arg_ty = arg.check_wf::<T>(func.locals, prog)?;
-                    ensure_wf(arg_ty.size::<T>().is_sized(), "Terminator::Call: unsized argument type")?;
+                    ensure_wf(arg_ty.layout::<T>().is_sized(), "Terminator::Call: unsized argument type")?;
                 }
 
                 if let Some(next_block) = next_block {
@@ -684,7 +681,7 @@ impl Function {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // Ensure all locals have a valid type.
         for ty in self.locals.values() {
-            ensure_wf(ty.size::<T>().is_sized(), "Function: unsized local variable")?;
+            ensure_wf(ty.layout::<T>().is_sized(), "Function: unsized local variable")?;
             ty.check_wf::<T>()?;
         }
 
@@ -742,10 +739,9 @@ impl Program {
             throw_ill_formed!("Program: start function does not exist");
         };
         ensure_wf(start.calling_convention == CallingConvention::C, "Program: start function has invalid calling convention")?;
-        let ret_size = start.locals[start.ret].size::<T>();
-        let ret_align = start.locals[start.ret].align::<T>();
+        let ret_layout = start.locals[start.ret].layout::<T>();
         ensure_wf(
-            ret_size == SizeStrategy::Sized(Size::ZERO) && ret_align == Align::ONE,
+            ret_layout == LayoutStrategy::Sized(Size::ZERO, Align::ONE),
             "Program: start function return local has invalid layout"
         )?;
         ensure_wf(start.args.is_empty(), "Program: start function has arguments")?;

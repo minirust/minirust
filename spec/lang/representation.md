@@ -220,7 +220,7 @@ impl Type {
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
                     offset.bytes(),
-                    ty.size::<M::T>().expect_sized("WF ensures all tuple fields are sized").bytes()
+                    ty.layout::<M::T>().expect_size("WF ensures all tuple fields are sized").bytes()
                 );
                 ty.decode::<M>(subslice)
             })?
@@ -247,7 +247,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
+        let elem_size = elem.layout::<M::T>().expect_size("WF ensures array element is sized");
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { panic!("decode of Type::Array with invalid length"); }
@@ -265,7 +265,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M::T>().expect_sized("WF ensures array element is sized").bytes());
+            assert_eq!(bytes.len(), elem.layout::<M::T>().expect_size("WF ensures array element is sized").bytes());
             bytes
         })
     }
@@ -692,6 +692,74 @@ If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we 
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
 
+## Typed memory accesses
+
+One key use of the value representation is to define a "typed" interface to memory.
+This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
+We also use this to lift retagging from pointers to compound values.
+
+```rust
+impl<M: Memory> ConcurrentMemory<M> {
+    fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
+        assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
+        let bytes = ty.encode::<M>(val);
+        self.store(ptr, bytes, align, atomicity)?;
+
+        ret(())
+    }
+
+    fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
+        let bytes = self.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
+        ret(match ty.decode::<M>(bytes) {
+            Some(val) => {
+                assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
+                val
+            }
+            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
+        })
+    }
+
+    /// Find all pointers in this value, ensure they are valid, and retag them.
+    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
+        ret(match (val, ty) {
+            // no (identifiable) pointers
+            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
+                val,
+            // base case
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
+                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+            // recurse into tuples/arrays/enums
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
+                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
+                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
+            _ =>
+                panic!("this value does not have that type"),
+        })
+    }
+}
+```
+
+## Relation to validity invariant
+
+One way we *could* also use the value representation (and the author thinks this is exceedingly elegant) is to define the validity invariant.
+Certainly, it is the case that if a list of bytes is not related to any value for a given type `T`, then that list of bytes is *invalid* for `T` and it should be UB to produce such a list of bytes at type `T`.
+We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
+`bytes` is valid for `ty` if `ty.decode::<M>(bytes).is_some()` returns `true`.
+
+For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
+The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
+This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything just falls out of how a "typed copy" applies the value representation.
+
+### Validity of pointers
+
+For pointers, validity just says that `ptr_ty.addr_valid` holds for the address.
+However, we often also want to ensure that safe pointers are dereferenceable and respect the desired aliasing discipline.
+This does not apply at each and every typed copy, so it is not really part of validity, but we do ensure these properties by performing retagging (which also checks dereferencability) on each `AddrOf` and `Validate`.
+Additionally, on `Deref` of a safe pointer we double-check that it is indeed dereferenceable.
+
 ## Transmutation
 
 The representation relation also says everything there is to say about "transmutation".
@@ -704,7 +772,10 @@ More precisely:
 impl<M: Memory> Machine<M> {
     /// Transmutes `val` from `type1` to `type2`.
     fn transmute(&self, val: Value<M>, type1: Type, type2: Type) -> Result<Value<M>> {
-        assert!(type1.size::<M::T>() == type2.size::<M::T>());
+        assert!(
+            type1.layout::<M::T>().expect_size("WF ensures sized operands")
+                == type2.layout::<M::T>().expect_size("WF ensures sized operands")
+        );        
         let bytes = type1.encode::<M>(val);
         if let Some(raw_value) = type2.decode::<M>(bytes) {
             self.check_value(raw_value, type2)?;

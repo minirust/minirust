@@ -143,6 +143,10 @@ impl IntType {
 }
 
 impl Type {
+    pub fn align<T: Target>(self) -> Align {
+        self.layout::<T>().expect_align("TODO: refactor these calls aswell")
+    }
+
     pub fn layout<T: Target>(self) -> LayoutStrategy {
         use Type::*;
         use LayoutStrategy::Sized;
