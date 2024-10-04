@@ -139,7 +139,7 @@ impl<M: Memory> Machine<M> {
         // *at the given type* -- the callee does not care about packed field projections or things like that!
         self.mem.deinit(
             place.ptr.thin_pointer,
-            ty.size::<M::T>().expect_sized("WF ensures arguments and return types are sized"),
+            ty.layout::<M::T>().expect_size("WF ensures arguments and return types are sized"),
             ty.align::<M::T>()
         )?;
         // FIXME: This also needs aliasing model support.

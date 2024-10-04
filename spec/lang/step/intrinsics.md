@@ -372,7 +372,7 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        let PointeeInfo { size: SizeStrategy::Sized(size), align, .. } = pointee else {
+        let PointeeInfo { layout: LayoutStrategy::Sized(size, align), .. } = pointee else {
             throw_ub!("invalid argument to `RawEq` intrinsic: unsized pointee");
         };
         let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
@@ -445,7 +445,7 @@ impl<M: Memory> Machine<M> {
         };
 
         let (val, ty) = arguments[1];
-        let SizeStrategy::Sized(size) = ty.size::<M::T>() else {
+        let LayoutStrategy::Sized(size, _) = ty.layout::<M::T>() else {
             throw_ub!("invalid second argument to `AtomicStore` intrinsic: unsized type");
         };
         let Some(align) = Align::from_bytes(size.bytes()) else {
@@ -477,7 +477,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a thin pointer");
         };
 
-        let size = ret_ty.size::<M::T>().expect_sized("WF ensures intrinsic return types are sized");
+        let size = ret_ty.layout::<M::T>().expect_size("WF ensures intrinsic return types are sized");
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid return type for `AtomicLoad` intrinsic: size not power of two");
         };
@@ -519,7 +519,7 @@ impl<M: Memory> Machine<M> {
         }
 
         // All integers are sized with a power of two size.
-        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
+        let size = ret_ty.layout::<M::T>().expect_size("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicCompareExchange` intrinsic: size too big");
@@ -565,7 +565,7 @@ impl<M: Memory> Machine<M> {
         };
 
         // All integers are sized with a power of two size.
-        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
+        let size = ret_ty.layout::<M::T>().expect_size("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: size too big");

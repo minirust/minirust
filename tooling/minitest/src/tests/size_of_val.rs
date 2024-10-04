@@ -5,8 +5,7 @@ use miniutil::DefaultTarget;
 fn assume_size_of_ty(f: &mut FunctionBuilder, size: usize, ty: Type) {
     // This is now kind of ugly, but there is no way to get a minirust reference type for a given minirust type anymore.
     let pointee = PointeeInfo {
-        size: ty.size::<DefaultTarget>(),
-        align: ty.align::<DefaultTarget>(),
+        layout: ty.layout::<DefaultTarget>(),
         inhabited: true,
         freeze: false,
         unpin: false,

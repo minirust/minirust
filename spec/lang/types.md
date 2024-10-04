@@ -142,39 +142,34 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> SizeStrategy {
-        use Type::*;
-        use SizeStrategy::Sized;
-        match self {
-            Int(int_type) => Sized(int_type.size),
-            Bool => Sized(Size::from_bytes_const(1)),
-            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE),
-            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE),
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
-            Array { elem, count } => Sized(
-                elem.size::<T>().expect_sized("WF ensures array element is sized") * count
-            ),
-            Slice { elem } => SizeStrategy::Slice(elem.size::<T>().expect_sized("WF ensures slice element is sized")),
-        }
+    pub fn align<T: Target>(self) -> Align {
+        self.layout::<T>().expect_align("TODO: refactor these calls aswell")
     }
 
-    pub fn align<T: Target>(self) -> Align {
+    pub fn layout<T: Target>(self) -> LayoutStrategy {
         use Type::*;
+        use LayoutStrategy::Sized;
         match self {
-            Int(int_type) => int_type.align::<T>(),
-            Bool => Align::ONE,
-            Ptr(_) => T::PTR_ALIGN,
-            Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
-            Array { elem, .. } | Slice { elem } => elem.align::<T>(),
+            Int(int_type) => Sized(int_type.size, int_type.align::<T>()),
+            Bool => Sized(Size::from_bytes_const(1), Align::ONE),
+            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
+            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
+            Tuple { size, align, .. } | Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
+            Array { elem, count } => Sized(
+                elem.layout::<T>().expect_size("WF ensures array element is sized") * count,
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
+            ),
+            Slice { elem } => LayoutStrategy::Slice(
+                elem.layout::<T>().expect_size("WF ensures slice element is sized"),
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
+            ),
         }
     }
 
     /// Returns the metadata kind when this type is used as a pointee.
     pub fn meta_kind(self) -> PointerMetaKind {
-        match self {
-            Type::Slice { .. } => PointerMetaKind::ElementCount,
-            _ => PointerMetaKind::None
-        }
+        // The metadata kind does not rely on the target, therefore we can give any target.
+        self.layout::<x86_64>().meta_kind()
     }
 }
 ```

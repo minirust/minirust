@@ -223,7 +223,7 @@ impl Type {
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
                     offset.bytes(),
-                    ty.size::<M::T>().expect_sized("WF ensures all tuple fields are sized").bytes()
+                    ty.layout::<M::T>().expect_size("WF ensures all tuple fields are sized").bytes()
                 );
                 ty.decode::<M>(subslice)
             })?
@@ -250,7 +250,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
+        let elem_size = elem.layout::<M::T>().expect_size("WF ensures array element is sized");
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { throw!(); }
@@ -268,7 +268,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M::T>().expect_sized("WF ensures array element is sized").bytes());
+            assert_eq!(bytes.len(), elem.layout::<M::T>().expect_size("WF ensures array element is sized").bytes());
             bytes
         })
     }
@@ -578,7 +578,7 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.size::<M::T>().expect_sized("the callers ensure `ty` is sized"), align, atomicity)?;
+        let bytes = self.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
@@ -640,7 +640,10 @@ More precisely:
 ```rust
 /// Transmutes `val` from `type1` to `type2`.
 fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
-    assert!(type1.size::<M::T>() == type2.size::<M::T>());
+    assert!(
+        type1.layout::<M::T>().expect_size("WF ensures sized operands")
+            == type2.layout::<M::T>().expect_size("WF ensures sized operands")
+    );
     let bytes = type1.encode::<M>(val);
     ret(type2.decode::<M>(bytes)?)
 }

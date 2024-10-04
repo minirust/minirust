@@ -88,24 +88,24 @@ impl PointerMetaKind {
 ## Pointee
 
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
-However, for unsized types the layout might depend on the pointer metadata, which gives rise to the "size strategy".
+However, for unsized types the size and align might depend on the pointer metadata, which gives rise to the "layout strategy".
 
 ```rust
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
-    pub size: SizeStrategy,
-    pub align: Align,
+    pub layout: LayoutStrategy,
     pub inhabited: bool,
     pub freeze: bool,
     pub unpin: bool,
 }
 
-/// Describes how the size of the value can be determined.
-pub enum SizeStrategy {
-    /// The type is statically `Sized`.
-    Sized(Size),
-    /// The type contains zero or more elements of the inner size.
-    Slice(Size),
+/// Describes how the size and align of the value can be determined.
+pub enum LayoutStrategy {
+    /// The type is statically `Sized` with the given size and align.
+    Sized(Size, Align),
+    /// The type contains zero or more elements of the inner layout.
+    /// The total size is a multiple of the element size and the align is exactly the element size.
+    Slice(Size, Align),
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -129,35 +129,52 @@ pub enum PtrType {
 
 
 ```rust
-impl SizeStrategy {
+impl LayoutStrategy {
     pub fn is_sized(self) -> bool {
-        matches!(self, SizeStrategy::Sized(_))
+        matches!(self, LayoutStrategy::Sized(_, _))
     }
 
     /// Returns the size when the type must be statically sized.
-    pub fn expect_sized(self, msg: &str) -> Size {
+    pub fn expect_size(self, msg: &str) -> Size {
         match self {
-            SizeStrategy::Sized(size) => size,
-            _ => panic!("expect_sized called on unsized type: {msg}"),
+            LayoutStrategy::Sized(size, _) => size,
+            _ => panic!("expect_size called on unsized type: {msg}"),
+        }
+    }
+
+    /// Returns the alignment when the type must be statically sized.
+    pub fn expect_align(self, msg: &str) -> Align {
+        match self {
+            LayoutStrategy::Sized(_, align) => align,
+            _ => panic!("expect_align called on unsized type: {msg}"),
         }
     }
 
     /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute(self, meta: Option<PointerMeta>) -> Size {
+    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
-            (SizeStrategy::Sized(size), None) => size,
+            (LayoutStrategy::Sized(size, _), None) => size,
             // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
-            (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
+    pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
+        match (self, meta) {
+            (LayoutStrategy::Sized(_, align), None) => align,
+            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
     /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute(meta)` is well-defined.
+    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
-            SizeStrategy::Sized(_) => PointerMetaKind::None,
-            SizeStrategy::Slice(_) => PointerMetaKind::ElementCount,
+            LayoutStrategy::Sized(_, _) => PointerMetaKind::None,
+            LayoutStrategy::Slice(_, _) => PointerMetaKind::ElementCount,
         }
     }
 }
@@ -172,10 +189,11 @@ impl PtrType {
     }
 
     pub fn addr_valid(self, addr: Address) -> bool {
-        if let Some(layout) = self.safe_pointee() {
+        if let Some(pointee) = self.safe_pointee() {
             // Safe addresses need to be non-null, aligned, and not point to an uninhabited type.
             // (Think: uninhabited types have impossible alignment.)
-            addr != 0 && layout.align.is_aligned(addr) && layout.inhabited
+            // FIXME(UnsizedTypes): Compute the alignment, don't assume it is sized.
+            addr != 0 && pointee.layout.expect_align("FIXME").is_aligned(addr) && pointee.inhabited
         } else {
             true
         }
@@ -183,7 +201,7 @@ impl PtrType {
 
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
-            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.size.meta_kind(),
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.layout.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
             PtrType::FnPtr => PointerMetaKind::None,
         }
