@@ -221,7 +221,7 @@ impl Type {
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
                     offset.bytes(),
-                    ty.size::<M::T>().expect_sized("WF ensures all tuple fields are sized").bytes()
+                    ty.layout::<M::T>().expect_size("WF ensures all tuple fields are sized").bytes()
                 );
                 ty.decode::<M>(subslice)
             })?
@@ -248,7 +248,7 @@ Note in particular that `decode` ignores the bytes which are before, between, or
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Array { elem, count }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
+        let elem_size = elem.layout::<M::T>().expect_size("WF ensures array element is sized");
         let full_size = elem_size * count;
 
         if bytes.len() != full_size.bytes() { panic!("decode of Type::Array with invalid length"); }
@@ -266,7 +266,7 @@ impl Type {
         assert_eq!(values.len(), count);
         values.flat_map(|value| {
             let bytes = elem.encode::<M>(value);
-            assert_eq!(bytes.len(), elem.size::<M::T>().expect_sized("WF ensures array element is sized").bytes());
+            assert_eq!(bytes.len(), elem.layout::<M::T>().expect_size("WF ensures array element is sized").bytes());
             bytes
         })
     }
@@ -453,16 +453,17 @@ impl<M: Memory> Machine<M> {
                 ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
                 // Safe pointer, i.e. references, boxes
-                if let Some(layout) = ptr_ty.safe_pointee() {
-                    let size = layout.size.compute(ptr.metadata);
-                    // The total size must be at most `isize::MAX`.
+                if let Some(pointee) = ptr_ty.safe_pointee() {
+                    let size = pointee.layout.compute_size(ptr.metadata);
+                    let align = pointee.layout.compute_align(ptr.metadata);
+                    // The total size of slices must be at most `isize::MAX`.
                     ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
                     // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
                     // (Think: uninhabited types have impossible alignment.)
                     ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-                    ensure_else_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-                    ensure_else_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                    ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                    ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
                     ensure_else_ub(
                         self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
                         "Value::Ptr: non-dereferenceable safe pointer"
@@ -535,7 +536,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.mem.load(ptr, ty.size::<M::T>().expect_sized("the callers ensure `ty` is sized"), align, atomicity)?;
+        let bytes = self.mem.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 // Ensures we only produce well-formed values.
@@ -552,8 +553,8 @@ impl<M: Memory> Machine<M> {
 
 There are some generic properties that `encode` and `decode` must satisfy.
 The most obvious part is consistency of size:
-- `ty.encode(value).len() == ty.size().expect_sized("")`
-- `ty.decode(bytes)` may assume this property: `bytes.len() == ty.size().expect_sized("")`
+- `ty.encode(value).len() == ty.layout().expect_size("")`
+- `ty.decode(bytes)` may assume this property: `bytes.len() == ty.layout().expect_size("")`
 
 More interestingly, we have some round-trip properties.
 For instance, starting with a valid value, encoding it, and then decoding it, must produce the same result.
@@ -708,7 +709,10 @@ More precisely:
 impl<M: Memory> Machine<M> {
     /// Transmutes `val` from `type1` to `type2`.
     fn transmute(&self, val: Value<M>, type1: Type, type2: Type) -> Result<Value<M>> {
-        assert!(type1.size::<M::T>() == type2.size::<M::T>());
+        assert!(
+            type1.layout::<M::T>().expect_size("WF ensures sized operands")
+                == type2.layout::<M::T>().expect_size("WF ensures sized operands")
+        );        
         let bytes = type1.encode::<M>(val);
         if let Some(raw_value) = type2.decode::<M>(bytes) {
             self.check_value(raw_value, type2)?;

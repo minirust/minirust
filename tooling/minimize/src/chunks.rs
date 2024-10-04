@@ -59,8 +59,9 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
         Type::Array { elem, count } => {
             let elem = elem.extract();
             for i in Int::ZERO..count {
-                let offset =
-                    i * elem.size::<DefaultTarget>().expect_sized("Array elements should be sized");
+                let offset = i * elem
+                    .layout::<DefaultTarget>()
+                    .expect_size("Array elements should be sized");
                 let offset = offset.bytes().try_to_usize().unwrap();
                 mark_used_bytes(elem, &mut markers[offset..]);
             }

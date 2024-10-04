@@ -88,24 +88,24 @@ impl PointerMetaKind {
 ## Pointee
 
 We sometimes need information what it is that a pointer points to, this is captured in a "pointer type".
-However, for unsized types the layout might depend on the pointer metadata, which gives rise to the "size strategy".
+However, for unsized types the size and align might depend on the pointer metadata, which gives rise to the "layout strategy".
 
 ```rust
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
-    pub size: SizeStrategy,
-    pub align: Align,
+    pub layout: LayoutStrategy,
     pub inhabited: bool,
     pub freeze: bool,
     pub unpin: bool,
 }
 
-/// Describes how the size of the value can be determined.
-pub enum SizeStrategy {
-    /// The type is statically `Sized`.
-    Sized(Size),
-    /// The type contains zero or more elements of the inner size.
-    Slice(Size),
+/// Describes how the size and align of the value can be determined.
+pub enum LayoutStrategy {
+    /// The type is statically `Sized` with the given size and align.
+    Sized(Size, Align),
+    /// The type contains zero or more elements of the inner layout.
+    /// The total size is a multiple of the element size and the align is exactly the element size.
+    Slice(Size, Align),
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -127,40 +127,7 @@ pub enum PtrType {
 }
 ```
 
-
 ```rust
-impl SizeStrategy {
-    pub fn is_sized(self) -> bool {
-        matches!(self, SizeStrategy::Sized(_))
-    }
-
-    /// Returns the size when the type must be statically sized.
-    pub fn expect_sized(self, msg: &str) -> Size {
-        match self {
-            SizeStrategy::Sized(size) => size,
-            _ => panic!("expect_sized called on unsized type: {msg}"),
-        }
-    }
-
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute(self, meta: Option<PointerMeta>) -> Size {
-        match (self, meta) {
-            (SizeStrategy::Sized(size), None) => size,
-            (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            _ => panic!("pointer meta data does not match type"),
-        }
-    }
-
-    /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute(meta)` is well-defined.
-    pub fn meta_kind(self) -> PointerMetaKind {
-        match self {
-            SizeStrategy::Sized(_) => PointerMetaKind::None,
-            SizeStrategy::Slice(_) => PointerMetaKind::ElementCount,
-        }
-    }
-}
-
 impl PtrType {
     /// If this is a safe pointer, return the pointee information.
     pub fn safe_pointee(self) -> Option<PointeeInfo> {
@@ -172,7 +139,7 @@ impl PtrType {
 
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
-            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.size.meta_kind(),
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.layout.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
             PtrType::FnPtr => PointerMetaKind::None,
         }

@@ -83,8 +83,8 @@ impl<M: Memory> Machine<M> {
                 ret((Value::Int(result), Type::Int(int_ty)))
             }
             Transmute(new_ty) => {
-                if old_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
-                    != new_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
+                if old_ty.layout::<M::T>().expect_size("WF ensures transmutes are sized")
+                    != new_ty.layout::<M::T>().expect_size("WF ensures transmutes are sized")
                 {
                     throw_ub!("transmute between types of different size")
                 }
@@ -133,7 +133,7 @@ impl<M: Memory> Machine<M> {
         let Type::Ptr(PtrType::Ref { pointee, .. }) = op_ty else { panic!("non-reference input to SizeOfVal") };
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to SizeOfVal") };
 
-        let size = pointee.size.compute(ptr.metadata);
+        let size = pointee.layout.compute_size(ptr.metadata);
         ret((Value::Int(size.bytes()), Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE })))
     }
 }
