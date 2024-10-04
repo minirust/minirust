@@ -25,23 +25,25 @@ impl IntType {
     }
 }
 
-impl SizeStrategy {
+impl LayoutStrategy {
+    /// This does *not* require that size is a multiple of align!
     fn check_wf<T: Target>(self) -> Result<()> {
+        // The align type is always well formed.
         match self {
-            SizeStrategy::Sized(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: size not valid")?; }
-            SizeStrategy::Slice(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: element size not valid")?; }
+            LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
+            LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
         };
 
         ret(())
     }
 
-    fn check_aligned_to(self, align: Align) -> Result<()> {
+    fn check_aligned(self) -> Result<()> {
         match self {
-            SizeStrategy::Sized(size) => {
-                ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned_to: size not a multiple of alignment")?;
+            LayoutStrategy::Sized(size, align) => {
+                ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: size not a multiple of alignment")?;
             }
-            SizeStrategy::Slice(size) => {
-                ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned_to: element size not a multiple of alignment")?;
+            LayoutStrategy::Slice(size, align) => {
+                ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
         };
 
@@ -52,8 +54,7 @@ impl SizeStrategy {
 impl PointeeInfo {
     fn check_wf<T: Target>(self) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        // TODO(UnsizedTypes): Ensure any future alignment strategy matches the size strategy.
-        self.size.check_wf::<T>()?;
+        self.layout.check_wf::<T>()?;
 
         ret(())
     }
@@ -176,10 +177,10 @@ impl Type {
         }
 
         // Now that we know the type is well-formed,
-        // we are allowed to call the size function to check that the size is valid and a multiple of the alignment.
-        let size = self.size::<T>();
-        size.check_wf::<T>()?;
-        size.check_aligned_to(self.align::<T>())?;
+        // we are allowed to call the layout function to check that the layout is valid and its size aligned.
+        let layout = self.layout::<T>();
+        layout.check_wf::<T>()?;
+        layout.check_aligned()?;
 
         ret(())
     }
