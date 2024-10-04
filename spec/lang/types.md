@@ -45,7 +45,7 @@ pub enum Type {
         // TODO: store whether this is a (SIMD) vector, and something about alignment?
     },
     /// Slices, i.e. `[T]` are unsized types which therefore cannot be represented as values.
-    /// Raw strings, i.e. `str` are treated as a `[u8]`.
+    /// This type is also used for strings: `str` are treated as `[u8]`.
     Slice {
         #[specr::indirection]
         elem: Type,

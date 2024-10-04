@@ -63,7 +63,7 @@ fn main() {
     // Check equality
     assert!(&slice[1..4] == &[-40, 30, -20]);
     assert!(slice[1..4] == [-40, 30, -20]);
-    // This would fails, since it specializes to `compare_bytes`
+    // This fails, since it uses the `compare_bytes` intrinsic.
     // let u8_slice: &[u8] = b"ABCABC";
     // assert!(&u8_slice[..2] == &u8_slice[2..4]);
 }
