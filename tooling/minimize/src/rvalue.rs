@@ -416,7 +416,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     stable_mir::mir::ProjectionElem::ConstantIndex {
                         offset,
                         from_end: false,
-                        ..
+                        // FIXME: Don't ignore this, instead raise UB.
+                        min_length: _,
                     } => build::index(expr, build::const_int(*offset as usize)),
                     smir::ProjectionElem::Downcast(variant_idx) => {
                         let root = GcCow::new(expr);

@@ -15,14 +15,16 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_int_un_op(op: IntUnOp, operand: Int, int_ty: IntType) -> Result<Int> {
+    /// Perform the operation on the mathematical integer `operand`,
+    /// but correcting for non-pure effects dependent of the `operand_ty`.
+    fn eval_int_un_op(op: IntUnOp, operand: Int, operand_ty: IntType) -> Result<Int> {
         use IntUnOp::*;
         ret(match op {
             // Put the result into the right range (in case of overflow).
-            Neg => int_ty.bring_in_bounds(-operand),
-            BitNot => int_ty.bring_in_bounds(!operand),
+            Neg => operand_ty.bring_in_bounds(-operand),
+            BitNot => !operand,
             // This can never overflow, as the total number of bits is below `u32::MAX`.
-            CountOnes => Self::eval_count_ones(operand, int_ty),
+            CountOnes => Self::eval_count_ones(operand, operand_ty),
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
@@ -34,9 +36,9 @@ impl<M: Memory> Machine<M> {
             _ => int_ty,
         };
 
-        // Perform the operation.
         let result = Value::Int(Self::eval_int_un_op(op, operand, int_ty)?);
 
+        // Sanity-check that the result of `eval_int_un_op` is in-bounds.
         result.check_wf(Type::Int(ret_ty))
             .expect("sanity check: result of UnOp::Int does not fit in the return type");
         ret((result, Type::Int(ret_ty)))
@@ -44,7 +46,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-The `CountOnes` aka `ctpop` is a rust intrinsic on different integer types that always returns a `u32`.
+`CountOnes` aka `ctpop` is a rust intrinsic on integer types that always returns a `u32`.
 This is not a pure function on mathematical integers,
 since the bit representation for non-negative values has infinite zeros,
 and infinite ones for negatives values.
@@ -57,7 +59,7 @@ impl<M: Memory> Machine<M> {
         let mut remaining_bits = operand;
         // Iterate once per bit in the bit width, afterwards the remaining bits are leading bits only.
         for _ in Int::ZERO..int_ty.size.bits() {
-            // Extract the least significant bit and set `remaining_bits` to all other bits.
+            // Extract the least significant bit and update `remaining_bits` to remove that bit.
             ones += remaining_bits & Int::ONE;
             remaining_bits >>= 1;
         }

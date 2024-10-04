@@ -45,7 +45,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     PointerMetaKind::None => (ecx.read_pointer(&val).unwrap(), None),
                     PointerMetaKind::ElementCount => {
                         let (thin, meta) = ecx.read_immediate(&val).unwrap().to_scalar_and_meta();
-                        let el_count = meta.unwrap_meta().to_u64().unwrap();
+                        let el_count = meta.unwrap_meta().to_target_usize(ecx).unwrap();
                         (thin.to_pointer(ecx).unwrap(), Some(build::const_int(el_count)))
                     }
                 };
