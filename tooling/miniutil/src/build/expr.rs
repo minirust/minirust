@@ -66,6 +66,10 @@ pub fn bit_not(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::BitNot), operand: GcCow::new(v) }
 }
 
+pub fn count_ones(v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::Int(IntUnOp::CountOnes), operand: GcCow::new(v) }
+}
+
 #[track_caller]
 pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     let Type::Int(t) = T::get_type() else {

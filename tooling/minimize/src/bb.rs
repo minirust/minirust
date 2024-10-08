@@ -330,6 +330,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 return TerminatorResult { stmts: list!(stmt), terminator };
             }
+            rs::sym::ctpop => {
+                let v = self.translate_operand(&args[0].node, span);
+                let destination = self.translate_place(&destination, span);
+
+                let val = build::count_ones(v);
+                let stmt = Statement::Assign { destination, source: val };
+
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                return TerminatorResult { stmts: list!(stmt), terminator };
+            }
             rs::sym::exact_div => {
                 let l = self.translate_operand(&args[0].node, span);
                 let r = self.translate_operand(&args[1].node, span);
@@ -442,6 +452,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 }
 
 // HACK to skip translating some functions we can't handle yet.
+// These always panic so we just turn them into the panic intrinsic.
 fn is_panic_fn(name: &str) -> bool {
-    name == "core::panicking::panic" || name == "core::panicking::panic_nounwind"
+    let fns = [
+        "core::panicking::panic",
+        "core::panicking::panic_fmt",
+        "core::panicking::panic_nounwind",
+        "core::slice::index::slice_start_index_len_fail",
+        "core::slice::index::slice_end_index_len_fail",
+        "core::slice::index::slice_index_order_fail",
+        "core::str::slice_error_fail",
+    ];
+    fns.contains(&name)
 }

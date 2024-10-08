@@ -413,6 +413,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let root = GcCow::new(expr);
                         PlaceExpr::Index { root, index: i }
                     }
+                    stable_mir::mir::ProjectionElem::ConstantIndex {
+                        offset,
+                        from_end: false,
+                        // FIXME: Don't ignore this, instead raise UB.
+                        min_length: _,
+                    } => build::index(expr, build::const_int(*offset as usize)),
                     smir::ProjectionElem::Downcast(variant_idx) => {
                         let root = GcCow::new(expr);
                         let discriminant =
@@ -420,7 +426,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         PlaceExpr::Downcast { root, discriminant }
                     }
 
-                    stable_mir::mir::ProjectionElem::ConstantIndex { .. }
+                    stable_mir::mir::ProjectionElem::ConstantIndex { from_end: true, .. }
                     | stable_mir::mir::ProjectionElem::Subslice { .. }
                     | stable_mir::mir::ProjectionElem::OpaqueCast(_)
                     | stable_mir::mir::ProjectionElem::Subtype(_) => {
