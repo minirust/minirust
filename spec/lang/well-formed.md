@@ -33,6 +33,7 @@ impl SizeStrategy {
         match self {
             SizeStrategy::Sized(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: size not valid")?; }
             SizeStrategy::Slice(size) => { ensure_wf(T::valid_size(size), "SizeStrategy: element size not valid")?; }
+            SizeStrategy::TraitObject => (),
         };
 
         ret(())
@@ -46,6 +47,8 @@ impl SizeStrategy {
             SizeStrategy::Slice(size) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned_to: element size not a multiple of alignment")?;
             }
+            // FIXME(UnsizedTypes): Do we need some information to check alignment here?
+            SizeStrategy::TraitObject => (),
         };
 
         ret(())
@@ -68,7 +71,7 @@ impl PtrType {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw { .. } | PtrType::FnPtr => ()
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => ()
         }
 
         ret(())
@@ -176,6 +179,7 @@ impl Type {
                 // can be represented by the discriminant type.
                 discriminator.check_wf::<T>(size, variants)?;
             }
+            TraitObject => (),
         }
 
         // Now that we know the type is well-formed,
@@ -235,6 +239,10 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(ptr_ty)) => {
                 ensure_wf(matches!(ptr_ty, PtrType::FnPtr), "Constant::FnPointer: non function pointer type")?;
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
+            }
+            (Constant::VTablePointer(vtable_name), Type::Ptr(ptr_ty)) => {
+                ensure_wf(matches!(ptr_ty, PtrType::VTablePtr), "Constant::VTablePointer: non vtable pointer type")?;
+                ensure_wf(prog.vtables.contains_key(vtable_name), "Constant::VTablePointer: invalid vtable name")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
@@ -315,6 +323,17 @@ impl ValueExpr {
                     throw_ill_formed!("ValueExpr::GetDiscriminant: invalid type");
                 };
                 Type::Int(discriminant_ty)
+            }
+            VTableLookup { expr, method: _ } => {
+                let Type::Ptr(ptr_ty) = expr.check_wf::<T>(locals, prog)? else {
+                    throw_ill_formed!("ValueExpr::VTableLookup: invalid type");
+                };
+                ensure_wf(ptr_ty.meta_kind() == PointerMetaKind::VTablePointer, "ValueExpr::VTableLookup: invalid pointee")?;
+
+                // We do not statically have enough information to check that the method name exists in the right vtable,
+                // but this is only a type safety problem, which we don't catch anyways.
+
+                Type::Ptr(PtrType::FnPtr)
             }
             Load { source } => {
                 let val_ty = source.check_wf::<T>(locals, prog)?;
@@ -726,6 +745,8 @@ impl Relocation {
     }
 }
 
+// TODO(UnsizedTypes): WF for VTables
+
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
         // Check all the functions.
@@ -774,6 +795,7 @@ impl<M: Memory> Value<M> {
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
+                // TODO(UnsizedTypes): ensure metadata is well formed: element count should not lead to overflowing size & vtable exists.
                 ensure_wf(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
                 ensure_wf(ptr_ty.addr_valid(ptr.thin_pointer.addr), "Value::Ptr: invalid pointer address")?;
                 ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
@@ -803,6 +825,7 @@ impl<M: Memory> Value<M> {
                 data.check_wf(variant.ty)?;
             }
             (_, Type::Slice { .. }) => throw_ill_formed!("Value: slices cannot be represented as values"),
+            (_, Type::TraitObject) => throw_ill_formed!("Value: trait objects cannot be represented as values"),
             _ => throw_ill_formed!("Value: value does not match type")
         }
 

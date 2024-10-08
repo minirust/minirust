@@ -12,6 +12,9 @@ use ty::*;
 mod global;
 use global::*;
 
+mod vtables;
+use vtables::*;
+
 // Print a program to stdout.
 pub fn dump_program(prog: Program) {
     let s = fmt_program(prog);
@@ -25,6 +28,7 @@ pub fn fmt_program(prog: Program) -> String {
     let functions_string = fmt_functions(prog, &mut comptypes);
     let comptypes_string = fmt_comptypes(comptypes);
     let globals_string = fmt_globals(prog.globals);
+    let vtables_string = fmt_vtables(prog.vtables);
 
-    comptypes_string + &functions_string + &globals_string
+    comptypes_string + &functions_string + &globals_string + &vtables_string
 }

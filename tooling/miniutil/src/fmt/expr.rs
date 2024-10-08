@@ -78,6 +78,8 @@ pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
         Constant::GlobalPointer(relocation) => fmt_relocation(relocation),
         Constant::FnPointer(fn_name) => FmtExpr::Atomic(fmt_fn_name(fn_name)),
+        Constant::VTablePointer(vt_name) =>
+            FmtExpr::Atomic(format!("vt{id}", id = vt_name.0.get_internal())),
         Constant::PointerWithoutProvenance(addr) =>
             if addr == 0 {
                 FmtExpr::Atomic(format!("nullptr"))
@@ -114,6 +116,13 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
         ValueExpr::GetDiscriminant { place } => {
             let place = fmt_place_expr(place.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("discriminant({place})"))
+        }
+        ValueExpr::VTableLookup { expr, method } => {
+            let expr = fmt_value_expr(expr.extract(), comptypes).to_string();
+            FmtExpr::Atomic(format!(
+                "vtable_lookup<m{m_id}>({expr})",
+                m_id = method.0.get_internal()
+            ))
         }
         ValueExpr::Load { source } => {
             let source = source.extract();
@@ -152,7 +161,7 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 }
                 UnOp::GetThinPointer => FmtExpr::Atomic(format!("get_thin_ptr({operand})")),
                 UnOp::GetMetadata => FmtExpr::Atomic(format!("get_metadata({operand})")),
-                UnOp::SizeOfVal => FmtExpr::NonAtomic(format!("size_of_val({operand})")),
+                UnOp::SizeOfVal => FmtExpr::Atomic(format!("size_of_val({operand})")),
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {

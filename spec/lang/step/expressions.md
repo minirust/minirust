@@ -43,6 +43,12 @@ impl<M: Memory> Machine<M> {
                     provenance: None,
                 }.widen(None))
             },
+            Constant::VTablePointer(vtable_name) => {
+                Value::Ptr(ThinPointer {
+                    addr: self.vtable_addrs[vtable_name],
+                    provenance: None,
+                }.widen(None))
+            },
             Constant::PointerWithoutProvenance(addr) => {
                 Value::Ptr(ThinPointer {
                     addr,
@@ -125,6 +131,37 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+### VTable Lookups
+
+Dynamic dispatch in MiniRust is represented as a `Call` to the result of an explicit `VTableLookup` expression.
+This expression works on a wide pointer to a trait object, which contains the name for the objects vtable in the metadata.
+Which method is invoked is represented by the `method` parameter, which corresponds to a function of the trait.
+The objects vtable must be for the trait the method belongs to, which is enforced by keeping `TraitMethodName`' globally unique.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_value(&mut self, ValueExpr::VTableLookup { expr, method } : ValueExpr) -> Result<(Value<M>, Type)> {
+        let (Value::Ptr(ptr), Type::Ptr(_ptr_ty)) = self.eval_value(expr)? else {
+            panic!("vtable loopup on non-pointer");
+        };
+        let Some(PointerMeta::VTablePointer(vtableptr)) = ptr.metadata else {
+            panic!("vtable loopup on non-trait-object-pointer");
+        };
+        let vtable = self.vtable_from_addr(vtableptr.addr)?;
+        let Some(fn_name) = vtable.methods.get(method) else {
+            // This would be a type error, but since we don't store the trait, we do not type check this.
+            throw_ub!("the referenced vtable does not have an entry for the invoked method");
+        };
+        let fn_ptr = Value::Ptr(ThinPointer {
+            addr: self.fn_addrs[fn_name],
+            provenance: None,
+        }.widen(None));
+
+        ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
+    }
+}
+```
+
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").
@@ -166,8 +203,9 @@ impl<M: Memory> Machine<M> {
             throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
         }
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
+        let size_computer = self.size_computer();
         let ptr = self.mutate_cur_frame(|frame, mem| {
-            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false)
+            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, size_computer)
         })?;
         if !ptr_ty.meta_kind().matches(ptr.metadata) {
             // The metadata kind is checked in WF.
@@ -252,7 +290,8 @@ impl<M: Memory> Machine<M> {
         // (We don't do a full retag here, this is not considered creating a new pointer.)
         if let Some(layout) = ptr_type.safe_pointee() {
             assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
+            let size = layout.size.compute(ptr.metadata, |ptr| self.vtable_from_addr(ptr.addr))?;
+            self.mem.dereferenceable(ptr.thin_pointer, size)?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
@@ -275,7 +314,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
+        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata, self.prog.vtables)?);
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
@@ -304,7 +343,7 @@ impl<M: Memory> Machine<M> {
         let elem_size = elem_ty.size::<M::T>().expect_sized("WF ensures array & slice elements are sized");
         let offset = index * elem_size;
         assert!(
-            offset <= ty.size::<M::T>().compute(root.ptr.metadata),
+            offset <= ty.size::<M::T>().compute(root.ptr.metadata, self.prog.vtables)?,
             "sanity check: the indexed offset should not be outside what the type allows."
         );
 

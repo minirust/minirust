@@ -100,7 +100,7 @@ impl<M: Memory> Machine<M> {
         let Type::Ptr(PtrType::Ref { pointee, .. }) = op_ty else { panic!("non-reference input to SizeOfVal") };
         let Value::Ptr(ptr) = operand else { panic!("non-pointer input to SizeOfVal") };
 
-        let size = pointee.size.compute(ptr.metadata);
+        let size = pointee.size.compute(ptr.metadata, self.prog.vtables)?;
         ret((Value::Int(size.bytes()), Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE })))
     }
 }

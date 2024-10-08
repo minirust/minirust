@@ -129,6 +129,7 @@ impl PointerMetaKind {
         match self {
             PointerMetaKind::None => None,
             PointerMetaKind::ElementCount => Some(Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })),
+            PointerMetaKind::VTablePointer => Some(Type::Ptr(PtrType::VTablePtr)),
         }
     }
 }
@@ -148,10 +149,16 @@ impl PtrType {
     }
 }
 
-impl PointerMeta {
-    fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
+impl<Provenance> PointerMeta<Provenance> {
+    fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta<Provenance>> 
+        // FIXME: ensure this bound somehow
+        where M::Provenance == Provenance 
+    {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
+            // This can already be considered UB, if the vtable addr is invalid,
+            // but we can't check this here.
+            Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
             _ => None,
         }
     }
@@ -159,6 +166,7 @@ impl PointerMeta {
     fn into_value<M: Memory>(self) -> Value<M> {
         match self {
             PointerMeta::ElementCount(count) => Value::Int(count),
+            PointerMeta::VTablePointer(ptr) => Value::Ptr(ptr.widen(None)),
         }
     }
 }
@@ -173,7 +181,7 @@ impl Type {
             let Value::Ptr(ptr) = parts[0] else {
                 panic!("as_wide_pair always returns tuple with the first field being a thin pointer");
             };
-            let meta = PointerMeta::from_value(parts[1]);
+            let meta = PointerMeta::<M::Provenance>::from_value(parts[1]);
             assert!(meta.is_some(), "as_wide_pair always returns a suitable metadata type");
             ret(Value::Ptr(ptr.thin_pointer.widen(meta)))
         } else {
@@ -411,6 +419,15 @@ impl Type {
         panic!("tried to endoce a slice")
     }
 }
+
+impl Type {
+    fn decode<M: Memory>(Type::TraitObject: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("tried to decode a trait object")
+    }
+    fn encode<M: Memory>(Type::TraitObject: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("tried to endoce a trait object")
+    }
+}
 ```
 
 ## Generic properties
@@ -589,21 +606,24 @@ impl<M: Memory> ConcurrentMemory<M> {
     }
 
     /// Find all pointers in this value, ensure they are valid, and retag them.
-    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
+    fn retag_val(
+        &mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool,
+        size_computer: impl Fn(SizeStrategy, Option<PointerMeta>) -> Result<Size> + Clone,
+    ) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
                 val,
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, size_computer)?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry, size_computer.clone()))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
+                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry, size_computer.clone()))?),
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
+                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry, size_computer)? },
             _ =>
                 panic!("this value does not have that type"),
         })

@@ -100,7 +100,8 @@ impl<M: Memory> Machine<M> {
         // WF ensures all validate expressions are sized.
         let val = self.mem.place_load(place, ty)?;
 
-        let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
+        let size_computer = self.size_computer();
+        let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry, size_computer) })?;
 
         self.mem.place_store(place, val, ty)?;
 

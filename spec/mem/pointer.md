@@ -25,6 +25,9 @@ We therefore use the term *thin pointer* for what has been described above, and 
 /// of the address space.
 pub type Address = Int;
 
+/// A "vtable name" is a identifier for a vtable somewhere in memory.
+pub struct VTableName(pub libspecr::Name);
+
 /// A "thin pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
@@ -34,15 +37,18 @@ pub struct ThinPointer<Provenance> {
 }
 
 /// The runtime metadata that can be stored in a wide pointer.
-pub enum PointerMeta {
+pub enum PointerMeta<Provenance> {
+    /// The metadata counts the number of elements in the slice.
     ElementCount(Int),
+    /// The metadata points to a vtable referred to by this name.
+    VTablePointer(ThinPointer<Provenance>),
 }
 
 /// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.
 /// This corresponds to the Rust raw pointer types, as well as references and boxes.
 pub struct Pointer<Provenance> {
     pub thin_pointer: ThinPointer<Provenance>,
-    pub metadata: Option<PointerMeta>,
+    pub metadata: Option<PointerMeta<Provenance>>,
 }
 
 /// The statically known kind of metadata stored with a pointer.
@@ -50,6 +56,7 @@ pub struct Pointer<Provenance> {
 pub enum PointerMetaKind {
     None,
     ElementCount,
+    VTablePointer,
 }
 
 impl<Provenance> ThinPointer<Provenance> {
@@ -61,7 +68,7 @@ impl<Provenance> ThinPointer<Provenance> {
         ThinPointer { addr, ..self }
     }
 
-    pub fn widen(self, metadata: Option<PointerMeta>) -> Pointer<Provenance> {
+    pub fn widen(self, metadata: Option<PointerMeta<Provenance>>) -> Pointer<Provenance> {
         Pointer {
             thin_pointer: self,
             metadata,
@@ -69,16 +76,17 @@ impl<Provenance> ThinPointer<Provenance> {
     }
 }
 
-impl PointerMeta {
+impl PointerMeta<Provenance> {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             PointerMeta::ElementCount(_) => PointerMetaKind::ElementCount,
+            PointerMeta::VTablePointer(_) => PointerMetaKind::VTablePointer,
         }
     }
 }
 
 impl PointerMetaKind {
-    pub fn matches(self, meta: Option<PointerMeta>) -> bool {
+    pub fn matches(self, meta: Option<PointerMeta<Provenance>>) -> bool {
         let expected_kind = meta.map(PointerMeta::meta_kind).unwrap_or(PointerMetaKind::None);
         self == expected_kind
     }
@@ -100,12 +108,15 @@ pub struct PointeeInfo {
     pub unpin: bool,
 }
 
+// TODO(UnsizedTypes): This will need to be a `LayoutStrategy` / `SizeAndAlignStrategy`.
 /// Describes how the size of the value can be determined.
 pub enum SizeStrategy {
     /// The type is statically `Sized`.
     Sized(Size),
     /// The type contains zero or more elements of the inner size.
     Slice(Size),
+    /// The size of the type must be looked up in the VTable of a wide pointer.
+    TraitObject,
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -124,42 +135,7 @@ pub enum PtrType {
         meta_kind: PointerMetaKind,
     },
     FnPtr,
-}
-```
-
-
-```rust
-impl SizeStrategy {
-    pub fn is_sized(self) -> bool {
-        matches!(self, SizeStrategy::Sized(_))
-    }
-
-    /// Returns the size when the type must be statically sized.
-    pub fn expect_sized(self, msg: &str) -> Size {
-        match self {
-            SizeStrategy::Sized(size) => size,
-            _ => panic!("expect_sized called on unsized type: {msg}"),
-        }
-    }
-
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute(self, meta: Option<PointerMeta>) -> Size {
-        match (self, meta) {
-            (SizeStrategy::Sized(size), None) => size,
-            // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
-            (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            _ => panic!("pointer meta data does not match type"),
-        }
-    }
-
-    /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute(meta)` is well-defined.
-    pub fn meta_kind(self) -> PointerMetaKind {
-        match self {
-            SizeStrategy::Sized(_) => PointerMetaKind::None,
-            SizeStrategy::Slice(_) => PointerMetaKind::ElementCount,
-        }
-    }
+    VTablePtr,
 }
 
 impl PtrType {
@@ -167,7 +143,7 @@ impl PtrType {
     pub fn safe_pointee(self) -> Option<PointeeInfo> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
-            PtrType::Raw { .. } | PtrType::FnPtr => None,
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => None,
         }
     }
 
@@ -185,7 +161,7 @@ impl PtrType {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.size.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
-            PtrType::FnPtr => PointerMetaKind::None,
+            PtrType::FnPtr | PtrType::VTablePtr => PointerMetaKind::None,
         }
     }
 }
