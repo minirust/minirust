@@ -22,7 +22,8 @@ impl<M: Memory> Machine<M> {
         ret(match op {
             // Put the result into the right range (in case of overflow).
             Neg => operand_ty.bring_in_bounds(-operand),
-            // Put the result into the right range (in case of a unsigned numbers).
+            // Put the result into the right range (in case of a unsigned numbers, which `!`
+            // makes negative by inverting all the leading zeros).
             BitNot => operand_ty.bring_in_bounds(!operand),
             // This can never overflow, as the total number of bits is below `u32::MAX`.
             CountOnes => Self::eval_count_ones(operand, operand_ty),
