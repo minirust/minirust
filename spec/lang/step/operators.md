@@ -48,7 +48,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-`CountOnes` aka `ctpop` is a rust intrinsic on integer types that always returns a `u32`.
+`CountOnes` aka `ctpop` is a Rust intrinsic on integer types that always returns a `u32`.
 This is not a pure function on mathematical integers,
 since the bit representation for non-negative values has infinite zeros,
 and infinite ones for negatives values.
