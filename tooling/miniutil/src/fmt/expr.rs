@@ -142,6 +142,8 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             match operator {
                 UnOp::Int(IntUnOp::Neg) => FmtExpr::NonAtomic(format!("-({operand})")),
                 UnOp::Int(IntUnOp::BitNot) => FmtExpr::NonAtomic(format!("!({operand}")),
+                UnOp::Int(IntUnOp::CountOnes) =>
+                    FmtExpr::NonAtomic(format!("count_ones({operand}")),
                 UnOp::Cast(CastOp::IntToInt(int_ty)) => {
                     let int_ty = fmt_int_type(int_ty);
                     FmtExpr::Atomic(format!("int2int<{int_ty}>({operand})"))

@@ -333,11 +333,17 @@ impl ValueExpr {
 
                 let operand = operand.check_wf::<T>(locals, prog)?;
                 match operator {
-                    Int(_int_op) => {
+                    Int(int_op) => {
                         let Type::Int(int_ty) = operand else {
                             throw_ill_formed!("UnOp::Int: invalid operand");
                         };
-                        Type::Int(int_ty)
+
+                        let ret_ty = match int_op {
+                            IntUnOp::CountOnes => IntType { signed: Unsigned, size: Size::from_bytes(4).unwrap() },
+                            _ => int_ty,
+                        };
+
+                        Type::Int(ret_ty)
                     }
                     Cast(cast_op) => {
                         use lang::CastOp::*;
