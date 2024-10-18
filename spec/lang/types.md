@@ -86,6 +86,11 @@ pub enum Type {
         /// this is independent of the fields' alignment.
         align: Align,
     },
+    /// This is surprisingly not used for method invocation I think, as only the pointer metadata counts.
+    /// I actually think this is not used at all in MiniRust. Since an `dyn Foo` Place can do nothing, not assigning to it, 
+    /// not field or index projection.
+    /// It might be used in minimize. ??
+    TraitObject,
 }
 
 pub struct IntType {
@@ -129,7 +134,7 @@ They *do* have a mutability since that is (or will be) relevant for the memory m
 
 ## Layout of a type
 
-Here we define how to compute the size and other layout properties of a type.
+Here we define the size and other layout properties of a type.
 
 ```rust
 impl IntType {
@@ -156,6 +161,7 @@ impl Type {
                 elem.size::<T>().expect_sized("WF ensures array element is sized") * count
             ),
             Slice { elem } => SizeStrategy::Slice(elem.size::<T>().expect_sized("WF ensures slice element is sized")),
+            TraitObject => SizeStrategy::TraitObject,
         }
     }
 
@@ -167,6 +173,8 @@ impl Type {
             Ptr(_) => T::PTR_ALIGN,
             Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
             Array { elem, .. } | Slice { elem } => elem.align::<T>(),
+            // FIXME: This is wrong, need to be encode in AlignStrategy.
+            TraitObject => T::PTR_ALIGN,
         }
     }
 
@@ -174,7 +182,57 @@ impl Type {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
+            Type::TraitObject => PointerMetaKind::VTablePointer,
             _ => PointerMetaKind::None
+        }
+    }
+}
+```
+
+And we also define how to compute the actual size, based on additional state.
+
+```rust
+impl SizeStrategy {
+    pub fn is_sized(self) -> bool {
+        matches!(self, SizeStrategy::Sized(_))
+    }
+
+    /// Returns the size when the type must be statically sized.
+    pub fn expect_sized(self, msg: &str) -> Size {
+        match self {
+            SizeStrategy::Sized(size) => size,
+            _ => panic!("expect_sized called on unsized type: {msg}"),
+        }
+    }
+
+    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    pub fn compute<Provenance>(
+        self,
+        meta: Option<PointerMeta<Provenance>>,
+        vtable_lookup: impl FnOnce(ThinPointer<Provenance>) -> Result<VTable>
+    ) -> Result<Size> {
+        match (self, meta) {
+            (SizeStrategy::Sized(size), None) => ret(size),
+            (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => {
+                let raw_size = count * elem_size;
+                // FIXME(UnsizedTypes): We need to raise UB if the resulting size is too big.
+                ret(raw_size)
+            }
+            (SizeStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => {
+                let vtable = vtable_lookup(vtable_ptr)?;
+                ret(vtable.size)
+            }
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Returns the metadata kind which is needed to compute this strategy,
+    /// i.e `self.meta_kind().matches(meta)` implies `self.compute(meta, _)` does not panic.
+    pub fn meta_kind(self) -> PointerMetaKind {
+        match self {
+            SizeStrategy::Sized(_) => PointerMetaKind::None,
+            SizeStrategy::Slice(_) => PointerMetaKind::ElementCount,
+            SizeStrategy::TraitObject => PointerMetaKind::VTablePointer,
         }
     }
 }

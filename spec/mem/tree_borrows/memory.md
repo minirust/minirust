@@ -234,9 +234,10 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr: Pointer<Self::Provenance>,
         ptr_type: PtrType,
         fn_entry: bool,
+        size_computer: impl Fn(SizeStrategy, Option<PointerMeta>) -> Result<Size>,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(if let Some((permission, size, protected)) = Self::ptr_permissions(ptr_type, fn_entry) {
-            let pointee_size = size.compute(ptr.metadata);
+            let pointee_size = size_computer(size, ptr.metadata)?;
             self.reborrow(ptr.thin_pointer, pointee_size, permission, protected, frame_extra)?.widen(ptr.metadata)
         } else {
             ptr
