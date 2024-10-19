@@ -159,7 +159,7 @@ impl<M: Memory> Machine<M> {
             ArgumentExpr::InPlace(place) => {
                 let (place, ty) = self.eval_place(place)?;
                 // Fetch the actual value, WF ensures all Call arguments are sized.
-                let value = self.mem.place_load(place, ty)?;
+                let value = self.place_load(place, ty)?;
                 // Make sure we can use it in-place.
                 self.prepare_for_inplace_passing(place, ty)?;
 
@@ -215,7 +215,7 @@ impl<M: Memory> Machine<M> {
             // Copy the value at caller (source) type -- that's necessary since it is the type we did the load at (in `eval_argument`).
             // We know the types have compatible layout so this will fit into the allocation.
             // The local is freshly allocated so there should be no reason the store can fail.
-            self.mem.typed_store(frame.locals[callee_local], caller_val, caller_ty, caller_ty.align::<M::T>(), Atomicity::None).unwrap();
+            self.typed_store(frame.locals[callee_local], caller_val, caller_ty, caller_ty.align::<M::T>(), Atomicity::None).unwrap();
         }
 
         ret(frame)
@@ -303,7 +303,7 @@ impl<M: Memory> Machine<M> {
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
         let callee_ty = frame.func.locals[frame.func.ret];
         let align = callee_ty.align::<M::T>();
-        let ret_val = self.mem.typed_load(frame.locals[frame.func.ret], callee_ty, align, Atomicity::None)?;
+        let ret_val = self.typed_load(frame.locals[frame.func.ret], callee_ty, align, Atomicity::None)?;
 
         // Deallocate everything.
         while let Some(local) = frame.locals.keys().next() {
@@ -325,7 +325,7 @@ impl<M: Memory> Machine<M> {
                 assert!(self.active_thread().stack.len() > 0);
                 // Store the return value where the caller wanted it.
                 // Crucially, we are doing the store at the same type as the load above.
-                self.mem.typed_store(caller_ret_ptr, ret_val, callee_ty, align, Atomicity::None)?;
+                self.typed_store(caller_ret_ptr, ret_val, callee_ty, align, Atomicity::None)?;
                 // Jump to where the caller wants us to jump.
                 if let Some(next_block) = next_block {
                     self.jump_to_block(next_block)?;
@@ -362,7 +362,7 @@ impl<M: Memory> Machine<M> {
 
         // Store return value.
         // `eval_intrinsic` above must guarantee that `value` has the right type.
-        self.mem.place_store(ret_place, value, ret_ty)?;
+        self.place_store(ret_place, value, ret_ty)?;
 
         // Jump to next block.
         if let Some(next_block) = next_block {

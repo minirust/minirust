@@ -4,9 +4,6 @@ The various syntactic constructs of MiniRust (types, functions, ...) come with w
 The idea is that for well-formed programs, the `step` function will never panic.
 Those requirements are defined in this file.
 
-We also define the idea of a "value being well-formed at a type".
-`decode` will only ever return well-formed values, and `encode` will never panic on a well-formed value.
-
 Note that `check_wf` functions for testing well-formedness return `Result<()>` to pass information in case an error occured.
 
 We use the following helper function to convert Boolean checks into this form.
@@ -376,7 +373,7 @@ impl ValueExpr {
                             matches!(operand, Type::Ptr(PtrType::Ref { .. })),
                             "UnOp::SizeOfVal: invalid operand: not a reference"
                         )?;
-                        Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })
+                        Type::Int(IntType::usize_ty::<T>())
                     }
                 }
             }
@@ -656,7 +653,7 @@ impl Terminator {
                 }
 
                 if let Some(next_block) = next_block {
-                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
+                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Intrinsic: next block does not exist")?;
                 }
             }
             Call { callee, calling_convention: _, arguments, ret, next_block } => {
@@ -761,55 +758,6 @@ impl Program {
 
                 relocation.check_wf(self.globals)?;
             }
-        }
-
-        ret(())
-    }
-}
-```
-
-## Well-formed values
-
-```rust
-impl<M: Memory> Value<M> {
-    /// We assume `ty` is itself well-formed.
-    fn check_wf(self, ty: Type) -> Result<()> {
-        match (self, ty) {
-            (Value::Int(i), Type::Int(ity)) => {
-                ensure_wf(ity.can_represent(i), "Value::Int: invalid integer value")?;
-            }
-            (Value::Bool(_), Type::Bool) => {},
-            (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure_wf(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
-                ensure_wf(ptr_ty.addr_valid(ptr.thin_pointer.addr), "Value::Ptr: invalid pointer address")?;
-                ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
-            }
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure_wf(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
-                for (val, (_, ty)) in vals.zip(fields) {
-                    val.check_wf(ty)?;
-                }
-            }
-            (Value::Tuple(vals), Type::Array { elem, count }) => {
-                ensure_wf(vals.len() == count, "Value::Tuple: invalid number of elements")?;
-                for val in vals {
-                    val.check_wf(elem)?;
-                }
-            }
-            (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
-                ensure_wf(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
-                for (data, (_, size)) in chunk_data.zip(chunks) {
-                    ensure_wf(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
-                }
-            }
-            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
-                let Some(variant) = variants.get(discriminant) else {
-                    throw_ill_formed!("Value::Variant: invalid discrimant type");
-                };
-                data.check_wf(variant.ty)?;
-            }
-            (_, Type::Slice { .. }) => throw_ill_formed!("Value: slices cannot be represented as values"),
-            _ => throw_ill_formed!("Value: value does not match type")
         }
 
         ret(())

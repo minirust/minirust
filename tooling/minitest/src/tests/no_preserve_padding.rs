@@ -40,6 +40,6 @@ fn no_preserve_padding() {
     dump_program(p);
     assert_ub::<BasicMem>(
         p,
-        "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant",
+        "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the language invariant",
     );
 }

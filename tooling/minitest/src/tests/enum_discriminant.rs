@@ -190,7 +190,7 @@ fn ub_discriminant_does_not_init() {
     let program = program(&[function(Ret::No, 0, &locals, &blocks)]);
     assert_ub::<BasicMem>(
         program,
-        "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the validity invariant",
+        "load at type Int(IntType { signed: Unsigned, size: Size(1 bytes) }) but the data in memory violates the language invariant",
     );
 }
 
