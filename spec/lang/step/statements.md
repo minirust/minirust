@@ -170,7 +170,7 @@ impl<M: Memory> StackFrame<M> {
         self.storage_dead(mem, local)?;
         // Then allocate the new storage.
         let pointee_size = self.func.locals[local].layout::<M::T>().expect_size("WF ensures all locals are sized");
-        let pointee_align = self.func.locals[local].align::<M::T>();
+        let pointee_align = self.func.locals[local].layout::<M::T>().expect_align("WF ensures all locals are sized");
         let ptr = mem.allocate(AllocationKind::Stack, pointee_size, pointee_align)?;
         self.locals.insert(local, ptr);
         ret(())
@@ -178,7 +178,7 @@ impl<M: Memory> StackFrame<M> {
 
     fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
         let pointee_size = self.func.locals[local].layout::<M::T>().expect_size("WF ensures all locals are sized");
-        let pointee_align = self.func.locals[local].align::<M::T>();
+        let pointee_align = self.func.locals[local].layout::<M::T>().expect_align("WF ensures all locals are sized");
         if let Some(ptr) = self.locals.remove(local) {
             mem.deallocate(ptr, AllocationKind::Stack, pointee_size, pointee_align)?;
         }
