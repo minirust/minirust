@@ -707,19 +707,25 @@ Additionally, on `Deref` of a safe pointer we double-check that it is indeed der
 
 ## Transmutation
 
-The representation relation also says everything there is to say about "transmutation".
+The representation relation and validity check also say everything there is to say about "transmutation".
 By this I mean not just the `std::mem::transmute` function, but any operation that "re-interprets data from one type at another type"
 (essentially a `reinterpret_cast` in C++ terms).
-Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*.
+Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*, and checking it is a valid value.
 More precisely:
 
 ```rust
-/// Transmutes `val` from `type1` to `type2`.
-fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
-    assert!(type1.size::<M::T>() == type2.size::<M::T>());
-    let bytes = type1.encode::<M>(val);
-    ret(type2.decode::<M>(bytes)?)
-    // TODO(UnsizedTypes): Well, this also requires checking the value now...
+impl<M: Memory> Machine<M> {
+    /// Transmutes `val` from `type1` to `type2`.
+    fn transmute(&self, val: Value<M>, type1: Type, type2: Type) -> Result<Value<M>> {
+        assert!(type1.size::<M::T>() == type2.size::<M::T>());
+        let bytes = type1.encode::<M>(val);
+        if let Some(raw_value) = type2.decode::<M>(bytes) {
+            self.check_value(raw_value, type2)?;
+            ret(raw_value)
+        } else {
+            throw_ub!("transmuted value is not valid at new type")
+        }
+    }
 }
 ```
 

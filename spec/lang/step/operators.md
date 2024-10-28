@@ -74,7 +74,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast_op(cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+    fn eval_cast_op(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -88,15 +88,13 @@ impl<M: Memory> Machine<M> {
                 {
                     throw_ub!("transmute between types of different size")
                 }
-                let Some(val) = transmute(operand, old_ty, new_ty) else {
-                    throw_ub!("transmuted value is not valid at new type")
-                };
+                let val = self.transmute(operand, old_ty, new_ty)?;
                 ret((val, new_ty))
             }
         }
     }
     fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        ret(Self::eval_cast_op(cast_op, (operand, op_ty))?)
+        ret(self.eval_cast_op(cast_op, (operand, op_ty))?)
     }
 }
 ```
