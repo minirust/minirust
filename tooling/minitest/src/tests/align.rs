@@ -136,7 +136,7 @@ fn deref_misaligned_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub::<BasicMem>(p, "transmuted value is not valid at new type");
+    assert_ub::<BasicMem>(p, "Value::Ptr: unaligned safe pointer");
 }
 
 #[test]
