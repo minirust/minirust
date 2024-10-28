@@ -416,64 +416,70 @@ A type can have additional runtime validity properties that need to be met.
 These are defined here.
 
 ```rust
+
+fn ensure_ub(b: bool, msg: &str) -> Result<()> {
+    if !b { throw_ub!("{}", msg); }
+    ret(())
+}
+
 impl<M: Memory> Machine<M> {
     /// We assume `ty` is itself well-formed.
     // FIXME: This should return UB, not Ill-formed errors.
     fn check_value(&self, value: Value<M>, ty: Type) -> Result {
         match (value, ty) {
             (Value::Int(i), Type::Int(int_ty)) => {
-                ensure_wf(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
+                ensure_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure_wf(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
-                ensure_wf(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+                ensure_ub(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
+                ensure_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
                 if let Some(layout) = ptr_ty.safe_pointee() {
                     // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
                     // (Think: uninhabited types have impossible alignment.)
                     let size = layout.size.compute(ptr.metadata);
 
-                    ensure_wf(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-                    ensure_wf(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-                    ensure_wf(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
-                    ensure_wf(
+                    ensure_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
+                    ensure_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                    ensure_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                    ensure_ub(
                         self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
                         "Value::Ptr: non-dereferenceable safe pointer"
                     )?;
 
                     // The total size of slices must be at most `isize::MAX`.
-                    ensure_wf(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+                    ensure_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
                     // In particular is it not UB, if the validity invariant of the pointee is broken.
                 }
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure_wf(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
+                ensure_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
                 for (val, (_, ty)) in vals.zip(fields) {
                     self.check_value(val, ty)?;
                 }
             }
             (Value::Tuple(vals), Type::Array { elem, count }) => {
-                ensure_wf(vals.len() == count, "Value::Tuple: invalid number of elements")?;
+                ensure_ub(vals.len() == count, "Value::Tuple: invalid number of elements")?;
                 for val in vals {
                     self.check_value(val, elem)?;
                 }
             }
             (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
-                ensure_wf(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
+                ensure_ub(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
                 for (data, (_, size)) in chunk_data.zip(chunks) {
-                    ensure_wf(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
+                    ensure_ub(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
                 }
             }
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
                 let Some(variant) = variants.get(discriminant) else {
-                    throw_ill_formed!("Value::Variant: invalid discrimant type");
+                    throw_ub!("Value::Variant: invalid discrimant type");
                 };
                 self.check_value(data, variant.ty)?;
             }
-            (_, Type::Slice { .. }) => throw_ill_formed!("Value: slices cannot be represented as values"),
-            _ => throw_ill_formed!("Value: value does not match type")
+            (_, Type::Slice { .. }) => throw_ub!("Value: slices cannot be represented as values"),
+            _ => throw_ub!("Value: value does not match type")
         }
 
         ret(())
