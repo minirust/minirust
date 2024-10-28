@@ -435,7 +435,8 @@ impl<M: Memory> Machine<M> {
         let metadata = PointerMeta::from_value::<M>(right);
         let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
 
-        self.check_value(wide_ptr, Type::Ptr(ptr_ty)).expect("sanity check: constructed wide pointer is well-formed");
+        // check that the size is valid
+        self.check_value(wide_ptr, Type::Ptr(ptr_ty))?;
         ret((wide_ptr, Type::Ptr(ptr_ty)))
     }
 }

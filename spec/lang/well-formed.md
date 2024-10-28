@@ -378,7 +378,7 @@ impl ValueExpr {
                             matches!(operand, Type::Ptr(PtrType::Ref { .. })),
                             "UnOp::SizeOfVal: invalid operand: not a reference"
                         )?;
-                        Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })
+                        Type::Int(IntType::usize_ty::<T>())
                     }
                 }
             }

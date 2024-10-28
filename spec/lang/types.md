@@ -194,6 +194,10 @@ impl IntType {
         i.bring_in_bounds(self.signed, self.size)
     }
 
+    pub fn usize_ty<T: Target>() -> Self {
+        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
+    }
+
     /// Generate the return type for IntWithOverflow
     pub fn with_overflow<T: Target>(&self) -> Type {
         // Define a tuple type with two fields: An integer followed directly by a boolean.

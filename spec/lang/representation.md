@@ -128,7 +128,7 @@ impl PointerMetaKind {
     pub fn ty<T: Target>(self) -> Option<Type> {
         match self {
             PointerMetaKind::None => None,
-            PointerMetaKind::ElementCount => Some(Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })),
+            PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
         }
     }
 }
@@ -436,10 +436,12 @@ impl<M: Memory> Machine<M> {
                 ensure_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
                 if let Some(layout) = ptr_ty.safe_pointee() {
+                    let size = layout.size.compute(ptr.metadata);
+                    // The total size of slices must be at most `isize::MAX`.
+                    ensure_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+
                     // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
                     // (Think: uninhabited types have impossible alignment.)
-                    let size = layout.size.compute(ptr.metadata);
-
                     ensure_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
                     ensure_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
                     ensure_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
@@ -448,11 +450,14 @@ impl<M: Memory> Machine<M> {
                         "Value::Ptr: non-dereferenceable safe pointer"
                     )?;
 
-                    // The total size of slices must be at most `isize::MAX`.
-                    ensure_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
-
                     // In particular is it not UB, if the validity invariant of the pointee is broken.
                 }
+
+                match ptr.metadata {
+                    Some(PointerMeta::ElementCount(num)) =>
+                        self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
+                    _ => {}
+                };
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
                 ensure_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
