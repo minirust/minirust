@@ -78,8 +78,12 @@ pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::Cast(CastOp::IntToInt(t)), operand: GcCow::new(v) }
 }
 
-pub fn size_of_val(v: ValueExpr) -> ValueExpr {
-    ValueExpr::UnOp { operator: UnOp::SizeOfVal, operand: GcCow::new(v) }
+pub fn compute_size(ty: Type, v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::ComputeSize(ty), operand: GcCow::new(v) }
+}
+
+pub fn compute_align(ty: Type, v: ValueExpr) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::ComputeAlign(ty), operand: GcCow::new(v) }
 }
 
 pub fn ptr_addr(v: ValueExpr) -> ValueExpr {

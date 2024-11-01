@@ -367,12 +367,12 @@ impl ValueExpr {
                         // If the pointer does not have metadata, this will still be well-formed but return the unit type.
                         ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
                     }
-                    SizeOfVal => {
-                        // TODO(UnsizedTypes): Support raw pointers as well.
-                        ensure_wf(
-                            matches!(operand, Type::Ptr(PtrType::Ref { .. })),
-                            "UnOp::SizeOfVal: invalid operand: not a reference"
-                        )?;
+                    ComputeSize(ty) | ComputeAlign(ty) => {
+                        // A thin pointer can also be the target type, with unit metadata.
+                        let meta_ty = ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
+                        if operand != meta_ty {
+                            throw_ill_formed!("UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type");
+                        }
                         Type::Int(IntType::usize_ty::<T>())
                     }
                 }

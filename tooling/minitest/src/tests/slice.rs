@@ -190,7 +190,7 @@ fn index_with_constructed() {
         f.assign(index(arr, const_int(1)), const_int(43_u32));
         f.assign(index(arr, const_int(2)), const_int(44_u32));
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u32; 3]>::get_type()),
             const_int(3_usize),
             <&[u32]>::get_type(),
         );
@@ -218,7 +218,7 @@ fn invalid_index_ub() {
             f.assign(index(arr, const_int(0)), const_int(42_u32));
             f.assign(index(arr, const_int(1)), const_int(43_u32));
             let slice_ptr = construct_wide_pointer(
-                addr_of(arr, <&()>::get_type()),
+                addr_of(arr, <&[u32; 2]>::get_type()),
                 const_int(2_usize),
                 <&[u32]>::get_type(),
             );
@@ -243,16 +243,16 @@ fn large_raw() {
     let f = {
         let mut f = p.declare_function();
         // Make array
-        let arr = f.declare_local::<[u32; 0x1_0000]>();
-        let wide = f.declare_local::<*const [u32]>();
+        let arr = f.declare_local::<[[u32; 0x1_0000]; 1]>();
+        let wide = f.declare_local::<*const [[u32; 0x1_0000]]>();
         f.storage_live(arr);
         f.storage_live(wide);
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
-            const_int(0x1_0000_0000_0000_usize),
-            <*const [u32]>::get_type(),
+            addr_of(arr, <&[[u32; 0x1_0000]; 1]>::get_type()),
+            const_int(0x2000_0000_0000_usize), // total size of isize::MAX + 1
+            <*const [[u32; 0x1_0000]]>::get_type(),
         );
-        // This should UB
+        // This should be fine
         f.assign(wide, slice_ptr);
         f.exit();
         p.finish_function(f)
@@ -268,12 +268,12 @@ fn too_large_slice() {
     let f = {
         let mut f = p.declare_function();
         // Make array
-        let arr = f.declare_local::<[u32; 0x1_0000]>();
+        let arr = f.declare_local::<[[u32; 0x1_0000]; 1]>();
         let wide = f.declare_local::<&[[u32; 0x1_0000]]>();
         f.storage_live(arr);
         f.storage_live(wide);
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[[u32; 0x1_0000]; 1]>::get_type()),
             const_int(0x2000_0000_0000_usize), // total size of isize::MAX + 1
             <&[[u32; 0x1_0000]]>::get_type(),
         );
@@ -300,7 +300,7 @@ fn get_metadata_correct() {
         f.assign(index(arr, const_int(2)), const_int(44_u32));
         // Construct a slice reference
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u32; 3]>::get_type()),
             const_int(3_usize),
             <&[u32]>::get_type(),
         );
@@ -329,7 +329,7 @@ fn get_thin_pointer_is_first_elem() {
         f.assign(index(arr, const_int(2)), const_int(44_u32));
         // Construct a slice reference
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u32; 3]>::get_type()),
             const_int(3_usize),
             <&[u32]>::get_type(),
         );
