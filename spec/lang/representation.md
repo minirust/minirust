@@ -449,16 +449,17 @@ impl<M: Memory> Machine<M> {
                 ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
                 // Safe pointer, i.e. references, boxes
-                if let Some(layout) = ptr_ty.safe_pointee() {
-                    let size = layout.size.compute(ptr.metadata);
+                if let Some(pointee) = ptr_ty.safe_pointee() {
+                    let size = pointee.layout.compute_size(ptr.metadata);
+                    let align = pointee.layout.compute_align(ptr.metadata);
                     // The total size of slices must be at most `isize::MAX`.
                     ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
                     // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
                     // (Think: uninhabited types have impossible alignment.)
                     ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-                    ensure_else_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-                    ensure_else_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                    ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                    ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
                     ensure_else_ub(
                         self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
                         "Value::Ptr: non-dereferenceable safe pointer"
