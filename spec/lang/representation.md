@@ -17,13 +17,11 @@ If any pattern is not covered, that is a bug in the spec.)
 
 ```rust
 impl Type {
-    /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
-    /// `decode` must satisfy the following property:
-    /// ```
-    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size().expect_sized(..) && ty.inhabited()`
-    /// ```
-    /// In other words, all valid low-level representations must have the length given by the size of the type,
-    /// and the existence of a valid low-level representation implies that the type is inhabited.
+    /// Decode a list of bytes into a value.
+    /// 
+    /// This can fail when the bytes can fail if the byte list is not a valid encoding for the type,
+    /// which typically means Undefined Behavior.
+    /// Assumes `self` is well formed and `bytes.len()` matches the types size.
     #[specr::argmatch(self)]
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> { .. }
 
@@ -36,17 +34,12 @@ impl Type {
 }
 ```
 
-TODO: We currently have `encode` panic when the value doesn't match the type.
-Should we also have `decode` panic when `bytes` has the wrong length?
-
 ### `bool`
 
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Bool: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != 1 {
-            throw!();
-        }
+        if bytes.len() != 1 { panic!("decode of Type::Bool with invalid length"); }
         ret(match bytes[0] {
             AbstractByte::Init(0, _) => Value::Bool(false),
             AbstractByte::Init(1, _) => Value::Bool(true),
@@ -67,9 +60,7 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() {
-            throw!();
-        }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Int with invalid length"); }
         // Fails if any byte is `Uninit`.
         let bytes_data: List<u8> = bytes.try_map(|b| b.data())?;
         ret(Value::Int(M::T::ENDIANNESS.decode(signed, bytes_data)))
@@ -103,7 +94,7 @@ For wide pointers, `PtrType::as_wide_pair` defines the pointer as a pair of a th
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<ThinPointer<M::Provenance>> {
-    if bytes.len() != M::T::PTR_SIZE.bytes() { throw!(); }
+    if bytes.len() != M::T::PTR_SIZE.bytes() { panic!("decode of thin pointer with invalid length"); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.try_map(|b| b.data())?;
     let addr = M::T::ENDIANNESS.decode(Unsigned, bytes_data);
@@ -215,7 +206,7 @@ when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there 
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Tuple { fields, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Tuple with invalid length"); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
@@ -250,7 +241,7 @@ impl Type {
         let elem_size = elem.size::<M::T>().expect_sized("WF ensures array element is sized");
         let full_size = elem_size * count;
 
-        if bytes.len() != full_size.bytes() { throw!(); }
+        if bytes.len() != full_size.bytes() { panic!("decode of Type::Array with invalid length"); }
 
         let chunks: List<_> = (Int::ZERO..count).map(|i|
             bytes.subslice_with_length(i*elem_size.bytes(), elem_size.bytes())
@@ -283,7 +274,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Union with invalid length"); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
@@ -354,7 +345,7 @@ fn encode_discriminant<M: Memory>(
 
 impl Type {
     fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Enum with invalid length"); }
         // We can unwrap the decoded discriminant as our accessor never fails, and
         // decode_discriminant only fails if the accessor fails.
         let discriminant = decode_discriminant::<M>(
@@ -402,10 +393,10 @@ Unsized types do not have values and thus there is no representation relation.
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Slice { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        panic!("tried to decode a slice")
+        panic!("decode of Type::Slice")
     }
     fn encode<M: Memory>(Type::Slice { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        panic!("tried to endoce a slice")
+        panic!("encode of Type::Slice")
     }
 }
 ```
