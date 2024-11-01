@@ -170,16 +170,6 @@ impl PtrType {
         }
     }
 
-    pub fn addr_valid(self, addr: Address) -> bool {
-        if let Some(layout) = self.safe_pointee() {
-            // Safe addresses need to be non-null, aligned, and not point to an uninhabited type.
-            // (Think: uninhabited types have impossible alignment.)
-            addr != 0 && layout.align.is_aligned(addr) && layout.inhabited
-        } else {
-            true
-        }
-    }
-
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.size.meta_kind(),

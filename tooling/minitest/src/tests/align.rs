@@ -189,10 +189,7 @@ fn addr_of_misaligned_ref() {
     );
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f]);
-    assert_ub::<BasicMem>(
-        p,
-        "taking the address of an invalid (null, misaligned, or uninhabited) place",
-    );
+    assert_ub::<BasicMem>(p, "Value::Ptr: unaligned safe pointer");
 }
 
 /// Same test as above, but with a raw pointer it's fine.
