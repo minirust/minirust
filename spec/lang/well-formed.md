@@ -4,11 +4,6 @@ The various syntactic constructs of MiniRust (types, functions, ...) come with w
 The idea is that for well-formed programs, the `step` function will never panic.
 Those requirements are defined in this file.
 
-
-
-We also define the idea of a "value being well-formed at a type". XX
-`decode` will only ever return well-formed values, and `encode` will never panic on a well-formed value.
-
 Note that `check_wf` functions for testing well-formedness return `Result<()>` to pass information in case an error occured.
 
 We use the following helper function to convert Boolean checks into this form.

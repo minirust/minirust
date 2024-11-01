@@ -146,7 +146,6 @@ impl SizeStrategy {
     pub fn compute(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
             (SizeStrategy::Sized(size), None) => size,
-            // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
             (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
             _ => panic!("pointer meta data does not match type"),
         }
