@@ -372,7 +372,7 @@ impl<M: Memory> Machine<M> {
         let PtrType::Ref { pointee, .. } = ptr_ty else {
             throw_ub!("invalid argument to `RawEq` intrinsic: not a reference");
         };
-        let PointeeInfo { size: SizeStrategy::Sized(size), align, .. } = pointee else {
+        let PointeeInfo { layout: LayoutStrategy::Sized(size, align), .. } = pointee else {
             throw_ub!("invalid argument to `RawEq` intrinsic: unsized pointee");
         };
         let bytes = self.mem.load(ptr.thin_pointer, size, align, Atomicity::None)?;
@@ -445,7 +445,7 @@ impl<M: Memory> Machine<M> {
         };
 
         let (val, ty) = arguments[1];
-        let SizeStrategy::Sized(size) = ty.size::<M::T>() else {
+        let LayoutStrategy::Sized(size, _) = ty.layout::<M::T>() else {
             throw_ub!("invalid second argument to `AtomicStore` intrinsic: unsized type");
         };
         let Some(align) = Align::from_bytes(size.bytes()) else {
@@ -459,7 +459,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `AtomicStore` intrinsic")
         }
 
-        self.mem.typed_store(ptr, val, ty, align, Atomicity::Atomic)?;
+        self.typed_store(ptr, val, ty, align, Atomicity::Atomic)?;
         ret(unit_value())
     }
 
@@ -477,7 +477,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid first argument to `AtomicLoad` intrinsic: not a thin pointer");
         };
 
-        let size = ret_ty.size::<M::T>().expect_sized("WF ensures intrinsic return types are sized");
+        let size = ret_ty.layout::<M::T>().expect_size("WF ensures intrinsic return types are sized");
         let Some(align) = Align::from_bytes(size.bytes()) else {
             throw_ub!("invalid return type for `AtomicLoad` intrinsic: size not power of two");
         };
@@ -486,7 +486,7 @@ impl<M: Memory> Machine<M> {
         }
 
         // `ret_ty` is ensured to be sized above.
-        let val = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
+        let val = self.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
         ret(val)
     }
 
@@ -519,20 +519,20 @@ impl<M: Memory> Machine<M> {
         }
 
         // All integers are sized with a power of two size.
-        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
+        let size = ret_ty.layout::<M::T>().expect_size("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicCompareExchange` intrinsic: size too big");
         }
 
         // The value at the location right now.
-        let before = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
+        let before = self.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
 
         // This is the central part of the operation. If the expected before value at ptr is the current value,
         // then we exchange it for the next value.
         // FIXME: The memory model might have to know that this is a compare-exchange.
         if current == before {
-            self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
+            self.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
         } else {
             // We do *not* do a store on a failing AtomicCompareExchange. This means that races between
             // a non-atomic load and a failing AtomicCompareExchange are not considered UB!
@@ -565,14 +565,14 @@ impl<M: Memory> Machine<M> {
         };
 
         // All integers are sized with a power of two size.
-        let size = ret_ty.size::<M::T>().expect_sized("`ret_ty` is an integer");
+        let size = ret_ty.layout::<M::T>().expect_size("`ret_ty` is an integer");
         let align = Align::from_bytes(size.bytes()).unwrap();
         if size > M::T::MAX_ATOMIC_SIZE {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: size too big");
         }
 
         // The value at the location right now.
-        let previous = self.mem.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
+        let previous = self.typed_load(ptr, ret_ty, align, Atomicity::Atomic)?;
 
         // Convert to integers
         let Value::Int(other_int) = other else { unreachable!() };
@@ -583,7 +583,7 @@ impl<M: Memory> Machine<M> {
         let next = Value::Int(next_int);
 
         // Store it again.
-        self.mem.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
+        self.typed_store(ptr, next, ret_ty, align, Atomicity::Atomic)?;
 
         ret(previous)
     }

@@ -8,11 +8,8 @@ pub trait TypeConv {
     fn get_type() -> Type;
 
     // Convenience methods, these should not be overridden.
-    fn get_size() -> SizeStrategy {
-        Self::get_type().size::<DefaultTarget>()
-    }
-    fn get_align() -> Align {
-        Self::get_type().align::<DefaultTarget>()
+    fn get_layout() -> LayoutStrategy {
+        Self::get_type().layout::<DefaultTarget>()
     }
 
     const FREEZE: bool = true;
@@ -67,8 +64,7 @@ impl TypeConv for bool {
 impl<T: TypeConv + ?Sized> TypeConv for &T {
     fn get_type() -> Type {
         ref_ty(PointeeInfo {
-            size: T::get_size(),
-            align: T::get_align(),
+            layout: T::get_layout(),
             inhabited: true,
             freeze: T::FREEZE,
             unpin: T::UNPIN,
@@ -79,8 +75,7 @@ impl<T: TypeConv + ?Sized> TypeConv for &T {
 impl<T: TypeConv + ?Sized> TypeConv for &mut T {
     fn get_type() -> Type {
         ref_mut_ty(PointeeInfo {
-            size: T::get_size(),
-            align: T::get_align(),
+            layout: T::get_layout(),
             inhabited: true,
             freeze: T::FREEZE,
             unpin: T::UNPIN,

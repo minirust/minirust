@@ -154,7 +154,14 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 }
                 UnOp::GetThinPointer => FmtExpr::Atomic(format!("get_thin_ptr({operand})")),
                 UnOp::GetMetadata => FmtExpr::Atomic(format!("get_metadata({operand})")),
-                UnOp::SizeOfVal => FmtExpr::NonAtomic(format!("size_of_val({operand})")),
+                UnOp::ComputeSize(ty) => {
+                    let ty_str = fmt_type(ty, comptypes).to_string();
+                    FmtExpr::Atomic(format!("compute_size<{ty_str}>({operand})"))
+                }
+                UnOp::ComputeAlign(ty) => {
+                    let ty_str = fmt_type(ty, comptypes).to_string();
+                    FmtExpr::Atomic(format!("compute_align<{ty_str}>({operand})"))
+                }
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {

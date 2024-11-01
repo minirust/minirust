@@ -41,7 +41,7 @@ impl<M: Memory> Machine<M> {
         let result = Value::Int(Self::eval_int_un_op(op, operand, int_ty)?);
 
         // Sanity-check that the result of `eval_int_un_op` is in-bounds.
-        result.check_wf(Type::Int(ret_ty))
+        self.check_value(result, Type::Int(ret_ty))
             .expect("sanity check: result of UnOp::Int does not fit in the return type");
         ret((result, Type::Int(ret_ty)))
     }
@@ -74,7 +74,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast_op(cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+    fn eval_cast_op(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -83,20 +83,18 @@ impl<M: Memory> Machine<M> {
                 ret((Value::Int(result), Type::Int(int_ty)))
             }
             Transmute(new_ty) => {
-                if old_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
-                    != new_ty.size::<M::T>().expect_sized("WF ensures transmutes are sized")
+                if old_ty.layout::<M::T>().expect_size("WF ensures transmutes are sized")
+                    != new_ty.layout::<M::T>().expect_size("WF ensures transmutes are sized")
                 {
                     throw_ub!("transmute between types of different size")
                 }
-                let Some(val) = transmute(operand, old_ty, new_ty) else {
-                    throw_ub!("transmuted value is not valid at new type")
-                };
+                let val = self.transmute(operand, old_ty, new_ty)?;
                 ret((val, new_ty))
             }
         }
     }
     fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        ret(Self::eval_cast_op(cast_op, (operand, op_ty))?)
+        ret(self.eval_cast_op(cast_op, (operand, op_ty))?)
     }
 }
 ```
@@ -127,16 +125,20 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Size of value
+### Computing the Size and Alignment
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&self, UnOp::SizeOfVal: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Type::Ptr(PtrType::Ref { pointee, .. }) = op_ty else { panic!("non-reference input to SizeOfVal") };
-        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to SizeOfVal") };
+    fn eval_un_op(&self, UnOp::ComputeSize(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let meta = PointerMeta::from_value::<M>(operand);
+        let size = ty.layout::<M::T>().compute_size(meta);
+        ret((Value::Int(size.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
+    }
 
-        let size = pointee.size.compute(ptr.metadata);
-        ret((Value::Int(size.bytes()), Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE })))
+    fn eval_un_op(&self, UnOp::ComputeAlign(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let meta = PointerMeta::from_value::<M>(operand);
+        let align = ty.layout::<M::T>().compute_align(meta);
+        ret((Value::Int(align.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 }
 ```
@@ -437,7 +439,8 @@ impl<M: Memory> Machine<M> {
         let metadata = PointerMeta::from_value::<M>(right);
         let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
 
-        wide_ptr.check_wf(Type::Ptr(ptr_ty)).expect("sanity check: constructed wide pointer is well-formed");
+        // check that the size is valid
+        self.check_value(wide_ptr, Type::Ptr(ptr_ty))?;
         ret((wide_ptr, Type::Ptr(ptr_ty)))
     }
 }
