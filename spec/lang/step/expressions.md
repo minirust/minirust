@@ -158,11 +158,6 @@ The `&` operators simply converts a place to the pointer it denotes.
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, _ty) = self.eval_place(target)?;
-        // Make sure the new pointer has a valid address.
-        // Remember that places are basically raw pointers so this is not guaranteed!
-        if !ptr_ty.addr_valid(place.ptr.thin_pointer.addr) {
-            throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
-        }
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
         let ptr = self.mutate_cur_frame(|frame, mem| {
             mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false)
@@ -172,6 +167,9 @@ impl<M: Memory> Machine<M> {
             panic!("AddrOf generated an incompatible pointer type for the metadata");
         }
 
+        // Make sure the new pointer has a valid address.
+        // Remember that places are basically raw pointers so this is not guaranteed!
+        self.check_value(Value::Ptr(ptr), Type::Ptr(ptr_ty))?;
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
 }

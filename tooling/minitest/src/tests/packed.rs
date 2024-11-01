@@ -36,9 +36,5 @@ fn packed_is_not_aligned() {
     let f = p.finish_function(f);
 
     let p = p.finish_program(f);
-    assert_ub_eventually::<BasicMem>(
-        p,
-        16,
-        "taking the address of an invalid (null, misaligned, or uninhabited) place",
-    );
+    assert_ub_eventually::<BasicMem>(p, 16, "Value::Ptr: unaligned safe pointer");
 }
