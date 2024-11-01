@@ -127,57 +127,7 @@ pub enum PtrType {
 }
 ```
 
-
 ```rust
-impl LayoutStrategy {
-    pub fn is_sized(self) -> bool {
-        matches!(self, LayoutStrategy::Sized(_, _))
-    }
-
-    /// Returns the size when the type must be statically sized.
-    pub fn expect_size(self, msg: &str) -> Size {
-        match self {
-            LayoutStrategy::Sized(size, _) => size,
-            _ => panic!("expect_size called on unsized type: {msg}"),
-        }
-    }
-
-    /// Returns the alignment when the type must be statically sized.
-    pub fn expect_align(self, msg: &str) -> Align {
-        match self {
-            LayoutStrategy::Sized(_, align) => align,
-            _ => panic!("expect_align called on unsized type: {msg}"),
-        }
-    }
-
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
-        match (self, meta) {
-            (LayoutStrategy::Sized(size, _), None) => size,
-            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            _ => panic!("pointer meta data does not match type"),
-        }
-    }
-
-    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
-        match (self, meta) {
-            (LayoutStrategy::Sized(_, align), None) => align,
-            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
-            _ => panic!("pointer meta data does not match type"),
-        }
-    }
-
-    /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
-    pub fn meta_kind(self) -> PointerMetaKind {
-        match self {
-            LayoutStrategy::Sized(_, _) => PointerMetaKind::None,
-            LayoutStrategy::Slice(_, _) => PointerMetaKind::ElementCount,
-        }
-    }
-}
-
 impl PtrType {
     /// If this is a safe pointer, return the pointee information.
     pub fn safe_pointee(self) -> Option<PointeeInfo> {
