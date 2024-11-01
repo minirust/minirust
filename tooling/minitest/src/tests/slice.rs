@@ -236,6 +236,56 @@ fn invalid_index_ub() {
     for_index(2);
 }
 
+/// The total size of a raw slice pointer can be larger than isize::MAX
+#[test]
+fn large_raw() {
+    let mut p = ProgramBuilder::new();
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 0x1_0000]>();
+        let wide = f.declare_local::<*const [u32]>();
+        f.storage_live(arr);
+        f.storage_live(wide);
+        let slice_ptr = construct_wide_pointer(
+            addr_of(arr, <&()>::get_type()),
+            const_int(0x1_0000_0000_0000_usize),
+            <*const [u32]>::get_type(),
+        );
+        // This should UB
+        f.assign(wide, slice_ptr);
+        f.exit();
+        p.finish_function(f)
+    };
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
+}
+
+/// The total size of a safe slice pointer cannot be larger than isize::MAX
+#[test]
+fn too_large_slice() {
+    let mut p = ProgramBuilder::new();
+    let f = {
+        let mut f = p.declare_function();
+        // Make array
+        let arr = f.declare_local::<[u32; 0x1_0000]>();
+        let wide = f.declare_local::<&[[u32; 0x1_0000]]>();
+        f.storage_live(arr);
+        f.storage_live(wide);
+        let slice_ptr = construct_wide_pointer(
+            addr_of(arr, <&()>::get_type()),
+            const_int(0x2000_0000_0000_usize), // total size of isize::MAX + 1
+            <&[[u32; 0x1_0000]]>::get_type(),
+        );
+        // This should UB
+        f.assign(wide, slice_ptr);
+        f.exit();
+        p.finish_function(f)
+    };
+    let p = p.finish_program(f);
+    assert_ub::<BasicMem>(p, "Value::Ptr: total size exeeds isize::MAX");
+}
+
 #[test]
 fn get_metadata_correct() {
     let mut p = ProgramBuilder::new();

@@ -130,7 +130,7 @@ impl<M: Memory> Machine<M> {
 This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     fn place_load(&mut self, place: Place<M>, ty: Type) -> Result<Value<M>> {
         if !place.aligned {
             throw_ub!("loading from a place based on a misaligned pointer");
@@ -139,13 +139,11 @@ impl<M: Memory> ConcurrentMemory<M> {
         // `ty` is ensured to be sized by WF of callers: Loads, Validates and InPlace arguments.
         ret(self.typed_load(place.ptr.thin_pointer, ty, Align::ONE, Atomicity::None)?)
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, ty) = self.eval_place(source)?;
         // WF ensures all load expressions are sized.
-        let v = self.mem.place_load(place, ty)?;
+        let v = self.place_load(place, ty)?;
 
         ret((v, ty))
     }

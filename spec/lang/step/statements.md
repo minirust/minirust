@@ -19,7 +19,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
 - TODO: Should this implicitly retag, to have full `Validate` semantics?
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     fn place_store(&mut self, place: Place<M>, val: Value<M>, ty: Type) -> Result {
         if !place.aligned {
             throw_ub!("storing to a place based on a misaligned pointer");
@@ -28,13 +28,11 @@ impl<M: Memory> ConcurrentMemory<M> {
         self.typed_store(place.ptr.thin_pointer, val, ty, Align::ONE, Atomicity::None)?;
         ret(())
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
-        self.mem.place_store(place, val, ty)?;
+        self.place_store(place, val, ty)?;
 
         ret(())
     }
@@ -98,11 +96,11 @@ impl<M: Memory> Machine<M> {
         let (place, ty) = self.eval_place(place)?;
 
         // WF ensures all validate expressions are sized.
-        let val = self.mem.place_load(place, ty)?;
+        let val = self.place_load(place, ty)?;
 
         let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
 
-        self.mem.place_store(place, val, ty)?;
+        self.place_store(place, val, ty)?;
 
         ret(())
     }

@@ -3,11 +3,17 @@
 The main purpose of [types](types.md) is to define how [values](values.md) are (de)serialized into/from memory.
 This is the *[representation relation]*, which is defined in the following.
 `decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
-`encode` inverts `decode`; it will always work when the value is [well-formed][well-formed-value] for the given type (which the specification must ensure, i.e. violating this property is a spec bug).
-Unsized types cannot be represented as values and thus a call to `encode` or `decode` for such types can never occur in a well-formed program.
+Some types also have additional runtime constraints to be [valid][valid-value], which is always checked after decoding.
+`encode` inverts `decode`; it, however, will always work when the value is [valid][valid-value] for the given type.
+
+`encode` and `decode` must satisfy some [properties](#generic-properties), which the specification must ensure, i.e. violating these properties is a spec bug.
+However, they can also make some assumptions:
+The types in the representation relation are all [well-formed](well-formed.md#well-formed-layouts-and-types) and sized, as unsized types cannot be represented as values.
+`encode` can also assume the value is [valid][valid-value] for the type,
+and `decode` can assume the size of the byte list matches the size of the type.
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
-[well-formed-value]: well-formed.md#well-formed-values
+[valid-value]: #Value-validity
 
 ## Type-directed Encode/Decode of values
 
@@ -17,36 +23,28 @@ If any pattern is not covered, that is a bug in the spec.)
 
 ```rust
 impl Type {
-    /// Decode a list of bytes into a value. This can fail, which typically means Undefined Behavior.
-    /// `decode` must satisfy the following property:
-    /// ```
-    /// ty.decode(bytes) = Some(_) -> bytes.len() == ty.size().expect_sized(..) && ty.inhabited()`
-    /// ```
-    /// In other words, all valid low-level representations must have the length given by the size of the type,
-    /// and the existence of a valid low-level representation implies that the type is inhabited.
+    /// Decode a list of bytes into a value.
+    /// 
+    /// This can fail when the bytes can fail if the byte list is not a valid encoding for the type,
+    /// which typically means Undefined Behavior.
+    /// Assumes `self` is well formed and `bytes.len()` matches the types size.
     #[specr::argmatch(self)]
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> { .. }
 
     /// Encode `v` into a list of bytes according to the type `self`.
-    /// Note that it is a spec bug if `v` is not well-formed for `ty`!
-    ///
-    /// See below for the general properties relation `encode` and `decode`.
+    /// 
+    /// Assumes `self` is well formed and `val` is valid for the type.
     #[specr::argmatch(self)]
     fn encode<M: Memory>(self, val: Value<M>) -> List<AbstractByte<M::Provenance>> { .. }
 }
 ```
-
-TODO: We currently have `encode` panic when the value doesn't match the type.
-Should we also have `decode` panic when `bytes` has the wrong length?
 
 ### `bool`
 
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Bool: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != 1 {
-            throw!();
-        }
+        if bytes.len() != 1 { panic!("decode of Type::Bool with invalid length"); }
         ret(match bytes[0] {
             AbstractByte::Init(0, _) => Value::Bool(false),
             AbstractByte::Init(1, _) => Value::Bool(true),
@@ -67,9 +65,7 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() {
-            throw!();
-        }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Int with invalid length"); }
         // Fails if any byte is `Uninit`.
         let bytes_data: List<u8> = bytes.try_map(|b| b.data())?;
         ret(Value::Int(M::T::ENDIANNESS.decode(signed, bytes_data)))
@@ -97,13 +93,16 @@ Pointers are significantly more complex to represent than just the integer addre
 For one, they need to encode the provenance.
 When decoding, we have to deal with the possibility of the pointer bytes not all having the same provenance;
 this is defined to yield a pointer without provenance.
+In the decoding we do not check any validity properties, such as dereferenceablity of safe pointers,
+this is done in [check_value][valid-value], such that it has access to runtime concepts.
+
 On the other hand, some pointers are wide pointers which also need to encode their metadata.
 The helpers `decode_ptr` and `encode_ptr` deal with thin pointers.
 For wide pointers, `PtrType::as_wide_pair` defines the pointer as a pair of a thin pointer and some metadata type.
 
 ```rust
 fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<ThinPointer<M::Provenance>> {
-    if bytes.len() != M::T::PTR_SIZE.bytes() { throw!(); }
+    if bytes.len() != M::T::PTR_SIZE.bytes() { panic!("decode of thin pointer with invalid length"); }
     // Convert into list of bytes; fail if any byte is uninitialized.
     let bytes_data = bytes.try_map(|b| b.data())?;
     let addr = M::T::ENDIANNESS.decode(Unsigned, bytes_data);
@@ -128,7 +127,7 @@ impl PointerMetaKind {
     pub fn ty<T: Target>(self) -> Option<Type> {
         match self {
             PointerMetaKind::None => None,
-            PointerMetaKind::ElementCount => Some(Type::Int(IntType { signed: Unsigned, size: T::PTR_SIZE })),
+            PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
         }
     }
 }
@@ -179,9 +178,6 @@ impl Type {
         } else {
             // Handle thin pointers.
             let ptr = decode_ptr::<M>(bytes)?;
-            if !ptr_type.addr_valid(ptr.addr) {
-                throw!();
-            }
             ret(Value::Ptr(ptr.widen(None)))
         }
     }
@@ -204,21 +200,15 @@ impl Type {
 }
 ```
 
-Note that types like `&!` have no valid representation:
-when the pointee type is uninhabited (in the sense of `!ty.inhabited()`), there exists no valid reference to that type.
-
 - TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
   Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
-- TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
-  (The latter would not even be possible with the current structure of MiniRust.)
-  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).
 
 ### Tuples (and structs, ...)
 
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Tuple { fields, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Tuple with invalid length"); }
         ret(Value::Tuple(
             fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
@@ -253,7 +243,7 @@ impl Type {
         let elem_size = elem.layout::<M::T>().expect_size("WF ensures array element is sized");
         let full_size = elem_size * count;
 
-        if bytes.len() != full_size.bytes() { throw!(); }
+        if bytes.len() != full_size.bytes() { panic!("decode of Type::Array with invalid length"); }
 
         let chunks: List<_> = (Int::ZERO..count).map(|i|
             bytes.subslice_with_length(i*elem_size.bytes(), elem_size.bytes())
@@ -286,7 +276,7 @@ A union simply stores the bytes directly, no high-level interpretation of data h
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Union { size, chunks, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Union with invalid length"); }
         let mut chunk_data = list![];
         // Store the data from each chunk.
         for (offset, size) in chunks {
@@ -357,7 +347,7 @@ fn encode_discriminant<M: Memory>(
 
 impl Type {
     fn decode<M: Memory>(Type::Enum { variants, discriminator, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        if bytes.len() != size.bytes() { throw!(); }
+        if bytes.len() != size.bytes() { panic!("decode of Type::Enum with invalid length"); }
         // We can unwrap the decoded discriminant as our accessor never fails, and
         // decode_discriminant only fails if the accessor fails.
         let discriminant = decode_discriminant::<M>(
@@ -405,10 +395,161 @@ Unsized types do not have values and thus there is no representation relation.
 ```rust
 impl Type {
     fn decode<M: Memory>(Type::Slice { .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        panic!("tried to decode a slice")
+        panic!("decode of Type::Slice")
     }
     fn encode<M: Memory>(Type::Slice { .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        panic!("tried to endoce a slice")
+        panic!("encode of Type::Slice")
+    }
+}
+```
+
+## Value validity
+
+A type can have additional runtime validity properties that need to be met.
+This "validity invariant" is defined here.
+
+`encode` assumes values to be valid.
+`decode` always produces valid values for most types, the exception being pointers.
+In particular, do [safe pointers][ptr_type] require the address to be aligned, dereferenceable and non-null.
+
+If the type contains no pointers, then the validity invariant is equivalent to inclusion in the representation relation.
+I.e. a `value` is valid if and only if there is some bytes list such that `ty.decode(bytes) = Some(value)`.
+
+Types like `&!`, however, have many values in the representation, but none is *valid*:
+when the pointee type is uninhabited (as given by the pointee type), there exists no valid reference to that type.
+This is because checking alignment needs vtable information, the validity of vtables naturally aswell, and dereferenceablity need the allocations.
+Dropping dereferenceablity as a requirement was discussed, see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77), to remove the validity invariant, but for trait objects this is needed anyway.
+
+- TODO: Inhabitedness and non-nullness are (the only two) conditions that could be checked in `decode` itself. Should we?
+
+[ptr_type]: ../mem/pointer.md#Pointee
+
+```rust
+fn ensure_ub(b: bool, msg: &str) -> Result<()> {
+    if !b { throw_ub!("{}", msg); }
+    ret(())
+}
+
+impl<M: Memory> Machine<M> {
+    /// We assume `ty` is itself well-formed.
+    fn check_value(&self, value: Value<M>, ty: Type) -> Result {
+        match (value, ty) {
+            (Value::Int(i), Type::Int(int_ty)) => {
+                ensure_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
+            }
+            (Value::Bool(_), Type::Bool) => {},
+            (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
+                ensure_ub(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
+                ensure_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+
+                // Safe pointer, i.e. references, boxes
+                if let Some(layout) = ptr_ty.safe_pointee() {
+                    let size = layout.size.compute(ptr.metadata);
+                    // The total size of slices must be at most `isize::MAX`.
+                    ensure_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+
+                    // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
+                    // (Think: uninhabited types have impossible alignment.)
+                    ensure_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
+                    ensure_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                    ensure_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                    ensure_ub(
+                        self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
+                        "Value::Ptr: non-dereferenceable safe pointer"
+                    )?;
+
+                    // However, is it not UB, if the validity invariant of the pointee is broken.
+                }
+
+                match ptr.metadata {
+                    Some(PointerMeta::ElementCount(num)) =>
+                        self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
+                    _ => {}
+                };
+            }
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
+                ensure_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
+                for (val, (_, ty)) in vals.zip(fields) {
+                    self.check_value(val, ty)?;
+                }
+            }
+            (Value::Tuple(vals), Type::Array { elem, count }) => {
+                ensure_ub(vals.len() == count, "Value::Tuple: invalid number of elements")?;
+                for val in vals {
+                    self.check_value(val, elem)?;
+                }
+            }
+            (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
+                ensure_ub(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
+                for (data, (_, size)) in chunk_data.zip(chunks) {
+                    ensure_ub(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
+                }
+            }
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
+                let Some(variant) = variants.get(discriminant) else {
+                    throw_ub!("Value::Variant: invalid discrimant type");
+                };
+                self.check_value(data, variant.ty)?;
+            }
+            (_, Type::Slice { .. }) => throw_ub!("Value: slices cannot be represented as values"),
+            _ => throw_ub!("Value: value does not match type")
+        }
+
+        ret(())
+    }
+}
+```
+
+## Typed memory accesses
+
+One key use of the value representation is to define a "typed" interface to memory.
+This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
+We also lift retagging from pointers to compound values (TODO: should this be here?).
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
+        // All values floating around in minirust must be valid.
+        assert!(self.check_value(val, ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
+        let bytes = ty.encode::<M>(val);
+        self.mem.store(ptr, bytes, align, atomicity)?;
+
+        ret(())
+    }
+
+    fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
+        let bytes = self.mem.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
+        ret(match ty.decode::<M>(bytes) {
+            Some(val) => {
+                // Ensures we only produce valid values.
+                self.check_value(val, ty)?;
+                val
+            }
+            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
+        })
+    }
+}
+
+impl<M: Memory> ConcurrentMemory<M> {
+    /// Find all pointers in this value, ensure they are valid, and retag them.
+    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
+        ret(match (val, ty) {
+            // no (identifiable) pointers
+            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
+                val,
+            // base case
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
+                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+            // recurse into tuples/arrays/enums
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
+                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
+                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
+            _ =>
+                panic!("this value does not have that type"),
+        })
     }
 }
 ```
@@ -416,11 +557,12 @@ impl Type {
 ## Generic properties
 
 There are some generic properties that `encode` and `decode` must satisfy.
-The most obvious part is consistency of size and inhabitedness:
-- If `ty.decode(bytes) == Some(val)`, then `bytes` has length `ty.size()` and `ty.inhabited() == true`.
+The most obvious part is consistency of size:
+- `ty.encode(value).len() == ty.layout().expect_size("")`
+- `ty.decode(bytes)` may assume this property: `bytes.len() == ty.layout().expect_size("")`
 
 More interestingly, we have some round-trip properties.
-For instance, starting with a (well-formed) value, encoding it, and then decoding it, must produce the same result.
+For instance, starting with a valid value, encoding it, and then decoding it, must produce the same result.
 
 To make this precise, we first have to define an order in values and byte lists that captures when one value (byte list) is "more defined" than another.
 "More defined" here can either mean initializing some previously uninitialized data, or adding provenance to data that didn't have it.
@@ -531,19 +673,18 @@ impl<T: DefinedRelation> DefinedRelation for Option<T> {
 ```
 
 In the following, let `ty` be an arbitrary well-formed type.
-We say that a `v: Value` is ["well-formed"][well-formed-value] for a type if `v.check_wf(ty)` is `Some(_)`.
+We say that a `v: Value` is ["valid"][valid-value] for a type if `machine.check_value(v, ty)` is `Ok(())`.
 This ensures that the basic structure of the value and the type match up.
-Decode will only ever return well-formed values.
 
 Now we can state the laws that we require.
 First of all, `encode` and `decode` must both be "monotone":
-- If `val1 <= val2` (and if both values are well-formed for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
+- If `val1 <= val2` (and if both values are valid for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
 - If `bytes1 <= bytes2`, then `ty.decode(bytes1) <= ty.decode(bytes2)`.
 
 More interesting are the round-trip properties:
-- If `val` is well-formed for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
+- If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
   In other words, encoding a value and then decoding it again is lossless.
-- If `ty.decode(bytes) == Some(val)`, then `ty.encode(val) <= bytes`.
+- If `ty.decode(bytes) == Some(val)` (and `bytes` has the right length for `ty`), then `ty.encode(val) <= bytes`.
   In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
   (some bytes might have become `Uninit`, but otherwise it is the same).
 
@@ -561,94 +702,31 @@ If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we 
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
 
-## Typed memory accesses
-
-One key use of the value representation is to define a "typed" interface to memory.
-This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
-We also use this to lift retagging from pointers to compound values.
-
-```rust
-impl<M: Memory> ConcurrentMemory<M> {
-    fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
-        assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
-        let bytes = ty.encode::<M>(val);
-        self.store(ptr, bytes, align, atomicity)?;
-
-        ret(())
-    }
-
-    fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
-        ret(match ty.decode::<M>(bytes) {
-            Some(val) => {
-                assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
-                val
-            }
-            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
-        })
-    }
-
-    /// Find all pointers in this value, ensure they are valid, and retag them.
-    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
-        ret(match (val, ty) {
-            // no (identifiable) pointers
-            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
-                val,
-            // base case
-            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
-            // recurse into tuples/arrays/enums
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
-            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
-            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
-            _ =>
-                panic!("this value does not have that type"),
-        })
-    }
-}
-```
-
-## Relation to validity invariant
-
-One way we *could* also use the value representation (and the author thinks this is exceedingly elegant) is to define the validity invariant.
-Certainly, it is the case that if a list of bytes is not related to any value for a given type `T`, then that list of bytes is *invalid* for `T` and it should be UB to produce such a list of bytes at type `T`.
-We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
-`bytes` is valid for `ty` if `ty.decode::<M>(bytes).is_some()` returns `true`.
-
-For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
-The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
-This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything just falls out of how a "typed copy" applies the value representation.
-
-### Validity of pointers
-
-For pointers, validity just says that `ptr_ty.addr_valid` holds for the address.
-However, we often also want to ensure that safe pointers are dereferenceable and respect the desired aliasing discipline.
-This does not apply at each and every typed copy, so it is not really part of validity, but we do ensure these properties by performing retagging (which also checks dereferencability) on each `AddrOf` and `Validate`.
-Additionally, on `Deref` of a safe pointer we double-check that it is indeed dereferenceable.
-
 ## Transmutation
 
-The representation relation also says everything there is to say about "transmutation".
+The representation relation and validity check also say everything there is to say about "transmutation".
 By this I mean not just the `std::mem::transmute` function, but any operation that "re-interprets data from one type at another type"
 (essentially a `reinterpret_cast` in C++ terms).
-Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*.
+Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*, and checking it is a valid value.
 More precisely:
 
 ```rust
-/// Transmutes `val` from `type1` to `type2`.
-fn transmute<M: Memory>(val: Value<M>, type1: Type, type2: Type) -> Option<Value<M>> {
-    assert!(
-        type1.layout::<M::T>().expect_size("WF ensures sized operands")
-            == type2.layout::<M::T>().expect_size("WF ensures sized operands")
-    );
-    let bytes = type1.encode::<M>(val);
-    ret(type2.decode::<M>(bytes)?)
+impl<M: Memory> Machine<M> {
+    /// Transmutes `val` from `type1` to `type2`.
+    fn transmute(&self, val: Value<M>, type1: Type, type2: Type) -> Result<Value<M>> {
+        assert!(
+            type1.layout::<M::T>().expect_size("WF ensures sized operands")
+                == type2.layout::<M::T>().expect_size("WF ensures sized operands")
+        );
+        let bytes = type1.encode::<M>(val);
+        if let Some(raw_value) = type2.decode::<M>(bytes) {
+            self.check_value(raw_value, type2)?;
+            ret(raw_value)
+        } else {
+            throw_ub!("transmuted value is not valid at new type")
+        }
+    }
 }
 ```
 
 This operation can, of course, fail, which means that the encoding of `val` is not valid at `type2`.
-
-[Stacked Borrows]: stacked-borrows.md

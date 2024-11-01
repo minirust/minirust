@@ -20,7 +20,7 @@ fn pointer_partial_overwrite() {
 
     let p = small_program(locals, stmts);
     dump_program(p);
-    assert_ub::<BasicMem>(p, "dereferencing pointer without provenance");
+    assert_ub::<BasicMem>(p, "Value::Ptr: non-dereferenceable safe pointer");
 }
 
 #[test]

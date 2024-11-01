@@ -154,7 +154,6 @@ impl LayoutStrategy {
     pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
-            // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
             (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
             _ => panic!("pointer meta data does not match type"),
         }

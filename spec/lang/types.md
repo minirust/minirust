@@ -2,8 +2,8 @@
 
 This file defines the types of MiniRust.
 Note that MiniRust types play a somewhat different role than Rust types:
-every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how [values](values.md) are represented in memory.
-Basically, they define a (de)serialization format -- the **representation relation**, defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
+every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how valid [values](values.md) are represented in memory.
+Basically, they define a (de)serialization format -- the [**representation relation**](representation.md), defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
 In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and values.
 
@@ -45,6 +45,7 @@ pub enum Type {
         // TODO: store whether this is a (SIMD) vector, and something about alignment?
     },
     /// Slices, i.e. `[T]` are unsized types which therefore cannot be represented as values.
+    /// This type is also used for strings: `str` are treated as `[u8]`.
     Slice {
         #[specr::indirection]
         elem: Type,
@@ -182,6 +183,10 @@ impl IntType {
 
     pub fn bring_in_bounds(&self, i: Int) -> Int {
         i.bring_in_bounds(self.signed, self.size)
+    }
+
+    pub fn usize_ty<T: Target>() -> Self {
+        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
     }
 
     /// Generate the return type for IntWithOverflow
