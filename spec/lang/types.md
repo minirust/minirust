@@ -2,8 +2,8 @@
 
 This file defines the types of MiniRust.
 Note that MiniRust types play a somewhat different role than Rust types:
-every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how [values](values.md) are represented in memory.
-Basically, they define a (de)serialization format -- the **representation relation**, defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
+every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how valid [values](values.md) are represented in memory.
+Basically, they define a (de)serialization format -- the [**representation relation**](representation.md), defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
 In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and values.
 
@@ -30,13 +30,14 @@ pub enum Type {
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
+        /// The last field (in terms of offset) may contain an unsized type, then its offset is rounded up to the nearest alignment.
+        // (FIXME: this does not respect `repr(packed)` and `repr(align)` and I don't see an easy way to incorporate this).
         fields: Fields,
         /// The total size of the tuple can indicate trailing padding.
         /// Must be large enough to contain all fields.
-        size: Size,
-        /// Total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
+        /// The total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
         /// this is independent of the fields' alignment.
-        align: Align,
+        layout: LayoutStrategy,
     },
     Array {
         #[specr::indirection]
@@ -129,7 +130,7 @@ They *do* have a mutability since that is (or will be) relevant for the memory m
 
 ## Layout of a type
 
-Here we define how to compute the size and other layout properties of a type.
+Here we define the size and other layout properties of a type.
 
 ```rust
 impl IntType {
@@ -143,38 +144,83 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> SizeStrategy {
+    /// The layout, i.e. the size and align of the type. For `?Sized` types, this needs to be computed.
+    pub fn layout<T: Target>(self) -> LayoutStrategy {
         use Type::*;
-        use SizeStrategy::Sized;
+        use LayoutStrategy::Sized;
         match self {
-            Int(int_type) => Sized(int_type.size),
-            Bool => Sized(Size::from_bytes_const(1)),
-            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE),
-            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE),
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
+            Int(int_type) => Sized(int_type.size, int_type.align::<T>()),
+            Bool => Sized(Size::from_bytes_const(1), Align::ONE),
+            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
+            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
+            Tuple { size, align, .. } | Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
             Array { elem, count } => Sized(
-                elem.size::<T>().expect_sized("WF ensures array element is sized") * count
+                elem.layout::<T>().expect_size("WF ensures array element is sized") * count,
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
             ),
-            Slice { elem } => SizeStrategy::Slice(elem.size::<T>().expect_sized("WF ensures slice element is sized")),
-        }
-    }
-
-    pub fn align<T: Target>(self) -> Align {
-        use Type::*;
-        match self {
-            Int(int_type) => int_type.align::<T>(),
-            Bool => Align::ONE,
-            Ptr(_) => T::PTR_ALIGN,
-            Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
-            Array { elem, .. } | Slice { elem } => elem.align::<T>(),
+            Slice { elem } => LayoutStrategy::Slice(
+                elem.layout::<T>().expect_size("WF ensures slice element is sized"),
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
+            ),
         }
     }
 
     /// Returns the metadata kind when this type is used as a pointee.
     pub fn meta_kind(self) -> PointerMetaKind {
+        // The metadata kind does not rely on the target, therefore we can give any target.
+        self.layout::<x86_64>().meta_kind()
+    }
+}
+```
+
+And we also define how to compute the actual size.
+
+```rust
+impl LayoutStrategy {
+    pub fn is_sized(self) -> bool {
+        matches!(self, LayoutStrategy::Sized(_, _))
+    }
+
+    /// Returns the size when the type must be statically sized.
+    pub fn expect_size(self, msg: &str) -> Size {
         match self {
-            Type::Slice { .. } => PointerMetaKind::ElementCount,
-            _ => PointerMetaKind::None
+            LayoutStrategy::Sized(size, _) => size,
+            _ => panic!("expect_size called on unsized type: {msg}"),
+        }
+    }
+
+    /// Returns the alignment when the type must be statically sized.
+    pub fn expect_align(self, msg: &str) -> Align {
+        match self {
+            LayoutStrategy::Sized(_, align) => align,
+            _ => panic!("expect_align called on unsized type: {msg}"),
+        }
+    }
+
+    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
+        match (self, meta) {
+            (LayoutStrategy::Sized(size, _), None) => size,
+            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
+    pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
+        match (self, meta) {
+            (LayoutStrategy::Sized(_, align), None) => align,
+            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Returns the metadata kind which is needed to compute this strategy,
+    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
+    pub fn meta_kind(self) -> PointerMetaKind {
+        match self {
+            LayoutStrategy::Sized(_, _) => PointerMetaKind::None,
+            LayoutStrategy::Slice(_, _) => PointerMetaKind::ElementCount,
         }
     }
 }
@@ -192,6 +238,10 @@ impl IntType {
 
     pub fn bring_in_bounds(&self, i: Int) -> Int {
         i.bring_in_bounds(self.signed, self.size)
+    }
+
+    pub fn usize_ty<T: Target>() -> Self {
+        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
     }
 
     /// Generate the return type for IntWithOverflow

@@ -19,7 +19,7 @@ Assignment evaluates its two operands, and then stores the value into the destin
 - TODO: Should this implicitly retag, to have full `Validate` semantics?
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     fn place_store(&mut self, place: Place<M>, val: Value<M>, ty: Type) -> Result {
         if !place.aligned {
             throw_ub!("storing to a place based on a misaligned pointer");
@@ -28,13 +28,11 @@ impl<M: Memory> ConcurrentMemory<M> {
         self.typed_store(place.ptr.thin_pointer, val, ty, Align::ONE, Atomicity::None)?;
         ret(())
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Assign { destination, source }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(destination)?;
         let (val, _) = self.eval_value(source)?;
-        self.mem.place_store(place, val, ty)?;
+        self.place_store(place, val, ty)?;
 
         ret(())
     }
@@ -98,11 +96,11 @@ impl<M: Memory> Machine<M> {
         let (place, ty) = self.eval_place(place)?;
 
         // WF ensures all validate expressions are sized.
-        let val = self.mem.place_load(place, ty)?;
+        let val = self.place_load(place, ty)?;
 
         let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
 
-        self.mem.place_store(place, val, ty)?;
+        self.place_store(place, val, ty)?;
 
         ret(())
     }
@@ -128,7 +126,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("de-initializing a place based on a misaligned pointer");
         }
         // Alignment was already checked.
-        self.mem.deinit(p.ptr.thin_pointer, ty.size::<M::T>().expect_sized("WF ensures deinits are sized"), Align::ONE)?;
+        self.mem.deinit(p.ptr.thin_pointer, ty.layout::<M::T>().expect_size("WF ensures deinits are sized"), Align::ONE)?;
 
         ret(())
     }
@@ -146,16 +144,16 @@ impl<M: Memory> StackFrame<M> {
         // This means the same address may be re-used for the new stoage.
         self.storage_dead(mem, local)?;
         // Then allocate the new storage.
-        let pointee_size = self.func.locals[local].size::<M::T>().expect_sized("WF ensures all locals are sized");
-        let pointee_align = self.func.locals[local].align::<M::T>();
+        let pointee_size = self.func.locals[local].layout::<M::T>().expect_size("WF ensures all locals are sized");
+        let pointee_align = self.func.locals[local].layout::<M::T>().expect_align("WF ensures all locals are sized");
         let ptr = mem.allocate(AllocationKind::Stack, pointee_size, pointee_align)?;
         self.locals.insert(local, ptr);
         ret(())
     }
 
     fn storage_dead(&mut self, mem: &mut ConcurrentMemory<M>, local: LocalName) -> NdResult {
-        let pointee_size = self.func.locals[local].size::<M::T>().expect_sized("WF ensures all locals are sized");
-        let pointee_align = self.func.locals[local].align::<M::T>();
+        let pointee_size = self.func.locals[local].layout::<M::T>().expect_size("WF ensures all locals are sized");
+        let pointee_align = self.func.locals[local].layout::<M::T>().expect_align("WF ensures all locals are sized");
         if let Some(ptr) = self.locals.remove(local) {
             mem.deallocate(ptr, AllocationKind::Stack, pointee_size, pointee_align)?;
         }

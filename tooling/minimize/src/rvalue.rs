@@ -136,7 +136,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let place = self.translate_place_smir(place, span);
                 let target = GcCow::new(place);
-                let meta_kind = self.pointee_info_of_smir(ty, span).size.meta_kind();
+                let meta_kind = self.pointee_info_of_smir(ty, span).layout.meta_kind();
 
                 let ptr_ty = PtrType::Raw { meta_kind };
 

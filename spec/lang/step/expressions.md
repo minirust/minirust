@@ -130,7 +130,7 @@ impl<M: Memory> Machine<M> {
 This loads a value from a place (often called "place-to-value coercion").
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     fn place_load(&mut self, place: Place<M>, ty: Type) -> Result<Value<M>> {
         if !place.aligned {
             throw_ub!("loading from a place based on a misaligned pointer");
@@ -139,13 +139,11 @@ impl<M: Memory> ConcurrentMemory<M> {
         // `ty` is ensured to be sized by WF of callers: Loads, Validates and InPlace arguments.
         ret(self.typed_load(place.ptr.thin_pointer, ty, Align::ONE, Atomicity::None)?)
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::Load { source }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, ty) = self.eval_place(source)?;
         // WF ensures all load expressions are sized.
-        let v = self.mem.place_load(place, ty)?;
+        let v = self.place_load(place, ty)?;
 
         ret((v, ty))
     }
@@ -160,11 +158,6 @@ The `&` operators simply converts a place to the pointer it denotes.
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, _ty) = self.eval_place(target)?;
-        // Make sure the new pointer has a valid address.
-        // Remember that places are basically raw pointers so this is not guaranteed!
-        if !ptr_ty.addr_valid(place.ptr.thin_pointer.addr) {
-            throw_ub!("taking the address of an invalid (null, misaligned, or uninhabited) place");
-        }
         // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
         let ptr = self.mutate_cur_frame(|frame, mem| {
             mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false)
@@ -174,6 +167,9 @@ impl<M: Memory> Machine<M> {
             panic!("AddrOf generated an incompatible pointer type for the metadata");
         }
 
+        // Make sure the new pointer has a valid address.
+        // Remember that places are basically raw pointers so this is not guaranteed!
+        self.check_value(Value::Ptr(ptr), Type::Ptr(ptr_ty))?;
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
 }
@@ -250,14 +246,15 @@ impl<M: Memory> Machine<M> {
         };
         // We know the pointer is valid for its type, but make sure safe pointers are also dereferenceable.
         // (We don't do a full retag here, this is not considered creating a new pointer.)
-        if let Some(layout) = ptr_type.safe_pointee() {
-            assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
+        if let Some(pointee) = ptr_type.safe_pointee() {
+            // this was already checked when the value got created
+            assert!(pointee.layout.compute_align(ptr.metadata).is_aligned(ptr.thin_pointer.addr));
+            self.mem.dereferenceable(ptr.thin_pointer, pointee.layout.compute_size(ptr.metadata))?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
         // However, they cannot be loaded from.
-        let aligned = ty.align::<M::T>().is_aligned(ptr.thin_pointer.addr);
+        let aligned = ty.layout::<M::T>().compute_align(ptr.metadata).is_aligned(ptr.thin_pointer.addr);
 
         ret((Place { ptr, aligned }, ty))
     }
@@ -275,7 +272,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
+        assert!(offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
@@ -291,7 +288,7 @@ impl<M: Memory> Machine<M> {
             Type::Array { elem, count } => (elem, count),
             Type::Slice { elem } => {
                 let Some(PointerMeta::ElementCount(count)) = root.ptr.metadata else {
-                    panic!("eval_place should always return a ptr which matches meta for the SizeStrategy of ty");
+                    panic!("eval_place should always return a ptr which matches meta for the LayoutStrategy of ty");
                 };
                 (elem, count)
             }
@@ -301,10 +298,10 @@ impl<M: Memory> Machine<M> {
             throw_ub!("access to out-of-bounds index");
         }
 
-        let elem_size = elem_ty.size::<M::T>().expect_sized("WF ensures array & slice elements are sized");
+        let elem_size = elem_ty.layout::<M::T>().expect_size("WF ensures array & slice elements are sized");
         let offset = index * elem_size;
         assert!(
-            offset <= ty.size::<M::T>().compute(root.ptr.metadata),
+            offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata),
             "sanity check: the indexed offset should not be outside what the type allows."
         );
 
