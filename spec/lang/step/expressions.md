@@ -169,7 +169,7 @@ impl<M: Memory> Machine<M> {
 
         // Let the aliasing model know.
         let lookup = self.vtable_lookup();
-        let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size(meta, &lookup) };
+        let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size_and_align(meta, &lookup).0 };
         let ptr = self.mutate_cur_frame(|frame, mem| {
             mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, size_computer)
         })?;
@@ -271,16 +271,26 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> Result<(Place<M>, Type)> {
         let (root, ty) = self.eval_place(root)?;
-        let (offset, field_ty) = match ty {
-            Type::Tuple { fields, .. } => fields[field],
-            Type::Union { fields, .. } => fields[field],
+        let ((offset, field_ty), retain_metadata) = match ty {
+            Type::Tuple { sized_fields, .. } if field < sized_fields.len() => (sized_fields[field], false),
+            Type::Tuple { sized_fields, unsized_field, sized_head_layout } if field == sized_fields.len() => {
+                let tail_ty = unsized_field.expect("field projection to non-existing tail");
+                let tail_align = self.compute_align(tail_ty.layout::<M::T>(), root.ptr.metadata);
+                let offset = sized_head_layout.tail_offset(tail_align);
+                ((offset, tail_ty), true)
+            }
+            Type::Union { fields, .. } => (fields[field], false),
             _ => panic!("field projection on non-projectable type"),
         };
         assert!(offset <= self.compute_size(ty.layout::<M::T>(), root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
-        // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
-        ret((Place { ptr: ptr.widen(None), ..root }, field_ty))
+        let ptr = if retain_metadata {
+            ptr.widen(root.ptr.metadata)
+        } else { 
+            ptr.widen(None)
+        };
+        ret((Place { ptr, ..root }, field_ty))
     }
 
     fn eval_place(&mut self, PlaceExpr::Index { root, index }: PlaceExpr) -> Result<(Place<M>, Type)> {

@@ -15,10 +15,10 @@ pub fn const_bool(b: bool) -> ValueExpr {
 
 #[track_caller]
 pub fn tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
-    let Type::Tuple { fields, .. } = ty else {
+    let Type::Tuple { sized_fields, .. } = ty else {
         panic!("const_tuple received non-tuple type!");
     };
-    assert_eq!(fields.len(), args.len());
+    assert_eq!(sized_fields.len(), args.len());
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 

@@ -102,13 +102,13 @@ impl<M: Memory> Machine<M> {
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) => {
                 let lookup = self.vtable_lookup();
-                let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size(meta, &lookup) };
+                let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size_and_align(meta, &lookup).0 };
                 let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, size_computer) })?;
                 Value::Ptr(val)
             }
             // recurse into tuples/arrays/enums
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
+            (Value::Tuple(vals), Type::Tuple { sized_fields, .. }) =>
+                Value::Tuple(vals.zip(sized_fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>

@@ -25,6 +25,13 @@ impl IntType {
     }
 }
 
+impl TupleHeadLayout {
+    fn check_wf<T: Target>(self) -> Result<()> {
+        ensure_wf(T::valid_size(self.end), "TupleHeadLayout: end not valid")?;
+        ret(())
+    }
+}
+
 impl LayoutStrategy {
     /// This does *not* require that size is a multiple of align!
     fn check_wf<T: Target>(self) -> Result<()> {
@@ -33,6 +40,11 @@ impl LayoutStrategy {
             LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
             LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
             LayoutStrategy::TraitObject(..) => (),
+            LayoutStrategy::Tuple { head, tail } => {
+                head.check_wf::<T>()?;
+                tail.check_wf::<T>()?;
+                ensure_wf(!tail.is_sized(), "LayoutStrategy: tuple with sized tail")?;
+            }
         };
 
         ret(())
@@ -47,6 +59,8 @@ impl LayoutStrategy {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
             LayoutStrategy::TraitObject(..) => (),
+            // The size and align computation aligns the size.
+            LayoutStrategy::Tuple {..} => (),
         };
 
         ret(())
@@ -87,23 +101,28 @@ impl Type {
             Ptr(ptr_type) => {
                 ptr_type.check_wf::<T>()?;
             }
-            Tuple { mut fields, size, align: _ } => {
+            Tuple { mut sized_fields, unsized_field, sized_head_layout } => {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
-                fields.sort_by_key(|(offset, _ty)| offset);
+                sized_fields.sort_by_key(|(offset, _ty)| offset);
                 let mut last_end = Size::ZERO;
-                for (offset, ty) in fields {
+                for (offset, ty) in sized_fields {
                     // Recursively check the field type.
                     ty.check_wf::<T>()?;
-                    // Ensure it is a sized type.
-                    ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type")?;
-                    // And ensure it fits after the one we previously checked.
+                    // Ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
-                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");
+                    ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type in head")?;
+                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");    
+                }
+                // The unsized field must actually be unsized.
+                if let Some(unsized_field) = unsized_field {
+                    unsized_field.check_wf::<T>()?;
+                    ensure_wf(!unsized_field.layout::<T>().is_sized(), "Type::Tuple: sized unsized field type")?;
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
-                ensure_wf(size >= last_end, "Type::Tuple: size of fields is bigger than total size")?;
+                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
+                sized_head_layout.check_wf::<T>()?;
             }
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
@@ -267,9 +286,10 @@ impl ValueExpr {
                 t.check_wf::<T>()?;
 
                 match t {
-                    Type::Tuple { fields, .. } => {
-                        ensure_wf(exprs.len() == fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
-                        for (e, (_offset, ty)) in exprs.zip(fields) {
+                    Type::Tuple { sized_fields, unsized_field, .. } => {
+                        ensure_wf(unsized_field.is_none(), "ValueExpr::Tuple: aggregating an unsized tuple")?;
+                        ensure_wf(exprs.len() == sized_fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
+                        for (e, (_offset, ty)) in exprs.zip(sized_fields) {
                             let checked = e.check_wf::<T>(locals, prog)?;
                             ensure_wf(checked == ty, "ValueExpr::Tuple: invalid tuple field type")?;
                         }
@@ -503,11 +523,17 @@ impl PlaceExpr {
             }
             Field { root, field } => {
                 let root = root.check_wf::<T>(locals, prog)?;
-                let (_offset, field_ty) = match root {
-                    Type::Tuple { fields, .. } | Type::Union { fields, .. } => {
+                let field_ty = match root {
+                    Type::Tuple { sized_fields, unsized_field, .. } if field == sized_fields.len() => {
+                        let Some(unsized_ty) = unsized_field else {
+                            throw_ill_formed!("PlaceExpr::Field: invalid field");
+                        };
+                        unsized_ty
+                    }
+                    Type::Tuple { sized_fields: fields, .. } | Type::Union { fields, .. } => {
                         match fields.get(field) {
                             None => throw_ill_formed!("PlaceExpr::Field: invalid field"),
-                            Some(field) => field,
+                            Some(field) => field.1,
                         }
                     }
                     _ => throw_ill_formed!("PlaceExpr::Field: expression does not match type"),

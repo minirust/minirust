@@ -71,9 +71,9 @@ impl<'tcx> Ctxt<'tcx> {
 
                         (offset, t)
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                Type::Tuple { fields, size, align }
+                build::tuple_ty(&fields, size, align)
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.expect_boxed_ty();
@@ -82,7 +82,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
                 let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
-                Type::Tuple { fields, size, align }
+                build::tuple_ty(&fields.iter().collect::<Vec<_>>(), size, align)
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
                 let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
