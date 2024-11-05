@@ -30,13 +30,14 @@ pub enum Type {
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
+        /// The last field (in terms of offset) may contain an unsized type, then its offset is rounded up to the nearest alignment.
+        // (FIXME: this does not respect `repr(packed)` and `repr(align)` and I don't see an easy way to incorporate this).
         fields: Fields,
         /// The total size of the tuple can indicate trailing padding.
         /// Must be large enough to contain all fields.
-        size: Size,
-        /// Total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
+        /// The total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
         /// this is independent of the fields' alignment.
-        align: Align,
+        layout: LayoutStrategy,
     },
     Array {
         #[specr::indirection]
