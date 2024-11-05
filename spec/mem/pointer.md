@@ -106,6 +106,18 @@ pub enum LayoutStrategy {
     /// The type contains zero or more elements of the inner layout.
     /// The total size is a multiple of the element size and the align is exactly the element size.
     Slice(Size, Align),
+
+    Tail {
+        /// The offset where the tail starts.
+        /// Also determines the size together with the tail size and padding to satisfy alignment.
+        tail_offset: Size,
+
+        prefix_align: Align,
+        // fixed_align: Align, // for packed & align,
+        
+        #[specr::indirection]
+        tail: LayoutStrategy,
+    }
 }
 
 /// Stores all the information that we need to know about a pointer.

@@ -85,7 +85,7 @@ impl Type {
             Ptr(ptr_type) => {
                 ptr_type.check_wf::<T>()?;
             }
-            Tuple { mut fields, size, align: _ } => {
+            Tuple { mut fields, layout } => {
                 // The fields must not overlap.
                 // We check fields in the order of their (absolute) offsets.
                 fields.sort_by_key(|(offset, _ty)| offset);
@@ -93,11 +93,14 @@ impl Type {
                 for (offset, ty) in fields {
                     // Recursively check the field type.
                     ty.check_wf::<T>()?;
-                    // Ensure it is a sized type.
-                    ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type")?;
-                    // And ensure it fits after the one we previously checked.
+                    // Ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
-                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");
+                    
+                    if !todo!("is last") {
+                        // Ensure it is a sized type.
+                        ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type")?;
+                        last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");
+                    }
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
