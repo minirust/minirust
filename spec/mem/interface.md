@@ -113,8 +113,9 @@ pub trait Memory {
     /// `fn_entry` indicates whether this is one of the special retags that happen
     /// right at the top of each function.
     ///
-    /// This must at least check that the pointer is `dereferenceable` for its size
-    // (IOW, it cannot be more defined than the default implementation).
+    /// This can assume the pointer satisfies the language invariant,
+    /// in particular, it must be `dereferenceable` for its size.
+    /// Violating this is a spec bug.
     ///
     /// Return the retagged pointer.
     fn retag_ptr(
@@ -124,9 +125,6 @@ pub trait Memory {
         ptr_type: PtrType,
         _fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
-        if let Some(layout) = ptr_type.safe_pointee() {
-            self.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
-        }
         ret(ptr)
     }
 

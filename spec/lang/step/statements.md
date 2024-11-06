@@ -87,7 +87,7 @@ impl<M: Memory> Machine<M> {
 
 ## Validating a value
 
-This statement asserts that a value satisfies its validity invariant, and performs retagging for the aliasing model.
+This statement asserts that a value satisfies its language invariant, and performs retagging for the aliasing model.
 (This matches the `Retag` statement in MIR. They should probaby be renamed.)
 
 ```rust
@@ -95,7 +95,8 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(place)?;
 
-        // WF ensures all validate expressions are sized.
+        // WF ensures all validate expressions are sized, so we can invoke the load.
+        // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
 
         let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;

@@ -158,18 +158,16 @@ The `&` operators simply converts a place to the pointer it denotes.
 impl<M: Memory> Machine<M> {
     fn eval_value(&mut self, ValueExpr::AddrOf { target, ptr_ty }: ValueExpr) -> Result<(Value<M>, Type)> {
         let (place, _ty) = self.eval_place(target)?;
-        // Let the aliasing model know. (Will also check dereferenceability if appropriate.)
-        let ptr = self.mutate_cur_frame(|frame, mem| {
-            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false)
-        })?;
-        if !ptr_ty.meta_kind().matches(ptr.metadata) {
-            // The metadata kind is checked in WF.
-            panic!("AddrOf generated an incompatible pointer type for the metadata");
-        }
 
         // Make sure the new pointer has a valid address.
         // Remember that places are basically raw pointers so this is not guaranteed!
         self.check_value(Value::Ptr(ptr), Type::Ptr(ptr_ty))?;
+
+        // Let the aliasing model know.
+        let ptr = self.mutate_cur_frame(|frame, mem| {
+            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false)
+        })?;
+        
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
 }
