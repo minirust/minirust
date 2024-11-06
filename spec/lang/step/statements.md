@@ -89,6 +89,7 @@ impl<M: Memory> Machine<M> {
 
 This statement asserts that a value satisfies its language invariant, and performs retagging for the aliasing model.
 (This matches the `Retag` statement in MIR. They should probaby be renamed.)
+To do this, we lift retagging from pointers to compound values.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -104,6 +105,29 @@ impl<M: Memory> Machine<M> {
         self.place_store(place, val, ty)?;
 
         ret(())
+    }
+}
+
+impl<M: Memory> ConcurrentMemory<M> {
+    /// Find all pointers in this value, ensure they are valid, and retag them.
+    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
+        ret(match (val, ty) {
+            // no (identifiable) pointers
+            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
+                val,
+            // base case
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
+                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+            // recurse into tuples/arrays/enums
+            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
+                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
+                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
+            _ =>
+                panic!("this value does not have that type"),
+        })
     }
 }
 ```

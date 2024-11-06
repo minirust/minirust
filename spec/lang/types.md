@@ -186,16 +186,16 @@ impl Type {
 impl IntType {
     pub const I8: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(1) };
 
+    pub fn usize_ty<T: Target>() -> Self {
+        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
+    }
+
     pub fn can_represent(&self, i: Int) -> bool {
         i.in_bounds(self.signed, self.size)
     }
 
     pub fn bring_in_bounds(&self, i: Int) -> Int {
         i.bring_in_bounds(self.signed, self.size)
-    }
-
-    pub fn usize_ty<T: Target>() -> Self {
-        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
     }
 
     /// Generate the return type for IntWithOverflow
