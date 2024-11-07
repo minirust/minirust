@@ -15,7 +15,9 @@ This section defines the following function:
 
 ```rust
 impl<M: Memory> Machine<M> {
-    /// Evaluate a value expression to a value. The result value will always be well-formed for the given type.
+    /// Evaluate a well-formed value expression to a value.
+    /// The result value will always be well-formed for the given type.
+    /// Calling this with a non-well-formed expression or it returning a non-well-formed value is a spec bug.
     #[specr::argmatch(val)]
     fn eval_value(&mut self, val: ValueExpr) -> Result<(Value<M>, Type)> { .. }
 }

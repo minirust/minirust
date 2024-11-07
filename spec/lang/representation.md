@@ -1,23 +1,30 @@
 # MiniRust representation relation
 
-The main purpose of [types](types.md) is to define how [values](values.md) are (de)serialized into/from memory.
-This is the *[representation relation]*, which is defined in the following.
-`decode` converts a list of bytes into a value; this operation can fail if the byte list is not a valid encoding for the given type.
-Some types also have additional runtime constraints to be [valid][valid-value], which is always checked after decoding.
-`encode` inverts `decode`; it, however, will always work when the value is [valid][valid-value] for the given type.
+The language specification enforces (by penalty of Undefined Behavior) that when a range of bytes is "used at a given type",
+it satisfies an invariant -- the *language invariant* (or "validity invariant").
+This is the main purpose of [types](types.md): to define how [values](values.md) are (de)serialized into/from memory.
 
-`encode` and `decode` must satisfy some [properties](#generic-properties), which the specification must ensure, i.e. violating these properties is a spec bug.
-However, they can also make some assumptions:
-The types in the representation relation are all [well-formed](well-formed.md#well-formed-layouts-and-types) and sized, as unsized types cannot be represented as values.
-`encode` can also assume the value is [valid][valid-value] for the type,
+This *[representation relation]* for a type is defined in the following.
+`decode` converts a list of bytes into a (potentially not well-formed) value; this operation can already fail if the byte list is not a valid encoding for the given type.
+The values are always checked after decoding to be [well-formed][well-formed-value] by `check_value`, since some types also have additional runtime constraints.
+`encode` inverts `decode`; it will always succeed for [well-formed][well-formed-value] inputs.
+
+`encode`, `decode` and `check_value` satisfy some [properties](#generic-properties), which the specification must ensure, i.e. violating these properties is a spec bug.
+However, they can also make some assumptions which the specification ensures:
+The types these are called with/on are all [well-formed](well-formed.md#well-formed-layouts-and-types) and sized, as unsized types cannot be represented as values.
+`encode` can also assume the value is [well-formed][well-formed-value] for the type,
 and `decode` can assume the size of the byte list matches the size of the type.
 
 [representation relation]: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/reference/src/glossary.md#representation-relation
-[valid-value]: #Value-validity
+[well-formed-value]: #well-formed-values
 
 ## Type-directed Encode/Decode of values
 
-The definition of these functions is huge, so we split it by type.
+We start with the definition of `encode` and `decode`.
+Generally, whether a sequence of bytes represents a "well-formed value" is already defined by `decode`: if decoding succeeds, the representation is well-formed.
+However, pointer types have further runtime constraints, which are only checked in `check_value`.
+
+Since this definition is huge, we split it by type.
 (We basically pretend we can have fallible patterns for the `self` parameter and declare the function multiple times with non-overlapping patterns.
 If any pattern is not covered, that is a bug in the spec.)
 
@@ -25,15 +32,15 @@ If any pattern is not covered, that is a bug in the spec.)
 impl Type {
     /// Decode a list of bytes into a value.
     /// 
-    /// This can fail when the bytes can fail if the byte list is not a valid encoding for the type,
+    /// This can fail if `bytes` is not a valid encoding for the type,
     /// which typically means Undefined Behavior.
-    /// Assumes `self` is well formed and `bytes.len()` matches the types size.
+    /// Assumes `self` is well formed and `bytes.len()` matches the types size (violating this is a spec bug).
     #[specr::argmatch(self)]
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> { .. }
 
     /// Encode `v` into a list of bytes according to the type `self`.
     /// 
-    /// Assumes `self` is well formed and `val` is valid for the type.
+    /// Assumes `self` is well formed and `val` is well-formed for this type (violating this is a spec bug)..
     #[specr::argmatch(self)]
     fn encode<M: Memory>(self, val: Value<M>) -> List<AbstractByte<M::Provenance>> { .. }
 }
@@ -93,8 +100,8 @@ Pointers are significantly more complex to represent than just the integer addre
 For one, they need to encode the provenance.
 When decoding, we have to deal with the possibility of the pointer bytes not all having the same provenance;
 this is defined to yield a pointer without provenance.
-In the decoding we do not check any validity properties, such as dereferenceablity of safe pointers,
-this is done in [check_value][valid-value], such that it has access to runtime concepts.
+Some well-formedness properties, such as dereferenceablity of safe pointers, are not checked during `decode` itself.
+This is done instead in [check_value][well-formed-value], since it needs access to the current `Machine` state.
 
 On the other hand, some pointers are wide pointers which also need to encode their metadata.
 The helpers `decode_ptr` and `encode_ptr` deal with thin pointers.
@@ -403,29 +410,28 @@ impl Type {
 }
 ```
 
-## Value validity
+## Well-formed values
 
-A type can have additional runtime validity properties that need to be met.
-This "validity invariant" is defined here.
+We call a value `val` *well-formed* for a type `ty` if `machine.check_value(val, ty).is_ok()`.
+The specification ensures (statically or dynamically) that all values in MiniRust are always well-formed, the only exception being values returned from `decode`, which are sanitized by [typed memory accesses](#Typed-memory-accesses).
+Violating this when running a well-formed program is a spec bug.
+Therefore `encode` and other expressions can assume well-formed inputs as well.
 
-`encode` assumes values to be valid.
-`decode` always produces valid values for most types, the exception being pointers.
-In particular, do [safe pointers][ptr_type] require the address to be aligned, dereferenceable and non-null.
+In particular must a load instruction cause UB, when the sequence of bytes does not correspond to any representation of a well-formed value.
+Generally, this is already dealt with by `decode`: if decoding succeeds, the representation is well-formed.
+However, pointer types have further runtime constraints: specifically, [safe pointers][ptr_type] require the address to be aligned, dereferenceable and non-null, and they require the pointee type to be inhabited.
+This is separated from `decode`, because checking alignment or the well-formedness of a trait object pointer needs vtable information, and dereferenceablity need the allocations.
+Dropping dereferenceablity as a requirement to unify these steps was discussed, see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77), but for trait objects this separation is desireable.
+Therefore usages for `decode` will either follow up by calling `check_value` to raise UB or reason about why this is statically ensured already. 
 
-If the type contains no pointers, then the validity invariant is equivalent to inclusion in the representation relation.
-I.e. a `value` is valid if and only if there is some bytes list such that `ty.decode(bytes) = Some(value)`.
-
-Types like `&!`, however, have many values in the representation, but none is *valid*:
+So types like `&!`, have many byte lists which decode without problems, but none are *well-formed*:
 when the pointee type is uninhabited (as given by the pointee type), there exists no valid reference to that type.
-This is because checking alignment needs vtable information, the validity of vtables naturally aswell, and dereferenceablity need the allocations.
-Dropping dereferenceablity as a requirement was discussed, see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77), to remove the validity invariant, but for trait objects this is needed anyway.
-
-- TODO: Inhabitedness and non-nullness are (the only two) conditions that could be checked in `decode` itself. Should we?
 
 [ptr_type]: ../mem/pointer.md#Pointee
 
 ```rust
-fn ensure_ub(b: bool, msg: &str) -> Result<()> {
+/// Ensures the given boolean is true or else raises UB.
+fn ensure_else_ub(b: bool, msg: &str) -> Result<()> {
     if !b { throw_ub!("{}", msg); }
     ret(())
 }
@@ -435,30 +441,30 @@ impl<M: Memory> Machine<M> {
     fn check_value(&self, value: Value<M>, ty: Type) -> Result {
         match (value, ty) {
             (Value::Int(i), Type::Int(int_ty)) => {
-                ensure_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
+                ensure_else_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => {
-                ensure_ub(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
-                ensure_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+                ensure_else_ub(ptr_ty.meta_kind().matches(ptr.metadata), "Value::Ptr: invalid metadata")?;
+                ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
                 // Safe pointer, i.e. references, boxes
                 if let Some(layout) = ptr_ty.safe_pointee() {
                     let size = layout.size.compute(ptr.metadata);
                     // The total size of slices must be at most `isize::MAX`.
-                    ensure_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+                    ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
                     // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
                     // (Think: uninhabited types have impossible alignment.)
-                    ensure_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-                    ensure_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-                    ensure_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
-                    ensure_ub(
+                    ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
+                    ensure_else_ub(layout.align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                    ensure_else_ub(layout.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                    ensure_else_ub(
                         self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
                         "Value::Ptr: non-dereferenceable safe pointer"
                     )?;
 
-                    // However, is it not UB, if the validity invariant of the pointee is broken.
+                    // However, we do not care about the data stored wherever this pointer points to.
                 }
 
                 match ptr.metadata {
@@ -468,26 +474,26 @@ impl<M: Memory> Machine<M> {
                 };
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
+                ensure_else_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
                 for (val, (_, ty)) in vals.zip(fields) {
                     self.check_value(val, ty)?;
                 }
             }
             (Value::Tuple(vals), Type::Array { elem, count }) => {
-                ensure_ub(vals.len() == count, "Value::Tuple: invalid number of elements")?;
+                ensure_else_ub(vals.len() == count, "Value::Tuple: invalid number of elements")?;
                 for val in vals {
                     self.check_value(val, elem)?;
                 }
             }
             (Value::Union(chunk_data), Type::Union { chunks, .. }) => {
-                ensure_ub(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
+                ensure_else_ub(chunk_data.len() == chunks.len(), "Value::Union: invalid chunk size")?;
                 for (data, (_, size)) in chunk_data.zip(chunks) {
-                    ensure_ub(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
+                    ensure_else_ub(data.len() == size.bytes(), "Value::Union: invalid chunk data")?;
                 }
             }
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) => {
                 let Some(variant) = variants.get(discriminant) else {
-                    throw_ub!("Value::Variant: invalid discrimant type");
+                    throw_ub!("Value::Variant: invalid discrimant");
                 };
                 self.check_value(data, variant.ty)?;
             }
@@ -500,15 +506,23 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+- TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
+  (The latter would not even be possible with the current pointee information in MiniRust.)
+  Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).
+- TODO: Inhabitedness and non-nullness are (the only two) conditions that could be checked in `decode` itself. Should we?
+
 ## Typed memory accesses
 
 One key use of the value representation is to define a "typed" interface to memory.
+Loading bytes at a type which does not correspond to any representation of a [well-formed value][well-formed-value] will raise UB, ensuring that all values in MiniRust are well-formed.
+Since all values are well-formed, (thus a store with a ill-formed value is a spec bug) it can simply encode the value and store the byte list.
+
 This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
 
 ```rust
 impl<M: Memory> Machine<M> {
     fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
-        // All values floating around in minirust must be valid.
+        // All values floating around in MiniRust must be well-formed.
         assert!(self.check_value(val, ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
         let bytes = ty.encode::<M>(val);
         self.mem.store(ptr, bytes, align, atomicity)?;
@@ -520,11 +534,11 @@ impl<M: Memory> Machine<M> {
         let bytes = self.mem.load(ptr, ty.size::<M::T>().expect_sized("the callers ensure `ty` is sized"), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
-                // Ensures we only produce valid values.
+                // Ensures we only produce well-formed values.
                 self.check_value(val, ty)?;
                 val
             }
-            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
+            None => throw_ub!("load at type {ty:?} but the data in memory violates the language invariant"), // FIXME use Display instead of Debug for `ty`
         })
     }
 }
@@ -649,16 +663,16 @@ impl<T: DefinedRelation> DefinedRelation for Option<T> {
 ```
 
 In the following, let `ty` be an arbitrary well-formed type.
-We say that a `v: Value` is ["valid"][valid-value] for a type if `machine.check_value(v, ty)` is `Ok(())`.
+We say that a `v: Value` is ["well-formed"][well-formed-value] for a type if `machine.check_value(v, ty)` is `Ok(())`.
 This ensures that the basic structure of the value and the type match up.
 
 Now we can state the laws that we require.
 First of all, `encode` and `decode` must both be "monotone":
-- If `val1 <= val2` (and if both values are valid for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
+- If `val1 <= val2` (and if both values are well-formed for `ty`), then `ty.encode(val1) <= ty.encode(val2)`.
 - If `bytes1 <= bytes2`, then `ty.decode(bytes1) <= ty.decode(bytes2)`.
 
 More interesting are the round-trip properties:
-- If `val` is valid for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
+- If `val` is well-formed for `ty`, then `ty.decode(ty.encode(val)) == Some(val)`.
   In other words, encoding a value and then decoding it again is lossless.
 - If `ty.decode(bytes) == Some(val)` (and `bytes` has the right length for `ty`), then `ty.encode(val) <= bytes`.
   In other words, if a byte list is successfully decoded, then encoding it again will lead to a byte list that is "less defined"
@@ -680,10 +694,10 @@ For example, if the original program later did a successful decode at an integer
 
 ## Transmutation
 
-The representation relation and validity check also say everything there is to say about "transmutation".
+The representation relation also says everything there is to say about "transmutation".
 By this I mean not just the `std::mem::transmute` function, but any operation that "re-interprets data from one type at another type"
 (essentially a `reinterpret_cast` in C++ terms).
-Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*, and checking it is a valid value.
+Transmutation means taking a value at some type, encoding it, and then decoding it *at a different type*, and checking it is a well-formed value for this different type.
 More precisely:
 
 ```rust
