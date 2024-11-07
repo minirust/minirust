@@ -115,14 +115,14 @@ pub trait Memory {
     ///
     /// This can assume the pointer satisfies the language invariant,
     /// in particular, it must be `dereferenceable` for its size.
-    /// Violating this is a spec bug.
+    /// Violating this or breaking this for the return value is a spec bug.
     ///
     /// Return the retagged pointer.
     fn retag_ptr(
         &mut self,
         _frame_extra: &mut Self::FrameExtra,
         ptr: Pointer<Self::Provenance>,
-        ptr_type: PtrType,
+        _ptr_type: PtrType,
         _fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(ptr)

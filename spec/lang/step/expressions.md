@@ -163,7 +163,7 @@ impl<M: Memory> Machine<M> {
 
         // Make sure the new pointer has a valid address.
         // Remember that places are basically raw pointers so this is not guaranteed!
-        self.check_value(Value::Ptr(ptr), Type::Ptr(ptr_ty))?;
+        self.check_value(Value::Ptr(place.ptr), Type::Ptr(ptr_ty))?;
 
         // Let the aliasing model know.
         let ptr = self.mutate_cur_frame(|frame, mem| {
