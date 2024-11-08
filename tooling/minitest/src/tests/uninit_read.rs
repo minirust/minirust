@@ -7,6 +7,6 @@ fn uninit_read() {
     let p = small_program(&locals, &stmts);
     assert_ub::<BasicMem>(
         p,
-        "load at type Bool but the data in memory violates the validity invariant",
+        "load at type Bool but the data in memory violates the language invariant",
     );
 }
