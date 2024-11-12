@@ -693,24 +693,6 @@ If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we 
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
 
-## Relation to validity invariant
-
-One way we *could* also use the value representation (and the author thinks this is exceedingly elegant) is to define the validity invariant.
-Certainly, it is the case that if a list of bytes is not related to any value for a given type `T`, then that list of bytes is *invalid* for `T` and it should be UB to produce such a list of bytes at type `T`.
-We could decide that this is an "if and only if", i.e., that the validity invariant for a type is exactly "must be in the value representation":
-`bytes` is valid for `ty` if `ty.decode::<M>(bytes).is_some()` returns `true`.
-
-For many types this is likely what we will do anyway (e.g., for `bool` and `!` and `()` and integers), but for references, this choice would mean that *validity of the reference cannot depend on what memory looks like*---so "dereferenceable" and "points to valid data" cannot be part of the validity invariant for references.
-The reason this is so elegant is that, as we have seen above, a "typed copy" already very naturally is UB when the memory that is copied is not a valid representation of `T`.
-This means we do not even need a special clause in our specification for the validity invariant---in fact, the term does not even have to appear in the specification---as everything just falls out of how a "typed copy" applies the value representation.
-
-### Validity of pointers
-
-For pointers, validity just says that `ptr_ty.addr_valid` holds for the address.
-However, we often also want to ensure that safe pointers are dereferenceable and respect the desired aliasing discipline.
-This does not apply at each and every typed copy, so it is not really part of validity, but we do ensure these properties by performing retagging (which also checks dereferencability) on each `AddrOf` and `Validate`.
-Additionally, on `Deref` of a safe pointer we double-check that it is indeed dereferenceable.
-
 ## Transmutation
 
 The representation relation also says everything there is to say about "transmutation".

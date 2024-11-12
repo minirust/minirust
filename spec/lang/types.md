@@ -172,7 +172,7 @@ impl Type {
 }
 ```
 
-And we also define how to compute the actual size.
+And we also define how to compute the actual size and alignment.
 
 ```rust
 impl LayoutStrategy {
