@@ -120,7 +120,6 @@ impl Accessed {
             NodeRelation::Child => Accessed::Yes,
         }
     }
-
 }
 
 impl LocationState {
