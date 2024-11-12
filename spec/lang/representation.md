@@ -532,7 +532,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.mem.load(ptr, ty.size::<M::T>().expect_sized("the callers ensure `ty` is sized"), align, atomicity)?;
+        let bytes = self.mem.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
         ret(match ty.decode::<M>(bytes) {
             Some(val) => {
                 // Ensures we only produce well-formed values.
@@ -549,8 +549,8 @@ impl<M: Memory> Machine<M> {
 
 There are some generic properties that `encode` and `decode` must satisfy.
 The most obvious part is consistency of size:
-- `ty.encode(value).len() == ty.size().expect_sized("")`
-- `ty.decode(bytes)` may assume this property: `bytes.len() == ty.size().expect_sized("")`
+- `ty.encode(value).len() == ty.layout().expect_size("")`
+- `ty.decode(bytes)` may assume this property: `bytes.len() == ty.layout().expect_size("")`
 
 More interestingly, we have some round-trip properties.
 For instance, starting with a valid value, encoding it, and then decoding it, must produce the same result.
@@ -692,56 +692,6 @@ The second round-trip property ensures that `bytes2 <= bytes1`.
 If we remove the assignment, `x` ends up with `bytes1` rather than `bytes2`; we thus "increase memory" (as in, the memory in the transformed program is "more defined" than the one in the source program).
 According to monotonicity, "increasing" memory can only ever lead to "increased" decoded values.
 For example, if the original program later did a successful decode at an integer to some `v: Value`, then the transformed program will return *the same* value (since `<=` on `Value::Int` is equality).
-
-## Typed memory accesses
-
-One key use of the value representation is to define a "typed" interface to memory.
-This interface is inspired by [Cerberus](https://www.cl.cam.ac.uk/~pes20/cerberus/).
-We also use this to lift retagging from pointers to compound values.
-
-```rust
-impl<M: Memory> ConcurrentMemory<M> {
-    fn typed_store(&mut self, ptr: ThinPointer<M::Provenance>, val: Value<M>, ty: Type, align: Align, atomicity: Atomicity) -> Result {
-        assert!(val.check_wf(ty).is_ok(), "trying to store {val:?} which is ill-formed for {:#?}", ty);
-        let bytes = ty.encode::<M>(val);
-        self.store(ptr, bytes, align, atomicity)?;
-
-        ret(())
-    }
-
-    fn typed_load(&mut self, ptr: ThinPointer<M::Provenance>, ty: Type, align: Align, atomicity: Atomicity) -> Result<Value<M>> {
-        let bytes = self.load(ptr, ty.layout::<M::T>().expect_size("the callers ensure `ty` is sized"), align, atomicity)?;
-        ret(match ty.decode::<M>(bytes) {
-            Some(val) => {
-                assert!(val.check_wf(ty).is_ok(), "decode returned {val:?} which is ill-formed for {:#?}", ty);
-                val
-            }
-            None => throw_ub!("load at type {ty:?} but the data in memory violates the validity invariant"), // FIXME use Display instead of Debug for `ty`
-        })
-    }
-
-    /// Find all pointers in this value, ensure they are valid, and retag them.
-    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
-        ret(match (val, ty) {
-            // no (identifiable) pointers
-            (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
-                val,
-            // base case
-            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
-            // recurse into tuples/arrays/enums
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
-            (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
-            (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
-            _ =>
-                panic!("this value does not have that type"),
-        })
-    }
-}
-```
 
 ## Relation to validity invariant
 
