@@ -9,25 +9,25 @@ impl<'tcx> Ctxt<'tcx> {
         let unpin = ty.is_unpin(self.tcx, param_env);
 
         if layout.is_sized() {
-            let size = SizeStrategy::Sized(translate_size(layout.size()));
+            let size = translate_size(layout.size());
             let align = translate_align(layout.align().abi);
-            return PointeeInfo { size, align, inhabited, freeze, unpin };
+            let layout = LayoutStrategy::Sized(size, align);
+            return PointeeInfo { layout, inhabited, freeze, unpin };
         }
 
         // Handle Unsized types:
         match ty.kind() {
             &rs::TyKind::Slice(elem_ty) => {
                 let elem_layout = self.rs_layout_of(elem_ty);
-                let size = SizeStrategy::Slice(translate_size(elem_layout.size()));
+                let size = translate_size(elem_layout.size());
                 let align = translate_align(elem_layout.align().abi);
-
-                PointeeInfo { size, align, inhabited, freeze, unpin }
+                let layout = LayoutStrategy::Slice(size, align);
+                PointeeInfo { layout, inhabited, freeze, unpin }
             }
             &rs::TyKind::Str => {
                 // Treat `str` like `[u8]`.
-                let size = SizeStrategy::Slice(Size::from_bytes_const(1));
-                let align = Align::ONE;
-                PointeeInfo { size, align, inhabited, freeze, unpin }
+                let layout = LayoutStrategy::Slice(Size::from_bytes_const(1), Align::ONE);
+                PointeeInfo { layout, inhabited, freeze, unpin }
             }
             _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
         }
@@ -98,7 +98,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
                 let pointee = self.pointee_info_of(*ty, span);
-                Type::Ptr(PtrType::Raw { meta_kind: pointee.size.meta_kind() })
+                Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind() })
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()));

@@ -182,7 +182,7 @@ fn loading_uninhabited_enum_is_ub() {
     let prog = small_program(locals, stmts);
     assert_ub::<BasicMem>(
         prog,
-        "load at type Enum { variants: Map({}), discriminant_ty: IntType { signed: Unsigned, size: Size(1 bytes) }, discriminator: Invalid, size: Size(0 bytes), align: Align(1 bytes) } but the data in memory violates the validity invariant",
+        "load at type Enum { variants: Map({}), discriminant_ty: IntType { signed: Unsigned, size: Size(1 bytes) }, discriminator: Invalid, size: Size(0 bytes), align: Align(1 bytes) } but the data in memory violates the language invariant",
     );
 }
 

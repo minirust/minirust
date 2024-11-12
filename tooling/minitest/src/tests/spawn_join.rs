@@ -1,3 +1,5 @@
+use miniutil::DefaultTarget;
+
 use crate::*;
 
 fn dummy_function() -> Function {
@@ -38,9 +40,8 @@ fn thread_spawn_spurious_race() {
     let pp_ptype = <*const *const ()>::get_type(); // Pointer pointer place type.
     let locals = [pp_ptype, <u32>::get_type()];
 
-    let size =
-        const_int_typed::<usize>(<*const ()>::get_size().expect_sized("void ptr is sized").bytes());
-    let align = const_int_typed::<usize>(<*const ()>::get_align().bytes());
+    let size = const_int_typed::<usize>(DefaultTarget::PTR_SIZE.bytes());
+    let align = const_int_typed::<usize>(DefaultTarget::PTR_ALIGN.bytes());
 
     let b0 = block!(storage_live(0), allocate(size, align, local(0), 1));
     let b1 = block!(

@@ -1,1 +1,1 @@
-fatal error: UB: dereferencing pointer without provenance
+fatal error: UB: Value::Ptr: non-dereferenceable safe pointer
