@@ -146,7 +146,6 @@ impl SizeStrategy {
     pub fn compute(self, meta: Option<PointerMeta>) -> Size {
         match (self, meta) {
             (SizeStrategy::Sized(size), None) => size,
-            // FIXME(UnsizedTypes): We need to assert that the resulting size isn't too big.
             (SizeStrategy::Slice(elem_size), Some(PointerMeta::ElementCount(count))) => count * elem_size,
             _ => panic!("pointer meta data does not match type"),
         }
@@ -168,16 +167,6 @@ impl PtrType {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
             PtrType::Raw { .. } | PtrType::FnPtr => None,
-        }
-    }
-
-    pub fn addr_valid(self, addr: Address) -> bool {
-        if let Some(layout) = self.safe_pointee() {
-            // Safe addresses need to be non-null, aligned, and not point to an uninhabited type.
-            // (Think: uninhabited types have impossible alignment.)
-            addr != 0 && layout.align.is_aligned(addr) && layout.inhabited
-        } else {
-            true
         }
     }
 

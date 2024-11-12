@@ -41,7 +41,7 @@ impl<M: Memory> Machine<M> {
         let result = Value::Int(Self::eval_int_un_op(op, operand, int_ty)?);
 
         // Sanity-check that the result of `eval_int_un_op` is in-bounds.
-        result.check_wf(Type::Int(ret_ty))
+        self.check_value(result, Type::Int(ret_ty))
             .expect("sanity check: result of UnOp::Int does not fit in the return type");
         ret((result, Type::Int(ret_ty)))
     }
@@ -74,7 +74,7 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_cast_op(cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+    fn eval_cast_op(&self, cast_op: CastOp, (operand, old_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         use CastOp::*;
         match cast_op {
             IntToInt(int_ty) => {
@@ -88,15 +88,13 @@ impl<M: Memory> Machine<M> {
                 {
                     throw_ub!("transmute between types of different size")
                 }
-                let Some(val) = transmute(operand, old_ty, new_ty) else {
-                    throw_ub!("transmuted value is not valid at new type")
-                };
+                let val = self.transmute(operand, old_ty, new_ty)?;
                 ret((val, new_ty))
             }
         }
     }
     fn eval_un_op(&self, UnOp::Cast(cast_op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        ret(Self::eval_cast_op(cast_op, (operand, op_ty))?)
+        ret(self.eval_cast_op(cast_op, (operand, op_ty))?)
     }
 }
 ```
@@ -437,7 +435,8 @@ impl<M: Memory> Machine<M> {
         let metadata = PointerMeta::from_value::<M>(right);
         let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
 
-        wide_ptr.check_wf(Type::Ptr(ptr_ty)).expect("sanity check: constructed wide pointer is well-formed");
+        // check that the size is valid
+        self.check_value(wide_ptr, Type::Ptr(ptr_ty))?;
         ret((wide_ptr, Type::Ptr(ptr_ty)))
     }
 }

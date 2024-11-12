@@ -76,7 +76,7 @@ fn downcasts_give_different_place() {
     let prog = small_program(locals, stmts);
     assert_ub::<BasicMem>(
         prog,
-        "load at type Int(IntType { signed: Unsigned, size: Size(2 bytes) }) but the data in memory violates the validity invariant",
+        "load at type Int(IntType { signed: Unsigned, size: Size(2 bytes) }) but the data in memory violates the language invariant",
     );
 }
 
