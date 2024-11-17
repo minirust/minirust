@@ -107,6 +107,14 @@ impl<T: TypeConv> TypeConv for [T] {
     }
 }
 
+// Cannot implement this for all traits.
+// TODO(UnsizedTypes): is this needed?
+impl TypeConv for dyn std::any::Any {
+    fn get_type() -> Type {
+        trait_object_ty()
+    }
+}
+
 impl TypeConv for () {
     fn get_type() -> Type {
         tuple_ty(&[], size(0), align(1))

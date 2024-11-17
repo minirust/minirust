@@ -136,6 +136,7 @@ impl PointerMetaKind {
         match self {
             PointerMetaKind::None => None,
             PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
+            PointerMetaKind::VTablePointer => Some(Type::Ptr(PtrType::VTablePtr)),
         }
     }
 }
@@ -155,17 +156,19 @@ impl PtrType {
     }
 }
 
-impl PointerMeta {
-    fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
+impl<Provenance> PointerMeta<Provenance> {
+    fn from_value<M: Memory<Provenance=Provenance>>(value: Value<M>) -> Option<PointerMeta<Provenance>> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
+            Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
             _ => None,
         }
     }
 
-    fn into_value<M: Memory>(self) -> Value<M> {
+    fn into_value<M: Memory<Provenance=Provenance>>(self) -> Value<M> {
         match self {
             PointerMeta::ElementCount(count) => Value::Int(count),
+            PointerMeta::VTablePointer(ptr) => Value::Ptr(ptr.widen(None)),
         }
     }
 }
@@ -409,6 +412,15 @@ impl Type {
         panic!("encode of Type::Slice")
     }
 }
+
+impl Type {
+    fn decode<M: Memory>(Type::TraitObject: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("decode of Type::TraitObject")
+    }
+    fn encode<M: Memory>(Type::TraitObject: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("encode of Type::TraitObject")
+    }
+}
 ```
 
 ## Well-formed values
@@ -454,8 +466,8 @@ impl<M: Memory> Machine<M> {
 
                 // Safe pointer, i.e. references, boxes
                 if let Some(pointee) = ptr_ty.safe_pointee() {
-                    let size = pointee.layout.compute_size(ptr.metadata);
-                    let align = pointee.layout.compute_align(ptr.metadata);
+                    let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
+                    let align = pointee.layout.compute_align(ptr.metadata, self.vtable_lookup());
                     // The total size of slices must be at most `isize::MAX`.
                     ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
@@ -475,7 +487,9 @@ impl<M: Memory> Machine<M> {
                 match ptr.metadata {
                     Some(PointerMeta::ElementCount(num)) =>
                         self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
-                    _ => {}
+                    Some(PointerMeta::VTablePointer(ptr)) =>
+                        ensure_else_ub(self.vtable_allocs.contains_key(ptr), "Value::Ptr: invalid vtable in metadata")?,
+                    None => {}
                 };
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
@@ -503,6 +517,7 @@ impl<M: Memory> Machine<M> {
                 self.check_value(data, variant.ty)?;
             }
             (_, Type::Slice { .. }) => panic!("Value: slices cannot be represented as values"),
+            (_, Type::TraitObject { .. }) => panic!("Value: trait objects cannot be represented as values"),
             _ => panic!("Value: value does not match type")
         }
 

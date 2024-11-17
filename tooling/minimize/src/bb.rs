@@ -385,6 +385,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             return self.translate_rs_intrinsic(instance, args, destination, target, span);
         }
 
+        // I think `instance.def` will be `InstanceKind::Virtual` for trait object calls ?
+
         let terminator = if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             // Direct call to a MiniRust intrinsic.
             let intrinsic = match self.tcx.item_name(f).as_str() {

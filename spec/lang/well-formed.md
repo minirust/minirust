@@ -32,6 +32,7 @@ impl LayoutStrategy {
         match self {
             LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
             LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
+            LayoutStrategy::TraitObject => (),
         };
 
         ret(())
@@ -45,6 +46,7 @@ impl LayoutStrategy {
             LayoutStrategy::Slice(size, align) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
+            LayoutStrategy::TraitObject => (),
         };
 
         ret(())
@@ -66,7 +68,7 @@ impl PtrType {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw { .. } | PtrType::FnPtr => ()
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => ()
         }
 
         ret(())
@@ -171,6 +173,7 @@ impl Type {
                 // can be represented by the discriminant type.
                 discriminator.check_wf::<T>(size, variants)?;
             }
+            TraitObject => (),
         }
 
         // Now that we know the type is well-formed,
@@ -232,6 +235,10 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(ptr_ty)) => {
                 ensure_wf(matches!(ptr_ty, PtrType::FnPtr), "Constant::FnPointer: non function pointer type")?;
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
+            }
+            (Constant::VTablePointer(vtable_name), Type::Ptr(ptr_ty)) => {
+                ensure_wf(matches!(ptr_ty, PtrType::VTablePtr), "Constant::VTablePointer: non vtable pointer type")?;
+                ensure_wf(prog.vtables.contains_key(vtable_name), "Constant::VTablePointer: invalid vtable name")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
@@ -312,6 +319,17 @@ impl ValueExpr {
                     throw_ill_formed!("ValueExpr::GetDiscriminant: invalid type");
                 };
                 Type::Int(discriminant_ty)
+            }
+            VTableLookup { expr, method: _ } => {
+                let Type::Ptr(ptr_ty) = expr.check_wf::<T>(locals, prog)? else {
+                    throw_ill_formed!("ValueExpr::VTableLookup: invalid type");
+                };
+                ensure_wf(ptr_ty.meta_kind() == PointerMetaKind::VTablePointer, "ValueExpr::VTableLookup: invalid pointee")?;
+
+                // We do not statically have enough information to check that the method name exists in the right vtable,
+                // but this is only a type safety problem, which we don't catch anyways.
+
+                Type::Ptr(PtrType::FnPtr)
             }
             Load { source } => {
                 let val_ty = source.check_wf::<T>(locals, prog)?;
@@ -728,6 +746,8 @@ impl Relocation {
         ret(())
     }
 }
+
+// TODO(UnsizedTypes): WF for VTables
 
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {

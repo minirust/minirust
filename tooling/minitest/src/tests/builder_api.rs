@@ -50,7 +50,7 @@ fn arg_and_ret_var() {
         let mut start = p.declare_function();
         let ret_place = start.declare_local::<u32>();
         start.storage_live(ret_place);
-        start.call(ret_place, add_two_if_42, &[by_value(const_int(42u32))]);
+        start.call(ret_place, fn_ptr(add_two_if_42), &[by_value(const_int(42u32))]);
         start.if_(eq(load(ret_place), const_int(44u32)), |f| f.exit(), |f| f.unreachable());
         p.finish_function(start)
     };

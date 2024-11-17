@@ -42,8 +42,11 @@ pub use ty_conv::*;
 pub struct ProgramBuilder {
     functions: Map<FnName, Function>,
     globals: Map<GlobalName, Global>,
+    vtables: Map<VTableName, VTable>,
     next_fn: u32,
     next_global: u32,
+    next_vtable: u32,
+    next_trait_method_name: u32,
 }
 
 impl ProgramBuilder {
@@ -51,13 +54,21 @@ impl ProgramBuilder {
         ProgramBuilder {
             functions: Default::default(),
             globals: Default::default(),
+            vtables: Default::default(),
             next_fn: 0,
             next_global: 0,
+            next_vtable: 0,
+            next_trait_method_name: 0,
         }
     }
 
     pub fn finish_program(self, start_function: FnName) -> Program {
-        Program { functions: self.functions, start: start_function, globals: self.globals }
+        Program {
+            functions: self.functions,
+            start: start_function,
+            globals: self.globals,
+            vtables: self.vtables,
+        }
     }
 
     pub fn declare_function(&mut self) -> FunctionBuilder {
@@ -72,6 +83,30 @@ impl ProgramBuilder {
         let f = f.finish_function();
         self.functions.try_insert(name, f).unwrap();
         name
+    }
+
+    pub fn declare_vtable(&mut self, ty: Type) -> VTableBuilder {
+        let name = VTableName(Name::from_internal(self.next_vtable));
+        self.next_vtable += 1;
+        VTableBuilder::new(
+            name,
+            ty.size::<DefaultTarget>().expect_sized("only sized types can be trait objects"),
+            ty.align::<DefaultTarget>(),
+        )
+    }
+
+    #[track_caller]
+    pub fn finish_vtable(&mut self, v: VTableBuilder) -> VTableName {
+        let name = v.name();
+        let vtable = v.finish_vtable();
+        self.vtables.try_insert(name, vtable).unwrap();
+        name
+    }
+
+    pub fn fresh_trait_method_name(&mut self) -> TraitMethodName {
+        let idx = self.next_trait_method_name;
+        self.next_trait_method_name += 1;
+        TraitMethodName(Name::from_internal(idx))
     }
 }
 
@@ -198,6 +233,32 @@ impl FunctionBuilder {
     }
 }
 
+pub struct VTableBuilder {
+    name: VTableName,
+    size: Size,
+    align: Align,
+    methods: Map<TraitMethodName, FnName>,
+}
+
+impl VTableBuilder {
+    fn new(name: VTableName, size: Size, align: Align) -> VTableBuilder {
+        VTableBuilder { name, size, align, methods: Map::new() }
+    }
+
+    pub fn name(&self) -> VTableName {
+        self.name
+    }
+
+    pub fn add_method(&mut self, index: TraitMethodName, func: FnName) {
+        self.methods.insert(index, func);
+    }
+
+    #[track_caller]
+    fn finish_vtable(self) -> VTable {
+        VTable { size: self.size, align: self.align, methods: self.methods }
+    }
+}
+
 struct CurBlock {
     statements: List<Statement>,
     name: BbName,
@@ -247,7 +308,12 @@ pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
         })
         .collect();
 
-    Program { functions, start: FnName(Name::from_internal(0)), globals }
+    Program {
+        functions,
+        start: FnName(Name::from_internal(0)),
+        globals,
+        vtables: Default::default(),
+    }
 }
 
 // The first function in `fns` is the start function of the program.

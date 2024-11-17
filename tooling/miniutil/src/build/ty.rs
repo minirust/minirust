@@ -45,6 +45,10 @@ pub fn slice_ty(elem: Type) -> Type {
     Type::Slice { elem: GcCow::new(elem) }
 }
 
+pub fn trait_object_ty() -> Type {
+    Type::TraitObject
+}
+
 pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {
     Variant { ty, tagger: tagger.iter().copied().collect() }
 }

@@ -38,6 +38,7 @@ mod slice;
 mod spawn_join;
 mod switch;
 mod too_large_alloc;
+mod trait_object;
 mod uninit_read;
 mod unreachable;
 mod wide_ptr;

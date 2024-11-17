@@ -42,6 +42,11 @@ pub struct Machine<M: Memory> {
     /// Stores an address for each function name.
     fn_addrs: Map<FnName, mem::Address>,
 
+    /// Stores a key to the vtable behind a given pointer.
+    // FIXME(UnsizedTypes): Should the values be `VTable` directly? requires duplicating them in constant expressions,
+    // but makes compute_size/align easy.
+    vtable_allocs: Map<ThinPointer<M::Provenance>, VTableName>,
+
     /// This is where the `PrintStdout` intrinsic writes to.
     stdout: DynWrite,
     /// This is where the `PrintStderr` intrinsic writes to.
@@ -122,6 +127,7 @@ impl<M: Memory> Machine<M> {
         let mut mem = ConcurrentMemory::<M>::new();
         let mut global_ptrs = Map::new();
         let mut fn_addrs = Map::new();
+        let mut vtable_allocs = Map::new();
 
         // Allocate every global.
         for (global_name, global) in prog.globals {
@@ -156,6 +162,12 @@ impl<M: Memory> Machine<M> {
             fn_addrs.insert(fn_name, addr);
         }
 
+        // Allocate vtables.
+        for (vtable_name, _vtable) in prog.vtables {
+            let alloc = mem.allocate(AllocationKind::VTable, Size::ZERO, Align::ONE)?;
+            vtable_allocs.insert(alloc, vtable_name);
+        }
+
         // Create machine, without a thread yet.
         let mut machine = Machine {
             prog,
@@ -163,6 +175,7 @@ impl<M: Memory> Machine<M> {
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
+            vtable_allocs,
             threads: list![],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
@@ -337,6 +350,25 @@ impl<M: Memory> Machine<M> {
         let prev_accesses = self.mem.reset_accesses();
 
         (prev_sync, prev_accesses)
+    }
+
+    /// All vtable lookups must have well-defined pointers. If this panics it is a spec bug.
+    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable {
+        // This copies the data to return a static closure, as it is used in mutate functions, which mutably borrow self.
+        let allocs = self.vtable_allocs;
+        let vtables = self.prog.vtables;
+        move |ptr| {
+            let name = allocs[ptr];
+            let vtable = vtables[name];
+            vtable
+        }
+    }
+
+    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size {
+        let lookup = self.vtable_lookup();
+        move |layout, meta| {
+            layout.compute_size(meta, &lookup)
+        }
     }
 }
 ```

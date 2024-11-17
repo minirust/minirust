@@ -30,9 +30,9 @@ impl FunctionBuilder {
     }
 
     /// Call a function that does not return.
-    pub fn call_noret(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
+    pub fn call_noret(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
         self.finish_block(Terminator::Call {
-            callee: fn_ptr(f),
+            callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret,
@@ -41,10 +41,10 @@ impl FunctionBuilder {
     }
 
     // terminators with exactly 1 following block
-    pub fn call(&mut self, ret: PlaceExpr, f: FnName, args: &[ArgumentExpr]) {
+    pub fn call(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
         self.finish_block(Terminator::Call {
-            callee: fn_ptr(f),
+            callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret,
@@ -54,10 +54,10 @@ impl FunctionBuilder {
     }
 
     /// Ignore unit type return value.
-    pub fn call_ignoreret(&mut self, f: FnName, args: &[ArgumentExpr]) {
+    pub fn call_ignoreret(&mut self, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
         self.finish_block(Terminator::Call {
-            callee: fn_ptr(f),
+            callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
             arguments: args.iter().copied().collect(),
             ret: unit_place(),
