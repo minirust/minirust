@@ -136,9 +136,9 @@ impl<M: Memory> Machine<M> {
 ### VTable Lookups
 
 Dynamic dispatch in MiniRust is represented as a `Call` to the result of an explicit `VTableLookup` expression.
-This expression works on a wide pointer to a trait object, which contains the name for the objects vtable in the metadata.
+This expression works on vtable pointer, which can be extracted by `GetMetadata`.
 Which method is invoked is represented by the `method` parameter, which corresponds to a function of the trait.
-The objects vtable must be for the trait the method belongs to, which is enforced by keeping `TraitMethodName`' globally unique.
+The objects vtable must be for the trait the method belongs to, which is enforced by keeping `TraitMethodName`s globally unique.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -146,11 +146,8 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(ptr), Type::Ptr(_ptr_ty)) = self.eval_value(expr)? else {
             panic!("vtable loopup on non-pointer");
         };
-        let Some(PointerMeta::VTablePointer(vtablename)) = ptr.metadata else {
-            panic!("vtable loopup on non-trait-object-pointer");
-        };
-        // It is checked during decode that the vtablename is always valid.
-        let vtable = self.prog.vtables[vtablename];
+        // It is checked in check_value that the vtable is always valid.
+        let vtable = self.vtable_addrs[ptr];
         let Some(fn_name) = vtable.methods.get(method) else {
             // This would be a type error, but since we don't store the trait, we do not type check this.
             throw_ub!("the referenced vtable does not have an entry for the invoked method");

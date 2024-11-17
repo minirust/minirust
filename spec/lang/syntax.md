@@ -51,7 +51,7 @@ pub enum ValueExpr {
     /// Dynamic dispatch is represented as a `Call` to the result of this method,
     /// with the `self` argument appropriately cast to a sized pointer type.
     VTableLookup {
-        /// Must be a wide pointer to a trait object.
+        /// Must be a pointer to a vtable.
         #[specr::indirection]
         expr: ValueExpr,
         /// Specifies which function of the vtable to look up.

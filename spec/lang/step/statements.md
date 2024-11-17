@@ -92,7 +92,7 @@ This statement asserts that a value satisfies its language invariant, and perfor
 To do this, we first lift retagging from pointers to compound values.
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     /// Find all pointers in this value, ensure they are valid, and retag them.
     fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
@@ -101,7 +101,7 @@ impl<M: Memory> ConcurrentMemory<M> {
                 val,
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, self.size_computer())?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
@@ -113,13 +113,11 @@ impl<M: Memory> ConcurrentMemory<M> {
                 panic!("this value does not have that type"),
         })
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(place)?;
 
-        // WF ensures all valid expressions are sized, so we can invoke the load.
+        // WF ensures all validate expressions are sized, so we can invoke the load.
         // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
 

@@ -214,14 +214,14 @@ impl LayoutStrategy {
                 let Some(vtable) = vtables.get(vtable_ptr) else {
                     panic!("Computing the size of a trait object with invalid vtable in pointer");
                 };
-                ret(vtable.size)
+                vtable.size
             }
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
     /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align(self, meta: Option<PointerMeta>, vtables: Map<ThinPointer<M::Provenance>, VTable>) -> Align {
+    pub fn compute_align<M: Memory>(self, meta: Option<PointerMeta>, vtables: Map<ThinPointer<M::Provenance>, VTable>) -> Align {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,
             (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
@@ -229,7 +229,7 @@ impl LayoutStrategy {
                 let Some(vtable) = vtables.get(vtable_ptr) else {
                     panic!("Computing the align of a trait object with invalid vtable in pointer");
                 };
-                ret(vtable.align)
+                vtable.align
             }
             _ => panic!("pointer meta data does not match type"),
         }

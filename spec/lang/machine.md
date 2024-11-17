@@ -42,8 +42,8 @@ pub struct Machine<M: Memory> {
     /// Stores an address for each function name.
     fn_addrs: Map<FnName, mem::Address>,
 
-    /// Stores an address for each vtable name.
-    vtable_addrs: Map<VTableName, mem::Address>,
+    /// Stores a key to the vtable behind a given pointer.
+    vtable_addrs: Map<ThinPointer<M::Provenance>, VTableName>,
 
     /// This is where the `PrintStdout` intrinsic writes to.
     stdout: DynWrite,
@@ -163,10 +163,7 @@ impl<M: Memory> Machine<M> {
         // Allocate vtables.
         for (vtable_name, _vtable) in prog.vtables {
             let alloc = mem.allocate(AllocationKind::VTable, Size::ZERO, Align::ONE)?;
-            let addr = alloc.addr;
-            // Ensure that no two vtables lie on the same address.
-            assert!(!vtable_addrs.values().any(|v_addr| addr == v_addr));
-            vtable_addrs.insert(vtable_name, addr);
+            vtable_addrs.insert(alloc, vtable_name);
         }
 
         // Create machine, without a thread yet.
@@ -354,7 +351,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta>) -> Size + Clone {
-        let vtables = self.prog.vtables;
+        let vtables = self.vtable_addrs;
         move |layout, meta| {
             layout.compute_size(meta, vtables)
         }
