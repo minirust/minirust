@@ -18,6 +18,7 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             let elem = fmt_type(elem.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("[{elem}]"))
         }
+        Type::TraitObject => FmtExpr::Atomic("dyn {unknown}".into()),
     }
 }
 
@@ -50,6 +51,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
+        PtrType::VTablePtr => FmtExpr::Atomic("{vtable}".into()),
     }
 }
 
@@ -57,6 +59,7 @@ fn fmt_meta_kind(kind: PointerMetaKind) -> &'static str {
     match kind {
         PointerMetaKind::None => "thin",
         PointerMetaKind::ElementCount => "meta=len",
+        PointerMetaKind::VTablePointer => "meta=vtable",
     }
 }
 
@@ -66,6 +69,7 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
             format!("size={}, align={}", size.bytes(), align.bytes()),
         LayoutStrategy::Slice(size, align) =>
             format!("size={}*len, align={}", size.bytes(), align.bytes()),
+        LayoutStrategy::TraitObject => "size,align={unknown}".into(),
     };
     let uninhab_str = match pointee.inhabited {
         true => "",

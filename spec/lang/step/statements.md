@@ -123,6 +123,7 @@ impl<M: Memory> Machine<M> {
         // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
 
+        let size_computer = self.size_computer();
         let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
 
         self.place_store(place, val, ty)?;

@@ -136,6 +136,7 @@ impl PointerMetaKind {
         match self {
             PointerMetaKind::None => None,
             PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
+            PointerMetaKind::VTablePointer => Some(Type::Ptr(PtrType::VTablePtr)),
         }
     }
 }
@@ -159,6 +160,7 @@ impl PointerMeta {
     fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
+            Value::Ptr(_ptr) => todo!("decode vtable ptr"),
             _ => None,
         }
     }
@@ -166,6 +168,7 @@ impl PointerMeta {
     fn into_value<M: Memory>(self) -> Value<M> {
         match self {
             PointerMeta::ElementCount(count) => Value::Int(count),
+            PointerMeta::VTablePointer(_name) => todo!("encoce vtable ptr"),
         }
     }
 }
@@ -547,6 +550,15 @@ impl<M: Memory> Machine<M> {
             }
             None => throw_ub!("load at type {ty:?} but the data in memory violates the language invariant"), // FIXME use Display instead of Debug for `ty`
         })
+    }
+}
+
+impl Type {
+    fn decode<M: Memory>(Type::TraitObject: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("tried to decode a trait object")
+    }
+    fn encode<M: Memory>(Type::TraitObject: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("tried to endoce a trait object")
     }
 }
 ```

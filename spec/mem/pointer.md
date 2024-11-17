@@ -25,6 +25,9 @@ We therefore use the term *thin pointer* for what has been described above, and 
 /// of the address space.
 pub type Address = Int;
 
+/// A "vtable name" is a identifier for a vtable somewhere in memory.
+pub struct VTableName(pub libspecr::Name);
+
 /// A "thin pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
@@ -35,7 +38,10 @@ pub struct ThinPointer<Provenance> {
 
 /// The runtime metadata that can be stored in a wide pointer.
 pub enum PointerMeta {
+    /// The metadata counts the number of elements in the slice.
     ElementCount(Int),
+    /// The metadata points to a vtable referred to by this name.
+    VTablePointer(VTableName),
 }
 
 /// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.
@@ -50,6 +56,7 @@ pub struct Pointer<Provenance> {
 pub enum PointerMetaKind {
     None,
     ElementCount,
+    VTablePointer,
 }
 
 impl<Provenance> ThinPointer<Provenance> {
@@ -73,6 +80,7 @@ impl PointerMeta {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             PointerMeta::ElementCount(_) => PointerMetaKind::ElementCount,
+            PointerMeta::VTablePointer(_) => PointerMetaKind::VTablePointer,
         }
     }
 }
@@ -106,6 +114,8 @@ pub enum LayoutStrategy {
     /// The type contains zero or more elements of the inner layout.
     /// The total size is a multiple of the element size and the align is exactly the element size.
     Slice(Size, Align),
+    /// The size of the type must be looked up in the VTable of a wide pointer.
+    TraitObject,
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -124,6 +134,7 @@ pub enum PtrType {
         meta_kind: PointerMetaKind,
     },
     FnPtr,
+    VTablePtr,
 }
 ```
 
@@ -133,7 +144,7 @@ impl PtrType {
     pub fn safe_pointee(self) -> Option<PointeeInfo> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
-            PtrType::Raw { .. } | PtrType::FnPtr => None,
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => None,
         }
     }
 
@@ -141,7 +152,7 @@ impl PtrType {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.layout.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
-            PtrType::FnPtr => PointerMetaKind::None,
+            PtrType::FnPtr | PtrType::VTablePtr => PointerMetaKind::None,
         }
     }
 }
