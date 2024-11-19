@@ -2,8 +2,8 @@
 
 This file defines the types of MiniRust.
 Note that MiniRust types play a somewhat different role than Rust types:
-every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how [values](values.md) are represented in memory.
-Basically, they define a (de)serialization format -- the **representation relation**, defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
+every Rust type corresponds to a MiniRust type, but MiniRust types mostly just serve to define how valid [values](values.md) are represented in memory.
+Basically, they define a (de)serialization format -- the [**representation relation**](representation.md), defined by an "encode" function to turn values into byte lists, and a "decode" function for the opposite operation.
 In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and values.
 
@@ -185,6 +185,10 @@ impl Type {
 ```rust
 impl IntType {
     pub const I8: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(1) };
+
+    pub fn usize_ty<T: Target>() -> Self {
+        IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
+    }
 
     pub fn can_represent(&self, i: Int) -> bool {
         i.in_bounds(self.signed, self.size)
