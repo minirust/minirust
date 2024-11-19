@@ -40,8 +40,9 @@ pub struct ThinPointer<Provenance> {
 pub enum PointerMeta {
     /// The metadata counts the number of elements in the slice.
     ElementCount(Int),
-    /// The metadata points to a vtable referred to by this name.
-    VTablePointer(VTableName),
+    /// The metadata points to a vtable referred at this location.
+    /// This must point to a valid vtable and it is a spec bug if it doesn't.
+    VTablePointer(ThinPointer<Provenance>),
 }
 
 /// A "pointer" is the thin pointer with optionally some metadata, making it a wide pointer.

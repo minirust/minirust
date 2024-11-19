@@ -43,7 +43,9 @@ pub struct Machine<M: Memory> {
     fn_addrs: Map<FnName, mem::Address>,
 
     /// Stores a key to the vtable behind a given pointer.
-    vtable_addrs: Map<ThinPointer<M::Provenance>, VTableName>,
+    // FIXME(UnsizedTypes): Should the values be `VTable` directly? requires duplicating them in constant expressions,
+    // but makes compute_size/align easy.
+    vtable_allocs: Map<ThinPointer<M::Provenance>, VTableName>,
 
     /// This is where the `PrintStdout` intrinsic writes to.
     stdout: DynWrite,
@@ -125,7 +127,7 @@ impl<M: Memory> Machine<M> {
         let mut mem = ConcurrentMemory::<M>::new();
         let mut global_ptrs = Map::new();
         let mut fn_addrs = Map::new();
-        let mut vtable_addrs = Map::new();
+        let mut vtable_allocs = Map::new();
 
         // Allocate every global.
         for (global_name, global) in prog.globals {
@@ -163,7 +165,7 @@ impl<M: Memory> Machine<M> {
         // Allocate vtables.
         for (vtable_name, _vtable) in prog.vtables {
             let alloc = mem.allocate(AllocationKind::VTable, Size::ZERO, Align::ONE)?;
-            vtable_addrs.insert(alloc, vtable_name);
+            vtable_allocs.insert(alloc, vtable_name);
         }
 
         // Create machine, without a thread yet.
@@ -173,7 +175,7 @@ impl<M: Memory> Machine<M> {
             intptrcast: IntPtrCast::new(),
             global_ptrs,
             fn_addrs,
-            vtable_addrs,
+            vtable_allocs,
             threads: list![],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
@@ -351,7 +353,7 @@ impl<M: Memory> Machine<M> {
     }
 
     fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta>) -> Size + Clone {
-        let vtables = self.vtable_addrs;
+        let vtables = self.vtable_allocs;
         move |layout, meta| {
             layout.compute_size(meta, vtables)
         }

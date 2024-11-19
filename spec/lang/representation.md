@@ -160,7 +160,7 @@ impl PointerMeta {
     fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
-            Value::Ptr(_ptr) => todo!("decode vtable ptr"),
+            Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
             _ => None,
         }
     }
@@ -168,7 +168,7 @@ impl PointerMeta {
     fn into_value<M: Memory>(self) -> Value<M> {
         match self {
             PointerMeta::ElementCount(count) => Value::Int(count),
-            PointerMeta::VTablePointer(_name) => todo!("encoce vtable ptr"),
+            PointerMeta::VTablePointer(ptr) => Value::Ptr(ptr.widen(None)),
         }
     }
 }
@@ -478,7 +478,9 @@ impl<M: Memory> Machine<M> {
                 match ptr.metadata {
                     Some(PointerMeta::ElementCount(num)) =>
                         self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
-                    _ => {}
+                    Some(PointerMeta::VTablePointer(ptr)) =>
+                        ensure_else_ub(self.vtable_allocs.contains_key(ptr), "Value::Ptr: invalid vtable in metadata")?,
+                    None => {}
                 };
             }
             (Value::Tuple(vals), Type::Tuple { fields, .. }) => {

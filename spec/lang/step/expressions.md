@@ -46,10 +46,13 @@ impl<M: Memory> Machine<M> {
                 }.widen(None))
             },
             Constant::VTablePointer(vtable_name) => {
-                Value::Ptr(ThinPointer {
-                    addr: self.vtable_addrs[vtable_name],
-                    provenance: None,
-                }.widen(None))
+                let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *nane == vtable_name);
+                // we could also pick a random one?
+                let Some((ptr, _)) = vtables.next() else {
+                    panic!("constant to unallocated vtable");
+                };
+
+                Value::Ptr(ptr.widen(None))
             },
             Constant::PointerWithoutProvenance(addr) => {
                 Value::Ptr(ThinPointer {
@@ -147,7 +150,8 @@ impl<M: Memory> Machine<M> {
             panic!("vtable loopup on non-pointer");
         };
         // It is checked in check_value that the vtable is always valid.
-        let vtable = self.vtable_addrs[ptr];
+        let vtable_name = self.vtable_allocs[ptr];
+        let vtable = self.prog.vtables[vtable_name];
         let Some(fn_name) = vtable.methods.get(method) else {
             // This would be a type error, but since we don't store the trait, we do not type check this.
             throw_ub!("the referenced vtable does not have an entry for the invoked method");
