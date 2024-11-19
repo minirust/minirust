@@ -510,6 +510,8 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+- TODO: Do we really want to check `dereferenceable` here? That makes "being a valid value" a non-persistent property.
+  We might want to consider treating dereferenceability separately.
 - TODO: Do we really want to special case references to uninhabited types? Do we somehow want to require more, like pointing to a valid instance of the pointee type?
   (The latter would not even be possible with the current pointee information in MiniRust.)
   Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77).
