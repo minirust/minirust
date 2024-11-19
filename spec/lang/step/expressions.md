@@ -46,7 +46,7 @@ impl<M: Memory> Machine<M> {
                 }.widen(None))
             },
             Constant::VTablePointer(vtable_name) => {
-                let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *nane == vtable_name);
+                let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *name == vtable_name);
                 // we could also pick a random one?
                 let Some((ptr, _)) = vtables.next() else {
                     panic!("constant to unallocated vtable");
@@ -150,7 +150,7 @@ impl<M: Memory> Machine<M> {
             panic!("vtable loopup on non-pointer");
         };
         // It is checked in check_value that the vtable is always valid.
-        let vtable_name = self.vtable_allocs[ptr];
+        let vtable_name = self.vtable_allocs[ptr.thin_pointer];
         let vtable = self.prog.vtables[vtable_name];
         let Some(fn_name) = vtable.methods.get(method) else {
             // This would be a type error, but since we don't store the trait, we do not type check this.

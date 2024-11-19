@@ -94,6 +94,7 @@ To do this, we first lift retagging from pointers to compound values.
 ```rust
 impl<M: Memory> Machine<M> {
     /// Find all pointers in this value, ensure they are valid, and retag them.
+    // FIXME(UnsizedTypes): Lifting this to machine, makes the passing `size_computer` easy, but doesn't quite work where it is called.
     fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
@@ -101,7 +102,7 @@ impl<M: Memory> Machine<M> {
                 val,
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, self.size_computer())?),
+                Value::Ptr(self.mem.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, self.size_computer())?),
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
                 Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
