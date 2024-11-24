@@ -124,7 +124,7 @@ impl<M: Memory> Machine<M> {
         // WF ensures all validate expressions are sized, so we can invoke the load.
         // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
-        let val = mem.retag_val(val, ty, fn_entry)?;
+        let val = self.retag_val(val, ty, fn_entry)?;
         self.place_store(place, val, ty)?;
 
         ret(())

@@ -352,10 +352,22 @@ impl<M: Memory> Machine<M> {
         (prev_sync, prev_accesses)
     }
 
-    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size + Clone {
-        let vtables = self.vtable_allocs;
+    /// All vtable lookups must have well-defined pointers. If this panics it is a spec bug.
+    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable {
+        // This copies the data to return a static closure, as it is used in mutate functions, which mutably borrow self.
+        let allocs = self.vtable_allocs;
+        let vtables = self.prog.vtables;
+        move |ptr| {
+            let name = allocs[ptr];
+            let vtable = vtables[name];
+            vtable
+        }
+    }
+
+    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size {
+        let lookup = self.vtable_lookup();
         move |layout, meta| {
-            layout.compute_size(meta, vtables)
+            layout.compute_size::<M>(meta, &lookup)
         }
     }
 }

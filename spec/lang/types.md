@@ -209,17 +209,12 @@ impl LayoutStrategy {
     pub fn compute_size<M: Memory>(
         self,
         meta: Option<PointerMeta<M::Provenance>>,
-        vtables: Map<ThinPointer<M::Provenance>, VTable>
+        vtables: impl FnOnce(ThinPointer<M::Provenance>) -> VTable,
     ) -> Size {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
             (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => {
-                let Some(vtable) = vtables.get(vtable_ptr) else {
-                    panic!("Computing the size of a trait object with invalid vtable in pointer");
-                };
-                vtable.size
-            }
+            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).size,
             _ => panic!("pointer meta data does not match type"),
         }
     }
@@ -228,17 +223,12 @@ impl LayoutStrategy {
     pub fn compute_align<M: Memory>(
         self,
         meta: Option<PointerMeta<M::Provenance>>,
-        vtables: Map<ThinPointer<M::Provenance>, VTable>
+        vtables: impl FnOnce(ThinPointer<M::Provenance>) -> VTable,
     ) -> Align {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,
             (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
-            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => {
-                let Some(vtable) = vtables.get(vtable_ptr) else {
-                    panic!("Computing the align of a trait object with invalid vtable in pointer");
-                };
-                vtable.align
-            }
+            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).align,
             _ => panic!("pointer meta data does not match type"),
         }
     }
