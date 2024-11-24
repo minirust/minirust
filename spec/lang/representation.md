@@ -156,8 +156,8 @@ impl PtrType {
     }
 }
 
-impl PointerMeta {
-    fn from_value<M: Memory>(value: Value<M>) -> Option<PointerMeta> {
+impl<Provenance> PointerMeta<Provenance> {
+    fn from_value<M: Memory<Provenance=Provenance>>(value: Value<M>) -> Option<PointerMeta<Provenance>> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
             Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
@@ -165,7 +165,7 @@ impl PointerMeta {
         }
     }
 
-    fn into_value<M: Memory>(self) -> Value<M> {
+    fn into_value<M: Memory<Provenance=Provenance>>(self) -> Value<M> {
         match self {
             PointerMeta::ElementCount(count) => Value::Int(count),
             PointerMeta::VTablePointer(ptr) => Value::Ptr(ptr.widen(None)),

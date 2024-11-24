@@ -128,7 +128,7 @@ pub trait Memory {
         ptr: Pointer<Self::Provenance>,
         _ptr_type: PtrType,
         _fn_entry: bool,
-        _size_computer: impl Fn(LayoutStrategy, Option<PointerMeta>) -> Size,
+        _size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<Self::Provenance>>) -> Size,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(ptr)
     }

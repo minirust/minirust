@@ -104,7 +104,7 @@ impl<M: Memory> ConcurrentMemory<M> {
         ptr: Pointer<M::Provenance>,
         ptr_type: PtrType,
         fn_entry: bool,
-        size_computer: impl Fn(LayoutStrategy, Option<PointerMeta>) -> Size,
+        size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size,
     ) -> Result<Pointer<M::Provenance>> {
         self.memory.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, size_computer)
     }

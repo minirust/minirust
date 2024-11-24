@@ -206,7 +206,11 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size<M: Memory>(self, meta: Option<PointerMeta>, vtables: Map<ThinPointer<M::Provenance>, VTable>) -> Size {
+    pub fn compute_size<M: Memory>(
+        self,
+        meta: Option<PointerMeta<M::Provenance>>,
+        vtables: Map<ThinPointer<M::Provenance>, VTable>
+    ) -> Size {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
             (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
@@ -221,7 +225,11 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align<M: Memory>(self, meta: Option<PointerMeta>, vtables: Map<ThinPointer<M::Provenance>, VTable>) -> Align {
+    pub fn compute_align<M: Memory>(
+        self,
+        meta: Option<PointerMeta<M::Provenance>>,
+        vtables: Map<ThinPointer<M::Provenance>, VTable>
+    ) -> Align {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,
             (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,

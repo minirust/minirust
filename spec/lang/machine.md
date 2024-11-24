@@ -352,7 +352,7 @@ impl<M: Memory> Machine<M> {
         (prev_sync, prev_accesses)
     }
 
-    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta>) -> Size + Clone {
+    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size + Clone {
         let vtables = self.vtable_allocs;
         move |layout, meta| {
             layout.compute_size(meta, vtables)
