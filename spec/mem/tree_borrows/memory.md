@@ -139,7 +139,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
 
     /// Compute the reborrow settings for the given pointer type.
     /// `None` indicates that no reborrow should happen.
-    fn ptr_permissions(ptr_type: PtrType, fn_entry: bool) -> Option<(Permission, SizeStrategy, Protected)> {
+    fn ptr_permissions(ptr_type: PtrType, fn_entry: bool) -> Option<(Permission, LayoutStrategy, Protected)> {
         match ptr_type {
             PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => {
                 // Shared reference to interior mutable type: retagging is a NOP.
@@ -152,12 +152,12 @@ impl<T: Target> TreeBorrowsMemory<T> {
             PtrType::Ref { mutbl, pointee } => {
                 let protected = if fn_entry { Protected::Strong } else { Protected::No };
                 let permission = Permission::default(mutbl, pointee, protected);
-                Some((permission, pointee.size, protected))
+                Some((permission, pointee.layout, protected))
             },
             PtrType::Box { pointee } => {
                 let protected = if fn_entry { Protected::Weak } else { Protected::No };
                 let permission = Permission::default(Mutability::Mutable, pointee, protected);
-                Some((permission, pointee.size, protected))
+                Some((permission, pointee.layout, protected))
             },
             _ => None,
         }
@@ -235,8 +235,8 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr_type: PtrType,
         fn_entry: bool,
     ) -> Result<Pointer<Self::Provenance>> {
-        ret(if let Some((permission, size, protected)) = Self::ptr_permissions(ptr_type, fn_entry) {
-            let pointee_size = size.compute(ptr.metadata);
+        ret(if let Some((permission, layout, protected)) = Self::ptr_permissions(ptr_type, fn_entry) {
+            let pointee_size = layout.compute_size(ptr.metadata);
             self.reborrow(ptr.thin_pointer, pointee_size, permission, protected, frame_extra)?.widen(ptr.metadata)
         } else {
             ptr

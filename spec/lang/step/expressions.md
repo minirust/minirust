@@ -246,14 +246,15 @@ impl<M: Memory> Machine<M> {
         };
         // We know the pointer is valid for its type, but make sure safe pointers are also dereferenceable.
         // (We don't do a full retag here, this is not considered creating a new pointer.)
-        if let Some(layout) = ptr_type.safe_pointee() {
-            assert!(layout.align.is_aligned(ptr.thin_pointer.addr)); // this was already checked when the value got created
-            self.mem.dereferenceable(ptr.thin_pointer, layout.size.compute(ptr.metadata))?;
+        if let Some(pointee) = ptr_type.safe_pointee() {
+            // this was already checked when the value got created
+            assert!(pointee.layout.compute_align(ptr.metadata).is_aligned(ptr.thin_pointer.addr));
+            self.mem.dereferenceable(ptr.thin_pointer, pointee.layout.compute_size(ptr.metadata))?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
         // However, they cannot be loaded from.
-        let aligned = ty.align::<M::T>().is_aligned(ptr.thin_pointer.addr);
+        let aligned = ty.layout::<M::T>().compute_align(ptr.metadata).is_aligned(ptr.thin_pointer.addr);
 
         ret((Place { ptr, aligned }, ty))
     }
@@ -271,7 +272,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.size::<M::T>().compute(root.ptr.metadata));
+        assert!(offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
@@ -287,7 +288,7 @@ impl<M: Memory> Machine<M> {
             Type::Array { elem, count } => (elem, count),
             Type::Slice { elem } => {
                 let Some(PointerMeta::ElementCount(count)) = root.ptr.metadata else {
-                    panic!("eval_place should always return a ptr which matches meta for the SizeStrategy of ty");
+                    panic!("eval_place should always return a ptr which matches meta for the LayoutStrategy of ty");
                 };
                 (elem, count)
             }
@@ -297,10 +298,10 @@ impl<M: Memory> Machine<M> {
             throw_ub!("access to out-of-bounds index");
         }
 
-        let elem_size = elem_ty.size::<M::T>().expect_sized("WF ensures array & slice elements are sized");
+        let elem_size = elem_ty.layout::<M::T>().expect_size("WF ensures array & slice elements are sized");
         let offset = index * elem_size;
         assert!(
-            offset <= ty.size::<M::T>().compute(root.ptr.metadata),
+            offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata),
             "sanity check: the indexed offset should not be outside what the type allows."
         );
 

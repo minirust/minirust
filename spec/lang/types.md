@@ -129,7 +129,7 @@ They *do* have a mutability since that is (or will be) relevant for the memory m
 
 ## Layout of a type
 
-Here we define how to compute the size and other layout properties of a type.
+Here we define the size and other layout properties of a type.
 
 ```rust
 impl IntType {
@@ -143,38 +143,86 @@ impl IntType {
 }
 
 impl Type {
-    pub fn size<T: Target>(self) -> SizeStrategy {
+    /// The layout, i.e. the size and align of the type. For `?Sized` types, this needs to be computed.
+    pub fn layout<T: Target>(self) -> LayoutStrategy {
         use Type::*;
-        use SizeStrategy::Sized;
+        use LayoutStrategy::Sized;
         match self {
-            Int(int_type) => Sized(int_type.size),
-            Bool => Sized(Size::from_bytes_const(1)),
-            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE),
-            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE),
-            Tuple { size, .. } | Union { size, .. } | Enum { size, .. } => Sized(size),
+            Int(int_type) => Sized(int_type.size, int_type.align::<T>()),
+            Bool => Sized(Size::from_bytes_const(1), Align::ONE),
+            Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
+            Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
+            Tuple { size, align, .. } | Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
             Array { elem, count } => Sized(
-                elem.size::<T>().expect_sized("WF ensures array element is sized") * count
+                elem.layout::<T>().expect_size("WF ensures array element is sized") * count,
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
             ),
-            Slice { elem } => SizeStrategy::Slice(elem.size::<T>().expect_sized("WF ensures slice element is sized")),
-        }
-    }
-
-    pub fn align<T: Target>(self) -> Align {
-        use Type::*;
-        match self {
-            Int(int_type) => int_type.align::<T>(),
-            Bool => Align::ONE,
-            Ptr(_) => T::PTR_ALIGN,
-            Tuple { align, .. } | Union { align, .. } | Enum { align, .. } => align,
-            Array { elem, .. } | Slice { elem } => elem.align::<T>(),
+            Slice { elem } => LayoutStrategy::Slice(
+                elem.layout::<T>().expect_size("WF ensures slice element is sized"),
+                elem.layout::<T>().expect_align("WF ensures array element is sized"),
+            ),
         }
     }
 
     /// Returns the metadata kind when this type is used as a pointee.
+    /// This matches the meta kind of the layout, but without needing to specify a target.
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
-            _ => PointerMetaKind::None
+            _ => PointerMetaKind::None,
+        }
+    }
+}
+```
+
+And we also define how to compute the actual size and alignment.
+
+```rust
+impl LayoutStrategy {
+    pub fn is_sized(self) -> bool {
+        matches!(self, LayoutStrategy::Sized(..))
+    }
+
+    /// Returns the size when the type must be statically sized.
+    pub fn expect_size(self, msg: &str) -> Size {
+        match self {
+            LayoutStrategy::Sized(size, _) => size,
+            _ => panic!("expect_size called on unsized type: {msg}"),
+        }
+    }
+
+    /// Returns the alignment when the type must be statically sized.
+    pub fn expect_align(self, msg: &str) -> Align {
+        match self {
+            LayoutStrategy::Sized(_, align) => align,
+            _ => panic!("expect_align called on unsized type: {msg}"),
+        }
+    }
+
+    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
+        match (self, meta) {
+            (LayoutStrategy::Sized(size, _), None) => size,
+            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
+    pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
+        match (self, meta) {
+            (LayoutStrategy::Sized(_, align), None) => align,
+            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
+            _ => panic!("pointer meta data does not match type"),
+        }
+    }
+
+    /// Returns the metadata kind which is needed to compute this strategy,
+    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
+    pub fn meta_kind(self) -> PointerMetaKind {
+        match self {
+            LayoutStrategy::Sized(..) => PointerMetaKind::None,
+            LayoutStrategy::Slice(..) => PointerMetaKind::ElementCount,
         }
     }
 }

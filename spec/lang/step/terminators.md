@@ -139,8 +139,8 @@ impl<M: Memory> Machine<M> {
         // *at the given type* -- the callee does not care about packed field projections or things like that!
         self.mem.deinit(
             place.ptr.thin_pointer,
-            ty.size::<M::T>().expect_sized("WF ensures arguments and return types are sized"),
-            ty.align::<M::T>()
+            ty.layout::<M::T>().expect_size("WF ensures arguments and return types are sized"),
+            ty.layout::<M::T>().expect_align("WF ensures arguments and return types are sized")
         )?;
         // FIXME: This also needs aliasing model support.
 
@@ -215,7 +215,8 @@ impl<M: Memory> Machine<M> {
             // Copy the value at caller (source) type -- that's necessary since it is the type we did the load at (in `eval_argument`).
             // We know the types have compatible layout so this will fit into the allocation.
             // The local is freshly allocated so there should be no reason the store can fail.
-            self.typed_store(frame.locals[callee_local], caller_val, caller_ty, caller_ty.align::<M::T>(), Atomicity::None).unwrap();
+            let align = caller_ty.layout::<M::T>().expect_align("WF ensures function arguments are sized");
+            self.typed_store(frame.locals[callee_local], caller_val, caller_ty, align, Atomicity::None).unwrap();
         }
 
         ret(frame)
@@ -302,7 +303,7 @@ impl<M: Memory> Machine<M> {
         // To match `Call`, and since the callee might have written to its return place using a totally different type,
         // we copy at the callee (source) type -- the one place where we ensure the return value matches that type.
         let callee_ty = frame.func.locals[frame.func.ret];
-        let align = callee_ty.align::<M::T>();
+        let align = callee_ty.layout::<M::T>().expect_align("the return value is a local and thus sized");
         let ret_val = self.typed_load(frame.locals[frame.func.ret], callee_ty, align, Atomicity::None)?;
 
         // Deallocate everything.
