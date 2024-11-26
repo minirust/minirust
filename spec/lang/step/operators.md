@@ -125,16 +125,20 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### Size of value
+### Computing the Size and Alignment
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_un_op(&self, UnOp::SizeOfVal: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Type::Ptr(PtrType::Ref { pointee, .. }) = op_ty else { panic!("non-reference input to SizeOfVal") };
-        let Value::Ptr(ptr) = operand else { panic!("non-pointer input to SizeOfVal") };
+    fn eval_un_op(&self, UnOp::ComputeSize(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let meta = PointerMeta::from_value::<M>(operand);
+        let size = ty.layout::<M::T>().compute_size(meta);
+        ret((Value::Int(size.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
+    }
 
-        let size = pointee.layout.compute_size(ptr.metadata);
-        ret((Value::Int(size.bytes()), Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE })))
+    fn eval_un_op(&self, UnOp::ComputeAlign(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
+        let meta = PointerMeta::from_value::<M>(operand);
+        let align = ty.layout::<M::T>().compute_align(meta);
+        ret((Value::Int(align.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 }
 ```

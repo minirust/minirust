@@ -1,18 +1,8 @@
 use crate::*;
-use miniutil::DefaultTarget;
 
-/// Helper which builds code to assert that size_of_val with given type gives the expected size.
+/// Helper which builds code to assert that compute_size with the given sized type returns the expected size.
 fn assume_size_of_ty(f: &mut FunctionBuilder, size: usize, ty: Type) {
-    // This is now kind of ugly, but there is no way to get a minirust reference type for a given minirust type anymore.
-    let pointee = PointeeInfo {
-        layout: ty.layout::<DefaultTarget>(),
-        inhabited: true,
-        freeze: false,
-        unpin: false,
-    };
-    let i = f.declare_local_with_ty(ty);
-    f.storage_live(i);
-    f.assume(eq(size_of_val(addr_of(i, ref_ty(pointee))), const_int(size)));
+    f.assume(eq(compute_size(ty, unit()), const_int(size)));
 }
 
 /// Helper to call [`assume_size_of_ty`] when [`TypeConv`] is available.
@@ -20,33 +10,7 @@ fn assume_size_of_ty_conv<T: TypeConv>(f: &mut FunctionBuilder, size: usize) {
     assume_size_of_ty(f, size, T::get_type());
 }
 
-/// Tests size_of_val works with different kinds of pointer types.
-#[test]
-fn different_ptr_types() {
-    let mut p = ProgramBuilder::new();
-
-    let f = {
-        let mut f = p.declare_function();
-
-        fn for_ptr_ty(f: &mut FunctionBuilder, ptr_ty_u32: Type) {
-            let i = f.declare_local::<u32>();
-            f.storage_live(i);
-            f.assume(eq(size_of_val(addr_of(i, ptr_ty_u32)), const_int(4_usize)));
-        }
-
-        let Type::Ptr(PtrType::Ref { pointee, .. }) = <&u32>::get_type() else { panic!() };
-        for_ptr_ty(&mut f, ref_ty(pointee));
-        for_ptr_ty(&mut f, ref_mut_ty(pointee));
-
-        f.exit();
-        p.finish_function(f)
-    };
-
-    let p = p.finish_program(f);
-    assert_stop::<BasicMem>(p);
-}
-
-/// Tests size_of_val for integers.
+/// Tests compute_size for integers.
 #[test]
 fn size_of_ints() {
     let mut p = ProgramBuilder::new();
@@ -74,7 +38,7 @@ fn size_of_ints() {
     assert_stop::<BasicMem>(p);
 }
 
-/// Tests size_of_val for pointers.
+/// Tests compute_size for pointers.
 #[test]
 fn size_of_ptr() {
     let mut p = ProgramBuilder::new();
@@ -97,7 +61,7 @@ fn size_of_ptr() {
     assert_stop::<BasicMem>(p);
 }
 
-/// Tests size_of_val for zero sized types.
+/// Tests compute_size for zero sized types.
 #[test]
 fn size_of_zst() {
     let mut p = ProgramBuilder::new();
@@ -116,7 +80,7 @@ fn size_of_zst() {
     assert_stop::<BasicMem>(p);
 }
 
-/// Tests size_of_val for tuple types.
+/// Tests compute_size for tuple types.
 #[test]
 fn size_of_struct() {
     let mut p = ProgramBuilder::new();
@@ -140,7 +104,7 @@ fn size_of_struct() {
     assert_stop::<BasicMem>(p);
 }
 
-/// Tests size_of_val for slices.
+/// Tests compute_size for slices.
 #[test]
 fn size_of_slice() {
     let mut p = ProgramBuilder::new();
@@ -152,29 +116,38 @@ fn size_of_slice() {
         let arr = f.declare_local::<[u32; 3]>();
         f.storage_live(arr);
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u32; 3]>::get_type()),
             const_int(3_usize),
             <&[u32]>::get_type(),
         );
-        f.assume(eq(size_of_val(slice_ptr), const_int(12_usize)));
+        f.assume(eq(
+            compute_size(<[u32]>::get_type(), get_metadata(slice_ptr)),
+            const_int(12_usize),
+        ));
 
         let arr = f.declare_local::<[u32; 0]>();
         f.storage_live(arr);
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u32; 0]>::get_type()),
             const_int(0_usize),
             <&[u32]>::get_type(),
         );
-        f.assume(eq(size_of_val(slice_ptr), const_int(0_usize)));
+        f.assume(eq(
+            compute_size(<[u32]>::get_type(), get_metadata(slice_ptr)),
+            const_int(0_usize),
+        ));
 
         let arr = f.declare_local::<[u8; 312]>();
         f.storage_live(arr);
         let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&()>::get_type()),
+            addr_of(arr, <&[u8; 312]>::get_type()),
             const_int(312_usize),
             <&[u8]>::get_type(),
         );
-        f.assume(eq(size_of_val(slice_ptr), const_int(312_usize)));
+        f.assume(eq(
+            compute_size(<[u8]>::get_type(), get_metadata(slice_ptr)),
+            const_int(312_usize),
+        ));
 
         f.exit();
         p.finish_function(f)
@@ -186,81 +159,40 @@ fn size_of_slice() {
 
 // Ill formed tests
 
-/// Tests size_of_val only works with pointers.
 #[test]
-fn ill_non_ptr() {
+fn mismatched_meta_ill_formed() {
     let mut p = ProgramBuilder::new();
 
     let f = {
         let mut f = p.declare_function();
-        f.assume(eq(size_of_val(const_int(0_u64)), const_int(8_usize)));
+        // not `usize` as expected
+        f.print(compute_size(<[u32]>::get_type(), const_int(0_i32)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "UnOp::SizeOfVal: invalid operand: not a reference");
+    assert_ill_formed::<BasicMem>(
+        p,
+        "UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type",
+    );
 }
 
-/// Raw pointers do not have enough information to compute the size.
 #[test]
-fn ill_raw_ptr() {
+fn mismatched_meta_ill_formed_sized() {
     let mut p = ProgramBuilder::new();
 
     let f = {
         let mut f = p.declare_function();
-        let x = f.declare_local::<u32>();
-        f.assume(eq(size_of_val(addr_of(x, <*const u32>::get_type())), const_int(4_usize)));
+        // not `()` as expected, even though the information is not needed
+        f.print(compute_size(<bool>::get_type(), const_int(0_i32)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "UnOp::SizeOfVal: invalid operand: not a reference");
-}
-
-/// Box pointers are not supported.
-#[test]
-fn ill_box_ptr() {
-    let mut p = ProgramBuilder::new();
-    let Type::Ptr(PtrType::Ref { pointee, .. }) = <&u32>::get_type() else { panic!() };
-
-    let f = {
-        let mut f = p.declare_function();
-        let x = f.declare_local::<u32>();
-        f.assume(eq(size_of_val(addr_of(x, box_ty(pointee))), const_int(4_usize)));
-        f.exit();
-        p.finish_function(f)
-    };
-
-    let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "UnOp::SizeOfVal: invalid operand: not a reference");
-}
-
-/// size_of_val for function pointers makes little sense, and is hence rejected.
-#[test]
-fn ill_fn_ptr() {
-    let mut p = ProgramBuilder::new();
-
-    let dummy_f = {
-        let mut f = p.declare_function();
-        f.exit();
-        p.finish_function(f)
-    };
-
-    let f = {
-        let mut f = p.declare_function();
-
-        // function "values" are zero sized
-        let dummy_p = f.declare_local_with_ty(Type::Ptr(PtrType::FnPtr));
-        f.storage_live(dummy_p);
-        f.assign(dummy_p, fn_ptr(dummy_f));
-        f.assume(eq(size_of_val(load(dummy_p)), const_int(0_usize)));
-
-        f.exit();
-        p.finish_function(f)
-    };
-
-    let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "UnOp::SizeOfVal: invalid operand: not a reference");
+    assert_ill_formed::<BasicMem>(
+        p,
+        "UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type",
+    );
 }
