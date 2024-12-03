@@ -48,6 +48,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let el_count = meta.unwrap_meta().to_target_usize(ecx).unwrap();
                         (thin.to_pointer(ecx).unwrap(), Some(build::const_int(el_count)))
                     }
+                    PointerMetaKind::VTablePointer(..) =>
+                        rs::span_bug!(
+                            span,
+                            "Constant trait object pointers are currently not supported"
+                        ),
                 };
                 // Depending on the provenance of the pointer, a different constant is built.
                 let (prov, offset) = thin_ptr.into_parts();
@@ -115,7 +120,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             Type::Union { .. } =>
                 rs::span_bug!(span, "Constant Unions are currently not supported!"),
-            Type::Slice { .. } => rs::span_bug!(span, "constant slices do not exist!"),
+            Type::Slice { .. } | Type::TraitObject(..) =>
+                rs::span_bug!(span, "constant unsized values do not exist!"),
         }
     }
 

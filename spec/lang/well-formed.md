@@ -321,10 +321,9 @@ impl ValueExpr {
                 Type::Int(discriminant_ty)
             }
             VTableLookup { expr, method: _ } => {
-                let Type::Ptr(ptr_ty) = expr.check_wf::<T>(locals, prog)? else {
-                    throw_ill_formed!("ValueExpr::VTableLookup: invalid type");
+                let Type::Ptr(PtrType::VTablePtr) = expr.check_wf::<T>(locals, prog)? else {
+                    throw_ill_formed!("ValueExpr::VTableLookup: invalid operand: not a vtable pointer");
                 };
-                ensure_wf(matches!(ptr_ty.meta_kind(), PointerMetaKind::VTablePointer(..)), "ValueExpr::VTableLookup: invalid pointee")?;
 
                 // We do not statically have enough information to check that the method name exists in the right vtable,
                 // but this is only a type safety problem, which we don't catch anyways.
@@ -747,8 +746,6 @@ impl Relocation {
     }
 }
 
-// TODO(UnsizedTypes): WF for VTables: TraitNames should define TraitMethodsNames
-
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
         // Check all the functions.
@@ -777,6 +774,16 @@ impl Program {
 
                 relocation.check_wf(self.globals)?;
             }
+        }
+
+        // Check vtables: All vtables for the same trait must have the same methods defined.
+        let mut traits: Map<TraitName, Set<TraitMethodName>> = Map::new();
+        for (_name, vtable) in self.vtables {
+            let methods = vtable.methods.keys().collect();
+            match traits.insert(vtable.trait_name, methods) {
+                Some(prev_methods) => ensure_wf(methods == prev_methods, "Program: vtables with same trait but different methods")?,
+                None => {},
+            };
         }
 
         ret(())

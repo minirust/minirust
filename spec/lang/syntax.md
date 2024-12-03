@@ -429,11 +429,12 @@ pub enum IntrinsicOp {
 Finally, the general structure of programs and functions:
 
 ```rust
-/// Opaque types of names for functions, trait methods and globals.
+/// Opaque types of names for functions, vtables, trait methods and globals.
 /// The internal representations of these types do not matter.
 pub struct FnName(pub libspecr::Name);
-pub struct TraitMethodName(pub libspecr::Name);
 pub struct GlobalName(pub libspecr::Name);
+pub struct VTableName(pub libspecr::Name);
+pub struct TraitMethodName(pub libspecr::Name);
 
 /// A closed MiniRust program.
 pub struct Program {

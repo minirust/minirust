@@ -46,7 +46,7 @@ pub struct ProgramBuilder {
     next_fn: u32,
     next_global: u32,
     next_vtable: u32,
-    next_trait_method_name: u32,
+    next_trait: u32,
 }
 
 impl ProgramBuilder {
@@ -58,7 +58,7 @@ impl ProgramBuilder {
             next_fn: 0,
             next_global: 0,
             next_vtable: 0,
-            next_trait_method_name: 0,
+            next_trait: 0,
         }
     }
 
@@ -85,13 +85,14 @@ impl ProgramBuilder {
         name
     }
 
-    pub fn declare_vtable(&mut self, ty: Type) -> VTableBuilder {
+    pub fn declare_vtable(&mut self, trait_name: TraitName, ty: Type) -> VTableBuilder {
         let name = VTableName(Name::from_internal(self.next_vtable));
         self.next_vtable += 1;
         VTableBuilder::new(
+            trait_name,
             name,
-            ty.size::<DefaultTarget>().expect_sized("only sized types can be trait objects"),
-            ty.align::<DefaultTarget>(),
+            ty.layout::<DefaultTarget>().expect_size("only sized types can be trait objects"),
+            ty.layout::<DefaultTarget>().expect_align("only sized types can be trait objects"),
         )
     }
 
@@ -99,14 +100,15 @@ impl ProgramBuilder {
     pub fn finish_vtable(&mut self, v: VTableBuilder) -> VTableName {
         let name = v.name();
         let vtable = v.finish_vtable();
+        // We could store and check the number of functions matches what was defined here.
         self.vtables.try_insert(name, vtable).unwrap();
         name
     }
 
-    pub fn fresh_trait_method_name(&mut self) -> TraitMethodName {
-        let idx = self.next_trait_method_name;
-        self.next_trait_method_name += 1;
-        TraitMethodName(Name::from_internal(idx))
+    pub fn declare_trait(&mut self) -> TraitBuilder {
+        let name = TraitName(Name::from_internal(self.next_trait));
+        self.next_trait += 1;
+        TraitBuilder::new(name)
     }
 }
 
@@ -234,6 +236,7 @@ impl FunctionBuilder {
 }
 
 pub struct VTableBuilder {
+    trait_name: TraitName,
     name: VTableName,
     size: Size,
     align: Align,
@@ -241,8 +244,8 @@ pub struct VTableBuilder {
 }
 
 impl VTableBuilder {
-    fn new(name: VTableName, size: Size, align: Align) -> VTableBuilder {
-        VTableBuilder { name, size, align, methods: Map::new() }
+    fn new(trait_name: TraitName, name: VTableName, size: Size, align: Align) -> VTableBuilder {
+        VTableBuilder { trait_name, name, size, align, methods: Map::new() }
     }
 
     pub fn name(&self) -> VTableName {
@@ -255,7 +258,38 @@ impl VTableBuilder {
 
     #[track_caller]
     fn finish_vtable(self) -> VTable {
-        VTable { size: self.size, align: self.align, methods: self.methods }
+        VTable {
+            trait_name: self.trait_name,
+            size: self.size,
+            align: self.align,
+            methods: self.methods,
+        }
+    }
+}
+
+pub struct TraitBuilder {
+    name: TraitName,
+    next_method: u32,
+}
+
+impl TraitBuilder {
+    fn new(name: TraitName) -> TraitBuilder {
+        TraitBuilder { name, next_method: 0 }
+    }
+
+    pub fn name(&self) -> TraitName {
+        self.name
+    }
+
+    pub fn fresh_method_name(&mut self) -> TraitMethodName {
+        let idx = self.next_method;
+        self.next_method += 1;
+        TraitMethodName(Name::from_internal(idx))
+    }
+
+    #[track_caller]
+    pub fn finish_trait(self) -> TraitName {
+        self.name
     }
 }
 

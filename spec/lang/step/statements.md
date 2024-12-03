@@ -94,7 +94,6 @@ To do this, we first lift retagging from pointers to compound values.
 ```rust
 impl<M: Memory> Machine<M> {
     /// Find all pointers in this value, ensure they are valid, and retag them.
-    // FIXME(UnsizedTypes): Lifting this to machine, makes the passing `size_computer` easy, but doesn't quite work where it is called.
     fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
@@ -121,7 +120,7 @@ impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(place)?;
 
-        // WF ensures all validate expressions are sized, so we can invoke the load.
+        // WF ensures all valid expressions are sized, so we can invoke the load.
         // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
         let val = self.retag_val(val, ty, fn_entry)?;
