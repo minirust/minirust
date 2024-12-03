@@ -47,17 +47,6 @@ pub enum ValueExpr {
         #[specr::indirection]
         place: PlaceExpr,
     },
-    /// Lookup the function pointer for a trait object method.
-    /// Dynamic dispatch is represented as a `Call` to the result of this method,
-    /// with the `self` argument appropriately cast to a sized pointer type.
-    VTableLookup {
-        /// Must be a pointer to a vtable.
-        #[specr::indirection]
-        expr: ValueExpr,
-        /// Specifies which function of the vtable to look up.
-        /// Depends on the `TraitName` set in the vtable.
-        method: TraitMethodName,
-    },
     /// Load a value from memory.
     Load {
         /// The place to load from.
@@ -137,6 +126,15 @@ pub enum UnOp {
     /// Returns the dynamic align of the type given the pointer metadata.
     /// The operand must be a matching metadata for the type. For sized objects this is `()`.
     ComputeAlign(Type),
+    /// Lookup the function pointer for a trait object method.
+    /// Dynamic dispatch is represented as a `Call` to the result of this method,
+    /// with the `self` argument appropriately cast to a sized pointer type.
+    /// 
+    /// The operand must be a pointer to a vtable as returned by `GetMetadata`.
+    /// 
+    /// The parameter specifies which function of the vtable to look up.
+    /// Depends on the `TraitName` set in the vtable.
+    VTableMethodLookup(TraitMethodName),
 }
 
 pub enum IntBinOp {
@@ -429,7 +427,7 @@ pub enum IntrinsicOp {
 Finally, the general structure of programs and functions:
 
 ```rust
-/// Opaque types of names for functions, vtables, trait methods and globals.
+/// Opaque types of names for functions, vtables, trait methods, and globals.
 /// The internal representations of these types do not matter.
 pub struct FnName(pub libspecr::Name);
 pub struct GlobalName(pub libspecr::Name);

@@ -117,13 +117,6 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
             let place = fmt_place_expr(place.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("discriminant({place})"))
         }
-        ValueExpr::VTableLookup { expr, method } => {
-            let expr = fmt_value_expr(expr.extract(), comptypes).to_string();
-            FmtExpr::Atomic(format!(
-                "vtable_lookup<m{m_id}>({expr})",
-                m_id = method.0.get_internal()
-            ))
-        }
         ValueExpr::Load { source } => {
             let source = source.extract();
             let source = fmt_place_expr(source, comptypes).to_string();
@@ -171,6 +164,11 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let ty_str = fmt_type(ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("compute_align<{ty_str}>({operand})"))
                 }
+                UnOp::VTableMethodLookup(method) =>
+                    FmtExpr::NonAtomic(format!(
+                        "vtable_lookup<m{m_id}>({operand})",
+                        m_id = method.0.get_internal()
+                    )),
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {

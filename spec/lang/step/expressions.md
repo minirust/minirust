@@ -46,10 +46,10 @@ impl<M: Memory> Machine<M> {
                 }.widen(None))
             },
             Constant::VTablePointer(vtable_name) => {
-                let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *name == vtable_name);
-                // we could also pick a random one?
-                let Some((ptr, _)) = vtables.next() else {
-                    panic!("constant to unallocated vtable");
+                let vtable = self.vtable_allocs.iter().find(|(_, name)| *name == vtable_name);
+                // FIXME: we should leave the choice of which vtable address to use to the frontend.
+                let Some((ptr, _)) = vtable else {
+                    panic!("constant to unallocated vtable, WF ensures the name is defined, and the machine must allocated all defined vtables.");
                 };
 
                 Value::Ptr(ptr.widen(None))
@@ -132,35 +132,6 @@ impl<M: Memory> Machine<M> {
         };
 
         ret((Value::Int(discriminant), Type::Int(discriminant_ty)))
-    }
-}
-```
-
-### VTable Lookups
-
-Dynamic dispatch in MiniRust is represented as a `Call` to the result of an explicit `VTableLookup` expression.
-This expression works on vtable pointer, which can be extracted by `GetMetadata`.
-Which method is invoked is represented by the `method` parameter, which corresponds to a function of the trait.
-The objects vtable must be for the trait the method belongs to, which is enforced by keeping `TraitMethodName`s globally unique.
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::VTableLookup { expr, method } : ValueExpr) -> Result<(Value<M>, Type)> {
-        let (Value::Ptr(ptr), Type::Ptr(_ptr_ty)) = self.eval_value(expr)? else {
-            panic!("vtable loopup on non-pointer");
-        };
-        // It is checked in check_value that the vtable is always valid.
-        let vtable = self.vtable_lookup()(ptr.thin_pointer);
-        let Some(fn_name) = vtable.methods.get(method) else {
-            // This would be a type error, but since we don't store the trait, we do not type check this.
-            throw_ub!("the referenced vtable does not have an entry for the invoked method");
-        };
-        let fn_ptr = Value::Ptr(ThinPointer {
-            addr: self.fn_addrs[fn_name],
-            provenance: None,
-        }.widen(None));
-
-        ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
     }
 }
 ```

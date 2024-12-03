@@ -160,8 +160,9 @@ impl<Provenance> PointerMeta<Provenance> {
     fn from_value<M: Memory<Provenance=Provenance>>(value: Value<M>) -> Option<PointerMeta<Provenance>> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
-            Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            _ => None,
+            Value::Ptr(ptr) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
+            Value::Tuple(fields) if fields.is_empty() => None,
+            _ => panic!("PointerMeta::from_value called with invalid value"),
         }
     }
 
@@ -456,26 +457,6 @@ impl<M: Memory> Machine<M> {
     fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
-        // Safe pointer, i.e. references, boxes
-        if let Some(pointee) = ptr_ty.safe_pointee() {
-            let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
-            let align = pointee.layout.compute_align(ptr.metadata, self.vtable_lookup());
-            // The total size of slices must be at most `isize::MAX`.
-            ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
-
-            // Safe addresses need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
-            // (Think: uninhabited types have impossible alignment.)
-            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-            ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-            ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
-            ensure_else_ub(
-                self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
-                "Value::Ptr: non-dereferenceable safe pointer"
-            )?;
-
-            // However, we do not care about the data stored wherever this pointer points to.
-        }
-
         match (ptr.metadata, ptr_ty.meta_kind()) {
             (None, PointerMetaKind::None) => {}
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
@@ -490,6 +471,26 @@ impl<M: Memory> Machine<M> {
             }
             _ => throw_ub!("Value::Ptr: invalid metadata"),
         };
+
+        // Safe pointer, i.e. references, boxes
+        if let Some(pointee) = ptr_ty.safe_pointee() {
+            let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
+            let align = pointee.layout.compute_align(ptr.metadata, self.vtable_lookup());
+            // The total size must be at most `isize::MAX`.
+            ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+
+            // Safe pointers need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
+            // (Think: uninhabited types have impossible alignment.)
+            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
+            ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+            ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+            ensure_else_ub(
+                self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
+                "Value::Ptr: non-dereferenceable safe pointer"
+            )?;
+
+            // However, we do not care about the data stored wherever this pointer points to.
+        }
 
         Ok(())
     }

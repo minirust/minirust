@@ -14,7 +14,7 @@ pub fn ref_ty(pointee: PointeeInfo) -> Type {
 
 pub fn ref_ty_for(ty: Type) -> Type {
     ref_ty(PointeeInfo {
-        layout: ty.layout::<x86_64>(),
+        layout: ty.layout::<DefaultTarget>(),
         inhabited: true,
         freeze: true,
         unpin: true,
@@ -27,7 +27,7 @@ pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
 
 pub fn ref_mut_ty_for(ty: Type) -> Type {
     ref_mut_ty(PointeeInfo {
-        layout: ty.layout::<x86_64>(),
+        layout: ty.layout::<DefaultTarget>(),
         inhabited: true,
         freeze: true,
         unpin: true,

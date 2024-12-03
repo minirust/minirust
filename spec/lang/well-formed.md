@@ -320,16 +320,6 @@ impl ValueExpr {
                 };
                 Type::Int(discriminant_ty)
             }
-            VTableLookup { expr, method: _ } => {
-                let Type::Ptr(PtrType::VTablePtr) = expr.check_wf::<T>(locals, prog)? else {
-                    throw_ill_formed!("ValueExpr::VTableLookup: invalid operand: not a vtable pointer");
-                };
-
-                // We do not statically have enough information to check that the method name exists in the right vtable,
-                // but this is only a type safety problem, which we don't catch anyways.
-
-                Type::Ptr(PtrType::FnPtr)
-            }
             Load { source } => {
                 let val_ty = source.check_wf::<T>(locals, prog)?;
                 ensure_wf(val_ty.layout::<T>().is_sized(), "ValueExpr::Load: unsized value type")?;
@@ -391,6 +381,16 @@ impl ValueExpr {
                             throw_ill_formed!("UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type");
                         }
                         Type::Int(IntType::usize_ty::<T>())
+                    }
+                    VTableMethodLookup(_method) => {
+                        let Type::Ptr(PtrType::VTablePtr) = operand else {
+                            throw_ill_formed!("UnOp::VTableMethodLookup: invalid operand: not a vtable pointer");
+                        };
+
+                        // We do not statically have enough information to check that the method name exists in the right vtable,
+                        // but this is only a type safety problem, which we don't catch anyways.
+
+                        Type::Ptr(PtrType::FnPtr)
                     }
                 }
             }
@@ -776,7 +776,7 @@ impl Program {
             }
         }
 
-        // Check vtables: All vtables for the same trait must have the same methods defined.
+        // Check vtables: All vtables for the same trait must have the same method names defined.
         let mut traits: Map<TraitName, Set<TraitMethodName>> = Map::new();
         for (_name, vtable) in self.vtables {
             let methods = vtable.methods.keys().collect();

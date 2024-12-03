@@ -85,15 +85,23 @@ impl ProgramBuilder {
         name
     }
 
-    pub fn declare_vtable(&mut self, trait_name: TraitName, ty: Type) -> VTableBuilder {
-        let name = VTableName(Name::from_internal(self.next_vtable));
-        self.next_vtable += 1;
-        VTableBuilder::new(
+    pub fn declare_vtable_for_ty(&mut self, trait_name: TraitName, ty: Type) -> VTableBuilder {
+        self.declare_vtable(
             trait_name,
-            name,
             ty.layout::<DefaultTarget>().expect_size("only sized types can be trait objects"),
             ty.layout::<DefaultTarget>().expect_align("only sized types can be trait objects"),
         )
+    }
+
+    pub fn declare_vtable(
+        &mut self,
+        trait_name: TraitName,
+        size: Size,
+        align: Align,
+    ) -> VTableBuilder {
+        let name = VTableName(Name::from_internal(self.next_vtable));
+        self.next_vtable += 1;
+        VTableBuilder::new(trait_name, name, size, align)
     }
 
     #[track_caller]
@@ -281,7 +289,7 @@ impl TraitBuilder {
         self.name
     }
 
-    pub fn fresh_method_name(&mut self) -> TraitMethodName {
+    pub fn declare_method(&mut self) -> TraitMethodName {
         let idx = self.next_method;
         self.next_method += 1;
         TraitMethodName(Name::from_internal(idx))
@@ -289,6 +297,8 @@ impl TraitBuilder {
 
     #[track_caller]
     pub fn finish_trait(self) -> TraitName {
+        // We don't actually have to store the registered trait methods anywhere,
+        // so all we do here is return the name.
         self.name
     }
 }

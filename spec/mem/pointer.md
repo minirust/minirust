@@ -26,7 +26,7 @@ We therefore use the term *thin pointer* for what has been described above, and 
 pub type Address = Int;
 
 /// A "trait name" is an identifier for the trait a vtable is for.
-/// This defines the size and function signatures of the methods.
+/// This defines the number of methods and their function signatures.
 pub struct TraitName(pub libspecr::Name);
 
 /// A "thin pointer" is an address together with its Provenance.
