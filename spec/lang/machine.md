@@ -43,8 +43,6 @@ pub struct Machine<M: Memory> {
     fn_addrs: Map<FnName, mem::Address>,
 
     /// Stores a key to the vtable behind a given pointer.
-    // FIXME(UnsizedTypes): Should the values be `VTable` directly? requires duplicating them in constant expressions,
-    // but makes compute_size/align easy.
     vtable_allocs: Map<ThinPointer<M::Provenance>, VTableName>,
 
     /// This is where the `PrintStdout` intrinsic writes to.

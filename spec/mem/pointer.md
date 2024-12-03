@@ -25,9 +25,6 @@ We therefore use the term *thin pointer* for what has been described above, and 
 /// of the address space.
 pub type Address = Int;
 
-/// A "vtable name" is an identifier for a vtable defined in the program.
-pub struct VTableName(pub libspecr::Name);
-
 /// A "trait name" is an identifier for the trait a vtable is for.
 /// This defines the size and function signatures of the methods.
 pub struct TraitName(pub libspecr::Name);
