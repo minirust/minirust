@@ -412,6 +412,15 @@ impl Type {
         panic!("encode of Type::Slice")
     }
 }
+
+impl Type {
+    fn decode<M: Memory>(Type::TraitObject: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        panic!("decode of Type::TraitObject")
+    }
+    fn encode<M: Memory>(Type::TraitObject: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        panic!("encode of Type::TraitObject")
+    }
+}
 ```
 
 ## Well-formed values
@@ -508,6 +517,7 @@ impl<M: Memory> Machine<M> {
                 self.check_value(data, variant.ty)?;
             }
             (_, Type::Slice { .. }) => panic!("Value: slices cannot be represented as values"),
+            (_, Type::TraitObject { .. }) => panic!("Value: trait objects cannot be represented as values"),
             _ => panic!("Value: value does not match type")
         }
 
@@ -552,15 +562,6 @@ impl<M: Memory> Machine<M> {
             }
             None => throw_ub!("load at type {ty:?} but the data in memory violates the language invariant"), // FIXME use Display instead of Debug for `ty`
         })
-    }
-}
-
-impl Type {
-    fn decode<M: Memory>(Type::TraitObject: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
-        panic!("tried to decode a trait object")
-    }
-    fn encode<M: Memory>(Type::TraitObject: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
-        panic!("tried to endoce a trait object")
     }
 }
 ```

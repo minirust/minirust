@@ -86,10 +86,7 @@ pub enum Type {
         /// this is independent of the fields' alignment.
         align: Align,
     },
-    /// This is surprisingly not used for method invocation I think, as only the pointer metadata counts.
-    /// I actually think this is not used at all in MiniRust. Since an `dyn Foo` Place can do nothing, not assigning to it, 
-    /// not field or index projection.
-    /// It might be used in minimize. ??
+    /// A `dyn TraitName`. Commonly only used behind a pointer.
     TraitObject,
 }
 
@@ -175,6 +172,7 @@ impl Type {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
+            Type::TraitObject => PointerMetaKind::VTablePointer,
             _ => PointerMetaKind::None,
         }
     }
