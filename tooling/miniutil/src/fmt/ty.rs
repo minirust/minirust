@@ -18,7 +18,8 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             let elem = fmt_type(elem.extract(), comptypes).to_string();
             FmtExpr::Atomic(format!("[{elem}]"))
         }
-        Type::TraitObject => FmtExpr::Atomic("dyn {unknown}".into()),
+        Type::TraitObject(trait_name) =>
+            FmtExpr::Atomic(format!("dyn trait{}", trait_name.0.get_internal())),
     }
 }
 
@@ -55,11 +56,12 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
     }
 }
 
-fn fmt_meta_kind(kind: PointerMetaKind) -> &'static str {
+fn fmt_meta_kind(kind: PointerMetaKind) -> String {
     match kind {
-        PointerMetaKind::None => "thin",
-        PointerMetaKind::ElementCount => "meta=len",
-        PointerMetaKind::VTablePointer => "meta=vtable",
+        PointerMetaKind::None => "thin".into(),
+        PointerMetaKind::ElementCount => "meta=len".into(),
+        PointerMetaKind::VTablePointer(trait_name) =>
+            format!("meta=vtable<trait{}>", trait_name.0.get_internal()),
     }
 }
 
@@ -69,7 +71,7 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
             format!("size={}, align={}", size.bytes(), align.bytes()),
         LayoutStrategy::Slice(size, align) =>
             format!("size={}*len, align={}", size.bytes(), align.bytes()),
-        LayoutStrategy::TraitObject => "size,align={unknown}".into(),
+        LayoutStrategy::TraitObject(..) => "size,align={unknown}".into(),
     };
     let uninhab_str = match pointee.inhabited {
         true => "",

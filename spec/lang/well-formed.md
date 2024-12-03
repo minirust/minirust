@@ -321,10 +321,9 @@ impl ValueExpr {
                 Type::Int(discriminant_ty)
             }
             VTableLookup { expr, method: _ } => {
-                let Type::Ptr(ptr_ty) = expr.check_wf::<T>(locals, prog)? else {
-                    throw_ill_formed!("ValueExpr::VTableLookup: invalid type");
+                let Type::Ptr(PtrType::VTablePtr) = expr.check_wf::<T>(locals, prog)? else {
+                    throw_ill_formed!("ValueExpr::VTableLookup: invalid operand: not a vtable pointer");
                 };
-                ensure_wf(matches!(ptr_ty.meta_kind(), PointerMetaKind::VTablePointer(..)), "ValueExpr::VTableLookup: invalid pointee")?;
 
                 // We do not statically have enough information to check that the method name exists in the right vtable,
                 // but this is only a type safety problem, which we don't catch anyways.
