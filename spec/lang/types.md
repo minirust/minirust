@@ -204,10 +204,10 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size<M: Memory>(
+    pub fn compute_size<Provenance>(
         self,
-        meta: Option<PointerMeta<M::Provenance>>,
-        vtables: impl FnOnce(ThinPointer<M::Provenance>) -> VTable,
+        meta: Option<PointerMeta<Provenance>>,
+        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
     ) -> Size {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
@@ -218,10 +218,10 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align<M: Memory>(
+    pub fn compute_align<Provenance>(
         self,
-        meta: Option<PointerMeta<M::Provenance>>,
-        vtables: impl FnOnce(ThinPointer<M::Provenance>) -> VTable,
+        meta: Option<PointerMeta<Provenance>>,
+        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
     ) -> Align {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,

@@ -466,8 +466,8 @@ impl<M: Memory> Machine<M> {
 
                 // Safe pointer, i.e. references, boxes
                 if let Some(pointee) = ptr_ty.safe_pointee() {
-                    let size = pointee.layout.compute_size::<M>(ptr.metadata, self.vtable_lookup());
-                    let align = pointee.layout.compute_align::<M>(ptr.metadata, self.vtable_lookup());
+                    let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
+                    let align = pointee.layout.compute_align(ptr.metadata, self.vtable_lookup());
                     // The total size of slices must be at most `isize::MAX`.
                     ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 

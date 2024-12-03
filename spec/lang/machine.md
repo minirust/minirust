@@ -367,7 +367,7 @@ impl<M: Memory> Machine<M> {
     fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size {
         let lookup = self.vtable_lookup();
         move |layout, meta| {
-            layout.compute_size::<M>(meta, &lookup)
+            layout.compute_size(meta, &lookup)
         }
     }
 }
