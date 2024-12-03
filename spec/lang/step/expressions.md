@@ -136,35 +136,6 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-### VTable Lookups
-
-Dynamic dispatch in MiniRust is represented as a `Call` to the result of an explicit `VTableLookup` expression.
-This expression works on vtable pointer, which can be extracted by `GetMetadata`.
-Which method is invoked is represented by the `method` parameter, which corresponds to a function of the trait.
-The objects vtable must be for the trait the method belongs to, which is enforced by keeping `TraitMethodName`s globally unique.
-
-```rust
-impl<M: Memory> Machine<M> {
-    fn eval_value(&mut self, ValueExpr::VTableLookup { expr, method } : ValueExpr) -> Result<(Value<M>, Type)> {
-        let (Value::Ptr(ptr), Type::Ptr(_ptr_ty)) = self.eval_value(expr)? else {
-            panic!("vtable loopup on non-pointer");
-        };
-        // It is checked in check_value that the vtable is always valid.
-        let vtable = self.vtable_lookup()(ptr.thin_pointer);
-        let Some(fn_name) = vtable.methods.get(method) else {
-            // This would be a type error, but since we don't store the trait, we do not type check this.
-            throw_ub!("the referenced vtable does not have an entry for the invoked method");
-        };
-        let fn_ptr = Value::Ptr(ThinPointer {
-            addr: self.fn_addrs[fn_name],
-            provenance: None,
-        }.widen(None));
-
-        ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
-    }
-}
-```
-
 ### Load from memory
 
 This loads a value from a place (often called "place-to-value coercion").

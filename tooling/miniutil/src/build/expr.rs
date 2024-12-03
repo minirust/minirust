@@ -304,7 +304,7 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
 }
 
 pub fn vtable_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
-    ValueExpr::VTableLookup { expr: GcCow::new(operand), method }
+    ValueExpr::UnOp { operator: UnOp::VTableMethodLookup(method), operand: GcCow::new(operand) }
 }
 
 pub fn deref(operand: ValueExpr, ty: Type) -> PlaceExpr {
