@@ -746,8 +746,6 @@ impl Relocation {
     }
 }
 
-// TODO(UnsizedTypes): WF for VTables: TraitNames should define TraitMethodsNames
-
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
         // Check all the functions.
@@ -775,6 +773,16 @@ impl Program {
                 ensure_wf(offset + T::PTR_SIZE <= size, "Program: invalid global pointer value")?;
 
                 relocation.check_wf(self.globals)?;
+            }
+        }
+
+        // Check vtables: All vtables for the same trait must have the same methods defined.
+        let traits: Map<TraitName, Set<TraitMethodName>> = Map::new();
+        for (_name, vtable) in self.vtables {
+            let methods = vtable.methods.keys().collect();
+            match traits.get(vtable.trait_name) {
+                None => traits.insert(vtable.trait_name, methods),
+                Some(methods1) => ensure_wf(methods == methods1, "Program: vtables with same trait but different methods")?,
             }
         }
 

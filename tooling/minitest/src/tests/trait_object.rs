@@ -73,5 +73,6 @@ fn dynamic_dispatch() {
     };
 
     let p = p.finish_program(main);
+    dump_program(p);
     assert_stop::<BasicMem>(p);
 }
