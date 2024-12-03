@@ -113,10 +113,13 @@ impl<M: Memory> Machine<M> {
     
     fn eval_un_op(&self, UnOp::GetMetadata: UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer GetMetadata") };
+        let Type::Ptr(ptr_ty) = op_ty else { panic!("non-pointer GetMetadata") };
 
         if let Some(meta) = ptr.metadata {
             let meta_value = meta.into_value::<M>();
-            let meta_ty = meta.meta_kind().ty::<M::T>().expect("meta is not None");
+            let meta_ty = ptr_ty.meta_kind().ty::<M::T>().expect("meta is not None");
+            // O(1) sanity check
+            self.check_value(meta_value, meta_ty).expect("GetMetadata: sanity check, returned meta is well-formed");
             ret((meta_value, meta_ty))
         } else {
             ret((unit_value::<M>(), unit_type()))

@@ -55,7 +55,7 @@ pub enum ValueExpr {
         #[specr::indirection]
         expr: ValueExpr,
         /// Specifies which function of the vtable to look up.
-        /// Depends on the trait, which is not represented here.
+        /// Depends on the `TraitName` set in the vtable.
         method: TraitMethodName,
     },
     /// Load a value from memory.
@@ -497,7 +497,12 @@ pub struct Relocation {
 /// A vtable for a trait-type pair.
 /// This is pointed to by the trait object metadata.
 pub struct VTable {
+    /// What trait this vtable is for.
+    /// All vtables for this trait name have implementation for same set of methods.
+    pub trait_name: TraitName,
+    /// The size of the type.
     pub size: Size,
+    /// The alignment of the type.
     pub align: Align,
     /// The implementations of trait methods.
     pub methods: Map<TraitMethodName, FnName>

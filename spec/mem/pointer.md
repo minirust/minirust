@@ -25,8 +25,12 @@ We therefore use the term *thin pointer* for what has been described above, and 
 /// of the address space.
 pub type Address = Int;
 
-/// A "vtable name" is a identifier for a vtable somewhere in memory.
+/// A "vtable name" is an identifier for a vtable defined in the program.
 pub struct VTableName(pub libspecr::Name);
+
+/// A "trait name" is an identifier for the trait a vtable is for.
+/// This defines the size and function signatures of the methods.
+pub struct TraitName(pub libspecr::Name);
 
 /// A "thin pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
@@ -57,7 +61,7 @@ pub struct Pointer<Provenance> {
 pub enum PointerMetaKind {
     None,
     ElementCount,
-    VTablePointer,
+    VTablePointer(TraitName),
 }
 
 impl<Provenance> ThinPointer<Provenance> {
@@ -77,21 +81,6 @@ impl<Provenance> ThinPointer<Provenance> {
     }
 }
 
-impl<Provenance> PointerMeta<Provenance> {
-    pub fn meta_kind(self) -> PointerMetaKind {
-        match self {
-            PointerMeta::ElementCount(_) => PointerMetaKind::ElementCount,
-            PointerMeta::VTablePointer(_) => PointerMetaKind::VTablePointer,
-        }
-    }
-}
-
-impl PointerMetaKind {
-    pub fn matches<Provenance>(self, meta: Option<PointerMeta<Provenance>>) -> bool {
-        let expected_kind = meta.map(PointerMeta::meta_kind).unwrap_or(PointerMetaKind::None);
-        self == expected_kind
-    }
-}
 ```
 
 ## Pointee
@@ -116,7 +105,8 @@ pub enum LayoutStrategy {
     /// The total size is a multiple of the element size and the align is exactly the element size.
     Slice(Size, Align),
     /// The size of the type must be looked up in the VTable of a wide pointer.
-    TraitObject,
+    /// Additionally, the vtable must be for the given trait.
+    TraitObject(TraitName),
 }
 
 /// Stores all the information that we need to know about a pointer.

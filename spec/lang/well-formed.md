@@ -32,7 +32,7 @@ impl LayoutStrategy {
         match self {
             LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
             LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
-            LayoutStrategy::TraitObject => (),
+            LayoutStrategy::TraitObject(..) => (),
         };
 
         ret(())
@@ -46,7 +46,7 @@ impl LayoutStrategy {
             LayoutStrategy::Slice(size, align) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
-            LayoutStrategy::TraitObject => (),
+            LayoutStrategy::TraitObject(..) => (),
         };
 
         ret(())
@@ -173,7 +173,7 @@ impl Type {
                 // can be represented by the discriminant type.
                 discriminator.check_wf::<T>(size, variants)?;
             }
-            TraitObject => (),
+            TraitObject(..) => (),
         }
 
         // Now that we know the type is well-formed,
@@ -324,7 +324,7 @@ impl ValueExpr {
                 let Type::Ptr(ptr_ty) = expr.check_wf::<T>(locals, prog)? else {
                     throw_ill_formed!("ValueExpr::VTableLookup: invalid type");
                 };
-                ensure_wf(ptr_ty.meta_kind() == PointerMetaKind::VTablePointer, "ValueExpr::VTableLookup: invalid pointee")?;
+                ensure_wf(matches!(ptr_ty.meta_kind(), PointerMetaKind::VTablePointer(..)), "ValueExpr::VTableLookup: invalid pointee")?;
 
                 // We do not statically have enough information to check that the method name exists in the right vtable,
                 // but this is only a type safety problem, which we don't catch anyways.
@@ -747,7 +747,7 @@ impl Relocation {
     }
 }
 
-// TODO(UnsizedTypes): WF for VTables
+// TODO(UnsizedTypes): WF for VTables: TraitNames should define TraitMethodsNames
 
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
