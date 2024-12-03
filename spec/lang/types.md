@@ -87,7 +87,7 @@ pub enum Type {
         align: Align,
     },
     /// A `dyn TraitName`. Commonly only used behind a pointer.
-    TraitObject,
+    TraitObject(TraitName),
 }
 
 pub struct IntType {
@@ -163,7 +163,7 @@ impl Type {
                 elem.layout::<T>().expect_size("WF ensures slice element is sized"),
                 elem.layout::<T>().expect_align("WF ensures array element is sized"),
             ),
-            TraitObject => LayoutStrategy::TraitObject,
+            TraitObject(trait_name) => LayoutStrategy::TraitObject(trait_name),
         }
     }
 
@@ -172,7 +172,7 @@ impl Type {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
-            Type::TraitObject => PointerMetaKind::VTablePointer,
+            Type::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
             _ => PointerMetaKind::None,
         }
     }
@@ -212,7 +212,7 @@ impl LayoutStrategy {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
             (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).size,
+            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).size,
             _ => panic!("pointer meta data does not match type"),
         }
     }
@@ -226,7 +226,7 @@ impl LayoutStrategy {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,
             (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
-            (LayoutStrategy::TraitObject, Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).align,
+            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).align,
             _ => panic!("pointer meta data does not match type"),
         }
     }
@@ -237,7 +237,7 @@ impl LayoutStrategy {
         match self {
             LayoutStrategy::Sized(..) => PointerMetaKind::None,
             LayoutStrategy::Slice(..) => PointerMetaKind::ElementCount,
-            LayoutStrategy::TraitObject => PointerMetaKind::VTablePointer,
+            LayoutStrategy::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
         }
     }
 }
