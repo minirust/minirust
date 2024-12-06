@@ -12,8 +12,26 @@ pub fn ref_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Immutable, pointee })
 }
 
+pub fn ref_ty_for(ty: Type) -> Type {
+    ref_ty(PointeeInfo {
+        layout: ty.layout::<DefaultTarget>(),
+        inhabited: true,
+        freeze: true,
+        unpin: true,
+    })
+}
+
 pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Mutable, pointee })
+}
+
+pub fn ref_mut_ty_for(ty: Type) -> Type {
+    ref_mut_ty(PointeeInfo {
+        layout: ty.layout::<DefaultTarget>(),
+        inhabited: true,
+        freeze: true,
+        unpin: true,
+    })
 }
 
 pub fn box_ty(pointee: PointeeInfo) -> Type {
@@ -43,6 +61,10 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
 
 pub fn slice_ty(elem: Type) -> Type {
     Type::Slice { elem: GcCow::new(elem) }
+}
+
+pub fn trait_object_ty(trait_name: TraitName) -> Type {
+    Type::TraitObject(trait_name)
 }
 
 pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {

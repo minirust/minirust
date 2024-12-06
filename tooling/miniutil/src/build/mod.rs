@@ -42,8 +42,11 @@ pub use ty_conv::*;
 pub struct ProgramBuilder {
     functions: Map<FnName, Function>,
     globals: Map<GlobalName, Global>,
+    vtables: Map<VTableName, VTable>,
     next_fn: u32,
     next_global: u32,
+    next_vtable: u32,
+    next_trait: u32,
 }
 
 impl ProgramBuilder {
@@ -51,13 +54,21 @@ impl ProgramBuilder {
         ProgramBuilder {
             functions: Default::default(),
             globals: Default::default(),
+            vtables: Default::default(),
             next_fn: 0,
             next_global: 0,
+            next_vtable: 0,
+            next_trait: 0,
         }
     }
 
     pub fn finish_program(self, start_function: FnName) -> Program {
-        Program { functions: self.functions, start: start_function, globals: self.globals }
+        Program {
+            functions: self.functions,
+            start: start_function,
+            globals: self.globals,
+            vtables: self.vtables,
+        }
     }
 
     pub fn declare_function(&mut self) -> FunctionBuilder {
@@ -72,6 +83,40 @@ impl ProgramBuilder {
         let f = f.finish_function();
         self.functions.try_insert(name, f).unwrap();
         name
+    }
+
+    pub fn declare_vtable_for_ty(&mut self, trait_name: TraitName, ty: Type) -> VTableBuilder {
+        self.declare_vtable(
+            trait_name,
+            ty.layout::<DefaultTarget>().expect_size("only sized types can be trait objects"),
+            ty.layout::<DefaultTarget>().expect_align("only sized types can be trait objects"),
+        )
+    }
+
+    pub fn declare_vtable(
+        &mut self,
+        trait_name: TraitName,
+        size: Size,
+        align: Align,
+    ) -> VTableBuilder {
+        let name = VTableName(Name::from_internal(self.next_vtable));
+        self.next_vtable += 1;
+        VTableBuilder::new(trait_name, name, size, align)
+    }
+
+    #[track_caller]
+    pub fn finish_vtable(&mut self, v: VTableBuilder) -> VTableName {
+        let name = v.name();
+        let vtable = v.finish_vtable();
+        // We could store and check the number of functions matches what was defined here.
+        self.vtables.try_insert(name, vtable).unwrap();
+        name
+    }
+
+    pub fn declare_trait(&mut self) -> TraitBuilder {
+        let name = TraitName(Name::from_internal(self.next_trait));
+        self.next_trait += 1;
+        TraitBuilder::new(name)
     }
 }
 
@@ -198,6 +243,66 @@ impl FunctionBuilder {
     }
 }
 
+pub struct VTableBuilder {
+    trait_name: TraitName,
+    name: VTableName,
+    size: Size,
+    align: Align,
+    methods: Map<TraitMethodName, FnName>,
+}
+
+impl VTableBuilder {
+    fn new(trait_name: TraitName, name: VTableName, size: Size, align: Align) -> VTableBuilder {
+        VTableBuilder { trait_name, name, size, align, methods: Map::new() }
+    }
+
+    pub fn name(&self) -> VTableName {
+        self.name
+    }
+
+    pub fn add_method(&mut self, index: TraitMethodName, func: FnName) {
+        self.methods.insert(index, func);
+    }
+
+    #[track_caller]
+    fn finish_vtable(self) -> VTable {
+        VTable {
+            trait_name: self.trait_name,
+            size: self.size,
+            align: self.align,
+            methods: self.methods,
+        }
+    }
+}
+
+pub struct TraitBuilder {
+    name: TraitName,
+    next_method: u32,
+}
+
+impl TraitBuilder {
+    fn new(name: TraitName) -> TraitBuilder {
+        TraitBuilder { name, next_method: 0 }
+    }
+
+    pub fn name(&self) -> TraitName {
+        self.name
+    }
+
+    pub fn declare_method(&mut self) -> TraitMethodName {
+        let idx = self.next_method;
+        self.next_method += 1;
+        TraitMethodName(Name::from_internal(idx))
+    }
+
+    #[track_caller]
+    pub fn finish_trait(self) -> TraitName {
+        // We don't actually have to store the registered trait methods anywhere,
+        // so all we do here is return the name.
+        self.name
+    }
+}
+
 struct CurBlock {
     statements: List<Statement>,
     name: BbName,
@@ -247,7 +352,12 @@ pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
         })
         .collect();
 
-    Program { functions, start: FnName(Name::from_internal(0)), globals }
+    Program {
+        functions,
+        start: FnName(Name::from_internal(0)),
+        globals,
+        vtables: Default::default(),
+    }
 }
 
 // The first function in `fns` is the start function of the program.
