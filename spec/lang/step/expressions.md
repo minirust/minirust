@@ -46,10 +46,10 @@ impl<M: Memory> Machine<M> {
                 }.widen(None))
             },
             Constant::VTablePointer(vtable_name) => {
-                let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *name == vtable_name);
+                let vtable = self.vtable_allocs.iter().find(|(_, name)| *name == vtable_name);
                 // FIXME: we should leave the choice of which vtable address to use to the frontend.
-                let Some((ptr, _)) = vtables.next() else {
-                    panic!("constant to unallocated vtable");
+                let Some((ptr, _)) = vtable else {
+                    panic!("constant to unallocated vtable, WF ensures the name is defined, and the machine must allocated all defined vtables.");
                 };
 
                 Value::Ptr(ptr.widen(None))

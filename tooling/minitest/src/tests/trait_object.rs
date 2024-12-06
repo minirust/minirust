@@ -21,7 +21,7 @@ fn dynamic_dispatch() {
     let mut p = ProgramBuilder::new();
 
     let mut trait_a = p.declare_trait();
-    let method_a_foo = trait_a.fresh_method_name();
+    let method_a_foo = trait_a.declare_method();
     let trait_a = trait_a.finish_trait();
     let trait_obj_a_ty = trait_object_ty(trait_a);
 
@@ -36,7 +36,7 @@ fn dynamic_dispatch() {
         p.finish_function(f)
     };
 
-    let mut usize_a_vtable = p.declare_vtable(trait_a, <usize>::get_type());
+    let mut usize_a_vtable = p.declare_vtable_for_ty(trait_a, <usize>::get_type());
     usize_a_vtable.add_method(method_a_foo, impl_a_foo_for_usize);
     let usize_a_vtable = p.finish_vtable(usize_a_vtable);
 

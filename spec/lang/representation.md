@@ -160,8 +160,9 @@ impl<Provenance> PointerMeta<Provenance> {
     fn from_value<M: Memory<Provenance=Provenance>>(value: Value<M>) -> Option<PointerMeta<Provenance>> {
         match value {
             Value::Int(count) => Some(PointerMeta::ElementCount(count)),
-            Value::Ptr(ptr) => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            _ => None,
+            Value::Ptr(ptr) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
+            Value::Tuple(fields) if fields.is_empty() => None,
+            _ => panic!("PointerMeta::from_value called with invalid value"),
         }
     }
 
@@ -456,6 +457,21 @@ impl<M: Memory> Machine<M> {
     fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
+        match (ptr.metadata, ptr_ty.meta_kind()) {
+            (None, PointerMetaKind::None) => {}
+            (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
+                self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
+            (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
+                // check that the vtable exists and is for the correct trait
+                let Some(vtable_name) = self.vtable_allocs.get(ptr) else {
+                    throw_ub!("Value::Ptr: non-existing vtable in metadata");
+                };
+                let vtable = self.prog.vtables[vtable_name];
+                ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
+            }
+            _ => throw_ub!("Value::Ptr: invalid metadata"),
+        };
+
         // Safe pointer, i.e. references, boxes
         if let Some(pointee) = ptr_ty.safe_pointee() {
             let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
@@ -475,21 +491,6 @@ impl<M: Memory> Machine<M> {
 
             // However, we do not care about the data stored wherever this pointer points to.
         }
-
-        match (ptr.metadata, ptr_ty.meta_kind()) {
-            (None, PointerMetaKind::None) => {}
-            (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
-                self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
-            (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
-                // check that the vtable exists and is for the correct trait
-                let Some(vtable_name) = self.vtable_allocs.get(ptr) else {
-                    throw_ub!("Value::Ptr: non-existing vtable in metadata");
-                };
-                let vtable = self.prog.vtables[vtable_name];
-                ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
-            }
-            _ => throw_ub!("Value::Ptr: invalid metadata"),
-        };
 
         Ok(())
     }
