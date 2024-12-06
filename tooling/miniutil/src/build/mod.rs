@@ -289,6 +289,8 @@ impl TraitBuilder {
 
     #[track_caller]
     pub fn finish_trait(self) -> TraitName {
+        // We don't actually have to store the registered trait methods anywhere,
+        // so all we do here is return the name.
         self.name
     }
 }

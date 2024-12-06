@@ -47,7 +47,7 @@ impl<M: Memory> Machine<M> {
             },
             Constant::VTablePointer(vtable_name) => {
                 let mut vtables = self.vtable_allocs.iter().filter(|(_, name)| *name == vtable_name);
-                // we could also pick a random one?
+                // FIXME: we should leave the choice of which vtable address to use to the frontend.
                 let Some((ptr, _)) = vtables.next() else {
                     panic!("constant to unallocated vtable");
                 };

@@ -776,7 +776,7 @@ impl Program {
             }
         }
 
-        // Check vtables: All vtables for the same trait must have the same methods defined.
+        // Check vtables: All vtables for the same trait must have the same method names defined.
         let mut traits: Map<TraitName, Set<TraitMethodName>> = Map::new();
         for (_name, vtable) in self.vtables {
             let methods = vtable.methods.keys().collect();

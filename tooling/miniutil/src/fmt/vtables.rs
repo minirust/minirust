@@ -15,7 +15,7 @@ pub(super) fn fmt_vtables(vtables: Map<VTableName, VTable>) -> String {
 }
 
 fn fmt_vtable(vname: VTableName, vtable: VTable) -> String {
-    let mut out = format!("vt{id} {{\n", id = vname.0.get_internal());
+    let mut out = format!("vtable{id} {{\n", id = vname.0.get_internal());
 
     out += &format!("  trait = trait{},\n", vtable.trait_name.0.get_internal());
     out += &format!("  size = {},\n", vtable.size.bytes());
