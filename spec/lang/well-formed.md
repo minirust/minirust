@@ -777,13 +777,12 @@ impl Program {
         }
 
         // Check vtables: All vtables for the same trait must have the same method names defined.
-        let mut traits: Map<TraitName, Set<TraitMethodName>> = Map::new();
         for (_name, vtable) in self.vtables {
-            let methods = vtable.methods.keys().collect();
-            match traits.insert(vtable.trait_name, methods) {
-                Some(prev_methods) => ensure_wf(methods == prev_methods, "Program: vtables with same trait but different methods")?,
-                None => {},
+            let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
+                throw_ill_formed!("Program: vtable for unknown trait");
             };
+            let methods = vtable.methods.keys().collect::<Set<_>>();
+            ensure_wf(methods == trait_methods, "Program: vtables which defines invalid methods")?;
         }
 
         ret(())

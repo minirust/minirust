@@ -22,7 +22,7 @@ fn dynamic_dispatch() {
 
     let mut trait_a = p.declare_trait();
     let method_a_foo = trait_a.declare_method();
-    let trait_a = trait_a.finish_trait();
+    let trait_a = p.finish_trait(trait_a);
     let trait_obj_a_ty = trait_object_ty(trait_a);
 
     let impl_a_foo_for_usize = {

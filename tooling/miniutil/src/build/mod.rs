@@ -43,6 +43,7 @@ pub struct ProgramBuilder {
     functions: Map<FnName, Function>,
     globals: Map<GlobalName, Global>,
     vtables: Map<VTableName, VTable>,
+    traits: Map<TraitName, Set<TraitMethodName>>,
     next_fn: u32,
     next_global: u32,
     next_vtable: u32,
@@ -55,6 +56,7 @@ impl ProgramBuilder {
             functions: Default::default(),
             globals: Default::default(),
             vtables: Default::default(),
+            traits: Default::default(),
             next_fn: 0,
             next_global: 0,
             next_vtable: 0,
@@ -67,6 +69,7 @@ impl ProgramBuilder {
             functions: self.functions,
             start: start_function,
             globals: self.globals,
+            traits: self.traits,
             vtables: self.vtables,
         }
     }
@@ -108,7 +111,11 @@ impl ProgramBuilder {
     pub fn finish_vtable(&mut self, v: VTableBuilder) -> VTableName {
         let name = v.name();
         let vtable = v.finish_vtable();
-        // Currently, we do not check that this vtable has all the methods required by the trait.
+        // Check that this vtable has all the methods required by the trait.
+        assert_eq!(
+            self.traits.get(vtable.trait_name).expect("TraitName must have been declared"),
+            vtable.methods.keys().collect()
+        );
         self.vtables.try_insert(name, vtable).unwrap();
         name
     }
@@ -117,6 +124,14 @@ impl ProgramBuilder {
         let name = TraitName(Name::from_internal(self.next_trait));
         self.next_trait += 1;
         TraitBuilder::new(name)
+    }
+
+    #[track_caller]
+    pub fn finish_trait(&mut self, t: TraitBuilder) -> TraitName {
+        let name = t.name();
+        let methods = t.finish_trait();
+        self.traits.try_insert(name, methods).unwrap();
+        name
     }
 }
 
@@ -278,11 +293,12 @@ impl VTableBuilder {
 pub struct TraitBuilder {
     name: TraitName,
     next_method: u32,
+    method_names: Set<TraitMethodName>,
 }
 
 impl TraitBuilder {
     fn new(name: TraitName) -> TraitBuilder {
-        TraitBuilder { name, next_method: 0 }
+        TraitBuilder { name, next_method: 0, method_names: Set::new() }
     }
 
     pub fn name(&self) -> TraitName {
@@ -291,15 +307,15 @@ impl TraitBuilder {
 
     pub fn declare_method(&mut self) -> TraitMethodName {
         let idx = self.next_method;
+        let name = TraitMethodName(Name::from_internal(idx));
         self.next_method += 1;
-        TraitMethodName(Name::from_internal(idx))
+        self.method_names.insert(name);
+        name
     }
 
     #[track_caller]
-    pub fn finish_trait(self) -> TraitName {
-        // We don't actually have to store the registered trait methods anywhere,
-        // so all we do here is return the name.
-        self.name
+    fn finish_trait(self) -> Set<TraitMethodName> {
+        self.method_names
     }
 }
 
@@ -356,6 +372,7 @@ pub fn program_with_globals(fns: &[Function], globals: &[Global]) -> Program {
         functions,
         start: FnName(Name::from_internal(0)),
         globals,
+        traits: Default::default(),
         vtables: Default::default(),
     }
 }
