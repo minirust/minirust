@@ -157,7 +157,9 @@ impl<M: Memory> Machine<M> {
         // It is checked in check_value that the vtable is always valid.
         let vtable = self.vtable_lookup()(ptr.thin_pointer);
         let Some(fn_name) = vtable.methods.get(method) else {
-            // This would be a type error, but since we don't store the trait, we do not type check this.
+            // This would be a type error, but since we don't store the trait in the VTablePtr type,
+            // we do not type check this.
+            // FIXME: Store the TraitName in VTablePtr and have this be a program well-formedness requirement.
             throw_ub!("the referenced vtable does not have an entry for the invoked method");
         };
         let fn_ptr = Value::Ptr(ThinPointer {
