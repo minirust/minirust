@@ -108,7 +108,7 @@ impl ProgramBuilder {
     pub fn finish_vtable(&mut self, v: VTableBuilder) -> VTableName {
         let name = v.name();
         let vtable = v.finish_vtable();
-        // We could store and check the number of functions matches what was defined here.
+        // Currently, we do not check that this vtable has all the methods required by the trait.
         self.vtables.try_insert(name, vtable).unwrap();
         name
     }
