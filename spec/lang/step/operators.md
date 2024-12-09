@@ -115,15 +115,11 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer GetMetadata") };
         let Type::Ptr(ptr_ty) = op_ty else { panic!("non-pointer GetMetadata") };
 
-        if let Some(meta) = ptr.metadata {
-            let meta_value = meta.into_value::<M>();
-            let meta_ty = ptr_ty.meta_kind().ty::<M::T>().expect("meta is not None");
-            // O(1) sanity check
-            self.check_value(meta_value, meta_ty).expect("GetMetadata: sanity check, returned meta is well-formed");
-            ret((meta_value, meta_ty))
-        } else {
-            ret((unit_value::<M>(), unit_type()))
-        }
+        let meta_value = ptr_ty.meta_kind().encode_as_value::<M>(ptr.metadata);
+        let meta_ty = ptr_ty.meta_kind().ty::<M::T>().unwrap_or_else(unit_type);
+        // O(1) sanity check
+        self.check_value(meta_value, meta_ty).expect("GetMetadata: sanity check, returned meta is well-formed");
+        ret((meta_value, meta_ty))
     }
 }
 ```
@@ -133,13 +129,13 @@ impl<M: Memory> Machine<M> {
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_un_op(&self, UnOp::ComputeSize(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let meta = PointerMeta::from_value::<M>(operand);
+        let meta = ty.meta_kind().decode_value::<M>(operand);
         let size = ty.layout::<M::T>().compute_size(meta, self.vtable_lookup());
         ret((Value::Int(size.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 
     fn eval_un_op(&self, UnOp::ComputeAlign(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let meta = PointerMeta::from_value::<M>(operand);
+        let meta = ty.meta_kind().decode_value::<M>(operand);
         let align = ty.layout::<M::T>().compute_align(meta, self.vtable_lookup());
         ret((Value::Int(align.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
@@ -161,7 +157,9 @@ impl<M: Memory> Machine<M> {
         // It is checked in check_value that the vtable is always valid.
         let vtable = self.vtable_lookup()(ptr.thin_pointer);
         let Some(fn_name) = vtable.methods.get(method) else {
-            // This would be a type error, but since we don't store the trait, we do not type check this.
+            // This would be a type error, but since we don't store the trait in the VTablePtr type,
+            // we do not type check this.
+            // FIXME: Store the TraitName in VTablePtr and have this be a program well-formedness requirement.
             throw_ub!("the referenced vtable does not have an entry for the invoked method");
         };
         let fn_ptr = Value::Ptr(ThinPointer {
@@ -467,7 +465,7 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(Pointer { thin_pointer, metadata: None }) = left else {
             panic!("non-thin-pointer left input to `ConstructWidePointer`")
         };
-        let metadata = PointerMeta::from_value::<M>(right);
+        let metadata = ptr_ty.meta_kind().decode_value::<M>(right);
         let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
 
         // check that the size is valid

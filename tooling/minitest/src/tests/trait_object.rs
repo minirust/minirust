@@ -47,14 +47,14 @@ fn dynamic_dispatch() {
         main.storage_live(x);
         main.assign(x, const_int(42_usize));
 
-        let y = main.declare_local_with_ty(ref_ty_for(trait_obj_a_ty));
+        let y = main.declare_local_with_ty(ref_ty_default_markers_for(trait_obj_a_ty));
         let y_val = construct_wide_pointer(
             addr_of(x, <&usize>::get_type()),
             ValueExpr::Constant(
                 Constant::VTablePointer(usize_a_vtable),
                 Type::Ptr(PtrType::VTablePtr),
             ),
-            ref_ty_for(trait_obj_a_ty),
+            ref_ty_default_markers_for(trait_obj_a_ty),
         );
         main.storage_live(y);
         main.assign(y, y_val);

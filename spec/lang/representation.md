@@ -156,20 +156,27 @@ impl PtrType {
     }
 }
 
-impl<Provenance> PointerMeta<Provenance> {
-    fn from_value<M: Memory<Provenance=Provenance>>(value: Value<M>) -> Option<PointerMeta<Provenance>> {
-        match value {
-            Value::Int(count) => Some(PointerMeta::ElementCount(count)),
-            Value::Ptr(ptr) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            Value::Tuple(fields) if fields.is_empty() => None,
-            _ => panic!("PointerMeta::from_value called with invalid value"),
+impl PointerMetaKind {
+    /// Decodes a value to metadata.
+    /// The spec will only call this with values which are well formed for `self.ty()`,
+    /// but this may return ill-formed metadata (as defined by `Machine::check_pointer_metadata`), thus needs to be checked.
+    fn decode_value<M: Memory>(self, value: Value<M>) -> Option<PointerMeta<M::Provenance>> {
+        match (self, value) {
+            (PointerMetaKind::ElementCount, Value::Int(count)) => Some(PointerMeta::ElementCount(count)),
+            (PointerMetaKind::VTablePointer(_), Value::Ptr(ptr)) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
+            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
+            _ => panic!("PointerMeta::decode_value called with invalid value"),
         }
     }
 
-    fn into_value<M: Memory<Provenance=Provenance>>(self) -> Value<M> {
-        match self {
-            PointerMeta::ElementCount(count) => Value::Int(count),
-            PointerMeta::VTablePointer(ptr) => Value::Ptr(ptr.widen(None)),
+    /// Encodes metadata as a value.
+    /// The spec ensures this is only called with well-formed metadata (as defined by `Machine::check_pointer_metadata`).
+    fn encode_as_value<M: Memory>(self, meta: Option<PointerMeta<M::Provenance>>) -> Value<M> {
+        match (self, meta) {
+            (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(count))) => Value::Int(count),
+            (PointerMetaKind::VTablePointer(_), Some(PointerMeta::VTablePointer(ptr))) => Value::Ptr(ptr.widen(None)),
+            (PointerMetaKind::None, None) => unit_value(),
+            _ => panic!("PointerMeta::encode_as_value called with invalid value"),
         }
     }
 }
@@ -184,7 +191,8 @@ impl Type {
             let Value::Ptr(ptr) = parts[0] else {
                 panic!("as_wide_pair always returns tuple with the first field being a thin pointer");
             };
-            let meta = PointerMeta::from_value(parts[1]);
+            // This metadata might not be well-formed, but we are allowed to return ill-formed pointers here.
+            let meta = ptr_type.meta_kind().decode_value(parts[1]);
             assert!(meta.is_some(), "as_wide_pair always returns a suitable metadata type");
             ret(Value::Ptr(ptr.thin_pointer.widen(meta)))
         } else {
@@ -198,7 +206,7 @@ impl Type {
 
         if let Some(pair_ty) = ptr_type.as_wide_pair::<M::T>() {
             let thin_ptr_value = Value::Ptr(ptr.thin_pointer.widen(None));
-            let meta_data_value = ptr.metadata.expect("val is WF for ptr_type and it has metadata").into_value::<M>();
+            let meta_data_value = ptr_type.meta_kind().encode_as_value::<M>(ptr.metadata);
             let tuple = Value::Tuple(list![thin_ptr_value, meta_data_value]);
 
             // This will recursively call this encode function again, but with a thin pointer type.
@@ -453,11 +461,9 @@ fn ensure_else_ub(b: bool, msg: &str) -> Result<()> {
 }
 
 impl<M: Memory> Machine<M> {
-    /// Checks that a pointer is well-formed.
-    fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
-        ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
-
-        match (ptr.metadata, ptr_ty.meta_kind()) {
+    /// Defines well-formedness for pointer metadata for a given kind.
+    fn check_pointer_metadata(&self, meta: Option<PointerMeta<M::Provenance>>, kind: PointerMetaKind) -> Result {
+        match (meta, kind) {
             (None, PointerMetaKind::None) => {}
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
                 self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
@@ -471,6 +477,15 @@ impl<M: Memory> Machine<M> {
             }
             _ => throw_ub!("Value::Ptr: invalid metadata"),
         };
+
+        Ok(())
+    }
+
+    /// Checks that a pointer is well-formed.
+    fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
+        ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
+
+        self.check_pointer_metadata(ptr.metadata, ptr_ty.meta_kind())?;
 
         // Safe pointer, i.e. references, boxes
         if let Some(pointee) = ptr_ty.safe_pointee() {

@@ -12,7 +12,9 @@ pub fn ref_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Immutable, pointee })
 }
 
-pub fn ref_ty_for(ty: Type) -> Type {
+/// Create a minirust reference type for a minirust type which implements default marker traits,
+/// i.e. the type is `Unpin`, `Freeze` and is inhabited.
+pub fn ref_ty_default_markers_for(ty: Type) -> Type {
     ref_ty(PointeeInfo {
         layout: ty.layout::<DefaultTarget>(),
         inhabited: true,
@@ -25,7 +27,9 @@ pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Mutable, pointee })
 }
 
-pub fn ref_mut_ty_for(ty: Type) -> Type {
+/// Create a mutable minirust reference type for a minirust type which implements default marker traits,
+/// i.e. the type is `Unpin`, `Freeze` and is inhabited.
+pub fn ref_mut_ty_default_markers_for(ty: Type) -> Type {
     ref_mut_ty(PointeeInfo {
         layout: ty.layout::<DefaultTarget>(),
         inhabited: true,
