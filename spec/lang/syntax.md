@@ -442,6 +442,8 @@ pub struct Program {
     pub start: FnName,
     /// Associate each global name with the associated global.
     pub globals: Map<GlobalName, Global>,
+    /// Stores all traits and method names which are available for dynamic dispatch.
+    pub traits: Map<TraitName, Set<TraitMethodName>>,
     /// Store the vtables with function names for each vtable name.
     pub vtables: Map<VTableName, VTable>,
 }
