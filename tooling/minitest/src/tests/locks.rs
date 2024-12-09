@@ -40,7 +40,7 @@ fn lock_handover() {
         main.storage_live(thread_id);
         main.lock_create(lock);
         main.spawn(second.name(), null(), thread_id);
-        main.call_ignoreret(critical, &[]);
+        main.call_ignoreret(fn_ptr(critical), &[]);
         main.join(load(thread_id));
         main.exit();
 
@@ -50,7 +50,7 @@ fn lock_handover() {
     // implement function `second`
     {
         second.declare_arg::<*const ()>();
-        second.call_ignoreret(critical, &[]);
+        second.call_ignoreret(fn_ptr(critical), &[]);
         second.return_();
         p.finish_function(second);
     }
@@ -113,7 +113,7 @@ fn lock_handover_data_race() {
         main.storage_live(thread_id);
         main.lock_create(lock);
         main.spawn(second.name(), null(), thread_id);
-        main.call_ignoreret(critical, &[]);
+        main.call_ignoreret(fn_ptr(critical), &[]);
         main.join(load(thread_id));
         main.exit();
 
@@ -123,7 +123,7 @@ fn lock_handover_data_race() {
     // implement function `second`
     {
         second.declare_arg::<*const ()>();
-        second.call_ignoreret(critical, &[]);
+        second.call_ignoreret(fn_ptr(critical), &[]);
         second.return_();
         p.finish_function(second);
     }

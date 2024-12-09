@@ -78,6 +78,8 @@ pub(super) fn fmt_constant(c: Constant) -> FmtExpr {
         Constant::Bool(b) => FmtExpr::Atomic(b.to_string()),
         Constant::GlobalPointer(relocation) => fmt_relocation(relocation),
         Constant::FnPointer(fn_name) => FmtExpr::Atomic(fmt_fn_name(fn_name)),
+        Constant::VTablePointer(vt_name) =>
+            FmtExpr::Atomic(format!("vt{id}", id = vt_name.0.get_internal())),
         Constant::PointerWithoutProvenance(addr) =>
             if addr == 0 {
                 FmtExpr::Atomic(format!("nullptr"))
@@ -162,6 +164,11 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                     let ty_str = fmt_type(ty, comptypes).to_string();
                     FmtExpr::Atomic(format!("compute_align<{ty_str}>({operand})"))
                 }
+                UnOp::VTableMethodLookup(method) =>
+                    FmtExpr::NonAtomic(format!(
+                        "vtable_lookup<m{m_id}>({operand})",
+                        m_id = method.0.get_internal()
+                    )),
             }
         }
         ValueExpr::BinOp { operator: BinOp::Int(int_op), left, right } => {

@@ -17,10 +17,8 @@ Obviously, these are all quite incomplete still.
 pub enum ValueExpr {
     /// Just return a constant value.
     Constant(Constant, Type),
-
     /// An n-tuple, used for arrays, structs, tuples (including unit).
     Tuple(List<ValueExpr>, Type),
-
     /// A `Union` value.
     Union {
         /// The union's field which will be initialized.
@@ -31,7 +29,6 @@ pub enum ValueExpr {
         /// The union type, needs to be `Type::Union`
         union_ty: Type,
     },
-
     /// A variant of an enum type.
     Variant {
         /// The discriminant of the variant.
@@ -42,7 +39,6 @@ pub enum ValueExpr {
         /// The enum type, needs to be `Type::Enum`.
         enum_ty: Type,
     },
-
     /// Read the discriminant of an enum type.
     /// As we don't need to know the validity of the inner data
     /// we don't fully load the variant value.
@@ -51,7 +47,6 @@ pub enum ValueExpr {
         #[specr::indirection]
         place: PlaceExpr,
     },
-
     /// Load a value from memory.
     Load {
         /// The place to load from.
@@ -93,6 +88,8 @@ pub enum Constant {
     GlobalPointer(Relocation),
     /// A pointer pointing to a function.
     FnPointer(FnName),
+    /// A pointer pointing to a vtable.
+    VTablePointer(VTableName),
     /// A pointer with constant address, not pointing into any allocation.
     PointerWithoutProvenance(Address),
 }
@@ -129,6 +126,15 @@ pub enum UnOp {
     /// Returns the dynamic align of the type given the pointer metadata.
     /// The operand must be a matching metadata for the type. For sized objects this is `()`.
     ComputeAlign(Type),
+    /// Lookup the function pointer for a trait object method.
+    /// Dynamic dispatch is represented as a `Call` to the result of this method,
+    /// with the `self` argument appropriately cast to a sized pointer type.
+    /// 
+    /// The operand must be a pointer to a vtable as returned by `GetMetadata`.
+    /// 
+    /// The parameter specifies which function of the vtable to look up.
+    /// Depends on the `TraitName` set in the vtable.
+    VTableMethodLookup(TraitMethodName),
 }
 
 pub enum IntBinOp {
@@ -343,6 +349,8 @@ pub enum Terminator {
     },
     /// Call the given function with the given arguments.
     Call {
+        /// What function or method to call.
+        /// This must evaluate to a function pointer and for safe behaviour, the functions signature must match the arguments.
         callee: ValueExpr,
         /// The calling convention to use for this call.
         calling_convention: CallingConvention,
@@ -419,10 +427,12 @@ pub enum IntrinsicOp {
 Finally, the general structure of programs and functions:
 
 ```rust
-/// Opaque types of names for functions and globals.
+/// Opaque types of names for functions, vtables, trait methods, and globals.
 /// The internal representations of these types do not matter.
 pub struct FnName(pub libspecr::Name);
 pub struct GlobalName(pub libspecr::Name);
+pub struct VTableName(pub libspecr::Name);
+pub struct TraitMethodName(pub libspecr::Name);
 
 /// A closed MiniRust program.
 pub struct Program {
@@ -432,6 +442,10 @@ pub struct Program {
     pub start: FnName,
     /// Associate each global name with the associated global.
     pub globals: Map<GlobalName, Global>,
+    /// Stores all traits and method names which are available for dynamic dispatch.
+    pub traits: Map<TraitName, Set<TraitMethodName>>,
+    /// Store the vtables with function names for each vtable name.
+    pub vtables: Map<VTableName, VTable>,
 }
 
 /// Opaque types of names for local variables and basic blocks.
@@ -479,5 +493,19 @@ pub struct Relocation {
     pub name: GlobalName,
     /// The offset within that allocation.
     pub offset: Offset,
+}
+
+/// A vtable for a trait-type pair.
+/// This is pointed to by the trait object metadata.
+pub struct VTable {
+    /// What trait this vtable is for.
+    /// All vtables for this trait name have implementation for same set of methods.
+    pub trait_name: TraitName,
+    /// The size of the type.
+    pub size: Size,
+    /// The alignment of the type.
+    pub align: Align,
+    /// The implementations of trait methods.
+    pub methods: Map<TraitMethodName, FnName>
 }
 ```
