@@ -30,13 +30,12 @@ pub enum Type {
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
-        fields: Fields,
-        /// The total size of the tuple can indicate trailing padding.
-        /// Must be large enough to contain all fields.
-        size: Size,
-        /// Total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
-        /// this is independent of the fields' alignment.
-        align: Align,
+        sized_fields: Fields,
+        /// A last field (in terms of offset) may contain an unsized type,
+        /// then its offset is given by rounding the `head_end` of `sized_head_layout` up to its nearest alignment.
+        unsized_field: Option<Type>,
+        
+        sized_head_layout: TupleHeadLayout,
     },
     Array {
         #[specr::indirection]
@@ -152,7 +151,15 @@ impl Type {
             Bool => Sized(Size::from_bytes_const(1), Align::ONE),
             Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
             Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
-            Tuple { size, align, .. } | Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
+            Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
+            Tuple { sized_head_layout, unsized_field: None, .. } => {
+                let (size, align) = sized_head_layout.compute_size_align(Size::ZERO, Align::ONE);
+                Sized(size, align)
+            }
+            Tuple { sized_head_layout, unsized_field: Some(tail_ty), .. } => LayoutStrategy::Tuple {
+                head: sized_head_layout,
+                tail: tail_ty.layout::<T>(),
+            },
             Array { elem, count } => Sized(
                 elem.layout::<T>().expect_size("WF ensures array element is sized") * count,
                 elem.layout::<T>().expect_align("WF ensures array element is sized"),
@@ -178,6 +185,19 @@ impl Type {
 And we also define how to compute the actual size and alignment.
 
 ```rust
+impl TupleHeadLayout {
+    // This is one function to avoid quadratic computations.
+    pub fn compute_size_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
+        // TODO: support packed self
+        let align = tail_align.max(self.min_align);
+        // Fixme: actual function
+        let tail_offset = self.head_end.round_to_nearest(tail_align);
+        let end = tail_offset + tail_size;
+        let size = end.round_to_nearest(self.compute_align(tail_align));
+        size
+    }
+}
+
 impl LayoutStrategy {
     pub fn is_sized(self) -> bool {
         matches!(self, LayoutStrategy::Sized(..))

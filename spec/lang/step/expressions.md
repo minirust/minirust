@@ -268,7 +268,8 @@ impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> Result<(Place<M>, Type)> {
         let (root, ty) = self.eval_place(root)?;
         let (offset, field_ty) = match ty {
-            Type::Tuple { fields, .. } => fields[field],
+            Type::Tuple { sized_fields, .. } if field < sized_fields.len() => sized_fields[field],
+            Type::Tuple { sized_fields, unsized_field, .. } if field == sized_fields.len() => unsized_field.expect("field projection to non-existing tail"),
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
