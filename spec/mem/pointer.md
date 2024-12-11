@@ -99,6 +99,17 @@ pub struct PointeeInfo {
     pub unpin: bool,
 }
 
+pub struct TupleHeadLayout {
+    /// The offset where the tail starts.
+    /// Also determines the size together with the tail size and padding to satisfy alignment.
+    head_end: Offset,
+
+    /// The minimal alignment of the head.
+    min_align: Align,
+    // FIXME: Figure out semantics. I think, even if this is Some, the min_align is still interesting, as it might be lower.
+    // packed_align: Option<Align>,
+}
+
 /// Describes how the size and align of the value can be determined.
 pub enum LayoutStrategy {
     /// The type is statically `Sized` with the given size and align.
@@ -107,14 +118,8 @@ pub enum LayoutStrategy {
     /// The total size is a multiple of the element size and the align is exactly the element size.
     Slice(Size, Align),
 
-    Tail {
-        /// The offset where the tail starts.
-        /// Also determines the size together with the tail size and padding to satisfy alignment.
-        tail_offset: Size,
-
-        prefix_align: Align,
-        // fixed_align: Align, // for packed & align,
-        
+    Tuple {
+        head: TupleHeadLayout,
         #[specr::indirection]
         tail: LayoutStrategy,
     }
