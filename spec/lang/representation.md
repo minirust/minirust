@@ -131,12 +131,12 @@ fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M
 }
 
 impl PointerMetaKind {
-    /// Returns the representable type of the metadata if there is any.
-    pub fn ty<T: Target>(self) -> Option<Type> {
+    /// Returns the type of the metadata when used as a value.
+    pub fn ty<T: Target>(self) -> Type {
         match self {
-            PointerMetaKind::None => None,
-            PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
-            PointerMetaKind::VTablePointer(trait_name) => Some(Type::Ptr(PtrType::VTablePtr(trait_name))),
+            PointerMetaKind::None => unit_type(),
+            PointerMetaKind::ElementCount => Type::Int(IntType::usize_ty::<T>()),
+            PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTablePtr(trait_name)),
         }
     }
 }
@@ -144,7 +144,12 @@ impl PointerMetaKind {
 impl PtrType {
     /// Returns a pair type representing this wide pointer or `None` if it is thin.
     pub fn as_wide_pair<T: Target>(self) -> Option<Type> {
-        let meta_ty = self.meta_kind().ty::<T>()?;
+        if self.meta_kind() == PointerMetaKind::None {
+            return None;
+        }
+        let meta_ty = self.meta_kind().ty::<T>();
+        assert_eq!(meta_ty.layout::<T>().expect_size("metadata is always sized"), T::PTR_SIZE, "metadata is assumed to be pointer-sized");
+        assert_eq!(meta_ty.layout::<T>().expect_align("metadata is always sized"), T::PTR_ALIGN, "metadata is assumed to be pointer-aligned");
         let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let metadata_field = (T::PTR_SIZE, meta_ty);
         ret(Type::Tuple {

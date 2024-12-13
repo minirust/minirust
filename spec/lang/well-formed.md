@@ -409,12 +409,12 @@ impl ValueExpr {
                             throw_ill_formed!("UnOp::GetMetadata: invalid operand: not a pointer");
                         };
                         // If the pointer does not have metadata, this will still be well-formed but return the unit type.
-                        ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
+                        ptr_ty.meta_kind().ty::<T>()
                     }
                     ComputeSize(ty) | ComputeAlign(ty) => {
                         ty.check_wf::<T>(prog)?;
                         // A thin pointer can also be the target type, with unit metadata.
-                        let meta_ty = ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
+                        let meta_ty = ty.meta_kind().ty::<T>();
                         if operand != meta_ty {
                             throw_ill_formed!("UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type");
                         }
@@ -507,7 +507,7 @@ impl ValueExpr {
                         }
 
                         // A thin pointer can also be the target type, with unit metadata.
-                        let meta_ty = ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
+                        let meta_ty = ptr_ty.meta_kind().ty::<T>();
                         if right != meta_ty {
                             throw_ill_formed!("BinOp::ConstructWidePointer: invalid right type: not metadata of target");
                         }
