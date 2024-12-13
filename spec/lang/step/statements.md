@@ -101,7 +101,8 @@ impl<M: Memory> Machine<M> {
                 val,
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) => {
-                let size_computer = self.size_computer();
+                let lookup = self.vtable_lookup();
+                let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size(meta, &lookup) };
                 let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, size_computer) })?;
                 Value::Ptr(val)
             }

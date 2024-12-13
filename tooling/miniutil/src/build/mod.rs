@@ -114,7 +114,8 @@ impl ProgramBuilder {
         // Check that this vtable has all the methods required by the trait.
         assert_eq!(
             self.traits.get(vtable.trait_name).expect("TraitName must have been declared"),
-            vtable.methods.keys().collect()
+            vtable.methods.keys().collect(),
+            "vtable does not declare the right set of methods",
         );
         self.vtables.try_insert(name, vtable).unwrap();
         name

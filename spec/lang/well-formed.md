@@ -782,7 +782,7 @@ impl Program {
                 throw_ill_formed!("Program: vtable for unknown trait");
             };
             let methods = vtable.methods.keys().collect::<Set<_>>();
-            ensure_wf(methods == trait_methods, "Program: vtables which defines invalid methods")?;
+            ensure_wf(methods == trait_methods, "Program: vtable has not the right set of methods")?;
         }
 
         ret(())

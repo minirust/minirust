@@ -130,13 +130,13 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_un_op(&self, UnOp::ComputeSize(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let meta = ty.meta_kind().decode_value::<M>(operand);
-        let size = ty.layout::<M::T>().compute_size(meta, self.vtable_lookup());
+        let size = self.compute_size(ty.layout::<M::T>(), meta);
         ret((Value::Int(size.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 
     fn eval_un_op(&self, UnOp::ComputeAlign(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let meta = ty.meta_kind().decode_value::<M>(operand);
-        let align = ty.layout::<M::T>().compute_align(meta, self.vtable_lookup());
+        let align = self.compute_align(ty.layout::<M::T>(), meta);
         ret((Value::Int(align.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 }

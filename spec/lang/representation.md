@@ -485,12 +485,13 @@ impl<M: Memory> Machine<M> {
     fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
+        // This has to be checked first, to ensure we can e.g. compute size/align below.
         self.check_pointer_metadata(ptr.metadata, ptr_ty.meta_kind())?;
 
         // Safe pointer, i.e. references, boxes
         if let Some(pointee) = ptr_ty.safe_pointee() {
-            let size = pointee.layout.compute_size(ptr.metadata, self.vtable_lookup());
-            let align = pointee.layout.compute_align(ptr.metadata, self.vtable_lookup());
+            let size = self.compute_size(pointee.layout, ptr.metadata);
+            let align = self.compute_align(pointee.layout, ptr.metadata);
             // The total size must be at most `isize::MAX`.
             ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 

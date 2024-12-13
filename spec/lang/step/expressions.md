@@ -175,7 +175,8 @@ impl<M: Memory> Machine<M> {
         self.check_value(Value::Ptr(place.ptr), Type::Ptr(ptr_ty))?;
 
         // Let the aliasing model know.
-        let size_computer = self.size_computer();
+        let lookup = self.vtable_lookup();
+        let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size(meta, &lookup) };
         let ptr = self.mutate_cur_frame(|frame, mem| {
             mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, size_computer)
         })?;
@@ -258,13 +259,13 @@ impl<M: Memory> Machine<M> {
         // (We don't do a full retag here, this is not considered creating a new pointer.)
         if let Some(pointee) = ptr_type.safe_pointee() {
             // this was already checked when the value got created
-            assert!(pointee.layout.compute_align(ptr.metadata, self.vtable_lookup()).is_aligned(ptr.thin_pointer.addr));
-            self.mem.dereferenceable(ptr.thin_pointer, pointee.layout.compute_size(ptr.metadata, self.vtable_lookup()))?;
+            assert!(self.compute_align(pointee.layout, ptr.metadata).is_aligned(ptr.thin_pointer.addr));
+            self.mem.dereferenceable(ptr.thin_pointer, self.compute_size(pointee.layout, ptr.metadata))?;
         }
         // Check whether this pointer is sufficiently aligned.
         // Don't error immediately though! Unaligned places can still be turned into raw pointers.
         // However, they cannot be loaded from.
-        let aligned = ty.layout::<M::T>().compute_align(ptr.metadata, self.vtable_lookup()).is_aligned(ptr.thin_pointer.addr);
+        let aligned = self.compute_align(ty.layout::<M::T>(), ptr.metadata).is_aligned(ptr.thin_pointer.addr);
 
         ret((Place { ptr, aligned }, ty))
     }
@@ -282,7 +283,7 @@ impl<M: Memory> Machine<M> {
             Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
-        assert!(offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata, self.vtable_lookup()));
+        assert!(offset <= self.compute_size(ty.layout::<M::T>(), root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
         // TODO(UnsizedTypes): Field projections to the last field should retain the metadata.
@@ -311,7 +312,7 @@ impl<M: Memory> Machine<M> {
         let elem_size = elem_ty.layout::<M::T>().expect_size("WF ensures array & slice elements are sized");
         let offset = index * elem_size;
         assert!(
-            offset <= ty.layout::<M::T>().compute_size(root.ptr.metadata, self.vtable_lookup()),
+            offset <= self.compute_size(ty.layout::<M::T>(), root.ptr.metadata),
             "sanity check: the indexed offset should not be outside what the type allows."
         );
 

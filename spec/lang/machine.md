@@ -351,7 +351,7 @@ impl<M: Memory> Machine<M> {
     }
 
     /// All vtable lookups must have well-defined pointers. If this panics it is a spec bug.
-    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable {
+    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable + 'static {
         // This copies the data to return a static closure, as it is used in mutate functions, which mutably borrow self.
         let allocs = self.vtable_allocs;
         let vtables = self.prog.vtables;
@@ -362,11 +362,14 @@ impl<M: Memory> Machine<M> {
         }
     }
 
-    fn size_computer(&self) -> impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size {
-        let lookup = self.vtable_lookup();
-        move |layout, meta| {
-            layout.compute_size(meta, &lookup)
-        }
+    /// Helper function to compute the size with the allocated vtables in `self`.
+    fn compute_size(&self, layout: LayoutStrategy, meta: Option<PointerMeta<M::Provenance>>) -> Size {
+        layout.compute_size(meta, self.vtable_lookup())
+    }
+
+    /// Helper function to compute the alignment with the allocated vtables in `self`.
+    fn compute_align(&self, layout: LayoutStrategy, meta: Option<PointerMeta<M::Provenance>>) -> Align {
+        layout.compute_align(meta, self.vtable_lookup())
     }
 }
 ```
