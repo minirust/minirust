@@ -311,6 +311,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                     Type::Ptr(new_ptr_ty),
                                 )
                             }
+                            (_, Type::TraitObject(trait_name)) => {
+                                let vtable = self.cx.get_vtable_name(old_pointee_rs_ty, trait_name);
+                                build::construct_wide_pointer(
+                                    operand,
+                                    build::const_vtable(vtable),
+                                    Type::Ptr(new_ptr_ty),
+                                )
+                            }
                             _ =>
                                 rs::span_bug!(
                                     span,
