@@ -61,6 +61,7 @@ impl LayoutStrategy {
             LayoutStrategy::Slice(size, align) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
+            // WF for vtables ensures the size is aligned.
             LayoutStrategy::TraitObject(..) => (),
             // The size and align computation aligns the size of the full tuple.
             LayoutStrategy::Tuple { tail, .. } => tail.check_aligned()?,
@@ -818,6 +819,8 @@ impl Program {
 
         // Check vtables: All vtables for the same trait must have the same method names defined.
         for (_name, vtable) in self.vtables {
+            ensure_wf(vtable.size.bytes() % vtable.align.bytes() == 0, "Program: size stored in vtable not a multiple of alignment")?;
+
             let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
                 throw_ill_formed!("Program: vtable for unknown trait");
             };

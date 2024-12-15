@@ -6,6 +6,14 @@ pub struct Ctxt<'tcx> {
     /// maps Rust function calls to MiniRust FnNames.
     pub fn_name_map: HashMap<rs::Instance<'tcx>, FnName>,
 
+    /// maps Rust traits to MiniRust TraitNames and those to sets of methods.
+    pub trait_map: HashMap<&'tcx rs::List<rs::PolyExistentialPredicate<'tcx>>, TraitName>,
+    pub traits: Map<TraitName, Set<TraitMethodName>>,
+
+    /// maps Rust vtables to MiniRust VTableNames and those to Vtables.
+    pub vtable_map:
+        HashMap<(rs::Ty<'tcx>, &'tcx rs::List<rs::PolyExistentialPredicate<'tcx>>), VTableName>,
+    pub vtables: Map<VTableName, VTable>,
     /// Stores which AllocId evaluates to which GlobalName.
     pub alloc_map: HashMap<rs::AllocId, GlobalName>,
 
@@ -43,6 +51,10 @@ impl<'tcx> Ctxt<'tcx> {
         Ctxt {
             tcx,
             fn_name_map: Default::default(),
+            trait_map: Default::default(),
+            vtable_map: Default::default(),
+            traits: Default::default(),
+            vtables: Default::default(),
             alloc_map: Default::default(),
             globals: Default::default(),
             functions: Default::default(),
@@ -79,8 +91,8 @@ impl<'tcx> Ctxt<'tcx> {
             start,
             functions: self.functions,
             globals: self.globals,
-            vtables: Map::new(),
-            traits: Map::new(),
+            vtables: self.vtables,
+            traits: self.traits,
         }
     }
 
