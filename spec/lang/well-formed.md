@@ -27,7 +27,7 @@ impl IntType {
 
 impl TupleHeadLayout {
     fn check_wf<T: Target>(self) -> Result<()> {
-        ensure_wf(T::valid_size(self.head_end), "TupleHeadLayout: head_end not valid")?;
+        ensure_wf(T::valid_size(self.end), "TupleHeadLayout: end not valid")?;
         ret(())
     }
 }
@@ -117,7 +117,7 @@ impl Type {
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
-                ensure_wf(sized_head_layout.head_end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
+                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
                 sized_head_layout.check_wf::<T>()?;
             }
             Array { elem, count } => {
@@ -277,10 +277,10 @@ impl ValueExpr {
                 t.check_wf::<T>()?;
 
                 match t {
-                    Type::Tuple { fields, .. } => {
-                        ensure_wf(t.unsized_field.is_none(), "ValueExpr::Tuple: aggregating a unsized tuple")?;
-                        ensure_wf(exprs.len() == fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
-                        for (e, (_offset, ty)) in exprs.zip(fields) {
+                    Type::Tuple { sized_fields, unsized_field, .. } => {
+                        ensure_wf(unsized_field.is_none(), "ValueExpr::Tuple: aggregating an unsized tuple")?;
+                        ensure_wf(exprs.len() == sized_fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
+                        for (e, (_offset, ty)) in exprs.zip(sized_fields) {
                             let checked = e.check_wf::<T>(locals, prog)?;
                             ensure_wf(checked == ty, "ValueExpr::Tuple: invalid tuple field type")?;
                         }

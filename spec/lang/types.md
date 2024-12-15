@@ -31,11 +31,11 @@ pub enum Type {
     Tuple {
         /// Fields must not overlap.
         sized_fields: Fields,
-        /// A last field (in terms of offset) may contain an unsized type,
-        /// then its offset is given by rounding the `head_end` of `sized_head_layout` up to its nearest alignment.
-        unsized_field: Option<Type>,
-        
+        /// The layout of the sized fiels, i.e. the head.
         sized_head_layout: TupleHeadLayout,
+        /// A last field (in terms of offset) may contain an unsized type,
+        /// then its offset is given by rounding the `end` of `sized_head_layout` up to the alignment of this type.
+        unsized_field: Option<Type>,
     },
     Array {
         #[specr::indirection]
@@ -153,7 +153,7 @@ impl Type {
             Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
             Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
             Tuple { sized_head_layout, unsized_field: None, .. } => {
-                let (size, align) = sized_head_layout.compute_size_align(Size::ZERO, Align::ONE);
+                let (size, align) = sized_head_layout.compute_size_and_align(Size::ZERO, Align::ONE);
                 Sized(size, align)
             }
             Tuple { sized_head_layout, unsized_field: Some(tail_ty), .. } => LayoutStrategy::Tuple {
@@ -186,14 +186,17 @@ And we also define how to compute the actual size and alignment.
 
 ```rust
 impl TupleHeadLayout {
-    // This is one function to avoid quadratic computations.
-    pub fn compute_size_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
-        // TODO: support packed self
-        let align = tail_align.max(self.min_align);
+    fn round_to_nearest(size: Size, align: Align) -> Size {
         // Fixme: actual function
-        let tail_offset = self.head_end.round_to_nearest(tail_align);
+        todo!()
+    }
+
+    pub fn compute_size_and_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
+        // TODO: support packed self
+        let align = tail_align.max(self.align);
+        let tail_offset = Self::round_to_nearest(self.end, tail_align);
         let end = tail_offset + tail_size;
-        let size = end.round_to_nearest(self.compute_align(tail_align));
+        let size = Self::round_to_nearest(end, self.compute_align(tail_align));
         size
     }
 }
@@ -220,25 +223,28 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic size and alignment, but the caller must provide compatible metadata.
-    pub fn compute_size_align(self, meta: Option<PointerMeta>) -> (Size, Align) {
+    /// 
+    /// The size and align of unsized structs depend on each other,
+    /// thus we must recursively compute them at the same time.
+    pub fn compute_size_and_align(self, meta: Option<PointerMeta>) -> (Size, Align) {
         match (self, meta) {
             (LayoutStrategy::Sized(size, align), None) => (size, align),
             (LayoutStrategy::Slice(elem_size, align), Some(PointerMeta::ElementCount(count))) => (count * elem_size, align),
             (LayoutStrategy::Tuple { head, tail }) => {
-                let (tail_size, tail_align) = self.compute_size_align(meta);
-                head.compute_size_align(tail_size, tail_align)
+                let (tail_size, tail_align) = self.compute_size_and_align(meta);
+                head.compute_size_and_align(tail_size, tail_align)
             }
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    /// Helper function to compute only the dynamic siz of the layout.
     pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
-        let (size, _) = self.compute_size_align(meta);
+        let (size, _) = self.compute_size_and_align(meta);
         size
     }
 
-    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
+    /// Helper function to compute only the dynamic alignment of the layout.
     pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
        let (_, align) = self.compute_align_align(meta);
         align
