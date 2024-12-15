@@ -219,22 +219,29 @@ impl LayoutStrategy {
         }
     }
 
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
+    /// Computes the dynamic size and alignment, but the caller must provide compatible metadata.
+    pub fn compute_size_align(self, meta: Option<PointerMeta>) -> (Size, Align) {
         match (self, meta) {
-            (LayoutStrategy::Sized(size, _), None) => size,
-            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            (LayoutStrategy::Sized(size, align), None) => (size, align),
+            (LayoutStrategy::Slice(elem_size, align), Some(PointerMeta::ElementCount(count))) => (count * elem_size, align),
+            (LayoutStrategy::Tuple { head, tail }) => {
+                let (tail_size, tail_align) = self.compute_size_align(meta);
+                head.compute_size_align(tail_size, tail_align)
+            }
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
+    /// Computes the dynamic size, but the caller must provide compatible metadata.
+    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
+        let (size, _) = self.compute_size_align(meta);
+        size
+    }
+
     /// Computes the dynamic alignment, but the caller must provide compatible metadata.
     pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
-        match (self, meta) {
-            (LayoutStrategy::Sized(_, align), None) => align,
-            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
-            _ => panic!("pointer meta data does not match type"),
-        }
+       let (_, align) = self.compute_align_align(meta);
+        align
     }
 
     /// Returns the metadata kind which is needed to compute this strategy,
