@@ -14,7 +14,7 @@ use crate::*;
 ///
 /// let x: usize = 42;
 /// let y: &dyn A = &x;
-/// assert_eq!(x == y.foo());
+/// assert!(x == y.foo());
 /// ```
 #[test]
 fn dynamic_dispatch() {
