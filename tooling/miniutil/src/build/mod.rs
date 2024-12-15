@@ -252,8 +252,12 @@ impl FunctionBuilder {
     }
 
     pub fn declare_arg<T: TypeConv>(&mut self) -> PlaceExpr {
+        self.declare_arg_with_ty(T::get_type())
+    }
+
+    pub fn declare_arg_with_ty(&mut self, ty: Type) -> PlaceExpr {
         let name = self.fresh_local_name();
-        self.locals.try_insert(name, T::get_type()).unwrap();
+        self.locals.try_insert(name, ty).unwrap();
         self.args.push(name);
         local_by_name(name)
     }

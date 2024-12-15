@@ -468,7 +468,7 @@ impl<M: Memory> Machine<M> {
         let metadata = ptr_ty.meta_kind().decode_value::<M>(right);
         let wide_ptr = Value::Ptr(Pointer { thin_pointer, metadata });
 
-        // check that the size is valid
+        // check that the decoded pointer is well-formed. Includes size and vtable checks.
         self.check_value(wide_ptr, Type::Ptr(ptr_ty))?;
         ret((wide_ptr, Type::Ptr(ptr_ty)))
     }
