@@ -191,13 +191,25 @@ impl TupleHeadLayout {
         todo!()
     }
 
-    pub fn compute_size_and_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
+    pub fn tail_offset(self, tail_align: Align) -> Offset {
         // TODO: support packed self
         let align = tail_align.max(self.align);
         let tail_offset = Self::round_to_nearest(self.end, tail_align);
+        tail_offset
+    }
+
+    pub fn compute_size_and_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
+        // TODO: support packed self
+        let align = tail_align.max(self.align);
+        let tail_offset = self.tail_offset(tail_align);
         let end = tail_offset + tail_size;
         let size = Self::round_to_nearest(end, self.compute_align(tail_align));
-        size
+        (size, align)
+    }
+
+    /// Returns the size and alignment of the tuple when there is no tail.
+    pub fn head_size_and_align(self) -> (Size, Align) {
+        self.compute_size_and_align(Size::ZERO, Align::ONE);
     }
 }
 

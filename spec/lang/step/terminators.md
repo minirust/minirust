@@ -85,14 +85,17 @@ fn check_abi_compatibility(
         (Type::Ptr(_), Type::Ptr(_)) =>
             // The kind of pointer and pointee details do not matter for ABI.
             true,
-        (Type::Tuple { fields: caller_fields, size: caller_size, align: caller_align },
-         Type::Tuple { fields: callee_fields, size: callee_size, align: callee_align }) =>
+        (Type::Tuple { sized_fields: caller_fields, sized_head_layout: caller_head_layout, unsized_field: None },
+         Type::Tuple { sized_fields: callee_fields, sized_head_layout: callee_head_layout, unsized_field: None }) => {
+            let (caller_size, caller_align) = caller_head_layout.head_size_and_align();
+            let (callee_size, callee_align) = callee_head_layout.head_size_and_align();
             caller_fields.len() == callee_fields.len() &&
             caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
                 caller_field.0 == callee_field.0 && check_abi_compatibility(caller_field.1, callee_field.1)
             ) &&
             caller_size == callee_size &&
-            caller_align == callee_align,
+            caller_align == callee_align
+        }
         (Type::Array { elem: caller_elem, count: caller_count },
          Type::Array { elem: callee_elem, count: callee_count }) =>
             check_abi_compatibility(caller_elem, callee_elem) && caller_count == callee_count,

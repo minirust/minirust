@@ -103,10 +103,10 @@ pub struct PointeeInfo {
 pub struct TupleHeadLayout {
     /// The offset where the head ends and tail starts.
     /// Also determines the size together with the padding to satisfy alignment and tail size.
-    end: Offset,
+    pub end: Offset,
 
     /// The alignment of the head. This is the maximal alignment of any sized field.
-    align: Align,
+    pub align: Align,
 
     // FIXME: Figure out semantics. I think, even if this is Some, the align is still interesting, as it might be lower.
     // packed_align: Option<Align>,
