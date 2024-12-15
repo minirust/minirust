@@ -25,10 +25,6 @@ We therefore use the term *thin pointer* for what has been described above, and 
 /// of the address space.
 pub type Address = Int;
 
-/// A "trait name" is an identifier for the trait a vtable is for.
-/// This defines the number of methods and their function signatures.
-pub struct TraitName(pub libspecr::Name);
-
 /// A "thin pointer" is an address together with its Provenance.
 /// Provenance can be absent; those pointers are
 /// invalid for all non-zero-sized accesses.
@@ -51,14 +47,6 @@ pub enum PointerMeta<Provenance> {
 pub struct Pointer<Provenance> {
     pub thin_pointer: ThinPointer<Provenance>,
     pub metadata: Option<PointerMeta<Provenance>>,
-}
-
-/// The statically known kind of metadata stored with a pointer.
-/// This has a one-to-one corresponcence with the variants of `Option<PointerMeta>`
-pub enum PointerMetaKind {
-    None,
-    ElementCount,
-    VTablePointer(TraitName),
 }
 
 impl<Provenance> ThinPointer<Provenance> {
@@ -86,14 +74,6 @@ We sometimes need information what it is that a pointer points to, this is captu
 However, for unsized types the size and align might depend on the pointer metadata, which gives rise to the "layout strategy".
 
 ```rust
-/// Describes what we know about data behind a pointer.
-pub struct PointeeInfo {
-    pub layout: LayoutStrategy,
-    pub inhabited: bool,
-    pub freeze: bool,
-    pub unpin: bool,
-}
-
 /// Describes what is needed to define the layout of the sized head of a tuple `(head.., tail)`.
 pub struct TupleHeadLayout {
     /// The offset where the head ends and tail starts.
@@ -118,12 +98,32 @@ pub enum LayoutStrategy {
     /// The size of the type must be looked up in the VTable of a wide pointer.
     /// Additionally, the vtable must be for the given trait.
     TraitObject(TraitName),
-    /// The type constists of a sized head an unsized tail.
+    /// The type consists of a sized head an unsized tail.
     Tuple {
         head: TupleHeadLayout,
         #[specr::indirection]
         tail: LayoutStrategy,
-    }
+    },
+}
+
+/// Describes what we know about data behind a pointer.
+pub struct PointeeInfo {
+    pub layout: LayoutStrategy,
+    pub inhabited: bool,
+    pub freeze: bool,
+    pub unpin: bool,
+}
+
+/// A "trait name" is an identifier for the trait a vtable is for.
+/// This depends on the defined methods and the marker traits.
+pub struct TraitName(pub libspecr::Name);
+
+/// The statically known kind of metadata stored in a pointer.
+/// This determines the type of the metadata, while `Option<PointerMeta>` determines its value.
+pub enum PointerMetaKind {
+    None,
+    ElementCount,
+    VTablePointer(TraitName),
 }
 
 /// Stores all the information that we need to know about a pointer.
@@ -147,6 +147,7 @@ pub enum PtrType {
 }
 ```
 
+We also define two helper functions to get information about the pointer independent of the `PtrType` variant.
 ```rust
 impl PtrType {
     /// If this is a safe pointer, return the pointee information.

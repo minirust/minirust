@@ -72,13 +72,20 @@ fn fmt_layout_strategy(layout: LayoutStrategy) -> String {
         LayoutStrategy::Slice(size, align) =>
             format!("size={}*len, align={}", size.bytes(), align.bytes()),
         LayoutStrategy::TraitObject(..) => "size,align={unknown}".into(),
-        LayoutStrategy::Tuple { head, tail } =>
+        LayoutStrategy::Tuple { head, tail } => {
+            let packed_str = if let Some(packed) = head.packed_align {
+                format!(", packed={}", packed.bytes())
+            } else {
+                "".into()
+            };
             format!(
-                "head=(end={}, align={}), tail=({})",
+                "head=(end={}, align={}){}, tail=({})",
                 head.end.bytes(),
                 head.align.bytes(),
+                packed_str,
                 fmt_layout_strategy(tail.extract())
-            ),
+            )
+        }
     }
 }
 

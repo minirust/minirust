@@ -170,9 +170,9 @@ impl PointerMetaKind {
     /// but this may return ill-formed metadata (as defined by `Machine::check_ptr_metadata`), thus needs to be checked.
     fn decode_value<M: Memory>(self, value: Value<M>) -> Option<PointerMeta<M::Provenance>> {
         match (self, value) {
+            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             (PointerMetaKind::ElementCount, Value::Int(count)) => Some(PointerMeta::ElementCount(count)),
             (PointerMetaKind::VTablePointer(_), Value::Ptr(ptr)) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             _ => panic!("PointerMeta::decode_value called with invalid value"),
         }
     }
@@ -181,9 +181,9 @@ impl PointerMetaKind {
     /// The spec ensures this is only called with well-formed metadata (as defined by `Machine::check_ptr_metadata`).
     fn encode_as_value<M: Memory>(self, meta: Option<PointerMeta<M::Provenance>>) -> Value<M> {
         match (self, meta) {
+            (PointerMetaKind::None, None) => unit_value(),
             (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(count))) => Value::Int(count),
             (PointerMetaKind::VTablePointer(_), Some(PointerMeta::VTablePointer(ptr))) => Value::Ptr(ptr.widen(None)),
-            (PointerMetaKind::None, None) => unit_value(),
             _ => panic!("PointerMeta::encode_as_value called with invalid value"),
         }
     }
