@@ -43,15 +43,12 @@ fn return_no_next() {
 fn return_intrinsic_no_next() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::Allocate,
-            arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-            ret: local(0),
-            next_block: None,
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Allocate,
+        arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
+        ret: local(0),
+        next_block: None,
+    });
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);

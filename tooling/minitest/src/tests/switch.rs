@@ -60,24 +60,23 @@ fn switch_enum_works() {
         &[
             (
                 0,
-                enum_variant(
-                    tuple_ty(&[], size(1), align(1)),
-                    &[(offset(0), (U8_INTTYPE, 4.into()))],
-                ),
+                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
+                    offset(0),
+                    (U8_INTTYPE, 4.into()),
+                )]),
             ),
             (
                 1,
-                enum_variant(
-                    tuple_ty(&[], size(1), align(1)),
-                    &[(offset(0), (U8_INTTYPE, 2.into()))],
-                ),
+                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
+                    offset(0),
+                    (U8_INTTYPE, 2.into()),
+                )]),
             ),
         ],
-        discriminator_branch::<u8>(
-            offset(0),
-            discriminator_invalid(),
-            &[((2, 3), discriminator_known(1)), ((4, 5), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(0), discriminator_invalid(), &[
+            ((2, 3), discriminator_known(1)),
+            ((4, 5), discriminator_known(0)),
+        ]),
         size(1),
         align(1),
     );

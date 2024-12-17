@@ -63,15 +63,12 @@ fn atomic_store_arg_type_pow() {
     let arr =
         array(&[const_int::<u8>(0), const_int::<u8>(1), const_int::<u8>(69)], <u8>::get_type());
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicStore,
-            arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: unit_place(),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicStore,
+        arguments: list!(addr_of(local(0), ptr_ty), arr),
+        ret: unit_place(),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -90,15 +87,12 @@ fn atomic_store_arg_type_size() {
     let ptr_ty = raw_void_ptr_ty();
     let arr = array(&[const_int::<u64>(0), const_int::<u64>(1)], <u64>::get_type());
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicStore,
-            arguments: list!(addr_of(local(0), ptr_ty), arr),
-            ret: unit_place(),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicStore,
+        arguments: list!(addr_of(local(0), ptr_ty), arr),
+        ret: unit_place(),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -112,15 +106,12 @@ fn atomic_store_ret_type() {
 
     let ptr_ty = raw_void_ptr_ty();
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicStore,
-            arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
-            ret: local(0),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicStore,
+        arguments: list!(addr_of(local(0), ptr_ty), const_int::<u64>(0)),
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -154,15 +145,12 @@ fn atomic_load_success() {
 fn atomic_load_arg_count() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicLoad,
-            arguments: list!(),
-            ret: local(0),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicLoad,
+        arguments: list!(),
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -174,15 +162,12 @@ fn atomic_load_arg_count() {
 fn atomic_load_arg_type() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(
-        storage_live(0),
-        Terminator::Intrinsic {
-            intrinsic: IntrinsicOp::AtomicLoad,
-            arguments: list!(unit()),
-            ret: local(0),
-            next_block: Some(BbName(Name::from_internal(1)))
-        }
-    );
+    let b0 = block!(storage_live(0), Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::AtomicLoad,
+        arguments: list!(unit()),
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(1)))
+    });
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);

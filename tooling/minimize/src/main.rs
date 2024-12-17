@@ -26,8 +26,8 @@ mod rs {
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::storage::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
-    pub use rustc_span::{sym, Span, DUMMY_SP};
-    pub use rustc_target::abi::{self, call::*, Align, FieldIdx, Layout, Size};
+    pub use rustc_span::{DUMMY_SP, Span, sym};
+    pub use rustc_target::abi::{self, Align, FieldIdx, Layout, Size, call::*};
     pub use rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
 
     pub type CompileTimeInterpCx<'tcx> =
@@ -53,12 +53,12 @@ pub use minirust_rs::mem::*;
 pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
-pub use miniutil::build::{self, unit_place, TypeConv as _};
-pub use miniutil::fmt::dump_program;
-pub use miniutil::run::*;
 pub use miniutil::BasicMem;
 pub use miniutil::DefaultTarget;
 pub use miniutil::TreeBorrowMem;
+pub use miniutil::build::{self, TypeConv as _, unit_place};
+pub use miniutil::fmt::dump_program;
+pub use miniutil::run::*;
 
 // Get back some `std` items
 pub use std::format;

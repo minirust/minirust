@@ -4,7 +4,7 @@ use ui_test::color_eyre::eyre::Result;
 use ui_test::dependencies::DependencyBuilder;
 use ui_test::spanned::Spanned;
 use ui_test::{
-    run_tests_generic, status_emitter, CommandBuilder, Config, Format, OutputConflictHandling,
+    CommandBuilder, Config, Format, OutputConflictHandling, run_tests_generic, status_emitter,
 };
 
 enum Mode {
@@ -31,13 +31,10 @@ fn cfg(path: &str, mode: Mode) -> Config {
     // To let tests use dependencies, we have to add a `DependencyBuilder`
     // custom "comment" (with arbitrary name), which will then take care
     // of building the dependencies and making them available in the test.
-    config.comment_defaults.base().set_custom(
-        "dependencies",
-        DependencyBuilder {
-            crate_manifest_path: "./tests/deps/Cargo.toml".into(),
-            ..Default::default()
-        },
-    );
+    config.comment_defaults.base().set_custom("dependencies", DependencyBuilder {
+        crate_manifest_path: "./tests/deps/Cargo.toml".into(),
+        ..Default::default()
+    });
     config
 }
 

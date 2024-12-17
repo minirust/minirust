@@ -27,10 +27,10 @@ impl<'tcx> Ctxt<'tcx> {
                     sref,
                     span,
                 );
-                let variants = [(
-                    Int::ZERO,
-                    Variant { ty: Type::Tuple { fields, size, align }, tagger: Map::new() },
-                )];
+                let variants = [(Int::ZERO, Variant {
+                    ty: Type::Tuple { fields, size, align },
+                    tagger: Map::new(),
+                })];
                 let discriminator = Discriminator::Known(Int::ZERO);
                 (variants.into_iter().collect::<Map<Int, Variant>>(), discriminator)
             }
@@ -87,21 +87,18 @@ impl<'tcx> Ctxt<'tcx> {
                                 (tag_int, tag_int + Int::ONE),
                                 Discriminator::Known(discr_int),
                             );
-                            translated_variants.insert(
-                                discr_int,
-                                Variant { ty: Type::Tuple { fields, size, align }, tagger },
-                            );
+                            translated_variants.insert(discr_int, Variant {
+                                ty: Type::Tuple { fields, size, align },
+                                tagger,
+                            });
                         }
                         rs::TagEncoding::Niche { .. } => {
                             // this is the untagged variant
                             // we don't add it to the discriminator branches as it will be the fallback.
-                            translated_variants.insert(
-                                discr_int,
-                                Variant {
-                                    ty: Type::Tuple { fields, size, align },
-                                    tagger: Map::new(),
-                                },
-                            );
+                            translated_variants.insert(discr_int, Variant {
+                                ty: Type::Tuple { fields, size, align },
+                                tagger: Map::new(),
+                            });
                         }
                     };
                 }

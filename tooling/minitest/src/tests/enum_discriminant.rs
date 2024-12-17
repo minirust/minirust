@@ -28,11 +28,10 @@ fn discriminant_get_and_set_work() {
             0,
             enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 4.into()))]),
         )],
-        discriminator_branch::<u8>(
-            offset(0),
-            discriminator_invalid(),
-            &[((4, 5), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(0), discriminator_invalid(), &[(
+            (4, 5),
+            discriminator_known(0),
+        )]),
         size(1),
         align(1),
     );
@@ -61,24 +60,23 @@ fn discriminant_setting_right_value() {
         &[
             (
                 0,
-                enum_variant(
-                    tuple_ty(&[], size(1), align(1)),
-                    &[(offset(0), (U8_INTTYPE, 4.into()))],
-                ),
+                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
+                    offset(0),
+                    (U8_INTTYPE, 4.into()),
+                )]),
             ),
             (
                 1,
-                enum_variant(
-                    tuple_ty(&[], size(1), align(1)),
-                    &[(offset(0), (U8_INTTYPE, 2.into()))],
-                ),
+                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
+                    offset(0),
+                    (U8_INTTYPE, 2.into()),
+                )]),
             ),
         ],
-        discriminator_branch::<u8>(
-            offset(0),
-            discriminator_invalid(),
-            &[((4, 5), discriminator_known(0)), ((2, 3), discriminator_known(1))],
-        ),
+        discriminator_branch::<u8>(offset(0), discriminator_invalid(), &[
+            ((4, 5), discriminator_known(0)),
+            ((2, 3), discriminator_known(1)),
+        ]),
         size(1),
         align(1),
     );
@@ -117,16 +115,14 @@ fn discriminant_leaves_data_alone() {
     let enum_ty = enum_ty::<u8>(
         &[(
             0,
-            enum_variant(
-                tuple_ty(&[(offset(0), u8_t), (offset(2), u16_t)], size(4), align(2)),
-                &[(offset(1), (U8_INTTYPE, 1.into()))],
-            ),
+            enum_variant(tuple_ty(&[(offset(0), u8_t), (offset(2), u16_t)], size(4), align(2)), &[
+                (offset(1), (U8_INTTYPE, 1.into())),
+            ]),
         )],
-        discriminator_branch::<u8>(
-            offset(1),
-            discriminator_invalid(),
-            &[((1, 2), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(1), discriminator_invalid(), &[(
+            (1, 2),
+            discriminator_known(0),
+        )]),
         size(4),
         align(2),
     );
@@ -169,11 +165,10 @@ fn ub_discriminant_does_not_init() {
                 &[(offset(1), (U8_INTTYPE, 1.into()))],
             ),
         )],
-        discriminator_branch::<u8>(
-            offset(1),
-            discriminator_invalid(),
-            &[((1, 2), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(1), discriminator_invalid(), &[(
+            (1, 2),
+            discriminator_known(0),
+        )]),
         size(2),
         align(1),
     );
@@ -206,11 +201,10 @@ fn ub_cannot_read_uninit_discriminant() {
                 &[(offset(1), (U8_INTTYPE, 1.into()))],
             ),
         )],
-        discriminator_branch::<u8>(
-            offset(1),
-            discriminator_invalid(),
-            &[((1, 2), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(1), discriminator_invalid(), &[(
+            (1, 2),
+            discriminator_known(0),
+        )]),
         size(2),
         align(1),
     );
@@ -238,11 +232,10 @@ fn ub_cannot_read_invalid_discriminant() {
             0,
             enum_variant(tuple_ty(&[], size(1), align(1)), &[(offset(0), (U8_INTTYPE, 1.into()))]),
         )],
-        discriminator_branch::<u8>(
-            offset(0),
-            discriminator_invalid(),
-            &[((1, 2), discriminator_known(0))],
-        ),
+        discriminator_branch::<u8>(offset(0), discriminator_invalid(), &[(
+            (1, 2),
+            discriminator_known(0),
+        )]),
         size(1),
         align(1),
     );
@@ -326,17 +319,16 @@ fn space_optimized_enum_works() {
             (0, enum_variant(u8_t, &[])),
             (
                 1,
-                enum_variant(
-                    tuple_ty(&[], size(1), align(1)),
-                    &[(offset(0), (U8_INTTYPE, 0.into()))],
-                ),
+                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
+                    offset(0),
+                    (U8_INTTYPE, 0.into()),
+                )]),
             ),
         ],
-        discriminator_branch::<u8>(
-            offset(0),
-            discriminator_known(0),
-            &[((0, 1), discriminator_known(1))],
-        ),
+        discriminator_branch::<u8>(offset(0), discriminator_known(0), &[(
+            (0, 1),
+            discriminator_known(1),
+        )]),
         size(1),
         align(1),
     );

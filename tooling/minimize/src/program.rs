@@ -22,13 +22,10 @@ impl<'tcx> Ctxt<'tcx> {
         let dl = tcx.data_layout();
         assert_eq!(DefaultTarget::PTR_SIZE, translate_size(dl.pointer_size));
         assert_eq!(DefaultTarget::PTR_ALIGN, translate_align(dl.pointer_align.abi));
-        assert_eq!(
-            DefaultTarget::ENDIANNESS,
-            match dl.endian {
-                rs::abi::Endian::Little => Endianness::LittleEndian,
-                rs::abi::Endian::Big => Endianness::BigEndian,
-            }
-        );
+        assert_eq!(DefaultTarget::ENDIANNESS, match dl.endian {
+            rs::abi::Endian::Little => Endianness::LittleEndian,
+            rs::abi::Endian::Big => Endianness::BigEndian,
+        });
         for rs_int_ty in [rs::abi::I8, rs::abi::I16, rs::abi::I32, rs::abi::I64, rs::abi::I128] {
             let size = translate_size(rs_int_ty.size());
             // Rust alignment:

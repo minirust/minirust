@@ -76,7 +76,7 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Tuple { fields, size, align }
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
-                let ty = ty.boxed_ty();
+                let ty = ty.expect_boxed_ty();
                 let pointee = self.pointee_info_of(ty, span);
                 Type::Ptr(PtrType::Box { pointee })
             }
@@ -105,7 +105,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let elem = GcCow::new(self.translate_ty(*ty, span));
                 Type::Array { elem, count }
             }
-            rs::TyKind::FnPtr(_sig) => Type::Ptr(PtrType::FnPtr),
+            rs::TyKind::FnPtr(..) => Type::Ptr(PtrType::FnPtr),
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             rs::TyKind::Slice(ty) => {

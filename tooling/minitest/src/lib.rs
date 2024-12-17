@@ -1,9 +1,9 @@
 #![cfg(test)]
 
+pub use miniutil::BasicMem;
 pub use miniutil::build::*;
 pub use miniutil::fmt::*;
 pub use miniutil::run::*;
-pub use miniutil::BasicMem;
 
 pub use minirust_rs::libspecr::hidden::*;
 pub use minirust_rs::libspecr::prelude::*;
