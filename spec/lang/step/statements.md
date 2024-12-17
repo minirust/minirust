@@ -103,8 +103,8 @@ impl<M: Memory> ConcurrentMemory<M> {
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
                 Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
             // recurse into tuples/arrays/enums
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+            (Value::Tuple(vals), Type::Tuple { sized_fields, .. }) =>
+                Value::Tuple(vals.zip(sized_fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
                 Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
