@@ -32,6 +32,7 @@ impl LayoutStrategy {
         match self {
             LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
             LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
+            LayoutStrategy::TraitObject(..) => (),
         };
 
         ret(())
@@ -45,6 +46,7 @@ impl LayoutStrategy {
             LayoutStrategy::Slice(size, align) => {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
+            LayoutStrategy::TraitObject(..) => (),
         };
 
         ret(())
@@ -66,7 +68,7 @@ impl PtrType {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>()?;
             }
-            PtrType::Raw { .. } | PtrType::FnPtr => ()
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => ()
         }
 
         ret(())
@@ -171,6 +173,7 @@ impl Type {
                 // can be represented by the discriminant type.
                 discriminator.check_wf::<T>(size, variants)?;
             }
+            TraitObject(..) => (),
         }
 
         // Now that we know the type is well-formed,
@@ -232,6 +235,10 @@ impl Constant {
             (Constant::FnPointer(fn_name), Type::Ptr(ptr_ty)) => {
                 ensure_wf(matches!(ptr_ty, PtrType::FnPtr), "Constant::FnPointer: non function pointer type")?;
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
+            }
+            (Constant::VTablePointer(vtable_name), Type::Ptr(ptr_ty)) => {
+                ensure_wf(matches!(ptr_ty, PtrType::VTablePtr), "Constant::VTablePointer: non vtable pointer type")?;
+                ensure_wf(prog.vtables.contains_key(vtable_name), "Constant::VTablePointer: invalid vtable name")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
@@ -374,6 +381,16 @@ impl ValueExpr {
                             throw_ill_formed!("UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type");
                         }
                         Type::Int(IntType::usize_ty::<T>())
+                    }
+                    VTableMethodLookup(_method) => {
+                        let Type::Ptr(PtrType::VTablePtr) = operand else {
+                            throw_ill_formed!("UnOp::VTableMethodLookup: invalid operand: not a vtable pointer");
+                        };
+
+                        // We do not statically have enough information to check that the method name exists in the right vtable,
+                        // but this is only a type safety problem, which we don't catch anyways.
+
+                        Type::Ptr(PtrType::FnPtr)
                     }
                 }
             }
@@ -757,6 +774,15 @@ impl Program {
 
                 relocation.check_wf(self.globals)?;
             }
+        }
+
+        // Check vtables: All vtables for the same trait must have the same method names defined.
+        for (_name, vtable) in self.vtables {
+            let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
+                throw_ill_formed!("Program: vtable for unknown trait");
+            };
+            let methods = vtable.methods.keys().collect::<Set<_>>();
+            ensure_wf(methods == trait_methods, "Program: vtable has not the right set of methods")?;
         }
 
         ret(())

@@ -57,6 +57,8 @@ pub enum AllocationKind {
     Global,
     /// Memory for a function.
     Function,
+    /// Memory for a vtable.
+    VTable,
 }
 
 /// *Note*: All memory operations can be non-deterministic, which means that
@@ -117,6 +119,8 @@ pub trait Memory {
     /// in particular, it must be `dereferenceable` for its size.
     /// Violating this or breaking this for the return value is a spec bug.
     ///
+    /// The `size_computer` is given, since computing the size requires information about vtables.
+    ///
     /// Return the retagged pointer.
     fn retag_ptr(
         &mut self,
@@ -124,6 +128,7 @@ pub trait Memory {
         ptr: Pointer<Self::Provenance>,
         _ptr_type: PtrType,
         _fn_entry: bool,
+        _size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<Self::Provenance>>) -> Size,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(ptr)
     }

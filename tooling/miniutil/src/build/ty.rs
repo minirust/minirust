@@ -12,8 +12,30 @@ pub fn ref_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Immutable, pointee })
 }
 
+/// Create a minirust reference type for a minirust type which implements default marker traits,
+/// i.e. the type is `Unpin`, `Freeze` and is inhabited.
+pub fn ref_ty_default_markers_for(ty: Type) -> Type {
+    ref_ty(PointeeInfo {
+        layout: ty.layout::<DefaultTarget>(),
+        inhabited: true,
+        freeze: true,
+        unpin: true,
+    })
+}
+
 pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
     Type::Ptr(PtrType::Ref { mutbl: Mutability::Mutable, pointee })
+}
+
+/// Create a mutable minirust reference type for a minirust type which implements default marker traits,
+/// i.e. the type is `Unpin`, `Freeze` and is inhabited.
+pub fn ref_mut_ty_default_markers_for(ty: Type) -> Type {
+    ref_mut_ty(PointeeInfo {
+        layout: ty.layout::<DefaultTarget>(),
+        inhabited: true,
+        freeze: true,
+        unpin: true,
+    })
 }
 
 pub fn box_ty(pointee: PointeeInfo) -> Type {
@@ -43,6 +65,10 @@ pub fn array_ty(elem: Type, count: impl Into<Int>) -> Type {
 
 pub fn slice_ty(elem: Type) -> Type {
     Type::Slice { elem: GcCow::new(elem) }
+}
+
+pub fn trait_object_ty(trait_name: TraitName) -> Type {
+    Type::TraitObject(trait_name)
 }
 
 pub fn enum_variant(ty: Type, tagger: &[(Offset, (IntType, Int))]) -> Variant {

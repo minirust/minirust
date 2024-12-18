@@ -75,7 +75,13 @@ impl<'tcx> Ctxt<'tcx> {
         let start = FnName(Name::from_internal(number_of_fns as _));
         self.functions.insert(start, mk_start_fn(0));
 
-        Program { start, functions: self.functions, globals: self.globals }
+        Program {
+            start,
+            functions: self.functions,
+            globals: self.globals,
+            vtables: Map::new(),
+            traits: Map::new(),
+        }
     }
 
     // Returns FnName associated with some key. If it does not exist it creates a new one.

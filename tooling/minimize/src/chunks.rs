@@ -76,7 +76,8 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
             }
             mark_discriminator(discriminator, markers);
         }
-        Type::Slice { .. } => panic!("unsized types cannot be part of unions"),
+        Type::Slice { .. } | Type::TraitObject(..) =>
+            panic!("unsized types cannot be part of unions"),
     }
 }
 

@@ -281,13 +281,14 @@ Stack allocations are fine; they get automatically cleaned up when a function re
 ```rust
 impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
     fn leak_check(&self) -> Result {
+        use AllocationKind::*;
         for allocation in self.allocations {
             if allocation.live {
                 match allocation.kind {
                     // These should all be gone.
-                    AllocationKind::Heap => throw_memory_leak!(),
+                    Heap => throw_memory_leak!(),
                     // These we can still have at the end.
-                    AllocationKind::Global | AllocationKind::Function | AllocationKind::Stack => {}
+                    Global | Function | Stack | VTable => {}
                 }
             }
         }

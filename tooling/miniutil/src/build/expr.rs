@@ -303,6 +303,14 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
     global_by_name::<T>(GlobalName(Name::from_internal(x)))
 }
 
+pub fn const_vtable(vtable_name: VTableName) -> ValueExpr {
+    ValueExpr::Constant(Constant::VTablePointer(vtable_name), Type::Ptr(PtrType::VTablePtr))
+}
+
+pub fn vtable_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
+    ValueExpr::UnOp { operator: UnOp::VTableMethodLookup(method), operand: GcCow::new(operand) }
+}
+
 pub fn deref(operand: ValueExpr, ty: Type) -> PlaceExpr {
     PlaceExpr::Deref { operand: GcCow::new(operand), ty }
 }

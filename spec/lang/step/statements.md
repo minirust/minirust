@@ -92,39 +92,39 @@ This statement asserts that a value satisfies its language invariant, and perfor
 To do this, we first lift retagging from pointers to compound values.
 
 ```rust
-impl<M: Memory> ConcurrentMemory<M> {
+impl<M: Memory> Machine<M> {
     /// Find all pointers in this value, ensure they are valid, and retag them.
-    fn retag_val(&mut self, frame_extra: &mut M::FrameExtra, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
+    fn retag_val(&mut self, val: Value<M>, ty: Type, fn_entry: bool) -> Result<Value<M>> {
         ret(match (val, ty) {
             // no (identifiable) pointers
             (Value::Int(..) | Value::Bool(..) | Value::Union(..), _) =>
                 val,
             // base case
-            (Value::Ptr(ptr), Type::Ptr(ptr_type)) =>
-                Value::Ptr(self.retag_ptr(frame_extra, ptr, ptr_type, fn_entry)?),
+            (Value::Ptr(ptr), Type::Ptr(ptr_type)) => {
+                let lookup = self.vtable_lookup();
+                let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size(meta, &lookup) };
+                let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, size_computer) })?;
+                Value::Ptr(val)
+            }
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { fields, .. }) =>
-                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(frame_extra, val, ty, fn_entry))?),
+                Value::Tuple(vals.zip(fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),
             (Value::Tuple(vals), Type::Array { elem: ty, .. }) =>
-                Value::Tuple(vals.try_map(|val| self.retag_val(frame_extra, val, ty, fn_entry))?),
+                Value::Tuple(vals.try_map(|val| self.retag_val(val, ty, fn_entry))?),
             (Value::Variant { discriminant, data }, Type::Enum { variants, .. }) =>
-                Value::Variant { discriminant, data: self.retag_val(frame_extra, data, variants[discriminant].ty, fn_entry)? },
+                Value::Variant { discriminant, data: self.retag_val(data, variants[discriminant].ty, fn_entry)? },
             _ =>
                 panic!("this value does not have that type"),
         })
     }
-}
 
-impl<M: Memory> Machine<M> {
     fn eval_statement(&mut self, Statement::Validate { place, fn_entry }: Statement) -> NdResult {
         let (place, ty) = self.eval_place(place)?;
 
         // WF ensures all valid expressions are sized, so we can invoke the load.
         // This also ensures the value in the place satsifies the language invariant.
         let val = self.place_load(place, ty)?;
-
-        let val = self.mutate_cur_frame(|frame, mem| { mem.retag_val(&mut frame.extra, val, ty, fn_entry) })?;
-
+        let val = self.retag_val(val, ty, fn_entry)?;
         self.place_store(place, val, ty)?;
 
         ret(())

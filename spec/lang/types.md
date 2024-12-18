@@ -86,6 +86,8 @@ pub enum Type {
         /// this is independent of the fields' alignment.
         align: Align,
     },
+    /// A `dyn TraitName`. Commonly only used behind a pointer.
+    TraitObject(TraitName),
 }
 
 pub struct IntType {
@@ -161,6 +163,7 @@ impl Type {
                 elem.layout::<T>().expect_size("WF ensures slice element is sized"),
                 elem.layout::<T>().expect_align("WF ensures array element is sized"),
             ),
+            TraitObject(trait_name) => LayoutStrategy::TraitObject(trait_name),
         }
     }
 
@@ -169,6 +172,7 @@ impl Type {
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
+            Type::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
             _ => PointerMetaKind::None,
         }
     }
@@ -200,19 +204,29 @@ impl LayoutStrategy {
     }
 
     /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size(self, meta: Option<PointerMeta>) -> Size {
+    pub fn compute_size<Provenance>(
+        self,
+        meta: Option<PointerMeta<Provenance>>,
+        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
+    ) -> Size {
         match (self, meta) {
             (LayoutStrategy::Sized(size, _), None) => size,
             (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
+            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).size,
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
     /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align(self, meta: Option<PointerMeta>) -> Align {
+    pub fn compute_align<Provenance>(
+        self,
+        meta: Option<PointerMeta<Provenance>>,
+        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
+    ) -> Align {
         match (self, meta) {
             (LayoutStrategy::Sized(_, align), None) => align,
             (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
+            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).align,
             _ => panic!("pointer meta data does not match type"),
         }
     }
@@ -223,6 +237,7 @@ impl LayoutStrategy {
         match self {
             LayoutStrategy::Sized(..) => PointerMetaKind::None,
             LayoutStrategy::Slice(..) => PointerMetaKind::ElementCount,
+            LayoutStrategy::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
         }
     }
 }
