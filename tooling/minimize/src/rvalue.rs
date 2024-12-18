@@ -313,7 +313,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                 )
                             }
                             (_, Type::TraitObject(trait_name)) => {
-                                let vtable = self.cx.get_vtable_name(old_pointee_rs_ty, trait_name);
+                                let vtable = self.cx.get_vtable(old_pointee_rs_ty, trait_name);
                                 build::construct_wide_pointer(
                                     operand,
                                     build::const_vtable(vtable),

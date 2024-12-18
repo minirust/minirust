@@ -30,11 +30,7 @@ impl<'tcx> Ctxt<'tcx> {
                 PointeeInfo { layout, inhabited, freeze, unpin }
             }
             &rs::TyKind::Dynamic(tr, _, rs::DynKind::Dyn) => {
-                // FIXME: Taking just the first one is probably wrong, and skipping the binder maybe aswell.
-                let rs::ExistentialPredicate::Trait(trait_) = tr[0].skip_binder() else {
-                    rs::span_bug!(span, "Trait object for projection or autotrait");
-                };
-                let layout = LayoutStrategy::TraitObject(self.get_trait_name(trait_));
+                let layout = LayoutStrategy::TraitObject(self.get_trait_name(tr));
                 PointeeInfo { layout, inhabited, freeze, unpin }
             }
             _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
@@ -128,13 +124,8 @@ impl<'tcx> Ctxt<'tcx> {
                 }));
                 Type::Slice { elem }
             }
-            rs::TyKind::Dynamic(tr, _, rs::DynKind::Dyn) => {
-                // FIXME: Taking just the first one is probably wrong, and skipping the binder maybe aswell.
-                let rs::ExistentialPredicate::Trait(trait_) = tr[0].skip_binder() else {
-                    rs::span_bug!(span, "Trait object for projection or autotrait");
-                };
-                Type::TraitObject(self.get_trait_name(trait_))
-            }
+            rs::TyKind::Dynamic(tr, _, rs::DynKind::Dyn) =>
+                Type::TraitObject(self.get_trait_name(tr)),
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         };
         self.ty_cache.insert(ty, mini_ty);

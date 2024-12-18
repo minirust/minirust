@@ -7,10 +7,10 @@ pub struct Ctxt<'tcx> {
     pub fn_name_map: HashMap<rs::Instance<'tcx>, FnName>,
 
     /// maps Rust traits to MiniRust TraitNames.
-    pub trait_name_map: HashMap<rs::ExistentialTraitRef<'tcx>, TraitName>,
+    pub trait_name_map: HashMap<&'tcx rs::List<rs::PolyExistentialPredicate<'tcx>>, TraitName>,
 
-    /// maps Rust vtables to MiniRust VTableNames.
-    pub vtable_name_map: HashMap<(rs::Ty<'tcx>, TraitName), VTableName>,
+    /// maps Rust vtables to named MiniRust VTables.
+    pub vtable_map: HashMap<(rs::Ty<'tcx>, TraitName), (VTableName, VTable)>,
 
     /// Stores which AllocId evaluates to which GlobalName.
     pub alloc_map: HashMap<rs::AllocId, GlobalName>,
@@ -50,7 +50,7 @@ impl<'tcx> Ctxt<'tcx> {
             tcx,
             fn_name_map: Default::default(),
             trait_name_map: Default::default(),
-            vtable_name_map: Default::default(),
+            vtable_map: Default::default(),
             alloc_map: Default::default(),
             globals: Default::default(),
             functions: Default::default(),
@@ -83,15 +83,19 @@ impl<'tcx> Ctxt<'tcx> {
         let start = FnName(Name::from_internal(number_of_fns as _));
         self.functions.insert(start, mk_start_fn(0));
 
-        // TODO: somehow create the vtable maps
-        // let x = self.tcx.vtable_entries(self.trait_name_map.keys().next().unwrap());
+        // since all vtables for the same trait name use the same trait, they also have the same methods defined.
+        let traits = self
+            .vtable_map
+            .values()
+            .map(|(_n, v)| (v.trait_name, v.methods.keys().collect::<Set<_>>()))
+            .collect();
 
         Program {
             start,
             functions: self.functions,
             globals: self.globals,
-            vtables: Map::new(),
-            traits: Map::new(),
+            vtables: self.vtable_map.into_values().collect(),
+            traits,
         }
     }
 
@@ -108,20 +112,13 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     // Returns TraitName associated with some key. If it does not exist it creates a new one.
-    pub fn get_trait_name(&mut self, key: rs::ExistentialTraitRef<'tcx>) -> TraitName {
+    pub fn get_trait_name(
+        &mut self,
+        key: &'tcx rs::List<rs::PolyExistentialPredicate<'tcx>>,
+    ) -> TraitName {
         // Used as the trait name if it is not named yet.
         let len = self.trait_name_map.len();
         *self.trait_name_map.entry(key).or_insert_with(|| TraitName(Name::from_internal(len as _)))
-    }
-
-    // Returns VTableName associated with some key. If it does not exist it creates a new one.
-    pub fn get_vtable_name(&mut self, ty: rs::Ty<'tcx>, trait_: TraitName) -> VTableName {
-        // Used as the vtable name if it is not named yet.
-        let len = self.vtable_name_map.len();
-        *self
-            .vtable_name_map
-            .entry((ty, trait_))
-            .or_insert_with(|| VTableName(Name::from_internal(len as _)))
     }
 
     pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
