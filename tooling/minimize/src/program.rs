@@ -6,6 +6,12 @@ pub struct Ctxt<'tcx> {
     /// maps Rust function calls to MiniRust FnNames.
     pub fn_name_map: HashMap<rs::Instance<'tcx>, FnName>,
 
+    /// maps Rust traits to MiniRust TraitNames.
+    pub trait_name_map: HashMap<rs::ExistentialTraitRef<'tcx>, TraitName>,
+
+    /// maps Rust vtables to MiniRust VTableNames.
+    pub vtable_name_map: HashMap<(rs::Ty<'tcx>, TraitName), VTableName>,
+
     /// Stores which AllocId evaluates to which GlobalName.
     pub alloc_map: HashMap<rs::AllocId, GlobalName>,
 
@@ -43,6 +49,8 @@ impl<'tcx> Ctxt<'tcx> {
         Ctxt {
             tcx,
             fn_name_map: Default::default(),
+            trait_name_map: Default::default(),
+            vtable_name_map: Default::default(),
             alloc_map: Default::default(),
             globals: Default::default(),
             functions: Default::default(),
@@ -75,6 +83,9 @@ impl<'tcx> Ctxt<'tcx> {
         let start = FnName(Name::from_internal(number_of_fns as _));
         self.functions.insert(start, mk_start_fn(0));
 
+        // TODO: somehow create the vtable maps
+        // let x = self.tcx.vtable_entries(self.trait_name_map.keys().next().unwrap());
+
         Program {
             start,
             functions: self.functions,
@@ -94,6 +105,23 @@ impl<'tcx> Ctxt<'tcx> {
 
     pub fn get_fn_name_smir(&mut self, key: smir::Instance) -> FnName {
         self.get_fn_name(smir::internal(self.tcx, key))
+    }
+
+    // Returns TraitName associated with some key. If it does not exist it creates a new one.
+    pub fn get_trait_name(&mut self, key: rs::ExistentialTraitRef<'tcx>) -> TraitName {
+        // Used as the trait name if it is not named yet.
+        let len = self.trait_name_map.len();
+        *self.trait_name_map.entry(key).or_insert_with(|| TraitName(Name::from_internal(len as _)))
+    }
+
+    // Returns VTableName associated with some key. If it does not exist it creates a new one.
+    pub fn get_vtable_name(&mut self, ty: rs::Ty<'tcx>, trait_: TraitName) -> VTableName {
+        // Used as the vtable name if it is not named yet.
+        let len = self.vtable_name_map.len();
+        *self
+            .vtable_name_map
+            .entry((ty, trait_))
+            .or_insert_with(|| VTableName(Name::from_internal(len as _)))
     }
 
     pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {

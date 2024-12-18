@@ -1,7 +1,7 @@
 use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
-    pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
+    pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
         let inhabited = !layout.abi().is_uninhabited();
         let param_env = rs::ParamEnv::reveal_all();
@@ -29,11 +29,19 @@ impl<'tcx> Ctxt<'tcx> {
                 let layout = LayoutStrategy::Slice(Size::from_bytes_const(1), Align::ONE);
                 PointeeInfo { layout, inhabited, freeze, unpin }
             }
+            &rs::TyKind::Dynamic(tr, _, rs::DynKind::Dyn) => {
+                // FIXME: Taking just the first one is probably wrong, and skipping the binder maybe aswell.
+                let rs::ExistentialPredicate::Trait(trait_) = tr[0].skip_binder() else {
+                    rs::span_bug!(span, "Trait object for projection or autotrait");
+                };
+                let layout = LayoutStrategy::TraitObject(self.get_trait_name(trait_));
+                PointeeInfo { layout, inhabited, freeze, unpin }
+            }
             _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
         }
     }
 
-    pub fn pointee_info_of_smir(&self, ty: smir::Ty, span: rs::Span) -> PointeeInfo {
+    pub fn pointee_info_of_smir(&mut self, ty: smir::Ty, span: rs::Span) -> PointeeInfo {
         self.pointee_info_of(smir::internal(self.tcx, ty), span)
     }
 
@@ -119,6 +127,13 @@ impl<'tcx> Ctxt<'tcx> {
                     signed: Signedness::Unsigned,
                 }));
                 Type::Slice { elem }
+            }
+            rs::TyKind::Dynamic(tr, _, rs::DynKind::Dyn) => {
+                // FIXME: Taking just the first one is probably wrong, and skipping the binder maybe aswell.
+                let rs::ExistentialPredicate::Trait(trait_) = tr[0].skip_binder() else {
+                    rs::span_bug!(span, "Trait object for projection or autotrait");
+                };
+                Type::TraitObject(self.get_trait_name(trait_))
             }
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         };
