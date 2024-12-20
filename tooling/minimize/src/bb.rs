@@ -349,7 +349,30 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+
                 return TerminatorResult { stmts: list!(stmt), terminator };
+            }
+            rs::sym::size_of_val => {
+                let destination = self.translate_place(destination, span);
+                let ptr = self.translate_operand(&args[0].node, span);
+                let ty = self.translate_ty(intrinsic.args.type_at(0), span);
+                let stmt = Statement::Assign {
+                    destination,
+                    source: build::compute_size(ty, build::get_metadata(ptr)),
+                };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                TerminatorResult { stmts: list!(stmt), terminator }
+            }
+            rs::sym::min_align_of_val => {
+                let destination = self.translate_place(destination, span);
+                let ptr = self.translate_operand(&args[0].node, span);
+                let ty = self.translate_ty(intrinsic.args.type_at(0), span);
+                let stmt = Statement::Assign {
+                    destination,
+                    source: build::compute_align(ty, build::get_metadata(ptr)),
+                };
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                TerminatorResult { stmts: list!(stmt), terminator }
             }
             rs::sym::unlikely | rs::sym::likely => {
                 // FIXME: use the "fallback body" provided in the standard library.
