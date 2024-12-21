@@ -366,8 +366,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let boxed_ty = smir::Ty::new_box(*ty);
                 build::transmute(op, self.translate_ty_smir(boxed_ty, span))
             }
-            smir::Rvalue::ThreadLocalRef(..) =>
-                rs::span_bug!(span, "rvalue not supported: {rv:?}"),
+            smir::Rvalue::ThreadLocalRef(..) => rs::span_bug!(span, "rvalue not supported: {rv:?}"),
         }
     }
 
