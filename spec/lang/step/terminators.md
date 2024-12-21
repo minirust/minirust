@@ -236,7 +236,7 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(Pointer { thin_pointer: ptr, .. }), Type::Ptr(PtrType::FnPtr)) = self.eval_value(callee)? else {
             panic!("call on a non-pointer")
         };
-        let func = self.fn_from_addr(ptr.addr)?;
+        let func = self.fn_from_ptr(ptr)?;
 
         // Then evaluate the arguments.
         // FIXME: this means if an argument reads from `caller_ret_place`, the contents

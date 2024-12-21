@@ -468,11 +468,8 @@ impl<M: Memory> Machine<M> {
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
                 self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
             (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
-                // check that the vtable exists and is for the correct trait
-                let Some(vtable_name) = self.vtable_allocs.get(ptr) else {
-                    throw_ub!("Value::Ptr: non-existing vtable in metadata");
-                };
-                let vtable = self.prog.vtables[vtable_name];
+                // Check that the vtable exists and is for the correct trait
+                let vtable = self.vtable_from_ptr(ptr)?;
                 ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
             }
             _ => throw_ub!("Value::Ptr: invalid metadata"),

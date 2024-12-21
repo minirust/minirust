@@ -162,11 +162,7 @@ impl<M: Memory> Machine<M> {
             // FIXME: Store the TraitName in VTablePtr and have this be a program well-formedness requirement.
             throw_ub!("the referenced vtable does not have an entry for the invoked method");
         };
-        let fn_ptr = Value::Ptr(ThinPointer {
-            addr: self.fn_addrs[fn_name],
-            provenance: None,
-        }.widen(None));
-
+        let fn_ptr = Value::Ptr(self.fn_ptrs[fn_name].widen(None));
         ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
     }
 }

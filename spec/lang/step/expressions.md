@@ -40,18 +40,11 @@ impl<M: Memory> Machine<M> {
                 Value::Ptr(ptr.widen(None))
             },
             Constant::FnPointer(fn_name) => {
-                Value::Ptr(ThinPointer {
-                    addr: self.fn_addrs[fn_name],
-                    provenance: None,
-                }.widen(None))
+                let ptr = self.fn_ptrs[fn_name];
+                Value::Ptr(ptr.widen(None))
             },
             Constant::VTablePointer(vtable_name) => {
-                let vtable = self.vtable_allocs.iter().find(|(_, name)| *name == vtable_name);
-                // FIXME: we should leave the choice of which vtable address to use to the frontend.
-                let Some((ptr, _)) = vtable else {
-                    panic!("constant to unallocated vtable, WF ensures the name is defined, and the machine must allocated all defined vtables.");
-                };
-
+                let ptr = self.vtable_ptrs[vtable_name];
                 Value::Ptr(ptr.widen(None))
             },
             Constant::PointerWithoutProvenance(addr) => {

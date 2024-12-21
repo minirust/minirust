@@ -309,7 +309,7 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
             throw_ub!("invalid first argument to `Spawn` intrinsic: not a thin pointer");
         };
-        let func = self.fn_from_addr(ptr.addr)?;
+        let func = self.fn_from_ptr(ptr)?;
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {

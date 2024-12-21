@@ -39,11 +39,11 @@ pub struct Machine<M: Memory> {
     /// Stores a pointer to each of the global allocations, which are all `Sized`.
     global_ptrs: Map<GlobalName, ThinPointer<M::Provenance>>,
 
-    /// Stores an address for each function name.
-    fn_addrs: Map<FnName, mem::Address>,
+    /// Stores a pointer for each function name.
+    fn_ptrs: Map<FnName, ThinPointer<M::Provenance>>,
 
-    /// Stores a key to the vtable behind a given pointer.
-    vtable_allocs: Map<ThinPointer<M::Provenance>, VTableName>,
+    /// Stores a pointer for each vtable.
+    vtable_ptrs: Map<VTableName, ThinPointer<M::Provenance>>,
 
     /// This is where the `PrintStdout` intrinsic writes to.
     stdout: DynWrite,
@@ -124,8 +124,8 @@ impl<M: Memory> Machine<M> {
 
         let mut mem = ConcurrentMemory::<M>::new();
         let mut global_ptrs = Map::new();
-        let mut fn_addrs = Map::new();
-        let mut vtable_allocs = Map::new();
+        let mut fn_ptrs = Map::new();
+        let mut vtable_ptrs = Map::new();
 
         // Allocate every global.
         for (global_name, global) in prog.globals {
@@ -154,16 +154,13 @@ impl<M: Memory> Machine<M> {
         // Allocate functions.
         for (fn_name, _function) in prog.functions {
             let alloc = mem.allocate(AllocationKind::Function, Size::ZERO, Align::ONE)?;
-            let addr = alloc.addr;
-            // Ensure that no two functions lie on the same address.
-            assert!(!fn_addrs.values().any(|fn_addr| addr == fn_addr));
-            fn_addrs.insert(fn_name, addr);
+            fn_ptrs.insert(fn_name, alloc);
         }
 
         // Allocate vtables.
         for (vtable_name, _vtable) in prog.vtables {
             let alloc = mem.allocate(AllocationKind::VTable, Size::ZERO, Align::ONE)?;
-            vtable_allocs.insert(alloc, vtable_name);
+            vtable_ptrs.insert(vtable_name, alloc);
         }
 
         // Create machine, without a thread yet.
@@ -172,8 +169,8 @@ impl<M: Memory> Machine<M> {
             mem,
             intptrcast: IntPtrCast::new(),
             global_ptrs,
-            fn_addrs,
-            vtable_allocs,
+            fn_ptrs,
+            vtable_ptrs,
             threads: list![],
             locks: List::new(),
             active_thread: ThreadId::ZERO,
@@ -319,18 +316,20 @@ impl<M: Memory> Machine<M> {
         ret(thread_id)
     }
 
-    /// Look up a function given its address.
-    fn fn_from_addr(&self, addr: mem::Address) -> Result<Function> {
-        let mut funcs = self.fn_addrs.iter().filter(|(_, fn_addr)| *fn_addr == addr);
-        let Some((func_name, _)) = funcs.next() else {
-            throw_ub!("dereferencing function pointer where there is no function");
+    /// Look up a function given a pointer.
+    fn fn_from_ptr(&self, ptr: ThinPointer<M::Provenance>) -> Result<Function> {
+        let Some((func_name, _)) = self.fn_ptrs.iter().find(|(_, fn_ptr)| *fn_ptr == ptr) else {
+            throw_ub!("invalid pointer for function lookup");
         };
-        if let Some(_) = funcs.next() {
-            panic!("there's more than one function with the same address!");
-        }
-        let func = self.prog.functions[func_name];
+        ret(self.prog.functions[func_name])
+    }
 
-        ret(func)
+    /// Look up a vtable given a pointer.
+    fn vtable_from_ptr(&self, ptr: ThinPointer<M::Provenance>) -> Result<VTable> {
+        let Some((vtable_name, _)) = self.vtable_ptrs.iter().find(|(_, vtable_ptr)| *vtable_ptr == ptr) else {
+            throw_ub!("invalid pointer for vtable lookup");
+        };
+        ret(self.prog.vtables[vtable_name])
     }
 
     /// Reset the data race tracking for the next step, and return the information from the previous step.
@@ -353,10 +352,10 @@ impl<M: Memory> Machine<M> {
     /// All vtable lookups must have well-defined pointers. If this panics it is a spec bug.
     fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable + 'static {
         // This copies the data to return a static closure, as it is used in mutate functions, which mutably borrow self.
-        let allocs = self.vtable_allocs;
+        let ptrs = self.vtable_ptrs;
         let vtables = self.prog.vtables;
         move |ptr| {
-            let name = allocs[ptr];
+            let (name, _) = ptrs.iter().find(|(_, vtable_ptr)| *vtable_ptr == ptr).unwrap();
             let vtable = vtables[name];
             vtable
         }

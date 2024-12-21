@@ -219,7 +219,7 @@ fn ub_dangling_vtable() {
     };
 
     let p = p.finish_program(main);
-    assert_ub::<BasicMem>(p, "Value::Ptr: non-existing vtable in metadata");
+    assert_ub::<BasicMem>(p, "invalid pointer for vtable lookup");
 }
 
 /// The example, but instead tries to call a different method.
