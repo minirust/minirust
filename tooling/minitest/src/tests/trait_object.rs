@@ -268,7 +268,10 @@ fn ub_wrong_method() {
         main.storage_live(foo_ret);
         main.call(
             foo_ret,
-            vtable_method_lookup(get_metadata(load(trait_obj)), TraitMethodName(Name::from_internal(42))),
+            vtable_method_lookup(
+                get_metadata(load(trait_obj)),
+                TraitMethodName(Name::from_internal(42)),
+            ),
             &[by_value(ptr_to_ptr(get_thin_pointer(load(trait_obj)), <&usize>::get_type()))],
         );
         main.assume(eq(load(x), load(foo_ret)));

@@ -454,7 +454,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .unwrap();
             let conv = translate_calling_convention(abi.conv);
 
-            let args: List<_> = rs_args
+            let mut args: List<_> = rs_args
                 .iter()
                 .map(|x| {
                     match &x.node {
@@ -466,21 +466,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .collect();
 
             // Distinguish direct function calls or dynamic dispatch on a trait object.
-            let (callee, args) = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
+            let callee = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
                 // FIXME: This does not implement all receivers as allowed by `std::ops::DispatchFromDyn`,
                 // it also doesn't properly adjust the type, but instead uses the raw pointer given by `GetThinPointer`.
                 // However, this doesn't seem to be an issue.
                 let receiver = self.translate_operand(&rs_args[0].node, rs_args[0].span);
                 let adjusted_receiver = build::by_value(build::get_thin_pointer(receiver));
-                let mut args = args;
                 args.set(Int::from(0), adjusted_receiver);
 
                 // We built the vtables to have these indices as names.
                 let method = TraitMethodName(Name::from_internal(method as u32));
 
-                (build::vtable_method_lookup(build::get_metadata(receiver), method), args)
+                build::vtable_method_lookup(build::get_metadata(receiver), method)
             } else {
-                (build::fn_ptr(self.cx.get_fn_name(instance)), args)
+                build::fn_ptr(self.cx.get_fn_name(instance))
             };
 
             Terminator::Call {
