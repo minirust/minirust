@@ -14,7 +14,7 @@ use crate::*;
 ///
 /// let x: usize = 42;
 /// let y: &dyn A = &x;
-/// assert_eq!(x == y.foo());
+/// assert!(x == y.foo());
 /// ```
 #[test]
 fn dynamic_dispatch() {
@@ -58,7 +58,7 @@ fn dynamic_dispatch() {
 
         let foo_ret = main.declare_local::<usize>();
         main.storage_live(foo_ret);
-        main.call(foo_ret, vtable_lookup(get_metadata(load(y)), method_a_foo), &[by_value(
+        main.call(foo_ret, vtable_method_lookup(get_metadata(load(y)), method_a_foo), &[by_value(
             ptr_to_ptr(get_thin_pointer(load(y)), <&usize>::get_type()),
         )]);
         main.assume(eq(load(x), load(foo_ret)));
@@ -164,7 +164,7 @@ fn weird_wrong_vtable_right_trait() {
         );
 
         // `y.foo()`
-        f.call_ignoreret(vtable_lookup(get_metadata(load(y)), method_foo_foo), &[by_value(
+        f.call_ignoreret(vtable_method_lookup(get_metadata(load(y)), method_foo_foo), &[by_value(
             ptr_to_ptr(get_thin_pointer(load(y)), <&u8>::get_type()),
         )]);
 
@@ -268,7 +268,10 @@ fn ub_wrong_method() {
         main.storage_live(foo_ret);
         main.call(
             foo_ret,
-            vtable_lookup(get_metadata(load(trait_obj)), TraitMethodName(Name::from_internal(42))),
+            vtable_method_lookup(
+                get_metadata(load(trait_obj)),
+                TraitMethodName(Name::from_internal(42)),
+            ),
             &[by_value(ptr_to_ptr(get_thin_pointer(load(trait_obj)), <&usize>::get_type()))],
         );
         main.assume(eq(load(x), load(foo_ret)));
@@ -387,7 +390,7 @@ fn ill_lookup_wrong_ty() {
         f.storage_live(x);
         f.storage_live(y);
         // Fails, x isn't a VTablePtr
-        f.assign(y, vtable_lookup(load(x), meth1));
+        f.assign(y, vtable_method_lookup(load(x), meth1));
         f.exit();
         p.finish_function(f)
     };

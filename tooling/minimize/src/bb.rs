@@ -391,7 +391,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     fn translate_call(
         &mut self,
         func: &rs::Operand<'tcx>,
-        args: &[rs::Spanned<rs::Operand<'tcx>>],
+        rs_args: &[rs::Spanned<rs::Operand<'tcx>>],
         destination: &rs::Place<'tcx>,
         target: &Option<rs::BasicBlock>,
         span: rs::Span,
@@ -405,10 +405,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         if matches!(instance.def, rs::InstanceKind::Intrinsic(_)) {
             // A Rust intrinsic.
-            return self.translate_rs_intrinsic(instance, args, destination, target, span);
+            return self.translate_rs_intrinsic(instance, rs_args, destination, target, span);
         }
-
-        // FIXME: turn `InstanceKind::Virtual` calls into trait method calls
 
         let terminator = if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             // Direct call to a MiniRust intrinsic.
@@ -433,7 +431,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             };
             Terminator::Intrinsic {
                 intrinsic,
-                arguments: args.iter().map(|x| self.translate_operand(&x.node, x.span)).collect(),
+                arguments: rs_args
+                    .iter()
+                    .map(|x| self.translate_operand(&x.node, x.span))
+                    .collect(),
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
@@ -453,7 +454,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .unwrap();
             let conv = translate_calling_convention(abi.conv);
 
-            let args: List<_> = args
+            let mut args: List<_> = rs_args
                 .iter()
                 .map(|x| {
                     match &x.node {
@@ -464,8 +465,25 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 })
                 .collect();
 
+            // Distinguish direct function calls or dynamic dispatch on a trait object.
+            let callee = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
+                // FIXME: This does not implement all receivers as allowed by `std::ops::DispatchFromDyn`,
+                // it also doesn't properly adjust the type, but instead uses the raw pointer given by `GetThinPointer`.
+                // However, this doesn't seem to be an issue.
+                let receiver = self.translate_operand(&rs_args[0].node, rs_args[0].span);
+                let adjusted_receiver = build::by_value(build::get_thin_pointer(receiver));
+                args.set(Int::from(0), adjusted_receiver);
+
+                // We built the vtables to have these indices as names.
+                let method = TraitMethodName(Name::from_internal(method as u32));
+
+                build::vtable_method_lookup(build::get_metadata(receiver), method)
+            } else {
+                build::fn_ptr(self.cx.get_fn_name(instance))
+            };
+
             Terminator::Call {
-                callee: build::fn_ptr(self.cx.get_fn_name(instance)),
+                callee,
                 calling_convention: conv,
                 arguments: args,
                 ret: self.translate_place(&destination, span),
