@@ -76,7 +76,7 @@ fn unsized_tail() {
         let g = main.declare_local_with_ty(ref_ty_default_markers_for(g_ty));
         let g_val = construct_wide_pointer(
             addr_of(f, ref_ty_default_markers_for(f_ty)),
-            const_vtable(usize_bar_vtable),
+            const_vtable(usize_bar_vtable, trait_bar),
             ref_ty_default_markers_for(g_ty),
         );
         main.storage_live(g);
@@ -182,7 +182,7 @@ fn packed_tail() {
         let q = f.declare_local_with_ty(ref_ty_default_markers_for(q_ty));
         let q_val = construct_wide_pointer(
             load(p),
-            const_vtable(usize_send_vtable),
+            const_vtable(usize_send_vtable, trait_send),
             ref_ty_default_markers_for(q_ty),
         );
         f.storage_live(q);

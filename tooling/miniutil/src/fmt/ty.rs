@@ -52,7 +52,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
-        PtrType::VTablePtr => FmtExpr::Atomic("{vtable}".into()),
+        PtrType::VTablePtr(_) => FmtExpr::Atomic("{vtable}".into()),
     }
 }
 

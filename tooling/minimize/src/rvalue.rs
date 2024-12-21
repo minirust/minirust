@@ -326,9 +326,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             (_, rs::TyKind::Dynamic(_, _, rs::Dyn)) => {
                                 let vtable =
                                     self.cx.get_vtable(old_pointee_rs_ty, new_pointee_rs_ty);
+                                let trait_name = self.cx.get_trait_name(new_pointee_rs_ty);
                                 build::construct_wide_pointer(
                                     operand,
-                                    build::const_vtable(vtable),
+                                    build::const_vtable(vtable, trait_name),
                                     Type::Ptr(new_ptr_ty),
                                 )
                             }

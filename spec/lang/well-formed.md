@@ -37,15 +37,17 @@ impl TupleHeadLayout {
 
 impl LayoutStrategy {
     /// This does *not* require that size is a multiple of align!
-    fn check_wf<T: Target>(self) -> Result<()> {
+    fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // The align type is always well formed.
         match self {
             LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
             LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
-            LayoutStrategy::TraitObject(..) => (),
+            LayoutStrategy::TraitObject(trait_name) => {
+                ensure_wf(prog.traits.contains_key(trait_name), "LayoutStrategy: trait name doesn't exist")?;
+            }
             LayoutStrategy::Tuple { head, tail } => {
                 head.check_wf::<T>()?;
-                tail.check_wf::<T>()?;
+                tail.check_wf::<T>(prog)?;
                 ensure_wf(!tail.is_sized(), "LayoutStrategy: tuple with sized tail")?;
             }
         };
@@ -72,21 +74,24 @@ impl LayoutStrategy {
 }
 
 impl PointeeInfo {
-    fn check_wf<T: Target>(self) -> Result<()> {
+    fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // We do *not* require that size is a multiple of align!
-        self.layout.check_wf::<T>()?;
+        self.layout.check_wf::<T>(prog)?;
 
         ret(())
     }
 }
 
 impl PtrType {
-    fn check_wf<T: Target>(self) -> Result<()> {
+    fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
-                pointee.check_wf::<T>()?;
+                pointee.check_wf::<T>(prog)?;
             }
-            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => ()
+            PtrType::Raw { .. } | PtrType::FnPtr => (),
+            PtrType::VTablePtr(trait_name) => {
+                ensure_wf(prog.traits.contains_key(trait_name), "PtrType::VTablePtr: trait name doesn't exist")?;
+            }
         }
 
         ret(())
@@ -94,7 +99,7 @@ impl PtrType {
 }
 
 impl Type {
-    fn check_wf<T: Target>(self) -> Result<()> {
+    fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         use Type::*;
 
         match self {
@@ -103,7 +108,7 @@ impl Type {
             }
             Bool => (),
             Ptr(ptr_type) => {
-                ptr_type.check_wf::<T>()?;
+                ptr_type.check_wf::<T>(prog)?;
             }
             Tuple { mut sized_fields, unsized_field, sized_head_layout } => {
                 // The fields must not overlap.
@@ -112,7 +117,7 @@ impl Type {
                 let mut last_end = Size::ZERO;
                 for (offset, ty) in sized_fields {
                     // Recursively check the field type.
-                    ty.check_wf::<T>()?;
+                    ty.check_wf::<T>(prog)?;
                     // Ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
                     ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type in head")?;
@@ -120,7 +125,7 @@ impl Type {
                 }
                 // The unsized field must actually be unsized.
                 if let Some(unsized_field) = unsized_field {
-                    unsized_field.check_wf::<T>()?;
+                    unsized_field.check_wf::<T>(prog)?;
                     ensure_wf(!unsized_field.layout::<T>().is_sized(), "Type::Tuple: sized unsized field type")?;
                 }
                 // And they must all fit into the size.
@@ -135,16 +140,16 @@ impl Type {
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
                 ensure_wf(elem.layout::<T>().is_sized(), "Type::Array: unsized element type")?;
-                elem.check_wf::<T>()?;
+                elem.check_wf::<T>(prog)?;
             }
             Slice { elem } => {
                 ensure_wf(elem.layout::<T>().is_sized(), "Type::Slice: unsized element type")?;
-                elem.check_wf::<T>()?;
+                elem.check_wf::<T>(prog)?;
             }
             Union { fields, size, chunks, align: _ } => {
                 // The fields may overlap, but they must all fit the size.
                 for (offset, ty) in fields {
-                    ty.check_wf::<T>()?;
+                    ty.check_wf::<T>(prog)?;
                     ensure_wf(ty.layout::<T>().is_sized(), "Type::Union: unsized field type")?;
                     ensure_wf(
                         size >= offset + ty.layout::<T>().expect_size("ensured to be sized above"),
@@ -181,7 +186,7 @@ impl Type {
                         "Type::Enum: invalid value for discriminant"
                     )?;
 
-                    variant.ty.check_wf::<T>()?;
+                    variant.ty.check_wf::<T>(prog)?;
                     let LayoutStrategy::Sized(var_size, var_align) = variant.ty.layout::<T>() else {
                         throw_ill_formed!("Type::Enum: variant type is unsized")
                     };
@@ -200,13 +205,15 @@ impl Type {
                 // can be represented by the discriminant type.
                 discriminator.check_wf::<T>(size, variants)?;
             }
-            TraitObject(..) => (),
+            TraitObject(trait_name) => {
+                ensure_wf(prog.traits.contains_key(trait_name), "Type::TraitObject: trait name doesn't exist")?;
+            }
         }
 
         // Now that we know the type is well-formed,
         // we are allowed to call the layout function to check that the layout is valid and its size aligned.
         let layout = self.layout::<T>();
-        layout.check_wf::<T>()?;
+        layout.check_wf::<T>(prog)?;
         layout.check_aligned()?;
         // ensure consistent definitions.
         assert_eq!(layout.meta_kind(), self.meta_kind(), "Type::meta_kind() must match the Type::layout()'s kind");
@@ -264,8 +271,10 @@ impl Constant {
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
             }
             (Constant::VTablePointer(vtable_name), Type::Ptr(ptr_ty)) => {
-                ensure_wf(matches!(ptr_ty, PtrType::VTablePtr), "Constant::VTablePointer: non vtable pointer type")?;
-                ensure_wf(prog.vtables.contains_key(vtable_name), "Constant::VTablePointer: invalid vtable name")?;
+                let Some(vtable) = prog.vtables.get(vtable_name) else {
+                    throw_ill_formed!("Constant::VTablePointer: invalid vtable name");
+                };
+                ensure_wf(ptr_ty == PtrType::VTablePtr(vtable.trait_name), "Constant::VTablePointer: non or wrong vtable pointer type")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
@@ -286,12 +295,12 @@ impl ValueExpr {
         use ValueExpr::*;
         ret(match self {
             Constant(value, ty) => {
-                ty.check_wf::<T>()?;
+                ty.check_wf::<T>(prog)?;
                 value.check_wf::<T>(ty, prog)?;
                 ty
             }
             Tuple(exprs, t) => {
-                t.check_wf::<T>()?;
+                t.check_wf::<T>(prog)?;
 
                 match t {
                     Type::Tuple { sized_fields, unsized_field, .. } => {
@@ -315,7 +324,7 @@ impl ValueExpr {
                 t
             }
             Union { field, expr, union_ty } => {
-                union_ty.check_wf::<T>()?;
+                union_ty.check_wf::<T>(prog)?;
 
                 let Type::Union { fields, .. } = union_ty else {
                     throw_ill_formed!("ValueExpr::Union: invalid type")
@@ -333,7 +342,7 @@ impl ValueExpr {
                 let Type::Enum { variants, .. } = enum_ty else { 
                     throw_ill_formed!("ValueExpr::Variant: invalid type")
                 };
-                enum_ty.check_wf::<T>()?;
+                enum_ty.check_wf::<T>(prog)?;
                 let Some(variant) = variants.get(discriminant) else {
                     throw_ill_formed!("ValueExpr::Variant: invalid discriminant");
                 };
@@ -354,7 +363,7 @@ impl ValueExpr {
                 val_ty
             }
             AddrOf { target, ptr_ty } => {
-                ptr_ty.check_wf::<T>()?;
+                ptr_ty.check_wf::<T>(prog)?;
                 let target_ty = target.check_wf::<T>(locals, prog)?;
                 ensure_wf(target_ty.meta_kind() == ptr_ty.meta_kind(), "ValueExpr::AddrOf: mismatched metadata kind")?;
                 // No check of how the alignment changes here -- that is purely a runtime constraint.
@@ -403,7 +412,7 @@ impl ValueExpr {
                         ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
                     }
                     ComputeSize(ty) | ComputeAlign(ty) => {
-                        ty.check_wf::<T>()?;
+                        ty.check_wf::<T>(prog)?;
                         // A thin pointer can also be the target type, with unit metadata.
                         let meta_ty = ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
                         if operand != meta_ty {
@@ -411,13 +420,14 @@ impl ValueExpr {
                         }
                         Type::Int(IntType::usize_ty::<T>())
                     }
-                    VTableMethodLookup(_method) => {
-                        let Type::Ptr(PtrType::VTablePtr) = operand else {
+                    VTableMethodLookup(method) => {
+                        let Type::Ptr(PtrType::VTablePtr(trait_name)) = operand else {
                             throw_ill_formed!("UnOp::VTableMethodLookup: invalid operand: not a vtable pointer");
                         };
 
-                        // We do not statically have enough information to check that the method name exists in the right vtable,
-                        // but this is only a type safety problem, which we don't catch anyways.
+                        // The trait must exist since the type is well-formed.
+                        let trait_methods = prog.traits[trait_name];
+                        ensure_wf(trait_methods.contains(method), "UnOp::VTableMethodLookup: invalid operand: method doesn't exist in trait")?;
 
                         Type::Ptr(PtrType::FnPtr)
                     }
@@ -521,7 +531,7 @@ impl PlaceExpr {
                 }
             },
             Deref { operand, ty } => {
-                ty.check_wf::<T>()?;
+                ty.check_wf::<T>(prog)?;
                 let op_ty = operand.check_wf::<T>(locals, prog)?;
                 let Type::Ptr(op_ptr_ty) = op_ty else {
                     throw_ill_formed!("PlaceExpr::Deref: invalid operand type");
@@ -742,7 +752,7 @@ impl Function {
         // Ensure all locals have a valid type.
         for ty in self.locals.values() {
             ensure_wf(ty.layout::<T>().is_sized(), "Function: unsized local variable")?;
-            ty.check_wf::<T>()?;
+            ty.check_wf::<T>(prog)?;
         }
 
         // Compute initially live locals: arguments and return values.
@@ -789,6 +799,16 @@ impl Relocation {
 
 impl Program {
     fn check_wf<T: Target>(self) -> Result<()> {
+        // Check vtables: All vtables for the same trait must have all trait methods defined.
+        for (_name, vtable) in self.vtables {
+            ensure_wf(vtable.size.bytes() % vtable.align.bytes() == 0, "Program: size stored in vtable not a multiple of alignment")?;
+            let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
+                throw_ill_formed!("Program: vtable for unknown trait");
+            };
+            let methods = vtable.methods.keys().collect::<Set<_>>();
+            ensure_wf(methods == trait_methods, "Program: vtable has not the right set of methods")?;
+        }
+
         // Check all the functions.
         for function in self.functions.values() {
             function.check_wf::<T>(self)?;
@@ -815,17 +835,6 @@ impl Program {
 
                 relocation.check_wf(self.globals)?;
             }
-        }
-
-        // Check vtables: All vtables for the same trait must have the same method names defined.
-        for (_name, vtable) in self.vtables {
-            ensure_wf(vtable.size.bytes() % vtable.align.bytes() == 0, "Program: size stored in vtable not a multiple of alignment")?;
-
-            let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
-                throw_ill_formed!("Program: vtable for unknown trait");
-            };
-            let methods = vtable.methods.keys().collect::<Set<_>>();
-            ensure_wf(methods == trait_methods, "Program: vtable has not the right set of methods")?;
         }
 
         ret(())
