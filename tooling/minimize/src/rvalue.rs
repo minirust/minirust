@@ -360,8 +360,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
                 }
             }
-
-            smir::Rvalue::ShallowInitBox(..) | smir::Rvalue::ThreadLocalRef(..) =>
+            smir::Rvalue::ShallowInitBox(op, ty) => {
+                // This is just a transmute that borrowck treats specially.
+                let op = self.translate_operand_smir(op, span);
+                let boxed_ty = smir::Ty::new_box(*ty);
+                build::transmute(op, self.translate_ty_smir(boxed_ty, span))
+            }
+            smir::Rvalue::ThreadLocalRef(..) =>
                 rs::span_bug!(span, "rvalue not supported: {rv:?}"),
         }
     }
