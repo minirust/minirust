@@ -327,6 +327,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         build::transmute(operand, ty)
                     }
                     smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer) => {
+                        // FIXME: Currently we always use the same result pointer here.
+                        // Should we make this non-deterministic to model the duplication of
+                        // functions hat rustc performs?
                         let smir::Operand::Constant(f1) = operand else { panic!() };
                         let smir::TyKind::RigidTy(smir::RigidTy::FnDef(f, substs_ref)) =
                             f1.ty().kind()
