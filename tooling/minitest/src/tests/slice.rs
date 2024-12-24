@@ -177,6 +177,13 @@ fn index_with_transmuted() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Corresponds to
+/// ```rust
+/// let x: [u32; 3] = [42, 43, 44];
+/// let y = &x as &[u32];
+/// let z = *unsafe { y.get_unchecked(1) };
+/// assert!(z == 43);
+/// ```
 #[test]
 fn index_with_constructed() {
     let mut p = ProgramBuilder::new();
@@ -185,23 +192,32 @@ fn index_with_constructed() {
         let mut f = p.declare_function();
         // Make array
         let arr = f.declare_local::<[u32; 3]>();
+        let slice = f.declare_local::<&[u32]>();
+        let elem = f.declare_local::<u32>();
         f.storage_live(arr);
-        f.assign(index(arr, const_int(0)), const_int(42_u32));
-        f.assign(index(arr, const_int(1)), const_int(43_u32));
-        f.assign(index(arr, const_int(2)), const_int(44_u32));
-        let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&[u32; 3]>::get_type()),
-            const_int(3_usize),
-            <&[u32]>::get_type(),
+        f.storage_live(slice);
+        f.storage_live(elem);
+        f.assign(
+            arr,
+            array(&[const_int(42_u32), const_int(43_u32), const_int(44_u32)], <u32>::get_type()),
         );
-        // Print slice[1]
-        let loaded_val = load(index(deref(slice_ptr, <[u32]>::get_type()), const_int(1)));
-        f.assume(eq(loaded_val, const_int(43_u32)));
+        f.assign(
+            slice,
+            construct_wide_pointer(
+                addr_of(arr, <&[u32; 3]>::get_type()),
+                const_int(3_usize),
+                <&[u32]>::get_type(),
+            ),
+        );
+        // Load and check slice[1]
+        f.assign(elem, load(index(deref(load(slice), <[u32]>::get_type()), const_int(1))));
+        f.assume(eq(load(elem), const_int(43_u32)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
+    dump_program(p);
     assert_stop::<BasicMem>(p);
 }
 
@@ -286,6 +302,11 @@ fn too_large_slice() {
     assert_ub::<BasicMem>(p, "Value::Ptr: total size exeeds isize::MAX");
 }
 
+/// ```rust
+/// let x: [u32; 3] = [42, 43, 44];
+/// let y = &x as &[u32];
+/// assert!(y.len() == 3);
+/// ```
 #[test]
 fn get_metadata_correct() {
     let mut p = ProgramBuilder::new();
@@ -295,23 +316,30 @@ fn get_metadata_correct() {
         // Make array
         let arr = f.declare_local::<[u32; 3]>();
         f.storage_live(arr);
-        f.assign(index(arr, const_int(0)), const_int(42_u32));
-        f.assign(index(arr, const_int(1)), const_int(43_u32));
-        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        f.assign(
+            arr,
+            array(&[const_int(42_u32), const_int(43_u32), const_int(44_u32)], <u32>::get_type()),
+        );
         // Construct a slice reference
-        let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&[u32; 3]>::get_type()),
-            const_int(3_usize),
-            <&[u32]>::get_type(),
+        let slice = f.declare_local::<&[u32]>();
+        f.storage_live(slice);
+        f.assign(
+            slice,
+            construct_wide_pointer(
+                addr_of(arr, <&[u32; 3]>::get_type()),
+                const_int(3_usize),
+                <&[u32]>::get_type(),
+            ),
         );
         // Get the metadata again && assert it to be correct
-        let loaded_len = get_metadata(slice_ptr);
+        let loaded_len = get_metadata(load(slice));
         f.assume(eq(loaded_len, const_int(3_usize)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
+    dump_program(p);
     assert_stop::<BasicMem>(p);
 }
 
