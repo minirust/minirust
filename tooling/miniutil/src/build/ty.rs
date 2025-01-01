@@ -58,6 +58,19 @@ pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
     }
 }
 
+pub fn unsized_tuple_ty(
+    fs: &[(Offset, Type)],
+    unsized_ty: Type,
+    end: Offset,
+    align: Align,
+) -> Type {
+    Type::Tuple {
+        sized_fields: fs.iter().copied().collect(),
+        sized_head_layout: TupleHeadLayout { end, align },
+        unsized_field: GcCow::new(Some(unsized_ty)),
+    }
+}
+
 pub fn union_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
     let chunks = list![(Size::ZERO, size)];
     Type::Union { fields: f.iter().copied().collect(), size, align, chunks }

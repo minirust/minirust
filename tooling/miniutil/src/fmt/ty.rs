@@ -89,8 +89,8 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         false => ", uninhabited",
     };
     let freeze_str = match pointee.freeze {
-        true => ", freeze",
-        false => "",
+        true => "",
+        false => ", unfreeze",
     };
     let pin_str = match pointee.unpin {
         true => "",
