@@ -453,10 +453,6 @@ impl ValueExpr {
                     Rel(rel_op) => {
                         ensure_wf(matches!(left, Type::Int(_) | Type::Bool | Type::Ptr(_)), "BinOp::Rel: invalid left type")?;
                         ensure_wf(right == left, "BinOp::Rel: invalid right type")?;
-                        if let Type::Ptr(ptr_ty) = left {
-                            // TODO(UnsizedTypes): add support for this
-                            ensure_wf(ptr_ty.meta_kind() == PointerMetaKind::None, "BinOp::Rel: cannot compare wide pointers (yet)")?;
-                        }
                         match rel_op {
                             RelOp::Cmp => Type::Int(IntType::I8),
                             _ => Type::Bool,
