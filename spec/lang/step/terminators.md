@@ -82,9 +82,10 @@ fn check_abi_compatibility(
             caller_ty == callee_ty,
         (Type::Bool, Type::Bool) =>
             true,
-        (Type::Ptr(_), Type::Ptr(_)) =>
-            // The kind of pointer and pointee details do not matter for ABI.
-            true,
+        (Type::Ptr(caller_ty), Type::Ptr(callee_ty)) =>
+            // The kind of pointer and pointee details do not matter for ABI,
+            // however, the metadata kind does.
+            caller_ty.meta_kind() == callee_ty.meta_kind(),
         (Type::Tuple { fields: caller_fields, size: caller_size, align: caller_align },
          Type::Tuple { fields: callee_fields, size: callee_size, align: callee_align }) =>
             caller_fields.len() == callee_fields.len() &&
