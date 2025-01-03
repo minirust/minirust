@@ -23,7 +23,7 @@ fn unit_value<M: Memory>() -> Value<M> {
 
 fn unit_type() -> Type {
     Type::Tuple { sized_fields: list![], sized_head_layout: TupleHeadLayout {
-        end: Size::ZERO, align: Align::ONE
+        end: Size::ZERO, align: Align::ONE, packed_align: None,
     }, unsized_field: None }
 }
 ```

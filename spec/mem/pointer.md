@@ -100,11 +100,11 @@ pub struct TupleHeadLayout {
     /// Also determines the size together with the padding to satisfy alignment and tail size.
     pub end: Offset,
 
-    /// The alignment of the head. This is the maximal alignment of any sized field.
+    /// The alignment of the head. This is the maximal alignment of any sized field and capped to the packed alignment.
     pub align: Align,
 
-    // FIXME: Figure out semantics. I think, even if this is Some, the align is still interesting, as it might be lower.
-    // packed_align: Option<Align>,
+    /// If this is `Some(a)` the alignment of the tail will be capped at this value.
+    pub packed_align: Option<Align>,
 }
 
 /// Describes how the size and align of the value can be determined.

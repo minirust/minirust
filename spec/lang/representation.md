@@ -152,6 +152,7 @@ impl PtrType {
             sized_head_layout: TupleHeadLayout {
                 end: Int::from(2) * T::PTR_SIZE,
                 align: T::PTR_ALIGN,
+                packed_align: None,
             },
             unsized_field: None,
         })

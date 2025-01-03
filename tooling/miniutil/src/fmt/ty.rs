@@ -74,7 +74,7 @@ fn fmt_layout_strategy(layout: LayoutStrategy) -> String {
         LayoutStrategy::TraitObject(..) => "size,align={unknown}".into(),
         LayoutStrategy::Tuple { head, tail } =>
             format!(
-                "head=(end={}, align={}), tail=({}))",
+                "head=(end={}, align={}), tail=({})",
                 head.end.bytes(),
                 head.align.bytes(),
                 fmt_layout_strategy(tail.extract())
@@ -90,11 +90,11 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
     };
     let freeze_str = match pointee.freeze {
         true => "",
-        false => ", unfreeze",
+        false => ", !Freeze",
     };
     let pin_str = match pointee.unpin {
         true => "",
-        false => ", pin",
+        false => ", !Unpin",
     };
     let meta_str = fmt_meta_kind(pointee.layout.meta_kind());
     format!("pointee_info({meta_str}, {layout_str}{uninhab_str}{freeze_str}{pin_str})")

@@ -28,6 +28,9 @@ impl IntType {
 impl TupleHeadLayout {
     fn check_wf<T: Target>(self) -> Result<()> {
         ensure_wf(T::valid_size(self.end), "TupleHeadLayout: end not valid")?;
+        if let Some(packed) = self.packed_align {
+            ensure_wf(self.align <= packed, "TupleHeadLayout: align bigger than packed attribute")?;
+        }
         ret(())
     }
 }
@@ -121,8 +124,12 @@ impl Type {
                 }
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
-                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
                 sized_head_layout.check_wf::<T>()?;
+                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
+                if sized_head_layout.packed_align.is_some() {
+                    // If the tuple is sized, the packed attribute is already embedded in the offsets and total align.
+                    ensure_wf(unsized_field.is_some(), "Type::Tuple: meaningless packed align for sized tuple")?;
+                }
             }
             Array { elem, count } => {
                 ensure_wf(count >= 0, "Type::Array: negative amount of elements")?;
@@ -395,6 +402,7 @@ impl ValueExpr {
                         ptr_ty.meta_kind().ty::<T>().unwrap_or_else(unit_type)
                     }
                     ComputeSize(ty) | ComputeAlign(ty) => {
+                        ty.check_wf::<T>()?;
                         // A thin pointer can also be the target type, with unit metadata.
                         let meta_ty = ty.meta_kind().ty::<T>().unwrap_or_else(unit_type);
                         if operand != meta_ty {

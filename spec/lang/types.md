@@ -197,18 +197,30 @@ And we also define how to compute the actual size and alignment.
 
 ```rust
 impl TupleHeadLayout {
+    /// The actual align of the tail, considering the packed attribute
+    fn capped_tail_align(self, tail_align: Align) -> Align {
+        match self.packed_align {
+            Some(packed_align) => tail_align.min(packed_align),
+            None => tail_align,
+        }
+    }
+
+    /// Where the tail starts, given the aligment of the tail type.
     pub fn tail_offset(self, tail_align: Align) -> Offset {
-        // TODO: support packed self
-        let tail_offset = Size::from_bytes(self.end.bytes().next_multiple_of(tail_align.bytes())).unwrap();
+        let capped_tail_align = self.capped_tail_align(tail_align);
+        // `self.end.align_to(capped_tail_align)`.
+        let tail_offset = Size::from_bytes(self.end.bytes().next_multiple_of(capped_tail_align.bytes())).unwrap();
         tail_offset
     }
 
+    /// The size and alignment of the full tuple, including the tail.
+    /// Given the size and alignment of the tail type.
     pub fn full_size_and_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
-        // TODO: support packed self
-        let align = tail_align.max(self.align);
+        let capped_tail_align = self.capped_tail_align(tail_align);
+        let align = capped_tail_align.max(self.align);
         let tail_offset = self.tail_offset(tail_align);
         let end = tail_offset + tail_size;
-        let size = Size::from_bytes(end.bytes().next_multiple_of(tail_align.bytes())).unwrap();
+        let size = Size::from_bytes(end.bytes().next_multiple_of(align.bytes())).unwrap();
         (size, align)
     }
 
@@ -308,6 +320,7 @@ impl IntType {
             sized_head_layout: TupleHeadLayout {
                 end: size,
                 align,
+                packed_align: None,
             },
             unsized_field: None,
         }
