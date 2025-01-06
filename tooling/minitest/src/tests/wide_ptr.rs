@@ -1,6 +1,32 @@
 use crate::*;
 
 #[test]
+fn ub_wide_thin_abi_incompatible() {
+    let mut p = ProgramBuilder::new();
+
+    let foo = {
+        let mut f = p.declare_function();
+        let _arg = f.declare_arg::<*const [u32]>();
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let main = {
+        let mut f = p.declare_function();
+        let x = f.declare_local::<u32>();
+        f.storage_live(x);
+        // UB: `*const u32` and `*const [u32]` are different size and thus certainly
+        // not ABI compatible.
+        f.call_ignoreret(fn_ptr(foo), &[by_value(addr_of(x, <*const u32>::get_type()))]);
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main);
+    assert_ub::<BasicMem>(p, "call ABI violation: argument types are not compatible");
+}
+
+#[test]
 fn get_metadata_non_ptr_ill_formed() {
     let mut p = ProgramBuilder::new();
 
