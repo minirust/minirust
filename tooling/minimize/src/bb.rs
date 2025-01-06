@@ -468,9 +468,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             // Distinguish direct function calls or dynamic dispatch on a trait object.
             let callee = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
                 // FIXME: This does not implement all receivers as allowed by `std::ops::DispatchFromDyn`.
-                // It doesn't (and also can't) properly adjust the type, however, MiniRust only requires the argument
-                // to be *abi-compatible*, which for pointers is defined as having the same meta data kind.
-                // Thus this currently only works if the receiver of the trait is some thin pointer.
+                // It can't properly adjust the type, as the pointee info is only known at runtime.
+                // However, MiniRust only requires the argument to be *abi-compatible*,
+                // which for pointers is defined as having the same meta data kind.
+                // Thus this can be supported by first transmuting the self operand to a wide raw pointer of the correct trait,
+                // then transmuting it back to the receiver type of the trait method.
                 let receiver = self.translate_operand(&rs_args[0].node, rs_args[0].span);
                 let adjusted_receiver = build::by_value(build::get_thin_pointer(receiver));
                 args.set(Int::from(0), adjusted_receiver);

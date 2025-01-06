@@ -14,6 +14,7 @@ pub struct Ctxt<'tcx> {
     pub vtable_map:
         HashMap<(rs::Ty<'tcx>, &'tcx rs::List<rs::PolyExistentialPredicate<'tcx>>), VTableName>,
     pub vtables: Map<VTableName, VTable>,
+
     /// Stores which AllocId evaluates to which GlobalName.
     pub alloc_map: HashMap<rs::AllocId, GlobalName>,
 

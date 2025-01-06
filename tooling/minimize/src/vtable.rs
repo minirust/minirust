@@ -4,7 +4,7 @@ impl<'tcx> Ctxt<'tcx> {
     /// Gets the vtable name for the given type and trait object or creates it if it doesn't exist yet.
     /// `trait_obj_ty` must be of kind [`rs::TyKind::Dynamic`].
     pub fn get_vtable(&mut self, ty: rs::Ty<'tcx>, trait_obj_ty: rs::Ty<'tcx>) -> VTableName {
-        let rs::TyKind::Dynamic(trait_, _, _) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
             panic!("get_vtable called on non trait object type");
         };
         if let Some(vtable_name) = self.vtable_map.get(&(ty, trait_)) {
@@ -21,7 +21,7 @@ impl<'tcx> Ctxt<'tcx> {
 
     /// Generates a vtable for the given type and trait object.
     fn generate_vtable(&mut self, ty: rs::Ty<'tcx>, trait_obj_ty: rs::Ty<'tcx>) -> VTable {
-        let rs::TyKind::Dynamic(trait_, _, _) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
             panic!("generate_vtable called on non trait object type");
         };
         // Get the size and align
@@ -39,27 +39,24 @@ impl<'tcx> Ctxt<'tcx> {
             entries
                 .iter()
                 .enumerate()
-                .filter_map(|(idx, entry)| self.vtable_entry_to_trait_method(idx as _, entry))
+                .filter_map(|(idx, entry)| {
+                    match entry {
+                        rs::VtblEntry::Method(func) =>
+                            Some((
+                                TraitMethodName(Name::from_internal(idx as _)),
+                                self.get_fn_name(*func),
+                            )),
+                        _ => None,
+                    }
+                })
                 .collect()
         } else {
+            // This dyn type has no principal trait, and therefore no methods.
             Map::new()
         };
         let trait_name = self.get_trait_name(trait_obj_ty);
 
         VTable { trait_name, size, align, methods }
-    }
-
-    /// Generate an method implementation for a vtable entry if it is a method.
-    fn vtable_entry_to_trait_method(
-        &mut self,
-        idx: u32,
-        entry: &rs::VtblEntry<'tcx>,
-    ) -> Option<(TraitMethodName, FnName)> {
-        match entry {
-            rs::VtblEntry::Method(func) =>
-                Some((TraitMethodName(Name::from_internal(idx as _)), self.get_fn_name(*func))),
-            _ => None,
-        }
     }
 
     /// Returns TraitName for a given trait object. If it does not exist it creates a new one.
@@ -94,10 +91,13 @@ impl<'tcx> Ctxt<'tcx> {
         let existential_trait_ref =
             self.tcx.instantiate_bound_regions_with_erased(trait_.principal().unwrap());
         // A trait ref with `dyn Trait` as the self type.
+        // This corresponds to `dyn Trait: Trait`, which matches how the Rust compiler
+        // handles a method call on `dyn Trait`.
         let trait_ref = existential_trait_ref.with_self_ty(self.tcx, trait_obj_ty);
         let vtable_base = self.tcx.first_method_vtable_slot(trait_ref);
 
-        // The method names are given by an base offset and the index.
+        // The method names are given by the index into the vtable, which is the base offset
+        // plus the index into the "own_existential_vtable_entries" list.
         self.tcx
             .own_existential_vtable_entries(princial_def_id)
             .iter()
