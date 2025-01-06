@@ -36,6 +36,7 @@ pub enum Type {
         /// A last field (in terms of offset) may contain an unsized type,
         /// then its offset is given by rounding the `end` of `sized_head_layout` up to the alignment of this type.
         #[specr::indirection]
+        // FIXME: Due to `specr::indirection` we cannot match on this field.
         unsized_field: Option<Type>,
     },
     Array {
@@ -157,7 +158,7 @@ impl Type {
             Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
             Tuple { sized_head_layout, unsized_field, .. } => match unsized_field {
                 None => {
-                    let (size, align) = sized_head_layout.full_size_and_align(Size::ZERO, Align::ONE);
+                    let (size, align) = sized_head_layout.head_size_and_align();
                     Sized(size, align)
                 }
                 Some(tail_ty) => LayoutStrategy::Tuple {
@@ -208,8 +209,7 @@ impl TupleHeadLayout {
     /// Where the tail starts, given the aligment of the tail type.
     pub fn tail_offset(self, tail_align: Align) -> Offset {
         let capped_tail_align = self.capped_tail_align(tail_align);
-        // `self.end.align_to(capped_tail_align)`.
-        let tail_offset = Size::from_bytes(self.end.bytes().next_multiple_of(capped_tail_align.bytes())).unwrap();
+        let tail_offset = self.end.align_to(capped_tail_align);
         tail_offset
     }
 
@@ -220,13 +220,14 @@ impl TupleHeadLayout {
         let align = capped_tail_align.max(self.align);
         let tail_offset = self.tail_offset(tail_align);
         let end = tail_offset + tail_size;
-        let size = Size::from_bytes(end.bytes().next_multiple_of(align.bytes())).unwrap();
+        let size = end.align_to(align);
         (size, align)
     }
 
     /// Returns the size and alignment of the tuple when there is no tail.
     pub fn head_size_and_align(self) -> (Size, Align) {
-        self.full_size_and_align(Size::ZERO, Align::ONE)
+        // This is equivalent to `full_size_and_align(ZERO, ONE)`.
+        (self.end.align_to(self.align), self.align)
     }
 }
 

@@ -62,8 +62,8 @@ impl LayoutStrategy {
                 ensure_wf(size.bytes() % align.bytes() == 0, "check_aligned: element size not a multiple of alignment")?;
             }
             LayoutStrategy::TraitObject(..) => (),
-            // The size and align computation aligns the size.
-            LayoutStrategy::Tuple {..} => (),
+            // The size and align computation aligns the size of the full tuple.
+            LayoutStrategy::Tuple { tail, .. } => tail.check_aligned()?,
         };
 
         ret(())
@@ -125,7 +125,7 @@ impl Type {
                 // And they must all fit into the size.
                 // The size is in turn checked to be valid for `M`, and hence all offsets are valid, too.
                 sized_head_layout.check_wf::<T>()?;
-                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than total the end of the sized head")?;
+                ensure_wf(sized_head_layout.end >= last_end, "Type::Tuple: size of fields is bigger than the end of the sized head")?;
                 if sized_head_layout.packed_align.is_some() {
                     // If the tuple is sized, the packed attribute is already embedded in the offsets and total align.
                     ensure_wf(unsized_field.is_some(), "Type::Tuple: meaningless packed align for sized tuple")?;
@@ -294,7 +294,7 @@ impl ValueExpr {
 
                 match t {
                     Type::Tuple { sized_fields, unsized_field, .. } => {
-                        ensure_wf(unsized_field.is_none(), "ValueExpr::Tuple: aggregating an unsized tuple")?;
+                        ensure_wf(unsized_field.is_none(), "ValueExpr::Tuple: constructing an unsized tuple value")?;
                         ensure_wf(exprs.len() == sized_fields.len(), "ValueExpr::Tuple: invalid number of tuple fields")?;
                         for (e, (_offset, ty)) in exprs.zip(sized_fields) {
                             let checked = e.check_wf::<T>(locals, prog)?;
@@ -532,13 +532,19 @@ impl PlaceExpr {
             Field { root, field } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 let field_ty = match root {
-                    Type::Tuple { sized_fields, unsized_field, .. } if field == sized_fields.len() => {
-                        let Some(unsized_ty) = unsized_field else {
+                    Type::Tuple { sized_fields, unsized_field, .. } => {
+                        if field < sized_fields.len() {
+                            sized_fields[field].1
+                        } else if field == sized_fields.len() {
+                            let Some(unsized_ty) = unsized_field else {
+                                throw_ill_formed!("PlaceExpr::Field: invalid field");
+                            };
+                            unsized_ty
+                        } else {
                             throw_ill_formed!("PlaceExpr::Field: invalid field");
-                        };
-                        unsized_ty
+                        }
                     }
-                    Type::Tuple { sized_fields: fields, .. } | Type::Union { fields, .. } => {
+                    Type::Union { fields, .. } => {
                         match fields.get(field) {
                             None => throw_ill_formed!("PlaceExpr::Field: invalid field"),
                             Some(field) => field.1,

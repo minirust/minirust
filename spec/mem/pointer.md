@@ -94,16 +94,17 @@ pub struct PointeeInfo {
     pub unpin: bool,
 }
 
-/// Describes what is needed to define the layout of the sized head of a tuple `(head, tail)`.
+/// Describes what is needed to define the layout of the sized head of a tuple `(head.., tail)`.
 pub struct TupleHeadLayout {
     /// The offset where the head ends and tail starts.
-    /// Also determines the size together with the padding to satisfy alignment and tail size.
+    /// This is the end of the last sized field; it is *not* necessarily aligned to `align`.
     pub end: Offset,
 
     /// The alignment of the head. This is the maximal alignment of any sized field and capped to the packed alignment.
     pub align: Align,
 
     /// If this is `Some(a)` the alignment of the tail will be capped at this value.
+    /// Must be `None` for sized tuples.
     pub packed_align: Option<Align>,
 }
 

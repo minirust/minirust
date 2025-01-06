@@ -90,8 +90,8 @@ fn check_abi_compatibility(
          Type::Tuple { sized_fields: callee_fields, sized_head_layout: callee_head_layout, unsized_field: callee_unsized_field }) => {
             let (caller_size, caller_align) = caller_head_layout.head_size_and_align();
             let (callee_size, callee_align) = callee_head_layout.head_size_and_align();
-            caller_unsized_field.is_none() &&
-            callee_unsized_field.is_none() &&
+            assert!(caller_unsized_field.is_none(), "wf ensures all arugments are sized");
+            assert!(callee_unsized_field.is_none(), "wf ensures all arugments are sized");
             caller_fields.len() == callee_fields.len() &&
             caller_fields.zip(callee_fields).all(|(caller_field, callee_field)|
                 caller_field.0 == callee_field.0 && check_abi_compatibility(caller_field.1, callee_field.1)

@@ -263,6 +263,7 @@ fn size_of_nested_struct() {
     assert_stop::<BasicMem>(p);
 }
 
+/// The alignment of the sized fields must not exceed the packed attribute
 #[test]
 fn ill_align_larger_than_packed() {
     let mut p = ProgramBuilder::new();
@@ -286,6 +287,7 @@ fn ill_align_larger_than_packed() {
     assert_ill_formed::<BasicMem>(p, "TupleHeadLayout: align bigger than packed attribute");
 }
 
+/// Setting a packed attribute is only relevant for unsized tail computations, thus a sized struct must not set this.
 #[test]
 fn ill_packed_on_sized() {
     let mut p = ProgramBuilder::new();
@@ -311,6 +313,25 @@ fn ill_packed_on_sized() {
     assert_ill_formed::<BasicMem>(p, "Type::Tuple: meaningless packed align for sized tuple");
 }
 
+/// The fields in the tuple head must be sized
+#[test]
+fn ill_unsized_head() {
+    let mut p = ProgramBuilder::new();
+
+    let ill_ty = tuple_ty(&[(size(0), <[u16]>::get_type())], size(2), align(2));
+
+    let main = {
+        let mut f = p.declare_function();
+        f.print(compute_size(ill_ty, const_int(1_usize)));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main);
+    assert_ill_formed::<BasicMem>(p, "Type::Tuple: unsized field type in head");
+}
+
+/// The unsized tail of a tuple must not be sized.
 #[test]
 fn ill_sized_tail() {
     let mut p = ProgramBuilder::new();
@@ -332,4 +353,57 @@ fn ill_sized_tail() {
 
     let p = p.finish_program(main);
     assert_ill_formed::<BasicMem>(p, "Type::Tuple: sized unsized field type");
+}
+
+/// The end of a tuple must be after every field.
+#[test]
+fn ill_size_too_small() {
+    let mut p = ProgramBuilder::new();
+
+    let ill_ty = tuple_ty(
+        &[(size(0), <u64>::get_type()), (size(8), <()>::get_type()), (size(8), <u32>::get_type())],
+        size(10),
+        align(2),
+    );
+
+    let main = {
+        let mut f = p.declare_function();
+        f.print(compute_size(ill_ty, const_int(1_usize)));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main);
+    assert_ill_formed::<BasicMem>(
+        p,
+        "Type::Tuple: size of fields is bigger than the end of the sized head",
+    );
+}
+
+/// An aggregate operation can only work with sized tuples.
+#[test]
+fn ill_aggregate_unsized() {
+    let mut p = ProgramBuilder::new();
+
+    // type `(u16, [u8])`
+    let ty = unsized_tuple_ty(
+        &[(size(0), <u16>::get_type())],
+        <[u8]>::get_type(),
+        size(2),
+        align(2),
+        None,
+    );
+
+    let main = {
+        let mut f = p.declare_function();
+        let x =
+            f.declare_local_with_ty(tuple_ty(&[(size(0), <u16>::get_type())], size(2), align(2)));
+        f.storage_live(x);
+        f.assign(x, tuple(&[const_int(4_u16)], ty));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main);
+    assert_ill_formed::<BasicMem>(p, "ValueExpr::Tuple: constructing an unsized tuple value");
 }

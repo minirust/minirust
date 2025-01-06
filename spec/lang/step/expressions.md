@@ -271,21 +271,27 @@ impl<M: Memory> Machine<M> {
 impl<M: Memory> Machine<M> {
     fn eval_place(&mut self, PlaceExpr::Field { root, field }: PlaceExpr) -> Result<(Place<M>, Type)> {
         let (root, ty) = self.eval_place(root)?;
-        let ((offset, field_ty), retain_metadata) = match ty {
-            Type::Tuple { sized_fields, .. } if field < sized_fields.len() => (sized_fields[field], false),
-            Type::Tuple { sized_fields, unsized_field, sized_head_layout } if field == sized_fields.len() => {
-                let tail_ty = unsized_field.expect("field projection to non-existing tail");
-                let tail_align = self.compute_align(tail_ty.layout::<M::T>(), root.ptr.metadata);
-                let offset = sized_head_layout.tail_offset(tail_align);
-                ((offset, tail_ty), true)
+        let (offset, field_ty) = match ty {
+            Type::Tuple { sized_fields, unsized_field, sized_head_layout } => {
+                if field < sized_fields.len() {
+                    sized_fields[field]
+                } else if field == sized_fields.len() {
+                    let tail_ty = unsized_field.expect("field projection to non-existing unsized tail");
+                    let tail_align = self.compute_align(tail_ty.layout::<M::T>(), root.ptr.metadata);
+                    let offset = sized_head_layout.tail_offset(tail_align);
+                    (offset, tail_ty)
+                } else {
+                    panic!("field projection to invalid field");
+                }
             }
-            Type::Union { fields, .. } => (fields[field], false),
+            Type::Union { fields, .. } => fields[field],
             _ => panic!("field projection on non-projectable type"),
         };
         assert!(offset <= self.compute_size(ty.layout::<M::T>(), root.ptr.metadata));
 
         let ptr = self.ptr_offset_inbounds(root.ptr.thin_pointer, offset.bytes())?;
-        let ptr = if retain_metadata {
+        let ptr = if !field_ty.layout::<M::T>().is_sized() {
+            // Unsized fields should retain the metadata
             ptr.widen(root.ptr.metadata)
         } else { 
             ptr.widen(None)
