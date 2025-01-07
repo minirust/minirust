@@ -46,6 +46,16 @@ impl<'tcx> Ctxt<'tcx> {
                                 TraitMethodName(Name::from_internal(idx as _)),
                                 self.get_fn_name(*func),
                             )),
+                        rs::VtblEntry::MetadataDropInPlace => {
+                            let drop_in_place_fn =
+                                rs::Instance::resolve_drop_in_place(self.tcx, ty);
+                            Some((
+                                TraitMethodName(Name::from_internal(
+                                    rs::COMMON_VTABLE_ENTRIES_DROPINPLACE as _,
+                                )),
+                                self.get_fn_name(drop_in_place_fn),
+                            ))
+                        }
                         _ => None,
                     }
                 })
@@ -98,11 +108,19 @@ impl<'tcx> Ctxt<'tcx> {
 
         // The method names are given by the index into the vtable, which is the base offset
         // plus the index into the "own_existential_vtable_entries" list.
-        self.tcx
+        let mut methods = self
+            .tcx
             .own_existential_vtable_entries(princial_def_id)
             .iter()
             .enumerate()
             .map(|(i, _)| TraitMethodName(Name::from_internal((vtable_base + i) as _)))
-            .collect()
+            .collect::<Set<_>>();
+
+        // Add the DropInPlace method for all traits.
+        methods.insert(TraitMethodName(Name::from_internal(
+            rs::COMMON_VTABLE_ENTRIES_DROPINPLACE as _,
+        )));
+
+        methods
     }
 }
