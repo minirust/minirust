@@ -28,7 +28,8 @@ pub fn fmt_program(prog: Program) -> String {
     let functions_string = fmt_functions(prog, &mut comptypes);
     let comptypes_string = fmt_comptypes(comptypes);
     let globals_string = fmt_globals(prog.globals);
+    let traits_string = fmt_traits(prog.traits);
     let vtables_string = fmt_vtables(prog.vtables);
 
-    comptypes_string + &functions_string + &globals_string + &vtables_string
+    comptypes_string + &traits_string + &vtables_string + &functions_string + &globals_string
 }

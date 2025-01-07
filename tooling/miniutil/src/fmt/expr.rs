@@ -165,8 +165,8 @@ pub(super) fn fmt_value_expr(v: ValueExpr, comptypes: &mut Vec<CompType>) -> Fmt
                 }
                 UnOp::VTableMethodLookup(method) =>
                     FmtExpr::NonAtomic(format!(
-                        "vtable_lookup<m{m_id}>({operand})",
-                        m_id = method.0.get_internal()
+                        "vtable_lookup<{meth}>({operand})",
+                        meth = fmt_trait_method_name(method)
                     )),
             }
         }
