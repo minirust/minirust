@@ -51,7 +51,25 @@ pub fn raw_void_ptr_ty() -> Type {
 }
 
 pub fn tuple_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {
-    Type::Tuple { fields: f.iter().copied().collect(), size, align }
+    Type::Tuple {
+        sized_fields: f.iter().copied().collect(),
+        sized_head_layout: TupleHeadLayout { end: size, align, packed_align: None },
+        unsized_field: GcCow::new(None),
+    }
+}
+
+pub fn unsized_tuple_ty(
+    fs: &[(Offset, Type)],
+    unsized_ty: Type,
+    end: Offset,
+    align: Align,
+    packed_align: Option<Align>,
+) -> Type {
+    Type::Tuple {
+        sized_fields: fs.iter().copied().collect(),
+        sized_head_layout: TupleHeadLayout { end, align, packed_align },
+        unsized_field: GcCow::new(Some(unsized_ty)),
+    }
 }
 
 pub fn union_ty(f: &[(Offset, Type)], size: Size, align: Align) -> Type {

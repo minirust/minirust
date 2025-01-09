@@ -94,6 +94,20 @@ pub struct PointeeInfo {
     pub unpin: bool,
 }
 
+/// Describes what is needed to define the layout of the sized head of a tuple `(head.., tail)`.
+pub struct TupleHeadLayout {
+    /// The offset where the head ends and tail starts.
+    /// This is the end of the last sized field; it is *not* necessarily aligned to `align`.
+    pub end: Offset,
+
+    /// The alignment of the head. This is the maximal alignment of any sized field and capped to the packed alignment.
+    pub align: Align,
+
+    /// If this is `Some(a)` the alignment of the tail will be capped at this value.
+    /// Must be `None` for sized tuples.
+    pub packed_align: Option<Align>,
+}
+
 /// Describes how the size and align of the value can be determined.
 pub enum LayoutStrategy {
     /// The type is statically `Sized` with the given size and align.
@@ -104,6 +118,12 @@ pub enum LayoutStrategy {
     /// The size of the type must be looked up in the VTable of a wide pointer.
     /// Additionally, the vtable must be for the given trait.
     TraitObject(TraitName),
+    /// The type constists of a sized head an unsized tail.
+    Tuple {
+        head: TupleHeadLayout,
+        #[specr::indirection]
+        tail: LayoutStrategy,
+    }
 }
 
 /// Stores all the information that we need to know about a pointer.

@@ -28,7 +28,7 @@ impl<'tcx> Ctxt<'tcx> {
                     span,
                 );
                 let variants = [(Int::ZERO, Variant {
-                    ty: Type::Tuple { fields, size, align },
+                    ty: build::tuple_ty(&fields.iter().collect::<Vec<_>>(), size, align),
                     tagger: Map::new(),
                 })];
                 let discriminator = Discriminator::Known(Int::ZERO);
@@ -61,8 +61,14 @@ impl<'tcx> Ctxt<'tcx> {
                             let tagger = [(tag_offset, (tag_ty, discr_int))]
                                 .into_iter()
                                 .collect::<Map<Offset, (IntType, Int)>>();
-                            let variant =
-                                Variant { ty: Type::Tuple { fields, size, align }, tagger };
+                            let variant = Variant {
+                                ty: build::tuple_ty(
+                                    &fields.iter().collect::<Vec<_>>(),
+                                    size,
+                                    align,
+                                ),
+                                tagger,
+                            };
                             translated_variants.insert(discr_int, variant);
                             discriminator_branches.insert(
                                 (discr_int, discr_int + Int::ONE),
@@ -88,7 +94,11 @@ impl<'tcx> Ctxt<'tcx> {
                                 Discriminator::Known(discr_int),
                             );
                             translated_variants.insert(discr_int, Variant {
-                                ty: Type::Tuple { fields, size, align },
+                                ty: build::tuple_ty(
+                                    &fields.iter().collect::<Vec<_>>(),
+                                    size,
+                                    align,
+                                ),
                                 tagger,
                             });
                         }
@@ -96,7 +106,11 @@ impl<'tcx> Ctxt<'tcx> {
                             // this is the untagged variant
                             // we don't add it to the discriminator branches as it will be the fallback.
                             translated_variants.insert(discr_int, Variant {
-                                ty: Type::Tuple { fields, size, align },
+                                ty: build::tuple_ty(
+                                    &fields.iter().collect::<Vec<_>>(),
+                                    size,
+                                    align,
+                                ),
                                 tagger: Map::new(),
                             });
                         }

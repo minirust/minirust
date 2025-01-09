@@ -148,10 +148,13 @@ impl PtrType {
         let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let metadata_field = (T::PTR_SIZE, meta_ty);
         ret(Type::Tuple {
-            fields: list![thin_pointer_field, metadata_field],
-            size: Int::from(2) * T::PTR_SIZE,
-            // This anyway does not matter as we only use this type to encode/decode values.
-            align: T::PTR_ALIGN,
+            sized_fields: list![thin_pointer_field, metadata_field],
+            sized_head_layout: TupleHeadLayout {
+                end: Int::from(2) * T::PTR_SIZE,
+                align: T::PTR_ALIGN,
+                packed_align: None,
+            },
+            unsized_field: None,
         })
     }
 }
@@ -227,23 +230,29 @@ impl Type {
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Tuple { fields, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Tuple { sized_fields, sized_head_layout, unsized_field }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        assert!(unsized_field.is_none(), "decode of Type::Tuple with unsized field");
+
+        let (size, _) = sized_head_layout.head_size_and_align();
         if bytes.len() != size.bytes() { panic!("decode of Type::Tuple with invalid length"); }
         ret(Value::Tuple(
-            fields.try_map(|(offset, ty)| {
+            sized_fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
                     offset.bytes(),
-                    ty.layout::<M::T>().expect_size("WF ensures all tuple fields are sized").bytes()
+                    ty.layout::<M::T>().expect_size("WF ensures all sized tuple fields are sized").bytes()
                 );
                 ty.decode::<M>(subslice)
             })?
         ))
     }
-    fn encode<M: Memory>(Type::Tuple { fields, size, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Tuple { sized_fields, sized_head_layout, unsized_field }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        assert!(unsized_field.is_none(), "encode of Type::Tuple with unsized field");
+
+        let (size, _) = sized_head_layout.head_size_and_align();
         let Value::Tuple(values) = val else { panic!() };
-        assert_eq!(values.len(), fields.len());
+        assert_eq!(values.len(), sized_fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
-        for ((offset, ty), value) in fields.zip(values) {
+        for ((offset, ty), value) in sized_fields.zip(values) {
             bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
         bytes
@@ -517,9 +526,10 @@ impl<M: Memory> Machine<M> {
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => self.check_pointer(ptr, ptr_ty)?,
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure_else_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
-                for (val, (_, ty)) in vals.zip(fields) {
+            (Value::Tuple(vals), Type::Tuple { sized_fields, unsized_field, .. }) => {
+                assert!(unsized_field.is_none(), "Value: unsized structs cannot be represented as values");
+                ensure_else_ub(vals.len() == sized_fields.len(), "Value::Tuple: invalid number of fields")?;
+                for (val, (_, ty)) in vals.zip(sized_fields) {
                     self.check_value(val, ty)?;
                 }
             }

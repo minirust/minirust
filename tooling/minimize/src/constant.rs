@@ -78,9 +78,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ),
                 }
             }
-            Type::Tuple { fields, .. } => {
+            Type::Tuple { sized_fields, unsized_field, .. } => {
+                assert!(unsized_field.extract().is_none(), "constant unsized values do not exist!");
                 let mut t: List<ValueExpr> = List::new();
-                for (idx, _) in fields.iter().enumerate() {
+                for (idx, _) in sized_fields.iter().enumerate() {
                     let val = ecx.project_field(&val, idx).unwrap();
                     t.push(self.translate_const_val(val, ecx, span));
                 }

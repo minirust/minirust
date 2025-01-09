@@ -41,5 +41,6 @@ mod too_large_alloc;
 mod trait_object;
 mod uninit_read;
 mod unreachable;
+mod unsized_struct;
 mod wide_ptr;
 mod zst;
