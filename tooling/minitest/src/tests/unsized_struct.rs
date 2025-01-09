@@ -407,3 +407,25 @@ fn ill_aggregate_unsized() {
     let p = p.finish_program(main);
     assert_ill_formed::<BasicMem>(p, "ValueExpr::Tuple: constructing an unsized tuple value");
 }
+
+/// A field projection index must not be negative.
+#[test]
+fn ill_negative_field() {
+    let mut p = ProgramBuilder::new();
+
+    // type `(u16)`
+    let ty = tuple_ty(&[(size(0), <u16>::get_type())], size(2), align(2));
+
+    let main = {
+        let mut f = p.declare_function();
+        let t = f.declare_arg_with_ty(ty);
+        f.storage_live(t);
+        // Field projection to invalid index `-1`
+        f.assign(field(t, -1), const_int(42_u16));
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main);
+    assert_ill_formed::<BasicMem>(p, "PlaceExpr::Field: invalid field");
+}

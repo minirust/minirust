@@ -273,7 +273,7 @@ impl<M: Memory> Machine<M> {
         let (root, ty) = self.eval_place(root)?;
         let (offset, field_ty) = match ty {
             Type::Tuple { sized_fields, unsized_field, sized_head_layout } => {
-                if field < sized_fields.len() {
+                if field >= 0 && field < sized_fields.len() {
                     sized_fields[field]
                 } else if field == sized_fields.len() {
                     let tail_ty = unsized_field.expect("field projection to non-existing unsized tail");

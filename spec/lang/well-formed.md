@@ -533,7 +533,7 @@ impl PlaceExpr {
                 let root = root.check_wf::<T>(locals, prog)?;
                 let field_ty = match root {
                     Type::Tuple { sized_fields, unsized_field, .. } => {
-                        if field < sized_fields.len() {
+                        if field >= 0 && field < sized_fields.len() {
                             sized_fields[field].1
                         } else if field == sized_fields.len() {
                             let Some(unsized_ty) = unsized_field else {
