@@ -307,7 +307,7 @@ pub fn const_vtable(vtable_name: VTableName) -> ValueExpr {
     ValueExpr::Constant(Constant::VTablePointer(vtable_name), Type::Ptr(PtrType::VTablePtr))
 }
 
-pub fn vtable_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
+pub fn vtable_method_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::VTableMethodLookup(method), operand: GcCow::new(operand) }
 }
 

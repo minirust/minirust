@@ -19,7 +19,7 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             FmtExpr::Atomic(format!("[{elem}]"))
         }
         Type::TraitObject(trait_name) =>
-            FmtExpr::Atomic(format!("dyn trait{}", trait_name.0.get_internal())),
+            FmtExpr::Atomic(format!("dyn {}", fmt_trait_name(trait_name))),
     }
 }
 
@@ -61,7 +61,7 @@ fn fmt_meta_kind(kind: PointerMetaKind) -> String {
         PointerMetaKind::None => "thin".into(),
         PointerMetaKind::ElementCount => "meta=len".into(),
         PointerMetaKind::VTablePointer(trait_name) =>
-            format!("meta=vtable<trait{}>", trait_name.0.get_internal()),
+            format!("meta=vtable<{}>", fmt_trait_name(trait_name)),
     }
 }
 

@@ -85,6 +85,8 @@ use chunks::calc_chunks;
 mod enums;
 use enums::int_from_bits;
 
+mod vtable;
+
 // Imports for `main``
 
 use std::collections::HashMap;

@@ -208,12 +208,42 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             rs::TerminatorKind::Drop { place, target, .. } => {
                 let ty = place.ty(&self.body, self.tcx).ty;
-                let drop_in_place_fn = rs::Instance::resolve_drop_in_place(self.tcx, ty);
                 let place = self.translate_place(place, span);
-                let ptr_to_drop = build::addr_of(place, build::raw_void_ptr_ty());
+                let (drop_fn, ptr_to_drop) = match ty.kind() {
+                    // For trait objects we must first fetch the drop function dynamically
+                    rs::TyKind::Dynamic(..) => {
+                        let Type::TraitObject(trait_name) = self.translate_ty(ty, span) else {
+                            rs::span_bug!(
+                                span,
+                                "translate_ty for TyKind::Dynamic didn't give a Type::TraitObject"
+                            );
+                        };
+                        // Compute the wide pointer pointing to `dyn Trait`.
+                        let ptr = build::addr_of(
+                            place,
+                            build::raw_ptr_ty(PointerMetaKind::VTablePointer(trait_name)),
+                        );
+                        // Fetch the drop function from the vtable.
+                        let drop_fn = build::vtable_method_lookup(
+                            build::get_metadata(ptr),
+                            TraitMethodName(Name::from_internal(
+                                rs::COMMON_VTABLE_ENTRIES_DROPINPLACE as _,
+                            )),
+                        );
+                        // Only the thin part of the pointer gets passed to the drop function.
+                        (drop_fn, build::get_thin_pointer(ptr))
+                    }
+                    // For other types we can just get the drop instance statically
+                    _ => {
+                        let drop_in_place_fn = rs::Instance::resolve_drop_in_place(self.tcx, ty);
+                        let ptr_to_drop = build::addr_of(place, build::raw_void_ptr_ty());
+                        let drop_fn = build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn));
+                        (drop_fn, ptr_to_drop)
+                    }
+                };
 
                 Terminator::Call {
-                    callee: build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn)),
+                    callee: drop_fn,
                     calling_convention: CallingConvention::Rust,
                     arguments: list![ArgumentExpr::ByValue(ptr_to_drop)],
                     ret: unit_place(),
@@ -391,7 +421,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     fn translate_call(
         &mut self,
         func: &rs::Operand<'tcx>,
-        args: &[rs::Spanned<rs::Operand<'tcx>>],
+        rs_args: &[rs::Spanned<rs::Operand<'tcx>>],
         destination: &rs::Place<'tcx>,
         target: &Option<rs::BasicBlock>,
         span: rs::Span,
@@ -405,10 +435,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         if matches!(instance.def, rs::InstanceKind::Intrinsic(_)) {
             // A Rust intrinsic.
-            return self.translate_rs_intrinsic(instance, args, destination, target, span);
+            return self.translate_rs_intrinsic(instance, rs_args, destination, target, span);
         }
-
-        // FIXME: turn `InstanceKind::Virtual` calls into trait method calls
 
         let terminator = if self.tcx.crate_name(f.krate).as_str() == "intrinsics" {
             // Direct call to a MiniRust intrinsic.
@@ -433,7 +461,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             };
             Terminator::Intrinsic {
                 intrinsic,
-                arguments: args.iter().map(|x| self.translate_operand(&x.node, x.span)).collect(),
+                arguments: rs_args
+                    .iter()
+                    .map(|x| self.translate_operand(&x.node, x.span))
+                    .collect(),
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
             }
@@ -453,7 +484,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .unwrap();
             let conv = translate_calling_convention(abi.conv);
 
-            let args: List<_> = args
+            let mut args: List<_> = rs_args
                 .iter()
                 .map(|x| {
                     match &x.node {
@@ -464,8 +495,28 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 })
                 .collect();
 
+            // Distinguish direct function calls or dynamic dispatch on a trait object.
+            let callee = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
+                // FIXME: This does not implement all receivers as allowed by `std::ops::DispatchFromDyn`.
+                // properly implementing this requires finding the right field to extract the
+                // pointer value, and coming up with a suitable type for passing the receiver
+                // to the callee. We can't know the exact type so some approximation will
+                // have to suffice.
+                // See <https://github.com/minirust/minirust/issues/257>.
+                let receiver = self.translate_operand(&rs_args[0].node, rs_args[0].span);
+                let adjusted_receiver = build::by_value(build::get_thin_pointer(receiver));
+                args.set(Int::from(0), adjusted_receiver);
+
+                // We built the vtables to have the method indices as method names.
+                let method = TraitMethodName(Name::from_internal(method as u32));
+
+                build::vtable_method_lookup(build::get_metadata(receiver), method)
+            } else {
+                build::fn_ptr(self.cx.get_fn_name(instance))
+            };
+
             Terminator::Call {
-                callee: build::fn_ptr(self.cx.get_fn_name(instance)),
+                callee,
                 calling_convention: conv,
                 arguments: args,
                 ret: self.translate_place(&destination, span),
