@@ -28,7 +28,7 @@ fn ref_as_transmuted_slice<T: TypeConv>(
 
 /// Tests that slices can occur behind different pointer types
 #[test]
-fn slice_ref_wf() {
+fn wf_slice_ref() {
     let mut p = ProgramBuilder::new();
 
     let _f = {
@@ -52,7 +52,7 @@ fn slice_ref_wf() {
 
 /// Tests that an index operation is well formed
 #[test]
-fn index_wf() {
+fn wf_index() {
     let mut p = ProgramBuilder::new();
 
     let _f = {
@@ -79,7 +79,7 @@ fn index_wf() {
 
 /// Asserts that the slice element type must be sized
 #[test]
-fn slice_ref_unsized_elem_not_wf() {
+fn ill_slice_ref_unsized_elem() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -96,8 +96,9 @@ fn slice_ref_unsized_elem_not_wf() {
     assert_ill_formed::<BasicMem>(p, "Type::Slice: unsized element type");
 }
 
+/// Asserts that locals must be sized
 #[test]
-fn local_not_wf() {
+fn ill_local() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -112,8 +113,9 @@ fn local_not_wf() {
     assert_ill_formed::<BasicMem>(p, "Function: unsized local variable");
 }
 
+/// Asserts loads at unsized types are ill-formed
 #[test]
-fn load_not_wf() {
+fn ill_load() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -131,8 +133,9 @@ fn load_not_wf() {
     assert_ill_formed::<BasicMem>(p, "ValueExpr::Load: unsized value type");
 }
 
+/// Asserts transmuts to unsized types are ill-formed
 #[test]
-fn transmute_not_wf() {
+fn ill_transmute() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -154,7 +157,7 @@ fn transmute_not_wf() {
 
 /// Tests that a wide pointer can be transmuted from a `(*T, usize)`.
 #[test]
-fn index_with_transmuted() {
+fn index_to_transmuted_slice() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -185,7 +188,7 @@ fn index_with_transmuted() {
 /// assert!(z == 43);
 /// ```
 #[test]
-fn index_with_constructed() {
+fn index_to_slice() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -223,7 +226,7 @@ fn index_with_constructed() {
 
 /// Tests that indexing into a slice throws UB for invalid indices
 #[test]
-fn invalid_index_ub() {
+fn ub_invalid_index() {
     fn for_index(idx: isize) {
         let mut p = ProgramBuilder::new();
         let f = {
@@ -279,7 +282,7 @@ fn large_raw() {
 
 /// The total size of a safe slice pointer cannot be larger than isize::MAX
 #[test]
-fn too_large_slice() {
+fn ub_too_large_slice() {
     let mut p = ProgramBuilder::new();
     let f = {
         let mut f = p.declare_function();
@@ -343,6 +346,7 @@ fn get_metadata_correct() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Asserts the thin pointer of a slice points to the first element
 #[test]
 fn get_thin_pointer_is_first_elem() {
     let mut p = ProgramBuilder::new();

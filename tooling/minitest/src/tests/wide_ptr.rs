@@ -1,5 +1,6 @@
 use crate::*;
 
+/// Asserts wide and thin pointers are ABI incompatible
 #[test]
 fn ub_wide_thin_abi_incompatible() {
     let mut p = ProgramBuilder::new();
@@ -26,8 +27,9 @@ fn ub_wide_thin_abi_incompatible() {
     assert_ub::<BasicMem>(p, "call ABI violation: argument types are not compatible");
 }
 
+/// Asserts GetMetadata only works on pointers
 #[test]
-fn get_metadata_non_ptr_ill_formed() {
+fn ill_get_metadata_non_ptr() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -43,8 +45,9 @@ fn get_metadata_non_ptr_ill_formed() {
     assert_ill_formed::<BasicMem>(p, "UnOp::GetMetadata: invalid operand: not a pointer");
 }
 
+/// Asserts GetThinPointer only works on pointers
 #[test]
-fn get_thin_non_ptr_ill_formed() {
+fn ill_get_thin_non_ptr() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -60,8 +63,9 @@ fn get_thin_non_ptr_ill_formed() {
     assert_ill_formed::<BasicMem>(p, "UnOp::GetThinPointer: invalid operand: not a pointer");
 }
 
+/// Asserts ConstructWidePointer only works for pointer types
 #[test]
-fn construct_wide_non_ptr_ill_formed() {
+fn ill_construct_wide_non_ptr() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -80,8 +84,9 @@ fn construct_wide_non_ptr_ill_formed() {
     );
 }
 
+/// Asserts we cannot use a wide pointer as the thin pointer part of a wide pointer
 #[test]
-fn construct_wide_from_wide_ptr_ill_formed() {
+fn ill_construct_wide_from_wide_ptr() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -106,8 +111,9 @@ fn construct_wide_from_wide_ptr_ill_formed() {
     );
 }
 
+/// Asserts that the metadata must match the type when constructing a wide pointer
 #[test]
-fn construct_wide_mismatched_meta_ill_formed() {
+fn ill_construct_wide_mismatched_meta() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -132,6 +138,7 @@ fn construct_wide_mismatched_meta_ill_formed() {
 
 // PASS below
 
+/// Asserts we can use GetMetadata on thin pointers, which just returns a unit value
 #[test]
 fn get_metadata_thin_ptr() {
     let mut p = ProgramBuilder::new();
@@ -154,6 +161,7 @@ fn get_metadata_thin_ptr() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Asserts we can use GetThinPointer also on already thin pointers
 #[test]
 fn get_thin_of_thin_ptr() {
     let mut p = ProgramBuilder::new();
@@ -179,6 +187,7 @@ fn get_thin_of_thin_ptr() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Asserts we can use ConstructWidePointer to construct a slice
 #[test]
 fn construct_slice() {
     let mut p = ProgramBuilder::new();
@@ -211,6 +220,7 @@ fn construct_slice() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Asserts we can use ConstructWidePointer also to construct thin pointers with unit metadata
 #[test]
 fn construct_thin() {
     let mut p = ProgramBuilder::new();
