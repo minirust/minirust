@@ -103,7 +103,7 @@ fn local_not_wf() {
     let f = {
         let mut f = p.declare_function();
         // ill formed:
-        f.declare_local_with_ty(slice_ty(<u32>::get_type()));
+        f.declare_local_with_ty(<[u32]>::get_type());
         f.exit();
         p.finish_function(f)
     };

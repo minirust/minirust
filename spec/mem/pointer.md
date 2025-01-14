@@ -142,7 +142,8 @@ pub enum PtrType {
         meta_kind: PointerMetaKind,
     },
     FnPtr,
-    VTablePtr,
+    /// This is a "stand-alone" vtable pointer, something that does not exist in surface Rust.
+    VTablePtr(TraitName),
 }
 ```
 
@@ -152,7 +153,7 @@ impl PtrType {
     pub fn safe_pointee(self) -> Option<PointeeInfo> {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => Some(pointee),
-            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr => None,
+            PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr(_) => None,
         }
     }
 
@@ -160,7 +161,7 @@ impl PtrType {
         match self {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee, .. } => pointee.layout.meta_kind(),
             PtrType::Raw { meta_kind, .. } => meta_kind,
-            PtrType::FnPtr | PtrType::VTablePtr => PointerMetaKind::None,
+            PtrType::FnPtr | PtrType::VTablePtr(_) => PointerMetaKind::None,
         }
     }
 }
