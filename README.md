@@ -27,7 +27,7 @@ However, without LaTeX this is a pain, and it also involves a lot of jargon whic
 That's why the MiniRust spec is written as an *interpreter*, so the spec itself is code.
 That begs the question, which language do we write that code in?
 We are using a kind of "Rust-like pseudo-code" called *specr lang*:
-imagine Rust without all the restrictions about sizendess and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
+imagine Rust without all the restrictions about sizedness and pointer indirections for recursive types (we could implicitly insert `Arc` where needed).
 We use generic type names like `List`, `Map`, `Set` rather than concrete implementations like `Vec`, `HashMap`, `HashSet`, since the implementation details do not matter.
 We also assume some "obvious" language extensions -- basically, it should always be clear what is meant to anyone with some Rust experience, even if this is not actually legal Rust.
 
@@ -83,8 +83,7 @@ So just to be clear, there are *two* Rust dialects at play here:
 ## Status
 
 MiniRust is extremely incomplete!
-Many features are entirely missing (e.g. floats, unsized types) or only partially sketched (enum layouts).
-Many types have missing representation relations.
+Some features are entirely missing (e.g. floats).
 There are lots of TODOs.
 The language syntax is also missing many of the Rust operators and casts.
 I hope to slowly chip away at all this over time.
@@ -175,8 +174,8 @@ The intention is that MiniRust has no more UB than that, but it *does* have less
 
 - It is *not* UB to dereference a null, unaligned, or dangling raw pointer. In other words, `addr_of!(*ptr)` is always defined.
   However, if the `*ptr` place expression is being offset, that still needs to happen in-bounds, and actual loads/stores need to be sufficiently aligned.
-- It is *not* always UB to create a reference or `Box` to an invalid value, or one that is dangling.
-  However, it *is* UB to create a reference or `Box` to an *uninhabited type*, or one that is null or unaligned.
+- It is *not* always UB to create a reference or `Box` to an invalid value.
+  However, it *is* UB to create a reference or `Box` to an *uninhabited type*, or one that is dangling or unaligned.
   Moreover, when evaluating an `&[mut]` value expression, dangling references are UB.
   (Dangling references nested in fields will likely also become UB when the aliasing model is added.)
 

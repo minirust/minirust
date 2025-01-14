@@ -131,12 +131,12 @@ fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M
 }
 
 impl PointerMetaKind {
-    /// Returns the representable type of the metadata if there is any.
-    pub fn ty<T: Target>(self) -> Option<Type> {
+    /// Returns the type of the metadata when used as a value.
+    pub fn ty<T: Target>(self) -> Type {
         match self {
-            PointerMetaKind::None => None,
-            PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
-            PointerMetaKind::VTablePointer(trait_name) => Some(Type::Ptr(PtrType::VTablePtr(trait_name))),
+            PointerMetaKind::None => unit_type(),
+            PointerMetaKind::ElementCount => Type::Int(IntType::usize_ty::<T>()),
+            PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTablePtr(trait_name)),
         }
     }
 }
@@ -144,7 +144,12 @@ impl PointerMetaKind {
 impl PtrType {
     /// Returns a pair type representing this wide pointer or `None` if it is thin.
     pub fn as_wide_pair<T: Target>(self) -> Option<Type> {
-        let meta_ty = self.meta_kind().ty::<T>()?;
+        if self.meta_kind() == PointerMetaKind::None {
+            return None;
+        }
+        let meta_ty = self.meta_kind().ty::<T>();
+        assert_eq!(meta_ty.layout::<T>().expect_size("metadata is always sized"), T::PTR_SIZE, "metadata is assumed to be pointer-sized");
+        assert_eq!(meta_ty.layout::<T>().expect_align("metadata is always sized"), T::PTR_ALIGN, "metadata is assumed to be pointer-aligned");
         let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let metadata_field = (T::PTR_SIZE, meta_ty);
         ret(Type::Tuple {
@@ -165,9 +170,9 @@ impl PointerMetaKind {
     /// but this may return ill-formed metadata (as defined by `Machine::check_ptr_metadata`), thus needs to be checked.
     fn decode_value<M: Memory>(self, value: Value<M>) -> Option<PointerMeta<M::Provenance>> {
         match (self, value) {
+            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             (PointerMetaKind::ElementCount, Value::Int(count)) => Some(PointerMeta::ElementCount(count)),
             (PointerMetaKind::VTablePointer(_), Value::Ptr(ptr)) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             _ => panic!("PointerMeta::decode_value called with invalid value"),
         }
     }
@@ -176,9 +181,9 @@ impl PointerMetaKind {
     /// The spec ensures this is only called with well-formed metadata (as defined by `Machine::check_ptr_metadata`).
     fn encode_as_value<M: Memory>(self, meta: Option<PointerMeta<M::Provenance>>) -> Value<M> {
         match (self, meta) {
+            (PointerMetaKind::None, None) => unit_value(),
             (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(count))) => Value::Int(count),
             (PointerMetaKind::VTablePointer(_), Some(PointerMeta::VTablePointer(ptr))) => Value::Ptr(ptr.widen(None)),
-            (PointerMetaKind::None, None) => unit_value(),
             _ => panic!("PointerMeta::encode_as_value called with invalid value"),
         }
     }

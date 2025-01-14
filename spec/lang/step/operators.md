@@ -116,7 +116,7 @@ impl<M: Memory> Machine<M> {
         let Type::Ptr(ptr_ty) = op_ty else { panic!("non-pointer GetMetadata") };
 
         let meta_value = ptr_ty.meta_kind().encode_as_value::<M>(ptr.metadata);
-        let meta_ty = ptr_ty.meta_kind().ty::<M::T>().unwrap_or_else(unit_type);
+        let meta_ty = ptr_ty.meta_kind().ty::<M::T>();
         // O(1) sanity check
         self.check_value(meta_value, meta_ty).expect("GetMetadata: sanity check, returned meta is well-formed");
         ret((meta_value, meta_ty))

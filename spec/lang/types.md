@@ -8,7 +8,7 @@ In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and values.
 
 That said, types do have a little more information than required for the representation relation.
-For pointer types (references and raw pointers), types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
+For pointer types (references and boxes), types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
 (We might want to organize this differently in the future, and remove mutability from types.)
 Union types know the types of their fields solely to support union field place projections.
 
@@ -21,19 +21,19 @@ In the future, we might want to separate a type from its layout, and consider th
 pub enum Type {
     Int(IntType),
     Bool,
-    /// `Ptr` represents all pointer types: references, raw pointers, boxes, and function pointers.
+    /// `Ptr` represents all pointer types: references, raw pointers, boxes, function and vtable pointers.
     /// A pointer type does *not* need the full pointee type, since (de)serializing a pointer does not
-    /// require knowledge about the pointee. We only track basic pointee information like size and
-    /// alignment that is required to check reference validity. This also means types have a finite
+    /// require knowledge about the pointee. We only track the metadata kind and basic pointee information
+    /// like size and alignment that is required to check reference validity. This also means types have a finite
     /// representation even when the Rust type is recursive.
     Ptr(PtrType),
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
         sized_fields: Fields,
-        /// The layout of the sized fiels, i.e. the head.
+        /// The layout of the sized fiels, i.e., the head.
         sized_head_layout: TupleHeadLayout,
-        /// A last field (in terms of offset) may contain an unsized type,
+        /// A last field (in terms of offset), i.e., the tail, may contain an unsized type,
         /// then its offset is given by rounding the `end` of `sized_head_layout` up to the alignment of this type.
         #[specr::indirection]
         // FIXME: Due to `specr::indirection` we cannot match on this field.
@@ -198,7 +198,7 @@ And we also define how to compute the actual size and alignment.
 
 ```rust
 impl TupleHeadLayout {
-    /// The actual align of the tail, considering the packed attribute
+    /// The actual alignment of the tail, considering the packed attribute.
     fn capped_tail_align(self, tail_align: Align) -> Align {
         match self.packed_align {
             Some(packed_align) => tail_align.min(packed_align),
@@ -277,7 +277,7 @@ impl LayoutStrategy {
     }
 
     /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
+    /// i.e `machine.check_pointer_metadata(meta, self.meta_kind()).is_ok()` implies `machine.compute_*(meta)` is well-defined.
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             LayoutStrategy::Sized(..) => PointerMetaKind::None,
