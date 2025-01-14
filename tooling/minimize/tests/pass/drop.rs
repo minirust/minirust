@@ -24,4 +24,12 @@ fn main() {
     }
     // prevent double-drop
     std::mem::forget(bomb);
+
+    // And drop twice as slice.
+    let mut two_bombs = [Bomb, Bomb];
+    unsafe {
+        std::ptr::drop_in_place(&mut two_bombs as &mut [Bomb]);
+    }
+    // prevent double-drop
+    std::mem::forget(two_bombs);
 }

@@ -83,14 +83,11 @@ fn unsized_tail() {
         main.assign(g, g_val);
 
         // `let g_b: &dyn Bar = &g.b;`
-        let g_b = main.declare_local_with_ty(ref_mut_ty_default_markers_for(trait_obj_bar_ty));
+        let g_b = main.declare_local_with_ty(ref_ty_default_markers_for(trait_obj_bar_ty));
         main.storage_live(g_b);
         main.assign(
             g_b,
-            addr_of(
-                field(deref(load(g), g_ty), 1),
-                ref_mut_ty_default_markers_for(trait_obj_bar_ty),
-            ),
+            addr_of(field(deref(load(g), g_ty), 1), ref_ty_default_markers_for(trait_obj_bar_ty)),
         );
 
         // `assert_eq!(g_b.get(), 11);`
