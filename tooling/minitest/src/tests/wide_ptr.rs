@@ -130,6 +130,39 @@ fn construct_wide_mismatched_meta_ill_formed() {
     );
 }
 
+/// It is ill-formed to compare a wide pointer to a thin pointer.
+#[test]
+fn ill_compare_wide_thin_ptr() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        let val = f.declare_local::<u32>();
+        let w_ptr = f.declare_local::<*const [u32]>();
+        let t_ptr = f.declare_local::<*const u32>();
+        f.storage_live(val);
+        f.storage_live(w_ptr);
+        f.storage_live(t_ptr);
+        f.assign(t_ptr, addr_of(val, <*const u32>::get_type()));
+        f.assign(
+            w_ptr,
+            construct_wide_pointer(
+                addr_of(val, <*const u32>::get_type()),
+                const_int(1_usize),
+                <*const [u32]>::get_type(),
+            ),
+        );
+
+        f.assume(eq(load(w_ptr), load(t_ptr)));
+
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_ill_formed::<BasicMem>(p, "BinOp::Rel: invalid right type");
+}
+
 // PASS below
 
 #[test]
@@ -224,6 +257,116 @@ fn construct_thin() {
             construct_wide_pointer(addr_of(x, <&u8>::get_type()), unit(), <&i8>::get_type());
 
         f.assume(eq(load(deref(cast_ptr, <i8>::get_type())), const_int(-1_i8)));
+
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
+}
+
+/// Checks that slice pointers are compared lexicographically in the address and then element count.
+#[test]
+fn compare_slice_ptr() {
+    fn subslice(arr_place: PlaceExpr, idx: usize, len: usize) -> ValueExpr {
+        construct_wide_pointer(
+            addr_of(index(arr_place, const_int(idx)), <*const u32>::get_type()),
+            const_int(len),
+            <*const [u32]>::get_type(),
+        )
+    }
+
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        let dummy = f.declare_local::<[u32; 4]>();
+        f.storage_live(dummy);
+
+        f.assume(eq(subslice(dummy, 0, 1), subslice(dummy, 0, 1)));
+        f.assume(gt(subslice(dummy, 1, 1), subslice(dummy, 0, 1)));
+        f.assume(lt(subslice(dummy, 0, 1), subslice(dummy, 1, 1)));
+        f.assume(lt(subslice(dummy, 0, 2), subslice(dummy, 1, 1)));
+        f.assume(lt(subslice(dummy, 0, 1), subslice(dummy, 1, 2)));
+
+        f.assume(lt(subslice(dummy, 0, 1), subslice(dummy, 0, 2)));
+        f.assume(gt(subslice(dummy, 0, 2), subslice(dummy, 0, 1)));
+
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(f);
+    assert_stop::<BasicMem>(p);
+}
+
+/// Checks that trait object pointers are compared lexicographically in the address and then the address of the vtable.
+#[test]
+fn compare_trait_obj_ptr() {
+    fn wide_pointer(
+        arr_place: PlaceExpr,
+        idx: usize,
+        vtable: VTableName,
+        trait_name: TraitName,
+    ) -> ValueExpr {
+        construct_wide_pointer(
+            addr_of(index(arr_place, const_int(idx)), <*const u32>::get_type()),
+            const_vtable(vtable, trait_name),
+            raw_ptr_ty(PointerMetaKind::VTablePointer(trait_name)),
+        )
+    }
+
+    // Create two vtables for the same trait
+    let mut p = ProgramBuilder::new();
+    let b = p.declare_trait();
+    let trait_name = p.finish_trait(b);
+    let b = p.declare_vtable_for_ty(trait_name, <u32>::get_type());
+    let vtable1 = p.finish_vtable(b);
+    let b = p.declare_vtable_for_ty(trait_name, <i32>::get_type());
+    let vtable2 = p.finish_vtable(b);
+
+    let f = {
+        let mut f = p.declare_function();
+        let dummy = f.declare_local::<[u32; 4]>();
+        f.storage_live(dummy);
+
+        // ordering based on address
+        f.assume(eq(
+            wide_pointer(dummy, 0, vtable1, trait_name),
+            wide_pointer(dummy, 0, vtable1, trait_name),
+        ));
+        f.assume(gt(
+            wide_pointer(dummy, 1, vtable1, trait_name),
+            wide_pointer(dummy, 0, vtable1, trait_name),
+        ));
+        f.assume(lt(
+            wide_pointer(dummy, 0, vtable1, trait_name),
+            wide_pointer(dummy, 1, vtable1, trait_name),
+        ));
+        f.assume(lt(
+            wide_pointer(dummy, 0, vtable2, trait_name),
+            wide_pointer(dummy, 1, vtable1, trait_name),
+        ));
+        f.assume(lt(
+            wide_pointer(dummy, 0, vtable1, trait_name),
+            wide_pointer(dummy, 1, vtable2, trait_name),
+        ));
+
+        // ordering based on vtable: exactly one must be true, but by non-determinism we don't know which.
+        f.assume(ne(
+            wide_pointer(dummy, 0, vtable1, trait_name),
+            wide_pointer(dummy, 0, vtable2, trait_name),
+        ));
+        let hyp1 = lt(
+            wide_pointer(dummy, 0, vtable1, trait_name),
+            wide_pointer(dummy, 0, vtable2, trait_name),
+        );
+        let hyp2 = lt(
+            wide_pointer(dummy, 0, vtable2, trait_name),
+            wide_pointer(dummy, 0, vtable1, trait_name),
+        );
+        f.assume(bool_xor(hyp1, hyp2));
 
         f.exit();
         p.finish_function(f)
