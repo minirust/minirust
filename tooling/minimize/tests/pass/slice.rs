@@ -12,6 +12,22 @@ pub fn change_some_elements(a: &mut [u8]) {
 
 const THE_SLICE: &'static [u16] = &[1, 2, 3, 4, 5, 6, 7, 8];
 
+fn slice_test() {
+    let x: [u32; 5] = [41, 42, 43, 44, 45];
+    let y = &x as &[u32];
+
+    assert!(y[1] == 42);
+    assert!(y.len() == 5);
+    assert!(y.iter().count() == 5);
+    assert!(y[1..].len() == 4);
+    assert!(y[1..][0] == 42);
+    assert!(y[1..=2] == [42, 43]);
+
+    let z = unsafe { core::slice::from_raw_parts::<'_, u32>(y.as_ptr().add(1), 3) };
+    assert!(z.len() == 3);
+    assert!(z[0] == 42);
+}
+
 fn main() {
     // Check unsizing
     let x: [i32; 5] = [50, -40, 30, -20, 10];
@@ -66,4 +82,6 @@ fn main() {
     // This fails, since it uses the `compare_bytes` intrinsic.
     // let u8_slice: &[u8] = b"ABCABC";
     // assert!(&u8_slice[..2] == &u8_slice[2..4]);
+
+    slice_test();
 }

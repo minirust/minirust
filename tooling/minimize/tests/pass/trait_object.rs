@@ -59,4 +59,8 @@ fn main() {
     // let b: Box<dyn A> = Box::new(1337_usize);
     // assert!(b.by_ref() == 1337);
     // assert!(b.by_box() == 1337);
+
+    // Tests that the order of marker traits is irrelevant
+    let x: &(dyn Send + Sync + A) = &42_usize;
+    let _y: &(dyn Sync + A + Send) = x;
 }
