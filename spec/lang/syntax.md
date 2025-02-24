@@ -360,9 +360,16 @@ pub enum Terminator {
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,
+        /// The block to jump to when this call unwinds.
+        /// If `None`, UB will be raised when the function unwinds.
+        unwind_block: Option<BbName>
     },
     /// Return from the current function.
     Return,
+    /// Starts unwinding, jump to the first clean-up block.
+    StartUnwind(BbName),
+    /// Ends this function invocation. The unwinding should continue at the caller's stack frame.
+    ResumeUnwind,
 }
 
 /// Function arguments can be passed by-value or in-place.

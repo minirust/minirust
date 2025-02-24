@@ -720,7 +720,7 @@ impl Terminator {
                     ensure_wf(func.blocks.contains_key(next_block), "Terminator::Intrinsic: next block does not exist")?;
                 }
             }
-            Call { callee, calling_convention: _, arguments, ret, next_block } => {
+            Call { callee, calling_convention: _, arguments, ret, next_block,  unwind_block } => {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
 
@@ -735,8 +735,16 @@ impl Terminator {
                 if let Some(next_block) = next_block {
                     ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
                 }
+
+                if let Some(unwind_block) = unwind_block {
+                    ensure_wf(func.blocks.contains_key(unwind_block), "Terminator::Call: unwind block does not exist")?;
+                }
             }
             Return => {}
+            StartUnwind(block_name) => {
+                ensure_wf(func.blocks.contains_key(block_name), "Terminator::StartUnwind: unwind block does not exist")?;
+            }
+            ResumeUnwind=>{}
         }
 
         ret(())

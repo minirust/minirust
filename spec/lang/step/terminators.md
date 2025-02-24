@@ -180,6 +180,7 @@ impl<M: Memory> Machine<M> {
         &mut self,
         func: Function,
         return_action: ReturnAction<M>,
+        unwind_block: Option<BbName>,
         caller_conv: CallingConvention,
         caller_ret_ty: Type,
         caller_args: List<(Value<M>, Type)>,
@@ -188,6 +189,7 @@ impl<M: Memory> Machine<M> {
             func,
             locals: Map::new(),
             return_action,
+            unwind_block,
             next_block: func.start,
             next_stmt: Int::ZERO,
             extra: M::new_call(),
@@ -230,7 +232,7 @@ impl<M: Memory> Machine<M> {
 
     fn eval_terminator(
         &mut self,
-        Terminator::Call { callee, calling_convention: caller_conv, arguments, ret: ret_expr, next_block }: Terminator
+        Terminator::Call { callee, calling_convention: caller_conv, arguments, ret: ret_expr, next_block, unwind_block }: Terminator
     ) -> NdResult {
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let (caller_ret_place, caller_ret_ty) = self.eval_place(ret_expr)?;
@@ -257,6 +259,7 @@ impl<M: Memory> Machine<M> {
         let frame = self.create_frame(
             func,
             return_action,
+            unwind_block,
             caller_conv,
             caller_ret_ty,
             arguments,
@@ -276,11 +279,11 @@ The callee should probably start with a bunch of `Validate` statements to ensure
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn terminate_active_thread(&mut self) -> NdResult {
+    fn terminate_active_thread(&mut self, action: &str) -> NdResult {
         let active = self.active_thread;
         // The main thread may not terminate, it must call the `Exit` intrinsic.
         if active == 0 {
-            throw_ub!("the start function must not return");
+            throw_ub!("the start function must not {action}");
         }
 
         self.threads.mutate_at(active, |thread| {
@@ -325,7 +328,7 @@ impl<M: Memory> Machine<M> {
             ReturnAction::BottomOfStack => {
                 // Only the bottom frame in a stack has no caller.
                 // Therefore the thread must terminate now.
-                self.terminate_active_thread()?;
+                self.terminate_active_thread("return")?;
             }
             ReturnAction::ReturnToCaller { ret_val_ptr: caller_ret_ptr, next_block } => {
                 // There must be a caller.
@@ -349,6 +352,50 @@ impl<M: Memory> Machine<M> {
 
 Note that the caller has no guarantee at all about the value that it finds in its return place.
 It should probably do a `Validate` as the next step to encode that it would be UB for the callee to return an invalid value.
+
+## Start Unwind
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(&mut self, Terminator::StartUnwind(block_name): Terminator) -> NdResult {
+        self.jump_to_block(block_name)?;
+        ret(())
+    }
+}
+```
+
+## Resume Unwind
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(&mut self, Terminator::ResumeUnwind: Terminator) -> NdResult {
+        let mut frame = self.mutate_cur_stack(
+            |stack| stack.pop().unwrap()
+        );
+
+        // Deallocate everything.
+        while let Some(local) = frame.locals.keys().next() {
+            frame.storage_dead(&mut self.mem, local)?;
+        }
+
+        // Inform the memory model that this call has ended.
+        self.mem.end_call(frame.extra)?;
+
+        //unwind to caller, ub if there is no caller
+        if self.active_thread().stack.len() == 0{
+                self.terminate_active_thread("resume")?;
+        }
+        else{
+            if let Some(unwind_block) = frame.unwind_block {
+                    self.jump_to_block(unwind_block)?;
+                } else {
+                    throw_ub!("unwinding from a function where caller did not specify unwind_block");
+                }
+        }
+        ret(())
+    }
+}
+```
 
 ## Intrinsic calls
 

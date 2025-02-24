@@ -17,6 +17,7 @@ fn call_success() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None
     });
     let b1 = block!(exit());
 
@@ -36,6 +37,7 @@ fn call_non_exist() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -55,6 +57,7 @@ fn call_arg_count() {
         arguments: list![],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -74,6 +77,7 @@ fn call_arg_abi() {
         arguments: list![by_value(const_int::<i32>(42))],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -93,6 +97,7 @@ fn call_ret_abi() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -125,4 +130,44 @@ fn ret_mismatch() {
     let p = program(&[f, other_f]);
     dump_program(p);
     assert_ub::<BasicMem>(p, "call ABI violation: return types are not compatible");
+}
+
+# [test]
+fn next_block_non_exist() {
+    let locals = [<()>::get_type()];
+
+    let b0 = block!(storage_live(0), Terminator::Call {
+        callee: fn_ptr_internal(1),
+        calling_convention: CallingConvention::C,
+        arguments: list![by_value(unit())],
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(2))),
+        unwind_block: Some(BbName(Name::from_internal(1))),
+    });
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f, other_f()]);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator::Call: next block does not exist");
+}
+
+# [test]
+fn unwind_block_non_exist() {
+    let locals = [<()>::get_type()];
+
+    let b0 = block!(storage_live(0), Terminator::Call {
+        callee: fn_ptr_internal(1),
+        calling_convention: CallingConvention::C,
+        arguments: list![by_value(unit())],
+        ret: local(0),
+        next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: Some(BbName(Name::from_internal(2))),
+    });
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f, other_f()]);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator::Call: unwind block does not exist");
 }

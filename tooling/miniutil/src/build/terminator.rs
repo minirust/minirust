@@ -37,6 +37,7 @@ impl FunctionBuilder {
             arguments: args.iter().copied().collect(),
             ret,
             next_block: None,
+            unwind_block: None,
         });
     }
 
@@ -49,6 +50,7 @@ impl FunctionBuilder {
             arguments: args.iter().copied().collect(),
             ret,
             next_block: Some(next_block),
+            unwind_block: None,
         });
         self.set_cur_block(next_block)
     }
@@ -62,6 +64,7 @@ impl FunctionBuilder {
             arguments: args.iter().copied().collect(),
             ret: unit_place(),
             next_block: Some(next_block),
+            unwind_block: None,
         });
         self.set_cur_block(next_block);
     }
@@ -296,6 +299,7 @@ pub fn call(f: u32, args: &[ArgumentExpr], ret: PlaceExpr, next: Option<u32>) ->
         arguments: args.iter().copied().collect(),
         ret,
         next_block: next.map(|x| BbName(Name::from_internal(x))),
+        unwind_block: None,
     }
 }
 

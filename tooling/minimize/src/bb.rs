@@ -248,6 +248,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     arguments: list![ArgumentExpr::ByValue(ptr_to_drop)],
                     ret: unit_place(),
                     next_block: Some(self.bb_name_map[&target]),
+                    unwind_block: None
                 }
             }
 
@@ -521,6 +522,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 arguments: args,
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                unwind_block: None,
             }
         };
         TerminatorResult { terminator, stmts: List::new() }

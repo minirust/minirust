@@ -62,6 +62,10 @@ struct StackFrame<M: Memory> {
     /// Expresses what happens after the callee (this function) returns.
     return_action: ReturnAction<M>,
 
+    /// The basic block to jump to when the callee calls ResumeUnwind.
+    /// If `None`, UB will be raised when the callee calls ResumeUnwind.
+    unwind_block:Option<BbName>,
+
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
     next_block: BbName,
@@ -302,6 +306,7 @@ impl<M: Memory> Machine<M> {
         let init_frame = self.create_frame(
             func,
             ReturnAction::BottomOfStack,
+            None,
             CallingConvention::C,
             unit_type(),
             args,
