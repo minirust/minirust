@@ -38,7 +38,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ret: destination,
                         next_block: Some(next_bb),
                     };
-                    let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+                    // Temporarily set all blocks all blocks to regular kind, since unwinding is not yet supported in minimize.
+                    let cur_block = BasicBlock { statements: cur_block_statements, terminator, kind: BbKind::Regular };
                     let old = self.blocks.insert(cur_block_name, cur_block);
                     assert!(old.is_none()); // make sure we do not overwrite a bb
                     // Go on building the next block.
@@ -51,7 +52,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         for stmt in stmts.iter() {
             cur_block_statements.push(stmt);
         }
-        let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+        let cur_block = BasicBlock { statements: cur_block_statements, terminator, kind: BbKind::Regular };
         let old = self.blocks.insert(cur_block_name, cur_block);
         assert!(old.is_none()); // make sure we do not overwrite a bb
     }
@@ -196,7 +197,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 // Create panic block in case of `expected != condition`
                 let panic_bb = self.fresh_bb_name();
-                let panic_block = BasicBlock { statements: list![], terminator: build::panic() };
+                let panic_block = BasicBlock { statements: list![], terminator: build::panic(), kind: BbKind::Regular };
                 self.blocks.try_insert(panic_bb, panic_block).unwrap();
 
                 let next_block = self.bb_name_map[target];

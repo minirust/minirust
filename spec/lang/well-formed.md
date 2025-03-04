@@ -670,6 +670,7 @@ fn is_atomic_binop(op: IntBinOp) -> bool {
 impl Terminator {
     fn check_wf<T: Target>(
         self,
+        block: BasicBlock,
         func: Function,
         prog: Program,
     ) -> Result<()> {
@@ -677,6 +678,7 @@ impl Terminator {
         match self {
             Goto(block_name) => {
                 ensure_wf(func.blocks.contains_key(block_name), "Terminator::Goto: next block does not exist")?;
+                ensure_wf(block.kind == func.get_block_kind(block_name), "Terminator::Goto: next block has the wrong block kind")?;
             }
             Switch { value, cases, fallback } => {
                 let ty = value.check_wf::<T>(func.locals, prog)?;
@@ -688,13 +690,16 @@ impl Terminator {
                 };
 
                 // Ensure the switch cases are all valid.
-                for (case, block) in cases.iter() {
+                for (case, next_block) in cases.iter() {
                     ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: value does not fit in switch type")?;
-                    ensure_wf(func.blocks.contains_key(block), "Terminator::Switch: next block does not exist")?;
+                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Switch: next block does not exist")?;
+                    ensure_wf(block.kind == func.get_block_kind(next_block), std::format!("Terminator::Switch: next block in case {} has the wrong block kind", case).as_str())?;
                 }
 
-                // we can also reach the fallback block.
+                // Ensure the fallback is valid.
                 ensure_wf(func.blocks.contains_key(fallback), "Terminator::Switch: fallback block does not exist")?;
+                ensure_wf(block.kind == func.get_block_kind(fallback), "Terminator::Switch: fallback block has the wrong block kind")?;
+
             }
             Unreachable => {}
             Intrinsic { intrinsic, arguments, ret, next_block } => {
@@ -718,9 +723,10 @@ impl Terminator {
 
                 if let Some(next_block) = next_block {
                     ensure_wf(func.blocks.contains_key(next_block), "Terminator::Intrinsic: next block does not exist")?;
+                    ensure_wf(block.kind == func.get_block_kind(next_block), "Terminator::Intrinsic: next block has the wrong block kind")?;
                 }
             }
-            Call { callee, calling_convention: _, arguments, ret, next_block,  unwind_block } => {
+            Call { callee, calling_convention: _, arguments, ret, next_block, unwind_block } => {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
 
@@ -734,17 +740,32 @@ impl Terminator {
 
                 if let Some(next_block) = next_block {
                     ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
+                    ensure_wf(block.kind == func.get_block_kind(next_block), "Terminator::Call: next block has the wrong block kind")?;
                 }
 
                 if let Some(unwind_block) = unwind_block {
                     ensure_wf(func.blocks.contains_key(unwind_block), "Terminator::Call: unwind block does not exist")?;
+                    match block.kind{
+                            BbKind::Regular => {
+                                ensure_wf(func.get_block_kind(unwind_block) == BbKind::Cleanup, "Terminator::Call: unwind block has the wrong block kind")?;
+                            }
+                            _ => {
+                                ensure_wf(func.get_block_kind(unwind_block) == BbKind::Terminate, "Terminator::Call: unwind block has the wrong block kind")?;
+                            }
+                        }
                 }
             }
-            Return => {}
-            StartUnwind(block_name) => {
-                ensure_wf(func.blocks.contains_key(block_name), "Terminator::StartUnwind: unwind block does not exist")?;
+            Return => {
+                 ensure_wf(block.kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
             }
-            ResumeUnwind=>{}
+            StartUnwind(unwind_block) => {
+                ensure_wf(func.blocks.contains_key(unwind_block), "Terminator::StartUnwind: unwind block does not exist")?;
+                ensure_wf(block.kind == BbKind::Regular, "Terminator::StartUnwind has to be called in regular block")?;
+                ensure_wf(func.get_block_kind(unwind_block) == BbKind::Cleanup, "Terminator::StartUnwind: next block has the wrong block kind")?;
+            }
+            ResumeUnwind => {
+                 ensure_wf(block.kind == BbKind::Cleanup, "Terminator::ResumeUnwind: has to be called in cleanup block")?;
+            }
         }
 
         ret(())
@@ -778,10 +799,14 @@ impl Function {
             for statement in block.statements {
                 statement.check_wf::<T>(self, prog)?;
             }
-            block.terminator.check_wf::<T>(self, prog)?;
+            block.terminator.check_wf::<T>(block, self, prog)?;
         }
 
         ret(())
+    }
+
+    fn get_block_kind(self, block_name: BbName) -> BbKind {
+        self.blocks.get(block_name).expect("get_block_kind: Block does not exist").kind
     }
 }
 

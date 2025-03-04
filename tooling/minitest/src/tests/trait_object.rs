@@ -58,7 +58,7 @@ fn dynamic_dispatch() {
 
         let foo_ret = main.declare_local::<usize>();
         main.storage_live(foo_ret);
-        main.call(foo_ret, vtable_method_lookup(get_metadata(load(y)), method_a_foo), &[by_value(
+        main.call_nounwind(foo_ret, vtable_method_lookup(get_metadata(load(y)), method_a_foo), &[by_value(
             ptr_to_ptr(get_thin_pointer(load(y)), <&usize>::get_type()),
         )]);
         main.assume(eq(load(x), load(foo_ret)));

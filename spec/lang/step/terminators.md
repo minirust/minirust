@@ -381,10 +381,11 @@ impl<M: Memory> Machine<M> {
         // Inform the memory model that this call has ended.
         self.mem.end_call(frame.extra)?;
 
-        //unwind to caller, ub if there is no caller
+        // Terminate current thread, if the bottom of the stack is reached.
         if self.active_thread().stack.len() == 0{
                 self.terminate_active_thread("resume")?;
         }
+        // Jump to the unwind_block of the caller. 
         else{
             if let Some(unwind_block) = frame.unwind_block {
                     self.jump_to_block(unwind_block)?;

@@ -85,35 +85,35 @@ pub fn function(ret: Ret, num_args: usize, locals: &[Type], bbs: &[BasicBlock]) 
     }
 }
 
-pub fn block(statements: &[Statement], terminator: Terminator) -> BasicBlock {
-    BasicBlock { statements: statements.iter().copied().collect(), terminator }
+pub fn block(statements: &[Statement], terminator: Terminator, kind: BbKind) -> BasicBlock {
+    BasicBlock { statements: statements.iter().copied().collect(), terminator, kind }
 }
 
 // block!(statement1, statement2, ..., terminator)
 // is syntactic sugar for
-// block(&[statement1, statement2, ...], terminator)
+// block(&[statement1, statement2, ...], terminator, BbKind::Regular)
 //
 // This macro is evaluated as follows:
-// block!(a, b, c)
-// block!(@{} a, b, c)
-// block!(@{a} b, c)
-// block!(@{a, b} c)
-// block(&[a, b], c)
+// block_with_type!(a, b, c, d)
+// block_with_type!(@{} a, b, c, d)
+// block_with_type!(@{a} b, c, d)
+// block_with_type!(@{a, b} c, d)
+// block(&[a, b], c, d)
 //
 // This seems necessary, as macros like this
 // ($($rest:expr),*, $terminator:expr) => { ... }
 // cause `local ambiguity` when called
-pub macro block {
+pub macro block{
     // entry point
     ($($rest:expr),* $(,)?) => {
         block!(@{} $($rest),*)
     },
     (@{$($stmts:expr),*} $terminator:expr) => {
-        block(&[$($stmts),*], $terminator)
+        block(&[$($stmts),*], $terminator, BbKind::Regular)
     },
 
-    // This is just a specialization of the case below.
-    // We do not know why it is required separately.
+    // This is a specialization of the case below.
+    // This is necessary because the case below adds a separating comma, regardless of whether @{} is empty.
     (@{} $stmt:expr, $($rest:expr),*) => {
         block!(@{$stmt} $($rest),*)
     },

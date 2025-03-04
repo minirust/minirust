@@ -366,9 +366,9 @@ pub enum Terminator {
     },
     /// Return from the current function.
     Return,
-    /// Starts unwinding, jump to the first clean-up block.
+    /// Starts unwinding, jump to the first cleanup block.
     StartUnwind(BbName),
-    /// Ends this function invocation. The unwinding should continue at the caller's stack frame.
+    /// Ends this function call. The unwinding should continue at the caller's stack frame.
     ResumeUnwind,
 }
 
@@ -479,6 +479,14 @@ pub struct Function {
 pub struct BasicBlock {
     pub statements: List<Statement>,
     pub terminator: Terminator,
+    pub kind: BbKind,
+}
+
+/// The kind of a basic block in the CFG.
+pub enum BbKind {
+    Regular,
+    Cleanup,
+    Terminate,
 }
 
 /// A global allocation.

@@ -93,7 +93,7 @@ fn unsized_tail() {
         // `assert_eq!(g_b.get(), 11);`
         let get_ret = main.declare_local::<usize>();
         main.storage_live(get_ret);
-        main.call(get_ret, vtable_method_lookup(get_metadata(load(g_b)), method_bar_get), &[
+        main.call_nounwind(get_ret, vtable_method_lookup(get_metadata(load(g_b)), method_bar_get), &[
             by_value(get_thin_pointer(load(g_b))),
         ]);
         main.assume(eq(const_int(11_usize), load(get_ret)));
