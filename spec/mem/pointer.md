@@ -93,7 +93,7 @@ pub enum LayoutStrategy {
     /// The type is statically `Sized` with the given size and align.
     Sized(Size, Align),
     /// The type contains zero or more elements of the inner layout.
-    /// The total size is a multiple of the element size and the align is exactly the element size.
+    /// The total size is a multiple of the element size and the align is exactly the element align.
     Slice(Size, Align),
     /// The size of the type must be looked up in the VTable of a wide pointer.
     /// Additionally, the vtable must be for the given trait.
