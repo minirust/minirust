@@ -185,16 +185,16 @@ fn reach_terminate_block() {
 
     let main_fn = {
         let mut f = p.declare_function();
-        let terminate = f.terminate(|f|{
+        let terminate = f.terminate(|f| {
             f.exit();
         });
-        let cleanup = f.cleanup(|f|{
-            f.call(unit_place(),fn_ptr(panic_fn), &[], terminate);
+        let cleanup = f.cleanup(|f| {
+            f.call(unit_place(), fn_ptr(panic_fn), &[], terminate);
             f.unreachable();
         });
 
-        f.call(unit_place(), fn_ptr(panic_fn), &[], cleanup );
-        f.unreachable(); 
+        f.call(unit_place(), fn_ptr(panic_fn), &[], cleanup);
+        f.unreachable();
         p.finish_function(f)
     };
     let p = p.finish_program(main_fn);

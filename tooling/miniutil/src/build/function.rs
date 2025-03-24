@@ -94,11 +94,11 @@ pub fn block(statements: &[Statement], terminator: Terminator, kind: BbKind) -> 
 // block(&[statement1, statement2, ...], terminator, BbKind::Regular)
 //
 // This macro is evaluated as follows:
-// block_with_type!(a, b, c, d)
-// block_with_type!(@{} a, b, c, d)
-// block_with_type!(@{a} b, c, d)
-// block_with_type!(@{a, b} c, d)
-// block(&[a, b], c, d)
+// block!(a, b, c)
+// block!(@{} a, b, c)
+// block!(@{a} b, c)
+// block!(@{a, b} c)
+// block(&[a, b], c, BbKind::Regular)
 //
 // This seems necessary, as macros like this
 // ($($rest:expr),*, $terminator:expr) => { ... }

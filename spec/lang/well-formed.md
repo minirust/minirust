@@ -699,7 +699,6 @@ impl Terminator {
                 // Ensure the fallback is valid.
                 ensure_wf(func.blocks.contains_key(fallback), "Terminator::Switch: fallback block does not exist")?;
                 ensure_wf(block.kind == func.get_block_kind(fallback), "Terminator::Switch: fallback block has the wrong block kind")?;
-
             }
             Unreachable => {}
             Intrinsic { intrinsic, arguments, ret, next_block } => {

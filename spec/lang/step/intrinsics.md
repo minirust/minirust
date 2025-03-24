@@ -117,6 +117,21 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+`Abort` stopts the machine immediately.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        IntrinsicOp::Abort: IntrinsicOp,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        throw_abort!("aborted");
+    }
+}
+```
+
 ## UB control
 
 ```rust

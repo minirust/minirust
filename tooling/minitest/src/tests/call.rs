@@ -132,7 +132,7 @@ fn ret_mismatch() {
     assert_ub::<BasicMem>(p, "call ABI violation: return types are not compatible");
 }
 
-# [test]
+#[test]
 fn next_block_non_exist() {
     let locals = [<()>::get_type()];
 
@@ -152,7 +152,7 @@ fn next_block_non_exist() {
     assert_ill_formed::<BasicMem>(p, "Terminator::Call: next block does not exist");
 }
 
-# [test]
+#[test]
 fn unwind_block_non_exist() {
     let locals = [<()>::get_type()];
 

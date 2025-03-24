@@ -403,6 +403,7 @@ pub enum IntrinsicLockOp {
 /// We also make them intrinsic if they return `()`, because an operand that
 /// does not return anything is kind of odd.
 pub enum IntrinsicOp {
+    Abort,
     Assume,
     Exit,
     Panic,

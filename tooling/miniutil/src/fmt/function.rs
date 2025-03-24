@@ -68,9 +68,13 @@ fn fmt_function(
 
 fn fmt_bb(bb_name: BbName, bb: BasicBlock, start: bool, comptypes: &mut Vec<CompType>) -> String {
     let name = bb_name.0.get_internal();
-    let block_kind: String = fmt_bb_kind(bb); 
+    let block_kind: String = fmt_bb_kind(bb);
 
-    let mut out = if start { format!("  start bb{name}{block_kind}:\n") } else { format!("  bb{name}{block_kind}:\n") };
+    let mut out = if start {
+        format!("  start bb{name}{block_kind}:\n")
+    } else {
+        format!("  bb{name}{block_kind}:\n")
+    };
 
     // Format statements
     for st in bb.statements.iter() {
@@ -139,22 +143,20 @@ fn fmt_call(
         None => String::new(),
     };
     let unwind_str = match unwind_block {
-        Some (unwind_block) => {
+        Some(unwind_block) => {
             let bb_name_str = fmt_bb_name(unwind_block);
-            format! ("unwind: {bb_name_str}")
+            format!("unwind: {bb_name_str}")
         }
         None => String::new(),
     };
     let next = match (next_block, unwind_block) {
-        (Some (_), Some (_)) => {
-            format! (" -> [{next_str}, {unwind_str}]")
+        (Some(_), Some(_)) => {
+            format!(" -> [{next_str}, {unwind_str}]")
         }
-        (None, None) => {
-            String::new()
-        }
+        (None, None) => String::new(),
         _ => {
             // one of next_str and unwind_str is empty.
-            format! (" -> {next_str}{unwind_str}")
+            format!(" -> {next_str}{unwind_str}")
         }
     };
 
@@ -190,7 +192,14 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Unreachable => {
             format!("    unreachable;")
         }
-        Terminator::Call { callee, calling_convention: conv, arguments, ret, next_block, unwind_block } => {
+        Terminator::Call {
+            callee,
+            calling_convention: conv,
+            arguments,
+            ret,
+            next_block,
+            unwind_block,
+        } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
             let args: Vec<_> = arguments
                 .iter()
@@ -219,6 +228,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         }
         Terminator::Intrinsic { intrinsic, arguments, ret, next_block } => {
             let callee = match intrinsic {
+                IntrinsicOp::Abort => "abort",
                 IntrinsicOp::Assume => "assume",
                 IntrinsicOp::Exit => "exit",
                 IntrinsicOp::Panic => "panic",
@@ -241,8 +251,16 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();
-            fmt_call(callee, CallingConvention::Rust, args.join(", "), ret, next_block, None,comptypes)
-        }  
+            fmt_call(
+                callee,
+                CallingConvention::Rust,
+                args.join(", "),
+                ret,
+                next_block,
+                None,
+                comptypes,
+            )
+        }
     }
 }
 
@@ -260,7 +278,7 @@ fn fmt_bb_name(bb: BbName) -> String {
     format!("bb{id}")
 }
 
-fn fmt_bb_kind(bb: BasicBlock) -> String{
+fn fmt_bb_kind(bb: BasicBlock) -> String {
     match bb.kind {
         BbKind::Regular => "".to_string(),
         BbKind::Cleanup => " (Cleanup)".to_string(),

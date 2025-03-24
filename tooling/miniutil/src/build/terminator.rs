@@ -13,6 +13,10 @@ impl FunctionBuilder {
         self.finish_block(exit());
     }
 
+    pub fn abort(&mut self) {
+        self.finish_block(abort());
+    }
+
     pub fn unreachable(&mut self) {
         self.finish_block(Terminator::Unreachable);
     }
@@ -25,7 +29,7 @@ impl FunctionBuilder {
         self.finish_block(Terminator::Return);
     }
 
-    pub fn resume_unwind(&mut self){
+    pub fn resume_unwind(&mut self) {
         self.finish_block(Terminator::ResumeUnwind);
     }
 
@@ -49,7 +53,7 @@ impl FunctionBuilder {
     /// Call a function that does not unwind.
     pub fn call_nounwind(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(Terminator::Call {
             callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
@@ -58,13 +62,13 @@ impl FunctionBuilder {
             next_block: Some(next_block),
             unwind_block: None,
         });
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     /// Call a function that does not unwind. Ignore unit type return value.
     pub fn call_ignoreret(&mut self, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(Terminator::Call {
             callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
@@ -73,12 +77,18 @@ impl FunctionBuilder {
             next_block: Some(next_block),
             unwind_block: None,
         });
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
-    pub fn call(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr], unwind_block: BbName) {
+    pub fn call(
+        &mut self,
+        ret: PlaceExpr,
+        f: ValueExpr,
+        args: &[ArgumentExpr],
+        unwind_block: BbName,
+    ) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(Terminator::Call {
             callee: f,
             calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
@@ -87,83 +97,83 @@ impl FunctionBuilder {
             next_block: Some(next_block),
             unwind_block: Some(unwind_block),
         });
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     // terminator with 0 following blocks and 1 clean up block
-    pub fn start_unwind(&mut self, clean_up: BbName){
+    pub fn start_unwind(&mut self, clean_up: BbName) {
         self.finish_block(start_unwind(clean_up));
     }
 
     // terminators with 1 following block
     pub fn assume(&mut self, val: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(assume(val, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn print(&mut self, arg: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(print(arg, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn eprint(&mut self, arg: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(eprint(arg, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn allocate(&mut self, size: ValueExpr, align: ValueExpr, ret_place: PlaceExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(allocate(size, align, ret_place, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn deallocate(&mut self, ptr: ValueExpr, size: ValueExpr, align: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(deallocate(ptr, size, align, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn spawn(&mut self, f: FnName, data_ptr: ValueExpr, ret: PlaceExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(spawn(fn_ptr(f), data_ptr, ret, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn join(&mut self, thread_id: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(join(thread_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn raw_eq(&mut self, dest: PlaceExpr, left_ptr: ValueExpr, right_ptr: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(raw_eq(dest, left_ptr, right_ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn atomic_store(&mut self, ptr: ValueExpr, src: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(atomic_store(ptr, src, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn atomic_load(&mut self, dest: PlaceExpr, ptr: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(atomic_load(dest, ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn atomic_fetch(
@@ -174,9 +184,9 @@ impl FunctionBuilder {
         other: ValueExpr,
     ) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(atomic_fetch(binop, dest, ptr, other, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn compare_exchange(
@@ -200,37 +210,37 @@ impl FunctionBuilder {
 
     pub fn expose_provenance(&mut self, dest: PlaceExpr, ptr: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(expose_provenance(dest, ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn with_exposed_provenance(&mut self, dest: PlaceExpr, addr: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(with_exposed_provenance(dest, addr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn lock_create(&mut self, ret: PlaceExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(lock_create(ret, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn lock_acquire(&mut self, lock_id: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(lock_acquire(lock_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     pub fn lock_release(&mut self, lock_id: ValueExpr) {
         let next_block = self.declare_block();
-        let next_block_type = self.cur_block().kind;
+        let next_block_kind = self.cur_block().kind;
         self.finish_block(lock_release(lock_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block, next_block_type);
+        self.set_cur_block(next_block, next_block_kind);
     }
 
     // terminators with 2 or more following blocks
@@ -256,7 +266,7 @@ impl FunctionBuilder {
         // branch map for switch terminator
         let mut branch_map: Map<Int, BbName> = Map::new();
 
-        let block_type = self.cur_block().kind;
+        let block_kind = self.cur_block().kind;
 
         for (case, branch) in cases {
             let new_block = self.declare_block();
@@ -275,7 +285,7 @@ impl FunctionBuilder {
         branches.push((&fallback, fallback_block));
 
         for (branch, block) in branches {
-            self.set_cur_block(block, block_type);
+            self.set_cur_block(block, block_kind);
             branch(self);
             // If the current block not finished, jump to `after_switch_block`.
             if self.cur_block.is_some() {
@@ -284,16 +294,16 @@ impl FunctionBuilder {
             }
         }
         if let Some(after_switch_block) = after_switch_block {
-            self.set_cur_block(after_switch_block, block_type);
+            self.set_cur_block(after_switch_block, block_kind);
         }
     }
 
     pub fn while_<F: Fn(&mut Self)>(&mut self, condition: ValueExpr, body: F) {
         // goto new block such that condition sits alone in dedicated block
         let cond = self.declare_block();
-        let block_type = self.cur_block().kind;
+        let block_kind = self.cur_block().kind;
         self.goto(cond);
-        self.set_cur_block(cond, block_type);
+        self.set_cur_block(cond, block_kind);
 
         self.if_(
             condition,
@@ -404,6 +414,15 @@ pub fn exit() -> Terminator {
     }
 }
 
+pub fn abort() -> Terminator {
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::Abort,
+        arguments: list![],
+        ret: unit_place(),
+        next_block: None,
+    }
+}
+
 pub fn panic() -> Terminator {
     Terminator::Intrinsic {
         intrinsic: IntrinsicOp::Panic,
@@ -417,7 +436,7 @@ pub fn return_() -> Terminator {
     Terminator::Return
 }
 
-pub fn start_unwind(clean_up: BbName) -> Terminator{
+pub fn start_unwind(clean_up: BbName) -> Terminator {
     Terminator::StartUnwind(clean_up)
 }
 

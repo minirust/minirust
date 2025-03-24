@@ -263,40 +263,30 @@ impl FunctionBuilder {
     }
 
     pub fn cleanup<F>(&mut self, cleanup_builder: F) -> BbName
-    where 
-        F : Fn(&mut Self),
-        {
-            let mut cur_block = self.cur_block.take();
-            let cleanup_block = self.declare_block();
-            self.set_cur_block(cleanup_block, BbKind::Cleanup);
-            cleanup_builder(self);
-
-            if self.cur_block.is_some() {
-                panic!(
-                    "The cleanup block is unfinished. The block needs to end with a Terminator."
-                );
-            }
-            self.cur_block = cur_block.take();
-            cleanup_block
-        }
-    
-    pub fn cleanup_resume(&mut self) -> BbName
+    where
+        F: Fn(&mut Self),
     {
-        self.cleanup(|f|{
+        let mut cur_block = self.cur_block.take();
+        let cleanup_block = self.declare_block();
+        self.set_cur_block(cleanup_block, BbKind::Cleanup);
+        cleanup_builder(self);
+
+        if self.cur_block.is_some() {
+            panic!("The cleanup block is unfinished. The block needs to end with a Terminator.");
+        }
+        self.cur_block = cur_block.take();
+        cleanup_block
+    }
+
+    pub fn cleanup_resume(&mut self) -> BbName {
+        self.cleanup(|f| {
             f.resume_unwind();
         })
     }
 
-    pub fn cleanup_exit(&mut self) -> BbName
-    {
-        self.cleanup(|f|{
-            f.exit();
-        })
-    }
-    
-    pub fn terminate<F>(& mut self, terminat_builer: F) -> BbName
-    where 
-        F : Fn(&mut Self),
+    pub fn terminate<F>(&mut self, terminat_builer: F) -> BbName
+    where
+        F: Fn(&mut Self),
     {
         let mut cur_block = self.cur_block.take();
         let terminate_block = self.declare_block();
@@ -304,9 +294,7 @@ impl FunctionBuilder {
         terminat_builer(self);
         // Add Unreachable if no terminator is specified.
         if self.cur_block.is_some() {
-            panic!(
-                "The terminate block is unfinished. The block needs to end with a Terminator."
-            );
+            panic!("The terminate block is unfinished. The block needs to end with a Terminator.");
         }
         self.cur_block = cur_block.take();
         terminate_block
@@ -382,7 +370,7 @@ struct CurBlock {
 
 impl CurBlock {
     pub fn new(name: BbName, kind: BbKind) -> CurBlock {
-        CurBlock { statements: Default::default(), name , kind}
+        CurBlock { statements: Default::default(), name, kind }
     }
 }
 
