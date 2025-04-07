@@ -1,7 +1,7 @@
 use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
-    pub fn pointee_info_of(&self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
+    pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
         let inhabited = !layout.abi().is_uninhabited();
         let param_env = rs::ParamEnv::reveal_all();
@@ -29,11 +29,15 @@ impl<'tcx> Ctxt<'tcx> {
                 let layout = LayoutStrategy::Slice(Size::from_bytes_const(1), Align::ONE);
                 PointeeInfo { layout, inhabited, freeze, unpin }
             }
+            &rs::TyKind::Dynamic(_, _, rs::DynKind::Dyn) => {
+                let layout = LayoutStrategy::TraitObject(self.get_trait_name(ty));
+                PointeeInfo { layout, inhabited, freeze, unpin }
+            }
             _ => rs::span_bug!(span, "encountered unimplemented unsized type: {ty}"),
         }
     }
 
-    pub fn pointee_info_of_smir(&self, ty: smir::Ty, span: rs::Span) -> PointeeInfo {
+    pub fn pointee_info_of_smir(&mut self, ty: smir::Ty, span: rs::Span) -> PointeeInfo {
         self.pointee_info_of(smir::internal(self.tcx, ty), span)
     }
 
@@ -71,9 +75,9 @@ impl<'tcx> Ctxt<'tcx> {
 
                         (offset, t)
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
-                Type::Tuple { fields, size, align }
+                build::tuple_ty(&fields, size, align)
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.expect_boxed_ty();
@@ -82,7 +86,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
                 let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
-                Type::Tuple { fields, size, align }
+                build::tuple_ty(&fields.iter().collect::<Vec<_>>(), size, align)
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_union() => {
                 let (fields, size, align) = self.translate_non_enum_adt(ty, *adt_def, sref, span);
@@ -120,6 +124,8 @@ impl<'tcx> Ctxt<'tcx> {
                 }));
                 Type::Slice { elem }
             }
+            rs::TyKind::Dynamic(_, _, rs::DynKind::Dyn) =>
+                Type::TraitObject(self.get_trait_name(ty)),
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         };
         self.ty_cache.insert(ty, mini_ty);

@@ -46,11 +46,13 @@ fn mark_used_bytes(ty: Type, markers: &mut [bool]) {
         Type::Int(int_ty) => mark_size(int_ty.size, markers),
         Type::Bool => mark_size(Size::from_bytes_const(1), markers),
         Type::Ptr(_) => mark_size(DefaultTarget::PTR_SIZE, markers),
-        Type::Tuple { fields, .. } =>
-            for (offset, ty) in fields {
+        Type::Tuple { sized_fields, unsized_field, .. } => {
+            assert!(unsized_field.extract().is_none(), "unsized types cannot be part of unions");
+            for (offset, ty) in sized_fields {
                 let offset = offset.bytes().try_to_usize().unwrap();
                 mark_used_bytes(ty, &mut markers[offset..]);
-            },
+            }
+        }
         Type::Union { chunks, .. } =>
             for (offset, len) in chunks {
                 let offset = offset.bytes().try_to_usize().unwrap();

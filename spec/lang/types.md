@@ -8,7 +8,7 @@ In particular, MiniRust is by design *not type-safe*.
 However, the representation relation is a key part of the language, since it forms the interface between the low-level and high-level view of data, between lists of (abstract) bytes and values.
 
 That said, types do have a little more information than required for the representation relation.
-For pointer types (references and raw pointers), types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
+For pointer types (references and boxes), types also contain a "mutability", which does not affect the representation relation but can be relevant for the aliasing rules.
 (We might want to organize this differently in the future, and remove mutability from types.)
 Union types know the types of their fields solely to support union field place projections.
 
@@ -21,22 +21,23 @@ In the future, we might want to separate a type from its layout, and consider th
 pub enum Type {
     Int(IntType),
     Bool,
-    /// `Ptr` represents all pointer types: references, raw pointers, boxes, and function pointers.
+    /// `Ptr` represents all pointer types: references, raw pointers, boxes, function and vtable pointers.
     /// A pointer type does *not* need the full pointee type, since (de)serializing a pointer does not
-    /// require knowledge about the pointee. We only track basic pointee information like size and
-    /// alignment that is required to check reference validity. This also means types have a finite
+    /// require knowledge about the pointee. We only track the metadata kind and basic pointee information
+    /// like size and alignment that is required to check reference validity. This also means types have a finite
     /// representation even when the Rust type is recursive.
     Ptr(PtrType),
     /// "Tuple" is used for all heterogeneous types, i.e., both Rust tuples and structs.
     Tuple {
         /// Fields must not overlap.
-        fields: Fields,
-        /// The total size of the tuple can indicate trailing padding.
-        /// Must be large enough to contain all fields.
-        size: Size,
-        /// Total alignment of the tuple. Due to `repr(packed)` and `repr(align)`,
-        /// this is independent of the fields' alignment.
-        align: Align,
+        sized_fields: Fields,
+        /// The layout of the sized fiels, i.e., the head.
+        sized_head_layout: TupleHeadLayout,
+        /// A last field (in terms of offset), i.e., the tail, may contain an unsized type,
+        /// then its offset is given by rounding the `end` of `sized_head_layout` up to the alignment of this type.
+        #[specr::indirection]
+        // FIXME: Due to `specr::indirection` we cannot match on this field.
+        unsized_field: Option<Type>,
     },
     Array {
         #[specr::indirection]
@@ -154,7 +155,17 @@ impl Type {
             Bool => Sized(Size::from_bytes_const(1), Align::ONE),
             Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
             Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
-            Tuple { size, align, .. } | Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
+            Union { size, align, .. } | Enum { size, align, .. } => Sized(size, align),
+            Tuple { sized_head_layout, unsized_field, .. } => match unsized_field {
+                None => {
+                    let (size, align) = sized_head_layout.head_size_and_align();
+                    Sized(size, align)
+                }
+                Some(tail_ty) => LayoutStrategy::Tuple {
+                    head: sized_head_layout,
+                    tail: tail_ty.layout::<T>(),
+                },
+            },
             Array { elem, count } => Sized(
                 elem.layout::<T>().expect_size("WF ensures array element is sized") * count,
                 elem.layout::<T>().expect_align("WF ensures array element is sized"),
@@ -173,6 +184,10 @@ impl Type {
         match self {
             Type::Slice { .. } => PointerMetaKind::ElementCount,
             Type::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
+            Type::Tuple { unsized_field, .. } => match unsized_field {
+                None => PointerMetaKind::None,
+                Some(ty) => ty.meta_kind(),
+            },
             _ => PointerMetaKind::None,
         }
     }
@@ -182,6 +197,40 @@ impl Type {
 And we also define how to compute the actual size and alignment.
 
 ```rust
+impl TupleHeadLayout {
+    /// The actual alignment of the tail, considering the packed attribute.
+    fn capped_tail_align(self, tail_align: Align) -> Align {
+        match self.packed_align {
+            Some(packed_align) => tail_align.min(packed_align),
+            None => tail_align,
+        }
+    }
+
+    /// Where the tail starts, given the aligment of the tail type.
+    pub fn tail_offset(self, tail_align: Align) -> Offset {
+        let capped_tail_align = self.capped_tail_align(tail_align);
+        let tail_offset = self.end.align_to(capped_tail_align);
+        tail_offset
+    }
+
+    /// The size and alignment of the full tuple, including the tail.
+    /// Given the size and alignment of the tail type.
+    pub fn full_size_and_align(self, tail_size: Size, tail_align: Align) -> (Size, Align) {
+        let capped_tail_align = self.capped_tail_align(tail_align);
+        let align = capped_tail_align.max(self.align);
+        let tail_offset = self.tail_offset(tail_align);
+        let end = tail_offset + tail_size;
+        let size = end.align_to(align);
+        (size, align)
+    }
+
+    /// Returns the size and alignment of the tuple when there is no tail.
+    pub fn head_size_and_align(self) -> (Size, Align) {
+        // This is equivalent to `full_size_and_align(ZERO, ONE)`.
+        (self.end.align_to(self.align), self.align)
+    }
+}
+
 impl LayoutStrategy {
     pub fn is_sized(self) -> bool {
         matches!(self, LayoutStrategy::Sized(..))
@@ -203,41 +252,38 @@ impl LayoutStrategy {
         }
     }
 
-    /// Computes the dynamic size, but the caller must provide compatible metadata.
-    pub fn compute_size<Provenance>(
+    /// Computes the dynamic size and alignment, but the caller must provide compatible metadata.
+    /// 
+    /// The size and align of unsized structs depend on each other,
+    /// thus we must recursively compute them at the same time.
+    pub fn compute_size_and_align<Provenance>(
         self,
-        meta: Option<PointerMeta<Provenance>>,
+        meta: Option<PointerMeta<Provenance>>, 
         vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
-    ) -> Size {
+    ) -> (Size, Align) {
         match (self, meta) {
-            (LayoutStrategy::Sized(size, _), None) => size,
-            (LayoutStrategy::Slice(elem_size, _), Some(PointerMeta::ElementCount(count))) => count * elem_size,
-            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).size,
-            _ => panic!("pointer meta data does not match type"),
-        }
-    }
-
-    /// Computes the dynamic alignment, but the caller must provide compatible metadata.
-    pub fn compute_align<Provenance>(
-        self,
-        meta: Option<PointerMeta<Provenance>>,
-        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
-    ) -> Align {
-        match (self, meta) {
-            (LayoutStrategy::Sized(_, align), None) => align,
-            (LayoutStrategy::Slice(_, align), Some(PointerMeta::ElementCount(_))) => align,
-            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => vtables(vtable_ptr).align,
+            (LayoutStrategy::Sized(size, align), None) => (size, align),
+            (LayoutStrategy::Slice(elem_size, align), Some(PointerMeta::ElementCount(count))) => (count * elem_size, align),
+            (LayoutStrategy::TraitObject(..), Some(PointerMeta::VTablePointer(vtable_ptr))) => {
+                let vtable = vtables(vtable_ptr);
+                (vtable.size, vtable.align)
+            }
+            (LayoutStrategy::Tuple { head, tail }, Some(meta)) => {
+                let (tail_size, tail_align) = tail.compute_size_and_align(Some(meta), vtables);
+                head.full_size_and_align(tail_size, tail_align)
+            }
             _ => panic!("pointer meta data does not match type"),
         }
     }
 
     /// Returns the metadata kind which is needed to compute this strategy,
-    /// i.e `self.meta_kind().matches(meta)` implies `self.compute_*(meta)` is well-defined.
+    /// i.e `machine.check_pointer_metadata(meta, self.meta_kind()).is_ok()` implies `machine.compute_*(meta)` is well-defined.
     pub fn meta_kind(self) -> PointerMetaKind {
         match self {
             LayoutStrategy::Sized(..) => PointerMetaKind::None,
             LayoutStrategy::Slice(..) => PointerMetaKind::ElementCount,
             LayoutStrategy::TraitObject(trait_name) => PointerMetaKind::VTablePointer(trait_name),
+            LayoutStrategy::Tuple { tail, .. } => tail.meta_kind(),
         }
     }
 }
@@ -270,7 +316,15 @@ impl IntType {
         // The total size is `self.size + 1` rounded up to the next multiple of `align`.
         // Since `self.size` is already a multiple of `align`, we can compute this as follows:
         let size = self.size + Size::from_bytes(align.bytes()).unwrap();
-        Type::Tuple { fields, size, align }
+        Type::Tuple {
+            sized_fields: fields,
+            sized_head_layout: TupleHeadLayout {
+                end: size,
+                align,
+                packed_align: None,
+            },
+            unsized_field: None,
+        }
     }
 }
 ```

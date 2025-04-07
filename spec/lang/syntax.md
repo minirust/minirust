@@ -77,7 +77,7 @@ pub enum ValueExpr {
     },
 }
 
-/// Constants are basically values, but cannot have provenance.
+/// Constants are basically values, but cannot have explicit provenance.
 /// Currently we do not support Ptr and Union constants.
 pub enum Constant {
     /// A mathematical integer, used for `i*`/`u*` types.
@@ -116,24 +116,20 @@ pub enum UnOp {
     /// A form of cast; the return type is given by the specific cast operation.
     Cast(CastOp),
     // The following 2 operations correspond to the two parts of `<*const T>::to_raw_parts()`.
-    /// Returns a raw pointer with same thin pointer of the operand, but without the metadata.
+    /// Returns a raw pointer with same thin pointer as the operand, but without the metadata.
     GetThinPointer,
-    /// Returns the metadata of a pointer as a value. For a thin pointer this is `()`.
+    /// Returns the metadata of a pointer as a value.
+    /// The return type is given by `PointerMetaKind::ty()`, e.g., for a thin pointer this is `()`.
     GetMetadata,
     /// Returns the dynamic size of the type given the pointer metadata.
-    /// The operand must be a matching metadata for the type. For sized objects this is `()`.
+    /// The operand must be a matching metadata for the type. For sized types this is `()`.
     ComputeSize(Type),
-    /// Returns the dynamic align of the type given the pointer metadata.
-    /// The operand must be a matching metadata for the type. For sized objects this is `()`.
+    /// Returns the dynamic alignment of the type given the pointer metadata.
+    /// The operand must be a matching metadata for the type. For sized types this is `()`.
     ComputeAlign(Type),
     /// Lookup the function pointer for a trait object method.
-    /// Dynamic dispatch is represented as a `Call` to the result of this method,
-    /// with the `self` argument appropriately cast to a sized pointer type.
-    /// 
-    /// The operand must be a pointer to a vtable as returned by `GetMetadata`.
-    /// 
-    /// The parameter specifies which function of the vtable to look up.
-    /// Depends on the `TraitName` set in the vtable.
+    /// The operand must be a pointer to a vtable as returned by `Constant::VTablePointer`.
+    /// The parameter specifies which method of the vtable to look up.
     VTableMethodLookup(TraitMethodName),
 }
 
@@ -261,9 +257,9 @@ pub enum PlaceExpr {
         /// The field to project to.
         field: Int,
     },
-    /// Index to an array element.
+    /// Index to an array or slice element.
     Index {
-        /// The array to index into.
+        /// The array or slice to index into.
         #[specr::indirection]
         root: PlaceExpr,
         /// The index to project to.
@@ -351,6 +347,9 @@ pub enum Terminator {
     Call {
         /// What function or method to call.
         /// This must evaluate to a function pointer and for safe behaviour, the functions signature must match the arguments.
+        /// 
+        /// Dynamic dispatch is represented with the callee being the result of `VTableMethodLookup(GetMetadata(self))`,
+        /// and the `self` argument appropriately cast to a thin pointer type.
         callee: ValueExpr,
         /// The calling convention to use for this call.
         calling_convention: CallingConvention,
@@ -444,7 +443,7 @@ pub struct Program {
     pub globals: Map<GlobalName, Global>,
     /// Stores all traits and method names which are available for dynamic dispatch.
     pub traits: Map<TraitName, Set<TraitMethodName>>,
-    /// Store the vtables with function names for each vtable name.
+    /// Store the vtables with method tables and layout information.
     pub vtables: Map<VTableName, VTable>,
 }
 
@@ -506,6 +505,6 @@ pub struct VTable {
     /// The alignment of the type.
     pub align: Align,
     /// The implementations of trait methods.
-    pub methods: Map<TraitMethodName, FnName>
+    pub methods: Map<TraitMethodName, FnName>,
 }
 ```

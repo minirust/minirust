@@ -289,33 +289,54 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
                         let old_pointee_rs_ty =
                             smir::internal(self.tcx, operand_ty).builtin_deref(true).unwrap();
-                        let old_pointee_ty = self.translate_ty(old_pointee_rs_ty, span);
                         let new_pointee_rs_ty =
                             smir::internal(self.tcx, *cast_ty).builtin_deref(true).unwrap();
-                        let new_pointee_ty = self.translate_ty(new_pointee_rs_ty, span);
 
                         let Type::Ptr(new_ptr_ty) = self.translate_ty_smir(*cast_ty, span) else {
                             rs::span_bug!(span, "ptr to ptr cast to non-pointer");
                         };
                         let operand = self.translate_operand_smir(operand, span);
-                        match (old_pointee_ty, new_pointee_ty) {
-                            (Type::Array { count, elem: a_elem }, Type::Slice { elem: s_elem }) => {
+                        match (old_pointee_rs_ty.kind(), new_pointee_rs_ty.kind()) {
+                            (rs::TyKind::Array(a_elem, count), rs::TyKind::Slice(s_elem)) => {
                                 if a_elem != s_elem {
                                     rs::span_bug!(
                                         span,
                                         "Unsizing to slice with different element type"
                                     );
                                 }
+                                let count = count.try_to_target_usize(self.tcx).unwrap();
                                 build::construct_wide_pointer(
                                     operand,
-                                    build::const_int_typed::<usize>(count),
+                                    build::const_int_typed::<usize>(Int::from(count)),
+                                    Type::Ptr(new_ptr_ty),
+                                )
+                            }
+                            (
+                                rs::TyKind::Dynamic(data_a, _, rs::Dyn),
+                                rs::TyKind::Dynamic(data_b, _, rs::Dyn),
+                            ) => {
+                                // MIR building generates odd NOP casts, prevent them from causing unexpected trouble.
+                                // See <https://github.com/rust-lang/rust/issues/128880>.
+                                if data_a == data_b {
+                                    operand
+                                } else {
+                                    rs::span_bug!(span, "Unsupported super trait unsizing coercion")
+                                }
+                            }
+                            (_, rs::TyKind::Dynamic(_, _, rs::Dyn)) => {
+                                let vtable =
+                                    self.cx.get_vtable(old_pointee_rs_ty, new_pointee_rs_ty);
+                                let trait_name = self.cx.get_trait_name(new_pointee_rs_ty);
+                                build::construct_wide_pointer(
+                                    operand,
+                                    build::const_vtable(vtable, trait_name),
                                     Type::Ptr(new_ptr_ty),
                                 )
                             }
                             _ =>
                                 rs::span_bug!(
                                     span,
-                                    "Unsupported unsizing coercion to {new_pointee_ty:?}"
+                                    "Unsupported unsizing coercion to {new_pointee_rs_ty:?}"
                                 ),
                         }
                     }

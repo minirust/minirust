@@ -131,12 +131,12 @@ fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M
 }
 
 impl PointerMetaKind {
-    /// Returns the representable type of the metadata if there is any.
-    pub fn ty<T: Target>(self) -> Option<Type> {
+    /// Returns the type of the metadata when used as a value.
+    pub fn ty<T: Target>(self) -> Type {
         match self {
-            PointerMetaKind::None => None,
-            PointerMetaKind::ElementCount => Some(Type::Int(IntType::usize_ty::<T>())),
-            PointerMetaKind::VTablePointer(..) => Some(Type::Ptr(PtrType::VTablePtr)),
+            PointerMetaKind::None => unit_type(),
+            PointerMetaKind::ElementCount => Type::Int(IntType::usize_ty::<T>()),
+            PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTablePtr(trait_name)),
         }
     }
 }
@@ -144,14 +144,22 @@ impl PointerMetaKind {
 impl PtrType {
     /// Returns a pair type representing this wide pointer or `None` if it is thin.
     pub fn as_wide_pair<T: Target>(self) -> Option<Type> {
-        let meta_ty = self.meta_kind().ty::<T>()?;
+        if self.meta_kind() == PointerMetaKind::None {
+            return None;
+        }
+        let meta_ty = self.meta_kind().ty::<T>();
+        assert_eq!(meta_ty.layout::<T>().expect_size("metadata is always sized"), T::PTR_SIZE, "metadata is assumed to be pointer-sized");
+        assert_eq!(meta_ty.layout::<T>().expect_align("metadata is always sized"), T::PTR_ALIGN, "metadata is assumed to be pointer-aligned");
         let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let metadata_field = (T::PTR_SIZE, meta_ty);
         ret(Type::Tuple {
-            fields: list![thin_pointer_field, metadata_field],
-            size: Int::from(2) * T::PTR_SIZE,
-            // This anyway does not matter as we only use this type to encode/decode values.
-            align: T::PTR_ALIGN,
+            sized_fields: list![thin_pointer_field, metadata_field],
+            sized_head_layout: TupleHeadLayout {
+                end: Int::from(2) * T::PTR_SIZE,
+                align: T::PTR_ALIGN,
+                packed_align: None,
+            },
+            unsized_field: None,
         })
     }
 }
@@ -159,23 +167,23 @@ impl PtrType {
 impl PointerMetaKind {
     /// Decodes a value to metadata.
     /// The spec will only call this with values which are well formed for `self.ty()`,
-    /// but this may return ill-formed metadata (as defined by `Machine::check_pointer_metadata`), thus needs to be checked.
+    /// but this may return ill-formed metadata (as defined by `Machine::check_ptr_metadata`), thus needs to be checked.
     fn decode_value<M: Memory>(self, value: Value<M>) -> Option<PointerMeta<M::Provenance>> {
         match (self, value) {
+            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             (PointerMetaKind::ElementCount, Value::Int(count)) => Some(PointerMeta::ElementCount(count)),
             (PointerMetaKind::VTablePointer(_), Value::Ptr(ptr)) if ptr.metadata.is_none() => Some(PointerMeta::VTablePointer(ptr.thin_pointer)),
-            (PointerMetaKind::None, Value::Tuple(fields)) if fields.is_empty() => None,
             _ => panic!("PointerMeta::decode_value called with invalid value"),
         }
     }
 
     /// Encodes metadata as a value.
-    /// The spec ensures this is only called with well-formed metadata (as defined by `Machine::check_pointer_metadata`).
+    /// The spec ensures this is only called with well-formed metadata (as defined by `Machine::check_ptr_metadata`).
     fn encode_as_value<M: Memory>(self, meta: Option<PointerMeta<M::Provenance>>) -> Value<M> {
         match (self, meta) {
+            (PointerMetaKind::None, None) => unit_value(),
             (PointerMetaKind::ElementCount, Some(PointerMeta::ElementCount(count))) => Value::Int(count),
             (PointerMetaKind::VTablePointer(_), Some(PointerMeta::VTablePointer(ptr))) => Value::Ptr(ptr.widen(None)),
-            (PointerMetaKind::None, None) => unit_value(),
             _ => panic!("PointerMeta::encode_as_value called with invalid value"),
         }
     }
@@ -227,23 +235,29 @@ impl Type {
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Tuple { fields, size, .. }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Tuple { sized_fields, sized_head_layout, unsized_field }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        assert!(unsized_field.is_none(), "decode of Type::Tuple with unsized field");
+
+        let (size, _) = sized_head_layout.head_size_and_align();
         if bytes.len() != size.bytes() { panic!("decode of Type::Tuple with invalid length"); }
         ret(Value::Tuple(
-            fields.try_map(|(offset, ty)| {
+            sized_fields.try_map(|(offset, ty)| {
                 let subslice = bytes.subslice_with_length(
                     offset.bytes(),
-                    ty.layout::<M::T>().expect_size("WF ensures all tuple fields are sized").bytes()
+                    ty.layout::<M::T>().expect_size("WF ensures all sized tuple fields are sized").bytes()
                 );
                 ty.decode::<M>(subslice)
             })?
         ))
     }
-    fn encode<M: Memory>(Type::Tuple { fields, size, .. }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Tuple { sized_fields, sized_head_layout, unsized_field }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        assert!(unsized_field.is_none(), "encode of Type::Tuple with unsized field");
+
+        let (size, _) = sized_head_layout.head_size_and_align();
         let Value::Tuple(values) = val else { panic!() };
-        assert_eq!(values.len(), fields.len());
+        assert_eq!(values.len(), sized_fields.len());
         let mut bytes = list![AbstractByte::Uninit; size.bytes()];
-        for ((offset, ty), value) in fields.zip(values) {
+        for ((offset, ty), value) in sized_fields.zip(values) {
             bytes.write_subslice_at_index(offset.bytes(), ty.encode::<M>(value));
         }
         bytes
@@ -462,15 +476,13 @@ fn ensure_else_ub(b: bool, msg: &str) -> Result<()> {
 
 impl<M: Memory> Machine<M> {
     /// Defines well-formedness for pointer metadata for a given kind.
-    fn check_pointer_metadata(&self, meta: Option<PointerMeta<M::Provenance>>, kind: PointerMetaKind) -> Result {
+    fn check_ptr_metadata(&self, meta: Option<PointerMeta<M::Provenance>>, kind: PointerMetaKind) -> Result {
         match (meta, kind) {
             (None, PointerMetaKind::None) => {}
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
                 self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
             (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
-                // Check that the vtable exists and is for the correct trait
-                let vtable = self.vtable_from_ptr(ptr)?;
-                ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
+                self.check_ptr(ptr.widen(None), PtrType::VTablePtr(trait_name))?;
             }
             _ => throw_ub!("Value::Ptr: invalid metadata"),
         };
@@ -479,11 +491,11 @@ impl<M: Memory> Machine<M> {
     }
 
     /// Checks that a pointer is well-formed.
-    fn check_pointer(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
+    fn check_ptr(&self, ptr: Pointer<M::Provenance>, ptr_ty: PtrType) -> Result {
         ensure_else_ub(ptr.thin_pointer.addr.in_bounds(Unsigned, M::T::PTR_SIZE), "Value::Ptr: pointer out-of-bounds")?;
 
         // This has to be checked first, to ensure we can e.g. compute size/align below.
-        self.check_pointer_metadata(ptr.metadata, ptr_ty.meta_kind())?;
+        self.check_ptr_metadata(ptr.metadata, ptr_ty.meta_kind())?;
 
         // Safe pointer, i.e. references, boxes
         if let Some(pointee) = ptr_ty.safe_pointee() {
@@ -503,6 +515,11 @@ impl<M: Memory> Machine<M> {
             )?;
 
             // However, we do not care about the data stored wherever this pointer points to.
+        } else if let PtrType::VTablePtr(trait_name) = ptr_ty {
+            // This is a "stand-alone" vtable pointer, something that does not exist
+            // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
+            let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
+            ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
         }
 
         Ok(())
@@ -516,10 +533,11 @@ impl<M: Memory> Machine<M> {
                 ensure_else_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
             }
             (Value::Bool(_), Type::Bool) => {},
-            (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => self.check_pointer(ptr, ptr_ty)?,
-            (Value::Tuple(vals), Type::Tuple { fields, .. }) => {
-                ensure_else_ub(vals.len() == fields.len(), "Value::Tuple: invalid number of fields")?;
-                for (val, (_, ty)) in vals.zip(fields) {
+            (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => self.check_ptr(ptr, ptr_ty)?,
+            (Value::Tuple(vals), Type::Tuple { sized_fields, unsized_field, .. }) => {
+                assert!(unsized_field.is_none(), "Value: unsized structs cannot be represented as values");
+                ensure_else_ub(vals.len() == sized_fields.len(), "Value::Tuple: invalid number of fields")?;
+                for (val, (_, ty)) in vals.zip(sized_fields) {
                     self.check_value(val, ty)?;
                 }
             }

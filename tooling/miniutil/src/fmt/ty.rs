@@ -19,7 +19,7 @@ pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
             FmtExpr::Atomic(format!("[{elem}]"))
         }
         Type::TraitObject(trait_name) =>
-            FmtExpr::Atomic(format!("dyn trait{}", trait_name.0.get_internal())),
+            FmtExpr::Atomic(format!("dyn {}", fmt_trait_name(trait_name))),
     }
 }
 
@@ -52,7 +52,7 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
-        PtrType::VTablePtr => FmtExpr::Atomic("{vtable}".into()),
+        PtrType::VTablePtr(_) => FmtExpr::Atomic("{vtable}".into()),
     }
 }
 
@@ -61,28 +61,50 @@ fn fmt_meta_kind(kind: PointerMetaKind) -> String {
         PointerMetaKind::None => "thin".into(),
         PointerMetaKind::ElementCount => "meta=len".into(),
         PointerMetaKind::VTablePointer(trait_name) =>
-            format!("meta=vtable<trait{}>", trait_name.0.get_internal()),
+            format!("meta=vtable<{}>", fmt_trait_name(trait_name)),
     }
 }
 
-fn fmt_pointee_info(pointee: PointeeInfo) -> String {
-    let layout_str = match pointee.layout {
+fn fmt_layout_strategy(layout: LayoutStrategy) -> String {
+    match layout {
         LayoutStrategy::Sized(size, align) =>
             format!("size={}, align={}", size.bytes(), align.bytes()),
         LayoutStrategy::Slice(size, align) =>
             format!("size={}*len, align={}", size.bytes(), align.bytes()),
         LayoutStrategy::TraitObject(..) => "size,align={unknown}".into(),
-    };
+        LayoutStrategy::Tuple { head, tail } => {
+            let packed_str = if let Some(packed) = head.packed_align {
+                format!(", packed={}", packed.bytes())
+            } else {
+                "".into()
+            };
+            format!(
+                "head=(end={}, align={}){}, tail=({})",
+                head.end.bytes(),
+                head.align.bytes(),
+                packed_str,
+                fmt_layout_strategy(tail.extract())
+            )
+        }
+    }
+}
+
+fn fmt_pointee_info(pointee: PointeeInfo) -> String {
+    let layout_str = fmt_layout_strategy(pointee.layout);
     let uninhab_str = match pointee.inhabited {
         true => "",
         false => ", uninhabited",
     };
-    let freeze_str = match pointee.inhabited {
-        true => ", freeze",
-        false => "",
+    let freeze_str = match pointee.freeze {
+        true => "",
+        false => ", !Freeze",
+    };
+    let pin_str = match pointee.unpin {
+        true => "",
+        false => ", !Unpin",
     };
     let meta_str = fmt_meta_kind(pointee.layout.meta_kind());
-    format!("pointee_info({meta_str}, {layout_str}{uninhab_str}{freeze_str})")
+    format!("pointee_info({meta_str}, {layout_str}{uninhab_str}{freeze_str}{pin_str})")
 }
 
 /////////////////////
@@ -141,18 +163,23 @@ pub(super) fn fmt_comptypes(mut comptypes: Vec<CompType>) -> String {
 }
 
 fn fmt_comptype(i: CompTypeIndex, t: CompType, comptypes: &mut Vec<CompType>) -> String {
-    let (keyword, size, align) = match t.0 {
-        Type::Tuple { fields: _, size, align } => ("tuple", size, align),
-        Type::Union { size, align, .. } => ("union", size, align),
-        Type::Enum { size, align, .. } => ("enum", size, align),
+    let keyword = match t.0 {
+        Type::Tuple { .. } => "tuple",
+        Type::Union { .. } => "union",
+        Type::Enum { .. } => "enum",
         _ => panic!("not a supported composite type!"),
     };
     let ct = fmt_comptype_index(i).to_string();
-    let size = size.bytes();
-    let align = align.bytes();
-    let mut s = format!("{keyword} {ct} ({size} bytes, aligned {align} bytes) {{\n");
+    let layout = fmt_layout_strategy(t.0.layout::<DefaultTarget>());
+    let mut s = format!("{keyword} {ct} ({layout}) {{\n");
     match t.0 {
-        Type::Tuple { fields, .. } => s += &fmt_comptype_fields(fields, comptypes),
+        Type::Tuple { sized_fields, unsized_field, .. } => {
+            s += &fmt_comptype_fields(sized_fields, comptypes);
+            if let Some(unsized_ty) = unsized_field.extract() {
+                let ty = fmt_type(unsized_ty, comptypes).to_string();
+                s += &format!("  tail: {ty},\n");
+            }
+        }
         Type::Union { fields, chunks, .. } => {
             s += &fmt_comptype_fields(fields, comptypes);
             s += &fmt_comptype_chunks(chunks);

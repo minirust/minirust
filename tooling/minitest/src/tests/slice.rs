@@ -28,7 +28,7 @@ fn ref_as_transmuted_slice<T: TypeConv>(
 
 /// Tests that slices can occur behind different pointer types
 #[test]
-fn slice_ref_wf() {
+fn wf_slice_ref() {
     let mut p = ProgramBuilder::new();
 
     let _f = {
@@ -52,7 +52,7 @@ fn slice_ref_wf() {
 
 /// Tests that an index operation is well formed
 #[test]
-fn index_wf() {
+fn wf_index() {
     let mut p = ProgramBuilder::new();
 
     let _f = {
@@ -79,7 +79,7 @@ fn index_wf() {
 
 /// Asserts that the slice element type must be sized
 #[test]
-fn slice_ref_unsized_elem_not_wf() {
+fn ill_slice_ref_unsized_elem() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -96,14 +96,15 @@ fn slice_ref_unsized_elem_not_wf() {
     assert_ill_formed::<BasicMem>(p, "Type::Slice: unsized element type");
 }
 
+/// Asserts that locals must be sized
 #[test]
-fn local_not_wf() {
+fn ill_local() {
     let mut p = ProgramBuilder::new();
 
     let f = {
         let mut f = p.declare_function();
         // ill formed:
-        f.declare_local_with_ty(slice_ty(<u32>::get_type()));
+        f.declare_local_with_ty(<[u32]>::get_type());
         f.exit();
         p.finish_function(f)
     };
@@ -112,8 +113,9 @@ fn local_not_wf() {
     assert_ill_formed::<BasicMem>(p, "Function: unsized local variable");
 }
 
+/// Asserts loads at unsized types are ill-formed
 #[test]
-fn load_not_wf() {
+fn ill_load() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -131,8 +133,9 @@ fn load_not_wf() {
     assert_ill_formed::<BasicMem>(p, "ValueExpr::Load: unsized value type");
 }
 
+/// Asserts transmuts to unsized types are ill-formed
 #[test]
-fn transmute_not_wf() {
+fn ill_transmute() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -154,7 +157,7 @@ fn transmute_not_wf() {
 
 /// Tests that a wide pointer can be transmuted from a `(*T, usize)`.
 #[test]
-fn index_with_transmuted() {
+fn index_to_transmuted_slice() {
     let mut p = ProgramBuilder::new();
 
     let f = {
@@ -177,37 +180,53 @@ fn index_with_transmuted() {
     assert_stop::<BasicMem>(p);
 }
 
+/// Corresponds to
+/// ```rust
+/// let x: [u32; 3] = [42, 43, 44];
+/// let y = &x as &[u32];
+/// let z = *unsafe { y.get_unchecked(1) };
+/// assert!(z == 43);
+/// ```
 #[test]
-fn index_with_constructed() {
+fn index_to_slice() {
     let mut p = ProgramBuilder::new();
 
     let f = {
         let mut f = p.declare_function();
         // Make array
         let arr = f.declare_local::<[u32; 3]>();
+        let slice = f.declare_local::<&[u32]>();
+        let elem = f.declare_local::<u32>();
         f.storage_live(arr);
-        f.assign(index(arr, const_int(0)), const_int(42_u32));
-        f.assign(index(arr, const_int(1)), const_int(43_u32));
-        f.assign(index(arr, const_int(2)), const_int(44_u32));
-        let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&[u32; 3]>::get_type()),
-            const_int(3_usize),
-            <&[u32]>::get_type(),
+        f.storage_live(slice);
+        f.storage_live(elem);
+        f.assign(
+            arr,
+            array(&[const_int(42_u32), const_int(43_u32), const_int(44_u32)], <u32>::get_type()),
         );
-        // Print slice[1]
-        let loaded_val = load(index(deref(slice_ptr, <[u32]>::get_type()), const_int(1)));
-        f.assume(eq(loaded_val, const_int(43_u32)));
+        f.assign(
+            slice,
+            construct_wide_pointer(
+                addr_of(arr, <&[u32; 3]>::get_type()),
+                const_int(3_usize),
+                <&[u32]>::get_type(),
+            ),
+        );
+        // Load and check slice[1]
+        f.assign(elem, load(index(deref(load(slice), <[u32]>::get_type()), const_int(1))));
+        f.assume(eq(load(elem), const_int(43_u32)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
+    dump_program(p);
     assert_stop::<BasicMem>(p);
 }
 
 /// Tests that indexing into a slice throws UB for invalid indices
 #[test]
-fn invalid_index_ub() {
+fn ub_invalid_index() {
     fn for_index(idx: isize) {
         let mut p = ProgramBuilder::new();
         let f = {
@@ -263,7 +282,7 @@ fn large_raw() {
 
 /// The total size of a safe slice pointer cannot be larger than isize::MAX
 #[test]
-fn too_large_slice() {
+fn ub_too_large_slice() {
     let mut p = ProgramBuilder::new();
     let f = {
         let mut f = p.declare_function();
@@ -286,6 +305,11 @@ fn too_large_slice() {
     assert_ub::<BasicMem>(p, "Value::Ptr: total size exeeds isize::MAX");
 }
 
+/// ```rust
+/// let x: [u32; 3] = [42, 43, 44];
+/// let y = &x as &[u32];
+/// assert!(y.len() == 3);
+/// ```
 #[test]
 fn get_metadata_correct() {
     let mut p = ProgramBuilder::new();
@@ -295,26 +319,34 @@ fn get_metadata_correct() {
         // Make array
         let arr = f.declare_local::<[u32; 3]>();
         f.storage_live(arr);
-        f.assign(index(arr, const_int(0)), const_int(42_u32));
-        f.assign(index(arr, const_int(1)), const_int(43_u32));
-        f.assign(index(arr, const_int(2)), const_int(44_u32));
+        f.assign(
+            arr,
+            array(&[const_int(42_u32), const_int(43_u32), const_int(44_u32)], <u32>::get_type()),
+        );
         // Construct a slice reference
-        let slice_ptr = construct_wide_pointer(
-            addr_of(arr, <&[u32; 3]>::get_type()),
-            const_int(3_usize),
-            <&[u32]>::get_type(),
+        let slice = f.declare_local::<&[u32]>();
+        f.storage_live(slice);
+        f.assign(
+            slice,
+            construct_wide_pointer(
+                addr_of(arr, <&[u32; 3]>::get_type()),
+                const_int(3_usize),
+                <&[u32]>::get_type(),
+            ),
         );
         // Get the metadata again && assert it to be correct
-        let loaded_len = get_metadata(slice_ptr);
+        let loaded_len = get_metadata(load(slice));
         f.assume(eq(loaded_len, const_int(3_usize)));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
+    dump_program(p);
     assert_stop::<BasicMem>(p);
 }
 
+/// Asserts the thin pointer of a slice points to the first element
 #[test]
 fn get_thin_pointer_is_first_elem() {
     let mut p = ProgramBuilder::new();

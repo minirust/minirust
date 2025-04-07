@@ -15,10 +15,10 @@ pub fn const_bool(b: bool) -> ValueExpr {
 
 #[track_caller]
 pub fn tuple(args: &[ValueExpr], ty: Type) -> ValueExpr {
-    let Type::Tuple { fields, .. } = ty else {
+    let Type::Tuple { sized_fields, .. } = ty else {
         panic!("const_tuple received non-tuple type!");
     };
-    assert_eq!(fields.len(), args.len());
+    assert_eq!(sized_fields.len(), args.len());
     ValueExpr::Tuple(args.iter().cloned().collect(), ty)
 }
 
@@ -303,11 +303,14 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
     global_by_name::<T>(GlobalName(Name::from_internal(x)))
 }
 
-pub fn const_vtable(vtable_name: VTableName) -> ValueExpr {
-    ValueExpr::Constant(Constant::VTablePointer(vtable_name), Type::Ptr(PtrType::VTablePtr))
+pub fn const_vtable(vtable_name: VTableName, trait_name: TraitName) -> ValueExpr {
+    ValueExpr::Constant(
+        Constant::VTablePointer(vtable_name),
+        Type::Ptr(PtrType::VTablePtr(trait_name)),
+    )
 }
 
-pub fn vtable_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
+pub fn vtable_method_lookup(operand: ValueExpr, method: TraitMethodName) -> ValueExpr {
     ValueExpr::UnOp { operator: UnOp::VTableMethodLookup(method), operand: GcCow::new(operand) }
 }
 

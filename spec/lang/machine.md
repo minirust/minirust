@@ -363,12 +363,14 @@ impl<M: Memory> Machine<M> {
 
     /// Helper function to compute the size with the allocated vtables in `self`.
     fn compute_size(&self, layout: LayoutStrategy, meta: Option<PointerMeta<M::Provenance>>) -> Size {
-        layout.compute_size(meta, self.vtable_lookup())
+        let (size, _) = layout.compute_size_and_align(meta, self.vtable_lookup());
+        size
     }
 
     /// Helper function to compute the alignment with the allocated vtables in `self`.
     fn compute_align(&self, layout: LayoutStrategy, meta: Option<PointerMeta<M::Provenance>>) -> Align {
-        layout.compute_align(meta, self.vtable_lookup())
+        let (_, align) = layout.compute_size_and_align(meta, self.vtable_lookup());
+        align
     }
 }
 ```

@@ -116,7 +116,7 @@ impl<M: Memory> Machine<M> {
         let Type::Ptr(ptr_ty) = op_ty else { panic!("non-pointer GetMetadata") };
 
         let meta_value = ptr_ty.meta_kind().encode_as_value::<M>(ptr.metadata);
-        let meta_ty = ptr_ty.meta_kind().ty::<M::T>().unwrap_or_else(unit_type);
+        let meta_ty = ptr_ty.meta_kind().ty::<M::T>();
         // O(1) sanity check
         self.check_value(meta_value, meta_ty).expect("GetMetadata: sanity check, returned meta is well-formed");
         ret((meta_value, meta_ty))
@@ -156,12 +156,9 @@ impl<M: Memory> Machine<M> {
         };
         // It is checked in check_value that the vtable is always valid.
         let vtable = self.vtable_lookup()(ptr.thin_pointer);
-        let Some(fn_name) = vtable.methods.get(method) else {
-            // This would be a type error, but since we don't store the trait in the VTablePtr type,
-            // we do not type check this.
-            // FIXME: Store the TraitName in VTablePtr and have this be a program well-formedness requirement.
-            throw_ub!("the referenced vtable does not have an entry for the invoked method");
-        };
+        // Well-formedness of values ensures `ptr` points to a vtable of the right trait,
+        // and hence the method exists.
+        let fn_name = vtable.methods[method];
         let fn_ptr = Value::Ptr(self.fn_ptrs[fn_name].widen(None));
         ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
     }
@@ -321,52 +318,59 @@ impl<M: Memory> Machine<M> {
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_rel_op(rel: RelOp, left: Int, right: Int) -> (Value<M>, Type) {
+    /// Turns the ordering from the comparasion result into a value, depending on the operation.
+    fn eval_rel_op(rel: RelOp, ord: std::cmp::Ordering) -> (Value<M>, Type) {
         use RelOp::*;
-        let b = match rel {
-            Lt => left < right,
-            Gt => left > right,
-            Le => left <= right,
-            Ge => left >= right,
-            Eq => left == right,
-            Ne => left != right,
+        match rel {
+            Lt => (Value::Bool(ord.is_lt()), Type::Bool),
+            Gt => (Value::Bool(ord.is_gt()), Type::Bool),
+            Le => (Value::Bool(ord.is_le()), Type::Bool),
+            Ge => (Value::Bool(ord.is_ge()), Type::Bool),
+            Eq => (Value::Bool(ord.is_eq()), Type::Bool),
+            Ne => (Value::Bool(ord.is_ne()), Type::Bool),
             Cmp => {
-                // 3-way comparison.
-                let result = if left < right {
-                    Int::from(-1)
-                } else if left == right {
-                    Int::from(0)
-                } else {
-                    Int::from(1)
+                let val = match ord {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
                 };
-
-                // FIXME avoid using early return
-                return (Value::Int(result), Type::Int(IntType::I8));
+                (Value::Int(Int::from(val)), Type::Int(IntType::I8))
             }
-        };
-        (Value::Bool(b), Type::Bool)
-    }
-    /// Prepare a value for being compared with a `RelOp`. This involves turning it into an `Int`.
-    fn prepare_for_rel_op(val: Value<M>) -> Int {
-        match val {
-            Value::Int(i) => i,
-            Value::Bool(b) => if b { Int::from(1) } else { Int::from(0) },
-            Value::Ptr(p) if p.metadata.is_none() => p.thin_pointer.addr,
-            // TODO(UnsizedTypes): Prepare wide pointer for rel op: `addr * (MAX_META_VALUE+1) + meta_value`
-            Value::Ptr(_) => unimplemented!("comparing pointer with metadata"),
-            _ => panic!("invalid value for relational operator"),
         }
     }
+    /// Compares two pointers including their metadata, but ignoring provenance.
+    fn compare_ptr(left: Pointer<M::Provenance>, right: Pointer<M::Provenance>) -> std::cmp::Ordering {
+        let thin_cmp = left.thin_pointer.addr.cmp(&right.thin_pointer.addr);
+        let meta_cmp = match (left.metadata, right.metadata) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (Some(PointerMeta::ElementCount(l)), Some(PointerMeta::ElementCount(r))) => l.cmp(&r),
+            (Some(PointerMeta::VTablePointer(l)), Some(PointerMeta::VTablePointer(r))) => l.addr.cmp(&r.addr),
+            _ => panic!("unmatching metadata in wide pointer comparasion"),
+        };
+        // Lexicographically compare on first the thin pointer and then the metadata
+        thin_cmp.then(meta_cmp)
+    }
+
     fn eval_bin_op(
         &self,
         BinOp::Rel(rel_op): BinOp,
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let left = Self::prepare_for_rel_op(left);
-        let right = Self::prepare_for_rel_op(right);
+        let ord = match (l_ty, left, right) {
+            (Type::Int(_), Value::Int(left), Value::Int(right)) => {
+                left.cmp(&right)
+            }
+            (Type::Bool, Value::Bool(left), Value::Bool(right)) => {
+                left.cmp(&right)
+            }
+            (Type::Ptr(_), Value::Ptr(left), Value::Ptr(right)) => {
+                Self::compare_ptr(left, right)
+            }
+            _ => panic!("relational operator on incomparable type or value-type mismatch"),
+        };
 
-        ret(Self::eval_rel_op(rel_op, left, right))
+        ret(Self::eval_rel_op(rel_op, ord))
     }
 }
 ```
