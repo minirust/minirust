@@ -11,7 +11,7 @@ enum Permission {
         conflicted: bool,
     },
     /// Represents a interior mutable two-phase borrow during its reservation phase
-    ReservedIM,
+    ReservedIm,
     /// Represents an activated (written to) mutable reference
     Active,
     /// Represents a shared (immutable) reference
@@ -48,11 +48,11 @@ Finally, we define the transition table.
 impl Permission {
     fn default(mutbl: Mutability, pointee: PointeeInfo, protected: Protected) -> Permission {
         match mutbl {
-            // We only use `ReservedIM` for *unprotected* mutable references with interior mutability.
+            // We only use `ReservedIm` for *unprotected* mutable references with interior mutability.
             // If the reference is protected, we ignore the interior mutability.
             // An example for why "Protected + Interior Mutability" is undesirable
-            // can be found in tooling/minimize/tests/ub/tree_borrows/protector/reservedim_spurious_write.rs.
-            Mutability::Mutable if !pointee.freeze && protected.no() => Permission::ReservedIM,
+            // can be found in tooling/minimize/tests/ub/tree_borrows/protector/ReservedIm_spurious_write.rs.
+            Mutability::Mutable if !pointee.freeze && protected.no() => Permission::ReservedIm,
             Mutability::Mutable => Permission::Reserved { conflicted: false },
             Mutability::Immutable if pointee.freeze => Permission::Frozen,
             Mutability::Immutable => panic!("Permission::default: interior-mutable shared reference")
@@ -91,7 +91,7 @@ impl Permission {
 
     fn foreign_write(self) -> Result<Permission> {
         match self {
-            Permission::ReservedIM => ret(Permission::ReservedIM),
+            Permission::ReservedIm => ret(Permission::ReservedIm),
             // All other states become Disabled.
             _ => ret(Permission::Disabled),
         }
@@ -152,7 +152,7 @@ impl LocationState {
             // This is UB, make sure to show a somewhat specific error.
             match old_perm {
                 Permission::Disabled => panic!("Impossible state combination: Accessed + Protected + Disabled"),
-                Permission::ReservedIM => panic!("Impossible state combination: Accessed + Protected + ReservedIM"),
+                Permission::ReservedIm => panic!("Impossible state combination: Accessed + Protected + ReservedIm"),
                 Permission::Active => throw_ub!("Tree Borrows: a protected pointer with Active permission becomes Disabled"),
                 Permission::Frozen => throw_ub!("Tree Borrows: a protected pointer with Frozen permission becomes Disabled"),
                 Permission::Reserved { .. } => throw_ub!("Tree Borrows: a protected pointer with Reserved permission becomes Disabled"),
