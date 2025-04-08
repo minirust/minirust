@@ -1,7 +1,9 @@
+mod abort;
 mod align;
 mod assume;
 mod atomic;
 mod atomic_fetch;
+mod blocks;
 mod bool;
 mod builder_api;
 mod call;

@@ -130,7 +130,7 @@ fn main() {
                         err.get_internal()
                     ),
                 TerminationInfo::MachineStop => { /* silent exit. */ }
-                TerminationInfo::Abort(err) => show_error!("Panic: {}", err.get_internal()),
+                TerminationInfo::Abort => show_error!("program aborted"),
                 TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
                 TerminationInfo::Deadlock => show_error!("program dead-locked"),
                 TerminationInfo::MemoryLeak => show_error!("program leaked memory"),

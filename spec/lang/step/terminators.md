@@ -179,8 +179,7 @@ impl<M: Memory> Machine<M> {
     fn create_frame(
         &mut self,
         func: Function,
-        return_action: ReturnAction<M>,
-        unwind_block: Option<BbName>,
+        stack_pop_action: StackPopAction<M>,
         caller_conv: CallingConvention,
         caller_ret_ty: Type,
         caller_args: List<(Value<M>, Type)>,
@@ -188,8 +187,7 @@ impl<M: Memory> Machine<M> {
         let mut frame = StackFrame {
             func,
             locals: Map::new(),
-            return_action,
-            unwind_block,
+            stack_pop_action,
             next_block: func.start,
             next_stmt: Int::ZERO,
             extra: M::new_call(),
@@ -252,14 +250,14 @@ impl<M: Memory> Machine<M> {
         let arguments = arguments.try_map(|arg| self.eval_argument(arg))?;
 
         // Set up the stack frame.
-        let return_action = ReturnAction::ReturnToCaller {
+        let stack_pop_action = StackPopAction::BackToCaller {
             next_block,
+            unwind_block,
             ret_val_ptr: caller_ret_place.ptr.thin_pointer,
         };
         let frame = self.create_frame(
             func,
-            return_action,
-            unwind_block,
+            stack_pop_action,
             caller_conv,
             caller_ret_ty,
             arguments,
@@ -279,11 +277,11 @@ The callee should probably start with a bunch of `Validate` statements to ensure
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn terminate_active_thread(&mut self, action: &str) -> NdResult {
+    fn terminate_active_thread(&mut self) -> NdResult {
         let active = self.active_thread;
         // The main thread may not terminate, it must call the `Exit` intrinsic.
         if active == 0 {
-            throw_ub!("the start function must not {action}");
+            throw_ub!("the start function must not return");
         }
 
         self.threads.mutate_at(active, |thread| {
@@ -323,14 +321,14 @@ impl<M: Memory> Machine<M> {
         // Inform the memory model that this call has ended.
         self.mem.end_call(frame.extra)?;
 
-        // Perform the return action.
-        match frame.return_action {
-            ReturnAction::BottomOfStack => {
+        // Perform the stack pop action.
+        match frame.stack_pop_action {
+            StackPopAction::BottomOfStack => {
                 // Only the bottom frame in a stack has no caller.
                 // Therefore the thread must terminate now.
-                self.terminate_active_thread("return")?;
+                self.terminate_active_thread()?;
             }
-            ReturnAction::ReturnToCaller { ret_val_ptr: caller_ret_ptr, next_block } => {
+            StackPopAction::BackToCaller { ret_val_ptr: caller_ret_ptr, next_block, .. } => {
                 // There must be a caller.
                 assert!(self.active_thread().stack.len() > 0);
                 // Store the return value where the caller wanted it.
@@ -353,7 +351,10 @@ impl<M: Memory> Machine<M> {
 Note that the caller has no guarantee at all about the value that it finds in its return place.
 It should probably do a `Validate` as the next step to encode that it would be UB for the callee to return an invalid value.
 
-## Start Unwind
+## Starting unwinding
+
+Initiating unwinding is as simple as jumping to a cleanup block.
+This will then eventually invoke `ResumeUnwind` and thus propagate upwards through the stack.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -364,7 +365,7 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
-## Resume Unwind
+## Resuming unwinding in the caller
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -381,17 +382,21 @@ impl<M: Memory> Machine<M> {
         // Inform the memory model that this call has ended.
         self.mem.end_call(frame.extra)?;
 
-        // Terminate current thread, if the bottom of the stack is reached.
-        if self.active_thread().stack.len() == 0{
-                self.terminate_active_thread("resume")?;
-        }
-        // Jump to the unwind_block of the caller. 
-        else{
-            if let Some(unwind_block) = frame.unwind_block {
+        // Perform the stack pop action.
+        match frame.stack_pop_action {
+            StackPopAction::BottomOfStack => {
+                // Only the bottom frame in a stack has no caller.
+                // It is UB to unwind out of the bottom of the stack.
+                throw_ub!("the function at the bottom of the stack must not unwind");
+            }
+            StackPopAction::BackToCaller{unwind_block, .. } => {
+                // Jump to the unwind block specified by the caller. Raise UB if `unwind_block` is `None`.
+                if let Some(unwind_block) = unwind_block {
                     self.jump_to_block(unwind_block)?;
                 } else {
-                    throw_ub!("unwinding from a function where caller did not specify unwind_block");
+                    throw_ub!("unwinding from a function where caller did not specify an unwind_block");
                 }
+            }
         }
         ret(())
     }

@@ -204,7 +204,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let panic_bb = self.fresh_bb_name();
                 let panic_block = BasicBlock {
                     statements: list![],
-                    terminator: build::panic(),
+                    terminator: build::abort(),
                     kind: BbKind::Regular,
                 };
                 self.blocks.try_insert(panic_bb, panic_block).unwrap();
@@ -299,7 +299,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 let terminator = if should_panic {
                     Terminator::Intrinsic {
-                        intrinsic: IntrinsicOp::Panic,
+                        intrinsic: IntrinsicOp::Abort,
                         arguments: list![],
                         ret: unit_place(),
                         next_block: None,
@@ -455,7 +455,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 "print" => IntrinsicOp::PrintStdout,
                 "eprint" => IntrinsicOp::PrintStderr,
                 "exit" => IntrinsicOp::Exit,
-                "panic" => IntrinsicOp::Panic,
+                "panic" => IntrinsicOp::Abort,
                 "allocate" => IntrinsicOp::Allocate,
                 "deallocate" => IntrinsicOp::Deallocate,
                 "spawn" => IntrinsicOp::Spawn,
@@ -482,7 +482,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         } else if is_panic_fn(&instance.to_string()) {
             // We can't translate this call, it takes a string. As a hack we just ignore the argument.
             Terminator::Intrinsic {
-                intrinsic: IntrinsicOp::Panic,
+                intrinsic: IntrinsicOp::Abort,
                 arguments: list![],
                 ret: unit_place(),
                 next_block: None,

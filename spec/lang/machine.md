@@ -59,12 +59,8 @@ struct StackFrame<M: Memory> {
     /// For each live local, the location in memory where its value is stored.
     locals: Map<LocalName, ThinPointer<M::Provenance>>,
 
-    /// Expresses what happens after the callee (this function) returns.
-    return_action: ReturnAction<M>,
-
-    /// The basic block to jump to when the callee calls ResumeUnwind.
-    /// If `None`, UB will be raised when the callee calls ResumeUnwind.
-    unwind_block:Option<BbName>,
+    /// Expresses what happens after the callee (this function) returns or resumes unwinding.
+    stack_pop_action: StackPopAction<M>,
 
     /// `next_block` and `next_stmt` describe the next statement/terminator to execute (the "program counter").
     /// `next_block` identifies the basic block,
@@ -78,14 +74,18 @@ struct StackFrame<M: Memory> {
     extra: M::FrameExtra,
 }
 
-enum ReturnAction<M: Memory> {
+/// Defines the behavior when the function returns or resumes unwinding. 
+enum StackPopAction<M: Memory> {
     /// This is the bottom of the stack, there is nothing left to do in this thread.
     BottomOfStack,
-    /// Return to the caller.
-    ReturnToCaller {
+    /// Go back to the caller.
+    BackToCaller {
         /// The basic block to jump to when the callee returns.
         /// If `None`, UB will be raised when the callee returns.
         next_block: Option<BbName>,
+        /// The basic block to jump to when the callee resumes unwinding.
+        /// If `None`, UB will be raised when the callee resumes unwinding.
+        unwind_block: Option<BbName>,
         /// The location where the caller wants to see the return value.
         /// The caller type already been checked to be suitably compatible with the callee return type.
         ret_val_ptr: ThinPointer<M::Provenance>,
@@ -305,8 +305,7 @@ impl<M: Memory> Machine<M> {
         // This way it cannot assume there is actually a return place to write anything to.
         let init_frame = self.create_frame(
             func,
-            ReturnAction::BottomOfStack,
-            None,
+            StackPopAction::BottomOfStack,
             CallingConvention::C,
             unit_type(),
             args,

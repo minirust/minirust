@@ -171,33 +171,3 @@ fn no_exit() {
     let p = p.finish_program(f);
     assert_stop::<BasicMem>(p);
 }
-
-#[test]
-fn reach_terminate_block() {
-    let mut p = ProgramBuilder::new();
-
-    let panic_fn = {
-        let mut f = p.declare_function();
-        let resume = f.cleanup_resume();
-        f.start_unwind(resume);
-        p.finish_function(f)
-    };
-
-    let main_fn = {
-        let mut f = p.declare_function();
-        let terminate = f.terminate(|f| {
-            f.exit();
-        });
-        let cleanup = f.cleanup(|f| {
-            f.call(unit_place(), fn_ptr(panic_fn), &[], terminate);
-            f.unreachable();
-        });
-
-        f.call(unit_place(), fn_ptr(panic_fn), &[], cleanup);
-        f.unreachable();
-        p.finish_function(f)
-    };
-    let p = p.finish_program(main_fn);
-    dump_program(p);
-    assert_stop::<BasicMem>(p);
-}
