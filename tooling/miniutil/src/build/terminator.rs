@@ -21,6 +21,7 @@ impl FunctionBuilder {
     }
 
     // terminators with 0 following blocks
+
     pub fn exit(&mut self) {
         self.finish_block(exit());
     }
@@ -98,12 +99,8 @@ impl FunctionBuilder {
         self.handle_call(ret, f, args, Some(next_block), Some(unwind_block));
     }
 
-    // terminator with 0 following blocks and 1 clean up block
-    pub fn start_unwind(&mut self, clean_up: BbName) {
-        self.finish_block(start_unwind(clean_up));
-    }
-
     // terminators with 1 following block
+
     pub fn assume(&mut self, val: ValueExpr) {
         self.finish_with_next_block(|next_block| assume(val, bbname_into_u32(next_block)));
     }
@@ -208,7 +205,12 @@ impl FunctionBuilder {
         });
     }
 
+    pub fn start_unwind(&mut self, clean_up: BbName) {
+        self.finish_block(start_unwind(clean_up));
+    }
+
     // terminators with 2 or more following blocks
+
     pub fn if_<F, G>(&mut self, condition: ValueExpr, then_branch: F, else_branch: G)
     where
         F: Fn(&mut Self),
