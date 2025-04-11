@@ -281,7 +281,7 @@ impl<M: Memory> Machine<M> {
         let active = self.active_thread;
         // The main thread may not terminate, it must call the `Exit` intrinsic.
         if active == 0 {
-            throw_ub!("the start function must not return nor resume");
+            throw_ub!("the start function must not return");
         }
 
         self.threads.mutate_at(active, |thread| {
@@ -386,8 +386,8 @@ impl<M: Memory> Machine<M> {
         match frame.stack_pop_action {
             StackPopAction::BottomOfStack => {
                 // Only the bottom frame in a stack has no caller.
-                // Therefore the thread must terminate now.
-                self.terminate_active_thread()?;
+                // It is UB to unwind out of the bottom of the stack.
+                throw_ub!("the function at the bottom of the stack must not unwind");
             }
             StackPopAction::BackToCaller{unwind_block, .. } => {
                 // Jump to the unwind block specified by the caller. Raise UB if `unwind_block` is `None`.

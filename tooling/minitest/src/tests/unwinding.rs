@@ -216,7 +216,7 @@ fn resume_in_main() {
     let f = p.finish_function(f);
     let p = p.finish_program(f);
     dump_program(p);
-    assert_ub::<BasicMem>(p, "the start function must not return nor resume");
+    assert_ub::<BasicMem>(p, "the function at the bottom of the stack must not unwind");
 }
 
 /// This test resumes unwinding, but no `unwind_block` is specified, which should result in UB.
