@@ -219,6 +219,34 @@ fn resume_in_main() {
     assert_ub::<BasicMem>(p, "the function at the bottom of the stack must not unwind");
 }
 
+/// This test creates a new thread and resumes unwinding at the bottom of the stack, which should result in UB.
+#[test]
+fn resume_in_thread() {
+    let mut p = ProgramBuilder::new();
+
+    let f = {
+        let mut f = p.declare_function();
+        let _ = f.declare_arg::<*const ()>();
+        let cleanup = f.cleanup_block(|f| f.resume_unwind());
+        f.start_unwind(cleanup);
+        p.finish_function(f)
+    };
+
+    let main_fn = {
+        let mut main_fn = p.declare_function();
+        let x = main_fn.declare_local::<i32>();
+        main_fn.storage_live(x);
+        main_fn.spawn(f, null(), x);
+        main_fn.join(load(x));
+        main_fn.exit();
+        p.finish_function(main_fn)
+    };
+
+    let p = p.finish_program(main_fn);
+    dump_program(p);
+    assert_ub::<BasicMem>(p, "the function at the bottom of the stack must not unwind");
+}
+
 /// This test resumes unwinding, but no `unwind_block` is specified, which should result in UB.
 #[test]
 fn resume_no_unwind_block() {
