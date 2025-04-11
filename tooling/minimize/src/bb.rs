@@ -38,7 +38,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ret: destination,
                         next_block: Some(next_bb),
                     };
-                    let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+                    // Temporarily set all blocks all blocks to regular kind, since unwinding is not yet supported in minimize.
+                    let cur_block = BasicBlock {
+                        statements: cur_block_statements,
+                        terminator,
+                        kind: BbKind::Regular,
+                    };
                     let old = self.blocks.insert(cur_block_name, cur_block);
                     assert!(old.is_none()); // make sure we do not overwrite a bb
                     // Go on building the next block.
@@ -51,7 +56,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         for stmt in stmts.iter() {
             cur_block_statements.push(stmt);
         }
-        let cur_block = BasicBlock { statements: cur_block_statements, terminator };
+        let cur_block =
+            BasicBlock { statements: cur_block_statements, terminator, kind: BbKind::Regular };
         let old = self.blocks.insert(cur_block_name, cur_block);
         assert!(old.is_none()); // make sure we do not overwrite a bb
     }
@@ -196,7 +202,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 // Create panic block in case of `expected != condition`
                 let panic_bb = self.fresh_bb_name();
-                let panic_block = BasicBlock { statements: list![], terminator: build::panic() };
+                let panic_block = BasicBlock {
+                    statements: list![],
+                    terminator: build::abort(),
+                    kind: BbKind::Regular,
+                };
                 self.blocks.try_insert(panic_bb, panic_block).unwrap();
 
                 let next_block = self.bb_name_map[target];
@@ -248,6 +258,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     arguments: list![ArgumentExpr::ByValue(ptr_to_drop)],
                     ret: unit_place(),
                     next_block: Some(self.bb_name_map[&target]),
+                    unwind_block: None,
                 }
             }
 
@@ -288,7 +299,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 let terminator = if should_panic {
                     Terminator::Intrinsic {
-                        intrinsic: IntrinsicOp::Panic,
+                        intrinsic: IntrinsicOp::Abort,
                         arguments: list![],
                         ret: unit_place(),
                         next_block: None,
@@ -444,7 +455,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 "print" => IntrinsicOp::PrintStdout,
                 "eprint" => IntrinsicOp::PrintStderr,
                 "exit" => IntrinsicOp::Exit,
-                "panic" => IntrinsicOp::Panic,
+                "panic" => IntrinsicOp::Abort,
                 "allocate" => IntrinsicOp::Allocate,
                 "deallocate" => IntrinsicOp::Deallocate,
                 "spawn" => IntrinsicOp::Spawn,
@@ -471,7 +482,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         } else if is_panic_fn(&instance.to_string()) {
             // We can't translate this call, it takes a string. As a hack we just ignore the argument.
             Terminator::Intrinsic {
-                intrinsic: IntrinsicOp::Panic,
+                intrinsic: IntrinsicOp::Abort,
                 arguments: list![],
                 ret: unit_place(),
                 next_block: None,
@@ -521,6 +532,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 arguments: args,
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                unwind_block: None,
             }
         };
         TerminatorResult { terminator, stmts: List::new() }

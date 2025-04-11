@@ -130,7 +130,9 @@ fn mk_start_fn(entry: u32) -> Function {
             arguments: List::new(),
             ret: build::unit_place(),
             next_block: Some(b1_name),
+            unwind_block: None,
         },
+        kind: BbKind::Regular,
     };
 
     let b1 = BasicBlock {
@@ -141,6 +143,7 @@ fn mk_start_fn(entry: u32) -> Function {
             ret: build::unit_place(),
             next_block: None,
         },
+        kind: BbKind::Regular,
     };
 
     let mut blocks = Map::new();
