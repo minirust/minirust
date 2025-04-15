@@ -228,9 +228,15 @@ impl<M: Memory> Machine<M> {
         ret(frame)
     }
 
-    fn eval_terminator(
+    fn eval_call( 
         &mut self,
-        Terminator::Call { callee, calling_convention: caller_conv, arguments, ret: ret_expr, next_block, unwind_block }: Terminator
+        callee: ValueExpr,
+        calling_convention: CallingConvention,
+        arguments: List<ArgumentExpr>,
+        ret_expr: PlaceExpr,
+        next_block: Option<BbName>,
+        unwind_block: Option<BbName>,
+        catch_action: Option<CatchAction<M>>,
     ) -> NdResult {
         // First evaluate the return place and remember it for `Return`. (Left-to-right!)
         let (caller_ret_place, caller_ret_ty) = self.eval_place(ret_expr)?;
@@ -254,11 +260,12 @@ impl<M: Memory> Machine<M> {
             next_block,
             unwind_block,
             ret_val_ptr: caller_ret_place.ptr.thin_pointer,
+            catch_action,
         };
         let frame = self.create_frame(
             func,
             stack_pop_action,
-            caller_conv,
+            calling_convention,
             caller_ret_ty,
             arguments,
         )?;
@@ -266,6 +273,21 @@ impl<M: Memory> Machine<M> {
         // Push new stack frame, so it is executed next.
         self.mutate_cur_stack(|stack| stack.push(frame));
         ret(())
+    }
+
+    fn eval_terminator(
+        &mut self,
+        Terminator::Call { callee, calling_convention: caller_conv, arguments, ret: ret_expr, next_block, unwind_block }: Terminator
+    ) -> NdResult {
+        self.eval_call(
+            callee,
+            caller_conv,
+            arguments,
+            ret_expr,
+            next_block,
+            unwind_block,
+            None, // no `catch_action`the
+        )
     }
 }
 ```
@@ -367,6 +389,10 @@ impl<M: Memory> Machine<M> {
 
 ## Resuming unwinding in the caller
 
+`ResumeUnwind` performs one of the following actions:
+If the current function is a try function, If the current function is a try function (i.e., the `catch_action` on the stack frame is `Some`), then `ResumeUnwind` calls the catch function, and execution is no longer unwinding.
+Otherwise, if `catch_action` is `None`, unwinding will resume in the caller.
+
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::ResumeUnwind: Terminator) -> NdResult {
@@ -389,16 +415,103 @@ impl<M: Memory> Machine<M> {
                 // It is UB to unwind out of the bottom of the stack.
                 throw_ub!("the function at the bottom of the stack must not unwind");
             }
-            StackPopAction::BackToCaller{unwind_block, .. } => {
-                // Jump to the unwind block specified by the caller. Raise UB if `unwind_block` is `None`.
-                if let Some(unwind_block) = unwind_block {
-                    self.jump_to_block(unwind_block)?;
-                } else {
-                    throw_ub!("unwinding from a function where caller did not specify an unwind_block");
+            StackPopAction::BackToCaller{unwind_block, next_block, catch_action, .. } => {
+                // If the caller specified a catch function, execute it like a function call.
+                if let Some(catch_action) = catch_action {
+                    let data_ptr = catch_action.data_ptr;
+                    let catch_fn = catch_action.catch_fn;
+                    let (return_place, return_ty) = catch_action.catch_unwind_ret;
+
+                    // Write 1 to the return place.
+                    let one_val = Value::Int(1.into());
+                    self.place_store(return_place, one_val, return_ty)?;
+
+                    // Prepare the arguments for the call.
+                    let mut args = List::new();
+                    args.push(ArgumentExpr::ByValue(data_ptr));
+
+                    // Call the catch_fn.
+                    self.eval_call(
+                        catch_fn,
+                        CallingConvention::C,
+                        args,
+                        Self::unit_place(),
+                        next_block,
+                        None, // No unwind_block
+                        None, // No catch_action
+                    )?;
+                }
+                else{
+                    // Jump to the unwind block specified by the caller. Raise UB if `unwind_block` is `None`.
+                    if let Some(unwind_block) = unwind_block {
+                        self.jump_to_block(unwind_block)?;
+                    } else {
+                        throw_ub!("unwinding from a function where caller did not specify an unwind_block");
+                    }
                 }
             }
         }
         ret(())
+    }
+}
+```
+
+## Catch unwinding
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(&mut self,
+        Terminator::CatchUnwind{try_fn, data_ptr, catch_fn, ret: ret_expr, next_block}: Terminator
+    ) -> NdResult {
+        // Write 0 to the return place. This will be overwritten by `ResumeUnwind` if `try_fn` unwinds.
+        let zero_val = Value::Int(0.into());
+        let (return_place, return_ty) = self.eval_place(ret_expr)?;
+        self.place_store(return_place, zero_val, return_ty)?;
+
+        // Prepare the argument for the call.
+        let mut args = List::new();
+        args.push(ArgumentExpr::ByValue(data_ptr));
+        
+        // Define the catch action.
+        let catch_action = CatchAction{
+            catch_fn,
+            data_ptr,
+            catch_unwind_ret: (return_place, return_ty),
+        };
+
+        // Execute the function call.
+        self.eval_call(
+            try_fn,
+            CallingConvention::C,
+            args,
+            Self::unit_place(),
+            next_block,
+            None, // no unwind_block
+            Some(catch_action),
+        )
+    }
+
+    /// Returns a place expression to a unit tuple `()`, that cannot store a value.
+    fn unit_place() -> PlaceExpr {
+        // the type of a zero-sized, one-aligned tuple
+        let unit_ty = {
+            let size = Size::from_bytes(<i32 as Into<Int>>::into(0)).unwrap();
+            let align = Align::from_bytes(<i32 as Into<Int>>::into(1)).unwrap();
+            let tuple_ty = Type::Tuple {
+                sized_fields: List::new(),
+                sized_head_layout: TupleHeadLayout { end: size, align, packed_align: None },
+                unsized_field: None,
+            };
+            tuple_ty  
+        };
+        // the type of a raw void pointer
+        let void_ptr_ty = {
+            let meta_kind = PointerMetaKind::None;
+            Type::Ptr(PtrType::Raw { meta_kind })
+        };
+        // create the place expression
+        let ptr = ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()),void_ptr_ty );
+        PlaceExpr::Deref { operand: ptr, ty: unit_ty }
     }
 }
 ```

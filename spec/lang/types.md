@@ -294,6 +294,7 @@ impl LayoutStrategy {
 ```rust
 impl IntType {
     pub const I8: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(1) };
+    pub const I32: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(4) };
 
     pub fn usize_ty<T: Target>() -> Self {
         IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }

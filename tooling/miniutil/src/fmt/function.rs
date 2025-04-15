@@ -260,6 +260,21 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 comptypes,
             )
         }
+        Terminator::CatchUnwind { try_fn, data_ptr, catch_fn, ret, next_block, .. } => {
+            let try_fmt = fmt_value_expr(try_fn, comptypes).to_string();
+            let data_fmt = fmt_value_expr(data_ptr, comptypes).to_string();
+            let catch_fmt = fmt_value_expr(catch_fn, comptypes).to_string();
+            let args = format!("{:?},{:?},{:?}", try_fmt, data_fmt, catch_fmt).to_string();
+            fmt_call(
+                "catch_unwind",
+                CallingConvention::Rust,
+                args,
+                ret,
+                next_block,
+                None,
+                comptypes,
+            )
+        }
     }
 }
 

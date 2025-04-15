@@ -209,6 +209,18 @@ impl FunctionBuilder {
         self.finish_block(start_unwind(clean_up));
     }
 
+    pub fn catch_unwind(
+        &mut self,
+        try_fn: ValueExpr,
+        data_ptr: ValueExpr,
+        catch_fn: ValueExpr,
+        ret: PlaceExpr,
+    ) {
+        self.finish_with_next_block(|next_block| {
+            catch_unwind(try_fn, data_ptr, catch_fn, ret, bbname_into_u32(next_block))
+        });
+    }
+
     // terminators with 2 or more following blocks
 
     pub fn if_<F, G>(&mut self, condition: ValueExpr, then_branch: F, else_branch: G)
@@ -400,6 +412,22 @@ pub fn start_unwind(clean_up: BbName) -> Terminator {
 
 pub fn resume_unwind() -> Terminator {
     Terminator::ResumeUnwind
+}
+
+pub fn catch_unwind(
+    try_fn: ValueExpr,
+    data_ptr: ValueExpr,
+    catch_fn: ValueExpr,
+    ret: PlaceExpr,
+    next: u32,
+) -> Terminator {
+    Terminator::CatchUnwind {
+        try_fn,
+        data_ptr,
+        catch_fn,
+        ret,
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
 }
 
 pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: PlaceExpr, next: u32) -> Terminator {
