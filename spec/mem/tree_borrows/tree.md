@@ -209,13 +209,13 @@ impl Node {
             // If the location has never been accessed, there is no need to perform an access here.
             if accessed != Accessed::Yes { continue; }
 
-            // If the permission is Active,
+            // If the permission is Unique,
             // we perform a write access here. Otherwise, we perform a read access here.
             // Note that since this implicit access only occurs with actively protected nodes,
-            // a foreign read/write of an Active location should be UB.
+            // a foreign read/write of an Unique location should be UB.
             // This condition is hence equivalent to checking whether there was a (child) write to this location.
             let access_kind = match permission {
-                Permission::Active => AccessKind::Write,
+                Permission::Unique => AccessKind::Write,
                 _ => AccessKind::Read,
             };
 

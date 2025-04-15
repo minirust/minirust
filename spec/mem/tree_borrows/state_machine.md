@@ -12,8 +12,8 @@ enum Permission {
     },
     /// Represents a interior mutable two-phase borrow during its reservation phase
     ReservedIm,
-    /// Represents an activated (written to) mutable reference
-    Active,
+    /// Represents an activated (written to) mutable reference, i.e. it must actually be unique right now
+    Unique,
     /// Represents a shared (immutable) reference
     Frozen,
     /// Represents a dead reference
@@ -75,15 +75,15 @@ impl Permission {
                 throw_ub!("Tree Borrows: writing to the child of a protected pointer with Conflicted Reserved permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the child of a pointer with Frozen permission"),
             Permission::Disabled => throw_ub!("Tree Borrows: writing to the child of a pointer with Disabled permission"),
-            _ => ret(Permission::Active),
+            _ => ret(Permission::Unique),
         }
     }
 
     fn foreign_read(self, protected: bool) -> Result<Permission> {
         match self {
-            Permission::Active if protected  => ret(Permission::Disabled),
+            Permission::Unique if protected  => ret(Permission::Disabled),
             Permission::Reserved { .. } if protected => ret(Permission::Reserved { conflicted: true }),
-            Permission::Active => ret(Permission::Frozen),
+            Permission::Unique => ret(Permission::Frozen),
             // All other states are kept unchanged.
             perm => ret(perm),
         }
@@ -153,7 +153,7 @@ impl LocationState {
             match old_perm {
                 Permission::Disabled => panic!("Impossible state combination: Accessed + Protected + Disabled"),
                 Permission::ReservedIm => panic!("Impossible state combination: Accessed + Protected + ReservedIm"),
-                Permission::Active => throw_ub!("Tree Borrows: a protected pointer with Active permission becomes Disabled"),
+                Permission::Unique => throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
                 Permission::Frozen => throw_ub!("Tree Borrows: a protected pointer with Frozen permission becomes Disabled"),
                 Permission::Reserved { .. } => throw_ub!("Tree Borrows: a protected pointer with Reserved permission becomes Disabled"),
             }

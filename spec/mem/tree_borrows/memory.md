@@ -181,10 +181,10 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
 
     fn allocate(&mut self, kind: AllocationKind, size: Size, align: Align) -> NdResult<ThinPointer<Self::Provenance>>  {
         // Create the root node for the tree.
-        // Initially, we set the permission as `Active`.
+        // Initially, we set the permission as `Unique`.
         let root = Node {
             children: List::new(),
-            location_states: LocationState::new_list(Permission::Active, size),
+            location_states: LocationState::new_list(Permission::Unique, size),
             protected: Protected::No,
         };
         let path = Path::new();
