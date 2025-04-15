@@ -287,6 +287,6 @@ fn resume_no_unwind_block() {
     dump_program(p);
     assert_ub::<BasicMem>(
         p,
-        "unwinding from a function where caller did not specify an unwind_block",
+        "unwinding from a function where the caller did not specify an unwind_block",
     );
 }

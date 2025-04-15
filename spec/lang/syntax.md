@@ -377,17 +377,17 @@ pub enum Terminator {
     /// If `try_fn` resumes unwinding, `catch_fn` is called. In this case, `CatchUnwind` returns 1 and 
     /// jumps to `next_block`. The execution is no longer unwinding at that point.
     CatchUnwind {
-        /// The function to be called by `catch_unwind`. 
+        /// The function to be called by `catch_unwind`.
         /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*mut u8) -> ()`.
         try_fn: ValueExpr,
         /// The data pointer used as an argument for `try_fn` and `catch_fn`.
         /// This must evaluate to a raw pointer.
         data_ptr: ValueExpr,
         /// The function to call if `try_fn` resumes unwinding. 
-        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*mut u8) -> ()`
+        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*mut u8) -> ()`.
         /// Additionally, `catch_fn` must not unwind.
-        catch_fn: ValueExpr, 
-        /// The place to store the return value. 
+        catch_fn: ValueExpr,
+        /// The place to store the return value.
         /// `CatchUnwind` returns 0 if `try_fn` does not unwind, and 1 if `try_fn` unwinds.
         ret: PlaceExpr,
         /// The block to jump to after `CatchUnwind` has finished. 

@@ -174,6 +174,25 @@ impl<M: Memory> Machine<M> {
         })
     }
 
+    /// A helper function to evaluate the return expression and prepare it for in-place passing.
+    fn eval_return_place(&mut self, ret_expr: PlaceExpr) -> NdResult<(Place<M>, Type)> {
+        // First evaluate the return place. (Left-to-right!)
+        let (caller_ret_place, caller_ret_ty) = self.eval_place(ret_expr)?;
+        // FIXME: should we care about `caller_ret_place.align`?
+        // Make sure we can use it in-place.
+        self.prepare_for_inplace_passing(caller_ret_place, caller_ret_ty)?;
+        ret((caller_ret_place, caller_ret_ty))
+    }
+
+    /// A helper function to evaluate a function pointer.
+    fn eval_function_ptr(&mut self, fn_ptr: ValueExpr) -> Result<Function> {
+        // Then evaluate the function that will be called.
+        let (Value::Ptr(Pointer { thin_pointer: ptr, .. }), Type::Ptr(PtrType::FnPtr)) = self.eval_value(fn_ptr)? else {
+            panic!("call on a non-pointer");
+        };
+        self.fn_from_ptr(ptr)
+    }
+
     /// Creates a stack frame for the given function, initializes the arguments,
     /// and ensures that calling convention and argument/return value ABIs are all matching up.
     fn create_frame(
@@ -230,30 +249,15 @@ impl<M: Memory> Machine<M> {
 
     fn eval_call( 
         &mut self,
-        callee: ValueExpr,
-        calling_convention: CallingConvention,
-        arguments: List<ArgumentExpr>,
-        ret_expr: PlaceExpr,
+        callee: Function,
+        caller_conv: CallingConvention,
+        arguments: List<(Value<M>, Type)>,
+        caller_ret: (Place<M>, Type),
         next_block: Option<BbName>,
         unwind_block: Option<BbName>,
         catch_action: Option<CatchAction<M>>,
     ) -> NdResult {
-        // First evaluate the return place and remember it for `Return`. (Left-to-right!)
-        let (caller_ret_place, caller_ret_ty) = self.eval_place(ret_expr)?;
-        // FIXME: should we care about `caller_ret_place.align`?
-        // Make sure we can use it in-place.
-        self.prepare_for_inplace_passing(caller_ret_place, caller_ret_ty)?;
-
-        // Then evaluate the function that will be called.
-        let (Value::Ptr(Pointer { thin_pointer: ptr, .. }), Type::Ptr(PtrType::FnPtr)) = self.eval_value(callee)? else {
-            panic!("call on a non-pointer")
-        };
-        let func = self.fn_from_ptr(ptr)?;
-
-        // Then evaluate the arguments.
-        // FIXME: this means if an argument reads from `caller_ret_place`, the contents
-        // of that have already been de-initialized. Is that the intended behavior?
-        let arguments = arguments.try_map(|arg| self.eval_argument(arg))?;
+        let (caller_ret_place, caller_ret_ty) = caller_ret;
 
         // Set up the stack frame.
         let stack_pop_action = StackPopAction::BackToCaller {
@@ -263,9 +267,9 @@ impl<M: Memory> Machine<M> {
             catch_action,
         };
         let frame = self.create_frame(
-            func,
+            callee,
             stack_pop_action,
-            calling_convention,
+            caller_conv,
             caller_ret_ty,
             arguments,
         )?;
@@ -279,11 +283,16 @@ impl<M: Memory> Machine<M> {
         &mut self,
         Terminator::Call { callee, calling_convention: caller_conv, arguments, ret: ret_expr, next_block, unwind_block }: Terminator
     ) -> NdResult {
+        let ret_ = self.eval_return_place(ret_expr)?;
+        let callee = self.eval_function_ptr(callee)?;
+        // FIXME: this means if an argument reads from `ret_expr`, the contents
+        // of that have already been de-initialized. Is that the intended behavior?
+        let arguments = arguments.try_map(|arg| self.eval_argument(arg))?;
         self.eval_call(
             callee,
             caller_conv,
             arguments,
-            ret_expr,
+            ret_,
             next_block,
             unwind_block,
             None, // no `catch_action`the
@@ -350,12 +359,20 @@ impl<M: Memory> Machine<M> {
                 // Therefore the thread must terminate now.
                 self.terminate_active_thread()?;
             }
-            StackPopAction::BackToCaller { ret_val_ptr: caller_ret_ptr, next_block, .. } => {
+            StackPopAction::BackToCaller { ret_val_ptr: caller_ret_ptr, next_block, catch_action, .. } => {
                 // There must be a caller.
                 assert!(self.active_thread().stack.len() > 0);
                 // Store the return value where the caller wanted it.
                 // Crucially, we are doing the store at the same type as the load above.
                 self.typed_store(caller_ret_ptr, ret_val, callee_ty, align, Atomicity::None)?;
+
+                if let Some(catch_action) = catch_action{
+                    // This function is a try function. Write 0 in the return place of `CatchUnwind`.
+                    let zero_val = Value::Int(0.into());
+                    let (return_place, return_ty) = catch_action.catch_unwind_ret;
+                    self.place_store(return_place, zero_val, return_ty)?;
+                }
+
                 // Jump to where the caller wants us to jump.
                 if let Some(next_block) = next_block {
                     self.jump_to_block(next_block)?;
@@ -390,8 +407,8 @@ impl<M: Memory> Machine<M> {
 ## Resuming unwinding in the caller
 
 `ResumeUnwind` performs one of the following actions:
-If the current function is a try function, If the current function is a try function (i.e., the `catch_action` on the stack frame is `Some`), then `ResumeUnwind` calls the catch function, and execution is no longer unwinding.
-Otherwise, if `catch_action` is `None`, unwinding will resume in the caller.
+If the current function is a try function, If the current function is a try function (i.e., the `catch_action` on the current stack frame is `Some`), then `ResumeUnwind` calls the catch function, and the execution is no longer unwinding.
+If `catch_action` is `None`, unwinding will resume in the caller.
 
 ```rust
 impl<M: Memory> Machine<M> {
@@ -427,15 +444,14 @@ impl<M: Memory> Machine<M> {
                     self.place_store(return_place, one_val, return_ty)?;
 
                     // Prepare the arguments for the call.
-                    let mut args = List::new();
-                    args.push(ArgumentExpr::ByValue(data_ptr));
+                    let args = list!(data_ptr);
 
                     // Call the catch_fn.
                     self.eval_call(
                         catch_fn,
-                        CallingConvention::C,
+                        CallingConvention::C, // FIXME do not hard-code the C calling convention.
                         args,
-                        Self::unit_place(),
+                        Self::unit_place(), // FIXME do not hardcode the address of the unit return place to 1.
                         next_block,
                         None, // No unwind_block
                         None, // No catch_action
@@ -446,7 +462,7 @@ impl<M: Memory> Machine<M> {
                     if let Some(unwind_block) = unwind_block {
                         self.jump_to_block(unwind_block)?;
                     } else {
-                        throw_ub!("unwinding from a function where caller did not specify an unwind_block");
+                        throw_ub!("unwinding from a function where the caller did not specify an unwind_block");
                     }
                 }
             }
@@ -463,36 +479,38 @@ impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self,
         Terminator::CatchUnwind{try_fn, data_ptr, catch_fn, ret: ret_expr, next_block}: Terminator
     ) -> NdResult {
-        // Write 0 to the return place. This will be overwritten by `ResumeUnwind` if `try_fn` unwinds.
-        let zero_val = Value::Int(0.into());
-        let (return_place, return_ty) = self.eval_place(ret_expr)?;
-        self.place_store(return_place, zero_val, return_ty)?;
+        // Evaluate the return place.
+        let catch_unwind_ret = self.eval_place(ret_expr)?;
+
+        // Evaluate the function pointers.
+        let try_fn = self.eval_function_ptr(try_fn)?;
+        let catch_fn = self.eval_function_ptr(catch_fn)?;
 
         // Prepare the argument for the call.
-        let mut args = List::new();
-        args.push(ArgumentExpr::ByValue(data_ptr));
-        
+        let data_ptr = self.eval_argument(ArgumentExpr::ByValue(data_ptr))?;
+        let args = list!(data_ptr);
+
         // Define the catch action.
         let catch_action = CatchAction{
             catch_fn,
             data_ptr,
-            catch_unwind_ret: (return_place, return_ty),
+            catch_unwind_ret,
         };
 
         // Execute the function call.
         self.eval_call(
             try_fn,
-            CallingConvention::C,
+            CallingConvention::C, // FIXME do not hard-code the C calling convention.
             args,
-            Self::unit_place(),
+            Self::unit_place(), // FIXME do not hardcode the address of the unit return place to 1.
             next_block,
             None, // no unwind_block
             Some(catch_action),
         )
     }
 
-    /// Returns a place expression to a unit tuple `()`, that cannot store a value.
-    fn unit_place() -> PlaceExpr {
+    /// Returns an invalid place (address 1) with the unit type.
+    fn unit_place() -> (Place<M>, Type) {
         // the type of a zero-sized, one-aligned tuple
         let unit_ty = {
             let size = Size::from_bytes(<i32 as Into<Int>>::into(0)).unwrap();
@@ -502,16 +520,18 @@ impl<M: Memory> Machine<M> {
                 sized_head_layout: TupleHeadLayout { end: size, align, packed_align: None },
                 unsized_field: None,
             };
-            tuple_ty  
+            tuple_ty 
         };
-        // the type of a raw void pointer
-        let void_ptr_ty = {
-            let meta_kind = PointerMetaKind::None;
-            Type::Ptr(PtrType::Raw { meta_kind })
+        // Create the place with address 1.
+        let ptr = Pointer {
+            thin_pointer: ThinPointer{ addr: 1.into(), provenance: None},
+            metadata: None,
         };
-        // create the place expression
-        let ptr = ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()),void_ptr_ty );
-        PlaceExpr::Deref { operand: ptr, ty: unit_ty }
+        let place = Place {
+            ptr,
+            aligned: true,
+        };
+        (place, unit_ty)
     }
 }
 ```
