@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: child read of a pointer with Disabled permission
+fatal error: UB: Tree Borrows: local read of a pointer with Disabled permission

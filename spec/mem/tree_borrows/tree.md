@@ -46,12 +46,12 @@ struct Node {
 ```
 
 During each memory access, we update states according to the state machine.
-When a node is accessed, each node in the tree can be divided into two disjoint sets: *child nodes* and *foreign nodes*, based on its relative position to the accessed node.
-The *child* set includes the node itself and all its descendants, while the *foreign* set contains all other nodes.
+When a node is accessed, each node in the tree can be divided into two disjoint sets: *local nodes* and *foreign nodes*, based on its relative position to the accessed node.
+The *local* set includes the node itself and all its descendants, while the *foreign* set contains all other nodes.
 
 ```rust
 enum NodeRelation {
-    Child, 
+    Local,
     Foreign,
 }
 ```
@@ -70,7 +70,7 @@ Then we implement how to actually update and check states in a Tree during each 
 ```rust
 impl Node {
     /// Perform state transition on all locations of `self`.
-    /// The `node_relation` indicates whether the accessed node is a child or foreign
+    /// The `node_relation` indicates whether the accessed node is a local or foreign
     /// *from the perspective of `self`*.
     fn transition(
         &mut self, 
@@ -96,17 +96,17 @@ impl Node {
     /// This method will throw UBs, representing the undefined behavior captured by Tree Borrows.
     fn access(
         &mut self,
-        path: Option<Path>, // self -> child
+        path: Option<Path>, // self -> accessed node
         access_kind: AccessKind,
         offset_in_alloc: Offset,
         size: Size,
     ) -> Result {
-        // Indicates whether the accessed node is a child or foreign
+        // Indicates whether the accessed node is a local or foreign
         // *from the perspective of `self`*.
         //
-        // If `self` is an ancestor of the accessed node, the accessed node is a child of `self`.
+        // If `self` is an ancestor of the accessed node, the accessed node is local to `self`.
         // Otherwise, the accessed node is a `foreign` of `self`.
-        let node_relation = if path.is_some() { NodeRelation::Child } else { NodeRelation::Foreign };
+        let node_relation = if path.is_some() { NodeRelation::Local } else { NodeRelation::Foreign };
 
         // Perform state transition on `self`.
         self.transition(node_relation, access_kind, offset_in_alloc, size)?;
@@ -133,7 +133,7 @@ We also implement some helper methods for manipulating Trees.
 
 ```rust
 impl Node {
-    /// Apply the `f` to a child node of `self`
+    /// Apply `f` to a child node of `self`
     /// `path` is the path from `self` to the target child node.
     fn access_node<O>(&mut self, path: Path, f: impl FnOnce(&mut Self) -> O) -> O {
         // `sub_root_id` indicates which node to access next; call it the sub-root.
@@ -192,9 +192,9 @@ impl Node {
         path: Option<Path>, // self -> protected node
         location_states: &List<LocationState>,
     ) -> Result {
-        // Indicates whether the protected node is a child or foreign
+        // Indicates whether the protected node is a local or foreign
         // *from the perspective of `self`*.
-        let node_relation = if path.is_some() { NodeRelation::Child } else { NodeRelation::Foreign };
+        let node_relation = if path.is_some() { NodeRelation::Local } else { NodeRelation::Foreign };
 
         // If `self` is the protected node, we are done: the special access
         // does not apply to children of the protected node.
@@ -213,7 +213,7 @@ impl Node {
             // we perform a write access here. Otherwise, we perform a read access here.
             // Note that since this implicit access only occurs with actively protected nodes,
             // a foreign read/write of an Unique location should be UB.
-            // This condition is hence equivalent to checking whether there was a (child) write to this location.
+            // This condition is hence equivalent to checking whether there was a (local) write to this location.
             let access_kind = match permission {
                 Permission::Unique => AccessKind::Write,
                 _ => AccessKind::Read,

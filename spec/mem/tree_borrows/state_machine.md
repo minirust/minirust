@@ -59,22 +59,22 @@ impl Permission {
         }
     }
 
-    fn child_read(self) -> Result<Permission> {
+    fn local_read(self) -> Result<Permission> {
         ret(
             match self {
-                Permission::Disabled => throw_ub!("Tree Borrows: child read of a pointer with Disabled permission"),
+                Permission::Disabled => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
                 // All other states are kept unchanged.
                 perm => perm,
             }
         )
     }
 
-    fn child_write(self, protected: bool) -> Result<Permission> {
+    fn local_write(self, protected: bool) -> Result<Permission> {
         match self {
             Permission::Reserved { conflicted: true } if protected =>
-                throw_ub!("Tree Borrows: writing to the child of a protected pointer with Conflicted Reserved permission"),
-            Permission::Frozen => throw_ub!("Tree Borrows: writing to the child of a pointer with Frozen permission"),
-            Permission::Disabled => throw_ub!("Tree Borrows: writing to the child of a pointer with Disabled permission"),
+                throw_ub!("Tree Borrows: writing to the local of a protected pointer with Conflicted Reserved permission"),
+            Permission::Frozen => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
+            Permission::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
             _ => ret(Permission::Unique),
         }
     }
@@ -104,8 +104,8 @@ impl Permission {
         protected: bool,
     ) -> Result<Permission> {
         match (node_relation, access_kind) {
-            (NodeRelation::Child, AccessKind::Read) => self.child_read(),
-            (NodeRelation::Child, AccessKind::Write) => self.child_write(protected),
+            (NodeRelation::Local, AccessKind::Read) => self.local_read(),
+            (NodeRelation::Local, AccessKind::Write) => self.local_write(protected),
             (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(protected),
             (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
         }
@@ -117,7 +117,7 @@ impl Accessed {
         // A node is "accessed" once any of its children gets accessed.
         match node_relation {
             NodeRelation::Foreign => self,
-            NodeRelation::Child => Accessed::Yes,
+            NodeRelation::Local => Accessed::Yes,
         }
     }
 }
