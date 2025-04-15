@@ -668,15 +668,18 @@ fn is_atomic_binop(op: IntBinOp) -> bool {
 }
 
 impl Terminator {
+    /// Check the terminator and the block transitions.
+    /// `block_kind` is the kind of the block in which the terminator is used.
     fn check_wf<T: Target>(
         self,
+        block_kind: BbKind,
         func: Function,
         prog: Program,
     ) -> Result<()> {
         use Terminator::*;
         match self {
             Goto(block_name) => {
-                ensure_wf(func.blocks.contains_key(block_name), "Terminator::Goto: next block does not exist")?;
+               func.check_next_block(block_name, block_kind)?;
             }
             Switch { value, cases, fallback } => {
                 let ty = value.check_wf::<T>(func.locals, prog)?;
@@ -688,13 +691,13 @@ impl Terminator {
                 };
 
                 // Ensure the switch cases are all valid.
-                for (case, block) in cases.iter() {
+                for (case, next_block) in cases.iter() {
                     ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: value does not fit in switch type")?;
-                    ensure_wf(func.blocks.contains_key(block), "Terminator::Switch: next block does not exist")?;
+                    func.check_next_block(next_block, block_kind)?;
                 }
 
-                // we can also reach the fallback block.
-                ensure_wf(func.blocks.contains_key(fallback), "Terminator::Switch: fallback block does not exist")?;
+                // Ensure the fallback is valid.
+                func.check_next_block(fallback, block_kind)?;
             }
             Unreachable => {}
             Intrinsic { intrinsic, arguments, ret, next_block } => {
@@ -717,10 +720,10 @@ impl Terminator {
                 }
 
                 if let Some(next_block) = next_block {
-                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Intrinsic: next block does not exist")?;
+                    func.check_next_block(next_block, block_kind)?;
                 }
             }
-            Call { callee, calling_convention: _, arguments, ret, next_block } => {
+            Call { callee, calling_convention: _, arguments, ret, next_block, unwind_block } => {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
 
@@ -733,10 +736,30 @@ impl Terminator {
                 }
 
                 if let Some(next_block) = next_block {
-                    ensure_wf(func.blocks.contains_key(next_block), "Terminator::Call: next block does not exist")?;
+                    func.check_next_block(next_block, block_kind)?;
+                }
+
+                if let Some(unwind_block) = unwind_block {
+                    match block_kind {
+                        BbKind::Regular => {
+                            func.check_next_block(unwind_block, BbKind::Cleanup)?;
+                        }
+                        _ => {
+                            func.check_next_block(unwind_block, BbKind::Terminate)?;
+                        }
+                    }
                 }
             }
-            Return => {}
+            Return => {
+                 ensure_wf(block_kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
+            }
+            StartUnwind(unwind_block) => {
+                ensure_wf(block_kind == BbKind::Regular, "Terminator::StartUnwind has to be called in regular block")?;
+                func.check_next_block(unwind_block, BbKind::Cleanup)?;
+            }
+            ResumeUnwind => {
+                 ensure_wf(block_kind == BbKind::Cleanup, "Terminator::ResumeUnwind: has to be called in cleanup block")?;
+            }
         }
 
         ret(())
@@ -770,9 +793,20 @@ impl Function {
             for statement in block.statements {
                 statement.check_wf::<T>(self, prog)?;
             }
-            block.terminator.check_wf::<T>(self, prog)?;
+            block.terminator.check_wf::<T>(block.kind, self, prog)?;
         }
 
+        ret(())
+    }
+
+    /// Checks whether the next block exists and has the correct block kind.
+    fn check_next_block(self, next_block_name: BbName, expected_block_kind: BbKind) -> Result <()> {
+        if let Some(next_block) = self.blocks.get(next_block_name){
+            ensure_wf(next_block.kind == expected_block_kind, "Terminator: next block has the wrong block kind")?;
+        }
+        else{
+            throw_ill_formed!("Terminator: next block does not exist");
+        }
         ret(())
     }
 }

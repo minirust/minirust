@@ -17,6 +17,7 @@ fn call_success() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None
     });
     let b1 = block!(exit());
 
@@ -36,6 +37,7 @@ fn call_non_exist() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -55,6 +57,7 @@ fn call_arg_count() {
         arguments: list![],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -74,6 +77,7 @@ fn call_arg_abi() {
         arguments: list![by_value(const_int::<i32>(42))],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 
@@ -93,6 +97,7 @@ fn call_ret_abi() {
         arguments: list![by_value(unit())],
         ret: local(0),
         next_block: Some(BbName(Name::from_internal(1))),
+        unwind_block: None,
     });
     let b1 = block!(exit());
 

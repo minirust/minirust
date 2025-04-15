@@ -68,8 +68,13 @@ fn fmt_function(
 
 fn fmt_bb(bb_name: BbName, bb: BasicBlock, start: bool, comptypes: &mut Vec<CompType>) -> String {
     let name = bb_name.0.get_internal();
+    let block_kind: String = fmt_bb_kind(bb);
 
-    let mut out = if start { format!("  start bb{name}:\n") } else { format!("  bb{name}:\n") };
+    let mut out = if start {
+        format!("  start bb{name}{block_kind}:\n")
+    } else {
+        format!("  bb{name}{block_kind}:\n")
+    };
 
     // Format statements
     for st in bb.statements.iter() {
@@ -123,18 +128,36 @@ fn fmt_call(
     args: String,
     ret: PlaceExpr,
     next_block: Option<BbName>,
+    unwind_block: Option<BbName>,
     comptypes: &mut Vec<CompType>,
 ) -> String {
     // Format return place
     let r = fmt_place_expr(ret, comptypes).to_string();
 
-    // Format next block
-    let next = match next_block {
+    // Format next and unwind block
+    let next_str = match next_block {
         Some(next_block) => {
-            let next_str = fmt_bb_name(next_block);
-            format!(" -> {next_str}")
+            let bb_name_str = fmt_bb_name(next_block);
+            format!("return: {bb_name_str}")
         }
         None => String::new(),
+    };
+    let unwind_str = match unwind_block {
+        Some(unwind_block) => {
+            let bb_name_str = fmt_bb_name(unwind_block);
+            format!("unwind: {bb_name_str}")
+        }
+        None => String::new(),
+    };
+    let next = match (next_block, unwind_block) {
+        (Some(_), Some(_)) => {
+            format!(" -> [{next_str}, {unwind_str}]")
+        }
+        (None, None) => String::new(),
+        _ => {
+            // one of next_str and unwind_str is empty.
+            format!(" -> {next_str}{unwind_str}")
+        }
     };
 
     // Format calling convention
@@ -169,7 +192,14 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Unreachable => {
             format!("    unreachable;")
         }
-        Terminator::Call { callee, calling_convention: conv, arguments, ret, next_block } => {
+        Terminator::Call {
+            callee,
+            calling_convention: conv,
+            arguments,
+            ret,
+            next_block,
+            unwind_block,
+        } => {
             let callee = fmt_value_expr(callee, comptypes).to_atomic_string();
             let args: Vec<_> = arguments
                 .iter()
@@ -184,16 +214,23 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                     }
                 })
                 .collect();
-            fmt_call(&callee, conv, args.join(", "), ret, next_block, comptypes)
+            fmt_call(&callee, conv, args.join(", "), ret, next_block, unwind_block, comptypes)
         }
         Terminator::Return => {
             format!("    return;")
         }
+        Terminator::StartUnwind(block_name) => {
+            let bb_name = fmt_bb_name(block_name);
+            format!("    start unwind -> unwind: {bb_name} ")
+        }
+        Terminator::ResumeUnwind => {
+            format!("    resume")
+        }
         Terminator::Intrinsic { intrinsic, arguments, ret, next_block } => {
             let callee = match intrinsic {
+                IntrinsicOp::Abort => "abort",
                 IntrinsicOp::Assume => "assume",
                 IntrinsicOp::Exit => "exit",
-                IntrinsicOp::Panic => "panic",
                 IntrinsicOp::PrintStdout => "print",
                 IntrinsicOp::PrintStderr => "eprint",
                 IntrinsicOp::Allocate => "allocate",
@@ -213,7 +250,15 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();
-            fmt_call(callee, CallingConvention::Rust, args.join(", "), ret, next_block, comptypes)
+            fmt_call(
+                callee,
+                CallingConvention::Rust,
+                args.join(", "),
+                ret,
+                next_block,
+                None,
+                comptypes,
+            )
         }
     }
 }
@@ -230,6 +275,14 @@ fn fmt_fetch(binop: IntBinOp) -> &'static str {
 fn fmt_bb_name(bb: BbName) -> String {
     let id = bb.0.get_internal();
     format!("bb{id}")
+}
+
+fn fmt_bb_kind(bb: BasicBlock) -> String {
+    match bb.kind {
+        BbKind::Regular => "".to_string(),
+        BbKind::Cleanup => " (Cleanup)".to_string(),
+        BbKind::Terminate => " (Terminate)".to_string(),
+    }
 }
 
 pub(super) fn fmt_fn_name(fn_name: FnName) -> String {

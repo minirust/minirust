@@ -360,9 +360,18 @@ pub enum Terminator {
         /// The block to jump to when this call returns.
         /// If `None`, UB will be raised when the function returns.
         next_block: Option<BbName>,
+        /// The block to jump to when this call unwinds.
+        /// If `None`, UB will be raised when the function unwinds.
+        /// This comes with a well-formedness requirement: if the current block is a regular block,
+        /// `unwind_block` must be a cleanup block; otherwise, `unwind_block` must be a terminating block.
+        unwind_block: Option<BbName>
     },
     /// Return from the current function.
     Return,
+    /// Starts unwinding, jump to the indicated cleanup block.
+    StartUnwind(BbName),
+    /// Ends this function call. The unwinding should continue at the caller's stack frame.
+    ResumeUnwind,
 }
 
 /// Function arguments can be passed by-value or in-place.
@@ -396,9 +405,9 @@ pub enum IntrinsicLockOp {
 /// We also make them intrinsic if they return `()`, because an operand that
 /// does not return anything is kind of odd.
 pub enum IntrinsicOp {
+    Abort,
     Assume,
     Exit,
-    Panic,
     PrintStdout,
     PrintStderr,
     Allocate,
@@ -472,6 +481,17 @@ pub struct Function {
 pub struct BasicBlock {
     pub statements: List<Statement>,
     pub terminator: Terminator,
+    pub kind: BbKind,
+}
+
+/// The kind of a basic block in the CFG.
+pub enum BbKind {
+    /// Regular blocks may use `Return` and `StartUnwind` but not `ResumeUnwind`.
+    Regular,
+    /// Cleanup blocks may use `ResumeUnwind` but not `Return` or `StartUnwind`.
+    Cleanup,
+    /// `Terminate` blocks may use neither `Return` nor `ResumeUnwind` nor `StartUnwind`.
+    Terminate,
 }
 
 /// A global allocation.

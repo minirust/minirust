@@ -119,6 +119,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .map(Statement::StorageLive)
                 .collect(),
             terminator: Terminator::Goto(self.bb_name_map[&rs::mir::START_BLOCK]),
+            kind: BbKind::Regular,
         };
         self.blocks.insert(init_bb, init_blk);
 

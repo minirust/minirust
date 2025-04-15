@@ -32,9 +32,8 @@ pub fn assert_stop_always<M: Memory>(prog: Program, attempts: usize) {
 }
 
 #[track_caller]
-pub fn assert_abort<M: Memory>(prog: Program, msg: &str) {
-    let msg = prelude::String::from_internal(msg.to_string());
-    assert_eq!(run_program::<M>(prog), TerminationInfo::Abort(msg));
+pub fn assert_abort<M: Memory>(prog: Program) {
+    assert_eq!(run_program::<M>(prog), TerminationInfo::Abort);
 }
 
 #[track_caller]

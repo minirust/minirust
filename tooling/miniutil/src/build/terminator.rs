@@ -4,20 +4,37 @@ impl FunctionBuilder {
     #[track_caller]
     fn finish_block(&mut self, terminator: Terminator) {
         let cur_block = self.cur_block.take().expect("finish_block: there is no block to finish");
-        let bb = BasicBlock { statements: cur_block.statements, terminator };
+        let bb = BasicBlock { statements: cur_block.statements, terminator, kind: cur_block.kind };
         self.blocks.try_insert(cur_block.name, bb).unwrap();
     }
 
+    /// Finishes the current block and creates a new block of the same block kind.
+    fn finish_with_next_block<F>(&mut self, builder: F)
+    where
+        F: FnOnce(BbName) -> Terminator,
+    {
+        let block_kind = self.cur_block().kind;
+        let next_block = self.declare_block();
+        let terminator = builder(next_block);
+        self.finish_block(terminator);
+        self.set_cur_block(next_block, block_kind);
+    }
+
     // terminators with 0 following blocks
+
     pub fn exit(&mut self) {
         self.finish_block(exit());
+    }
+
+    pub fn abort(&mut self) {
+        self.finish_block(abort());
     }
 
     pub fn unreachable(&mut self) {
         self.finish_block(Terminator::Unreachable);
     }
 
-    fn goto(&mut self, dest: BbName) {
+    pub fn goto(&mut self, dest: BbName) {
         self.finish_block(Terminator::Goto(dest));
     }
 
@@ -25,105 +42,115 @@ impl FunctionBuilder {
         self.finish_block(Terminator::Return);
     }
 
-    pub fn panic(&mut self) {
-        self.finish_block(panic());
+    pub fn resume_unwind(&mut self) {
+        self.finish_block(Terminator::ResumeUnwind);
     }
 
-    /// Call a function that does not return.
+    // Call terminators
+
+    /// This is a helper function that handles function calls.
+    fn handle_call(
+        &mut self,
+        ret: PlaceExpr,
+        f: ValueExpr,
+        args: &[ArgumentExpr],
+        next_block: Option<BbName>,
+        unwind_block: Option<BbName>,
+    ) {
+        let block_kind = self.cur_block().kind;
+        self.finish_block(Terminator::Call {
+            callee: f,
+            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
+            arguments: args.iter().copied().collect(),
+            ret,
+            next_block,
+            unwind_block,
+        });
+        if let Some(next_block) = next_block {
+            self.set_cur_block(next_block, block_kind);
+        }
+    }
+
+    /// Calls a function that neither returns nor unwinds.
     pub fn call_noret(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
-        self.finish_block(Terminator::Call {
-            callee: f,
-            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
-            arguments: args.iter().copied().collect(),
-            ret,
-            next_block: None,
-        });
+        self.handle_call(ret, f, args, None, None);
     }
 
-    // terminators with exactly 1 following block
-    pub fn call(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
+    /// Call a function that does not unwind.
+    pub fn call_nounwind(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        self.finish_block(Terminator::Call {
-            callee: f,
-            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
-            arguments: args.iter().copied().collect(),
-            ret,
-            next_block: Some(next_block),
-        });
-        self.set_cur_block(next_block)
+        self.handle_call(ret, f, args, Some(next_block), None);
     }
 
-    /// Ignore unit type return value.
+    /// Call a function that does not unwind. Ignore unit type return value.
     pub fn call_ignoreret(&mut self, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        self.finish_block(Terminator::Call {
-            callee: f,
-            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
-            arguments: args.iter().copied().collect(),
-            ret: unit_place(),
-            next_block: Some(next_block),
-        });
-        self.set_cur_block(next_block);
+        self.handle_call(unit_place(), f, args, Some(next_block), None);
     }
 
-    pub fn assume(&mut self, val: ValueExpr) {
+    pub fn call(
+        &mut self,
+        ret: PlaceExpr,
+        f: ValueExpr,
+        args: &[ArgumentExpr],
+        unwind_block: BbName,
+    ) {
         let next_block = self.declare_block();
-        self.finish_block(assume(val, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block);
+        self.handle_call(ret, f, args, Some(next_block), Some(unwind_block));
+    }
+
+    // terminators with 1 following block
+
+    pub fn assume(&mut self, val: ValueExpr) {
+        self.finish_with_next_block(|next_block| assume(val, bbname_into_u32(next_block)));
     }
 
     pub fn print(&mut self, arg: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(print(arg, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block);
+        self.finish_with_next_block(|next_block| print(arg, bbname_into_u32(next_block)));
     }
 
     pub fn eprint(&mut self, arg: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(eprint(arg, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| eprint(arg, bbname_into_u32(next_block)));
     }
 
     pub fn allocate(&mut self, size: ValueExpr, align: ValueExpr, ret_place: PlaceExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(allocate(size, align, ret_place, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            allocate(size, align, ret_place, bbname_into_u32(next_block))
+        });
     }
 
     pub fn deallocate(&mut self, ptr: ValueExpr, size: ValueExpr, align: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(deallocate(ptr, size, align, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            deallocate(ptr, size, align, bbname_into_u32(next_block))
+        });
     }
 
     pub fn spawn(&mut self, f: FnName, data_ptr: ValueExpr, ret: PlaceExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(spawn(fn_ptr(f), data_ptr, ret, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            spawn(fn_ptr(f), data_ptr, ret, bbname_into_u32(next_block))
+        });
     }
 
     pub fn join(&mut self, thread_id: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(join(thread_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| join(thread_id, bbname_into_u32(next_block)));
     }
 
     pub fn raw_eq(&mut self, dest: PlaceExpr, left_ptr: ValueExpr, right_ptr: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(raw_eq(dest, left_ptr, right_ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            raw_eq(dest, left_ptr, right_ptr, bbname_into_u32(next_block))
+        });
     }
 
     pub fn atomic_store(&mut self, ptr: ValueExpr, src: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(atomic_store(ptr, src, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            atomic_store(ptr, src, bbname_into_u32(next_block))
+        });
     }
 
     pub fn atomic_load(&mut self, dest: PlaceExpr, ptr: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(atomic_load(dest, ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            atomic_load(dest, ptr, bbname_into_u32(next_block))
+        });
     }
 
     pub fn atomic_fetch(
@@ -133,9 +160,9 @@ impl FunctionBuilder {
         ptr: ValueExpr,
         other: ValueExpr,
     ) {
-        let next_block = self.declare_block();
-        self.finish_block(atomic_fetch(binop, dest, ptr, other, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            atomic_fetch(binop, dest, ptr, other, bbname_into_u32(next_block))
+        });
     }
 
     pub fn compare_exchange(
@@ -145,48 +172,45 @@ impl FunctionBuilder {
         current: ValueExpr,
         next_val: ValueExpr,
     ) {
-        let next_block = self.declare_block();
-        self.finish_block(compare_exchange(
-            dest,
-            ptr,
-            current,
-            next_val,
-            bbname_into_u32(next_block),
-        ));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            compare_exchange(dest, ptr, current, next_val, bbname_into_u32(next_block))
+        });
     }
 
     pub fn expose_provenance(&mut self, dest: PlaceExpr, ptr: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(expose_provenance(dest, ptr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            expose_provenance(dest, ptr, bbname_into_u32(next_block))
+        });
     }
 
     pub fn with_exposed_provenance(&mut self, dest: PlaceExpr, addr: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(with_exposed_provenance(dest, addr, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            with_exposed_provenance(dest, addr, bbname_into_u32(next_block))
+        });
     }
 
     pub fn lock_create(&mut self, ret: PlaceExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(lock_create(ret, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| lock_create(ret, bbname_into_u32(next_block)));
     }
 
     pub fn lock_acquire(&mut self, lock_id: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(lock_acquire(lock_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            lock_acquire(lock_id, bbname_into_u32(next_block))
+        });
     }
 
     pub fn lock_release(&mut self, lock_id: ValueExpr) {
-        let next_block = self.declare_block();
-        self.finish_block(lock_release(lock_id, bbname_into_u32(next_block)));
-        self.set_cur_block(next_block)
+        self.finish_with_next_block(|next_block| {
+            lock_release(lock_id, bbname_into_u32(next_block))
+        });
+    }
+
+    pub fn start_unwind(&mut self, clean_up: BbName) {
+        self.finish_block(start_unwind(clean_up));
     }
 
     // terminators with 2 or more following blocks
+
     pub fn if_<F, G>(&mut self, condition: ValueExpr, then_branch: F, else_branch: G)
     where
         F: Fn(&mut Self),
@@ -209,6 +233,8 @@ impl FunctionBuilder {
         // branch map for switch terminator
         let mut branch_map: Map<Int, BbName> = Map::new();
 
+        let block_kind = self.cur_block().kind;
+
         for (case, branch) in cases {
             let new_block = self.declare_block();
             branch_map.try_insert(case.clone().into(), new_block).unwrap();
@@ -226,7 +252,7 @@ impl FunctionBuilder {
         branches.push((&fallback, fallback_block));
 
         for (branch, block) in branches {
-            self.set_cur_block(block);
+            self.set_cur_block(block, block_kind);
             branch(self);
             // If the current block not finished, jump to `after_switch_block`.
             if self.cur_block.is_some() {
@@ -235,15 +261,16 @@ impl FunctionBuilder {
             }
         }
         if let Some(after_switch_block) = after_switch_block {
-            self.set_cur_block(after_switch_block);
+            self.set_cur_block(after_switch_block, block_kind);
         }
     }
 
     pub fn while_<F: Fn(&mut Self)>(&mut self, condition: ValueExpr, body: F) {
         // goto new block such that condition sits alone in dedicated block
         let cond = self.declare_block();
+        let block_kind = self.cur_block().kind;
         self.goto(cond);
-        self.set_cur_block(cond);
+        self.set_cur_block(cond, block_kind);
 
         self.if_(
             condition,
@@ -296,6 +323,7 @@ pub fn call(f: u32, args: &[ArgumentExpr], ret: PlaceExpr, next: Option<u32>) ->
         arguments: args.iter().copied().collect(),
         ret,
         next_block: next.map(|x| BbName(Name::from_internal(x))),
+        unwind_block: None,
     }
 }
 
@@ -353,9 +381,9 @@ pub fn exit() -> Terminator {
     }
 }
 
-pub fn panic() -> Terminator {
+pub fn abort() -> Terminator {
     Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Panic,
+        intrinsic: IntrinsicOp::Abort,
         arguments: list![],
         ret: unit_place(),
         next_block: None,
@@ -364,6 +392,14 @@ pub fn panic() -> Terminator {
 
 pub fn return_() -> Terminator {
     Terminator::Return
+}
+
+pub fn start_unwind(clean_up: BbName) -> Terminator {
+    Terminator::StartUnwind(clean_up)
+}
+
+pub fn resume_unwind() -> Terminator {
+    Terminator::ResumeUnwind
 }
 
 pub fn spawn(fn_ptr: ValueExpr, data_ptr: ValueExpr, ret: PlaceExpr, next: u32) -> Terminator {
