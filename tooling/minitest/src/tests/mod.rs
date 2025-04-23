@@ -7,6 +7,7 @@ mod blocks;
 mod bool;
 mod builder_api;
 mod call;
+mod calling_convention;
 mod catch_unwind;
 mod compare_exchange;
 mod compute_align;

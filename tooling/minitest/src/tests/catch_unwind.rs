@@ -107,35 +107,35 @@ fn try_fn_unwinds() {
 /// A pseudo code representation of the program looks as follows:
 /// ```rust
 /// fn try_fn(data_ptr) {
-///	    z = *data_ptr;
-///	    z = z + 7;
-///	    *data_ptr = z;
-///	    StartUnwind;
+///     z = *data_ptr;
+///     z = z + 7;
+///     *data_ptr = z;
+///     StartUnwind;
 /// }
 ///
 /// fn inner_catch_fn(data_ptr) {
-/// 	z = *data_ptr;
-/// 	z = z + 19;
-/// 	*data_ptr = z;
-/// 	return;
+///     z = *data_ptr;
+///     z = z + 19;
+///     *data_ptr = z;
+///     return;
 /// }
 ///
 /// fn outer_catch_fn(data_ptr) {
-/// 	z = *data_ptr;
-/// 	z = z + 11;
-/// 	*data_ptr = z;
-/// 	ret = catch_unwind(try_fn, data_ptr, inner_catch_fn);
+///     z = *data_ptr;
+///     z = z + 11;
+///     *data_ptr = z;
+///     ret = catch_unwind(try_fn, data_ptr, inner_catch_fn);
 ///     assume (ret == 1);
-/// 	return;
+///     return;
 /// }
 ///
 /// fn main () {
-/// 	x = -2;
-/// 	data_ptr = &raw x;
-/// 	ret = catch_unwind(try_fn, data_ptr, outer_catch_fn);
-/// 	// check if x and ret have the expected values
-/// 	assume (x == 42);
-/// 	assume (ret == 1);
+///     x = -2;
+///     data_ptr = &raw x;
+///     ret = catch_unwind(try_fn, data_ptr, outer_catch_fn);
+///     // check if x and ret have the expected values
+///     assume (x == 42);
+///     assume (ret == 1);
 /// }
 /// ```
 #[test]
@@ -187,7 +187,7 @@ fn nested_catch_unwind() {
 
     let main_fn = {
         let mut f = p.declare_function();
-        let x = f.declare_local::<i32>();
+        let x: PlaceExpr = f.declare_local::<i32>();
         let ret = f.declare_local::<i32>();
         let data_ptr = f.declare_local::<*mut u8>();
         f.storage_live(x);
@@ -211,36 +211,36 @@ fn nested_catch_unwind() {
 /// A pseudo code representation of the program looks as follows:
 /// ```rust
 /// fn inner_try_fn(data_ptr) {
-///	    print(2);
-/// 	StartUnwind;
+///     print(2);
+///     StartUnwind;
 /// }
 ///
 /// fn inner_catch_fn(data_ptr){
-///	    print(3);
-/// 	return;
+///     print(3);
+///     return;
 /// }
 ///
 /// fn outer_try_fn(data_ptr){
-///	    print(1);
-///	    ret = catch_unwind(inner_try_fn, data_ptr, inner_catch_fn);
-///	    print(4);
-///	    assume(ret == 1);
-///	    return;
+///     print(1);
+///     ret = catch_unwind(inner_try_fn, data_ptr, inner_catch_fn);
+///     print(4);
+///     assume(ret == 1);
+///     return;
 /// }
 ///
 /// // This function will not be reached.
 /// fn outer_catch_fn(data_ptr){
-/// 	print(6);
+///     print(6);
 ///     unreachable();
 /// }
 ///
 /// fn main_fn() {
-/// 	ret = -1;
-/// 	data_ptr = &raw ret;
-/// 	print(0);
-/// 	ret = catch_unwind(outer_try_fn, data_ptr, outer_catch_fn);
-/// 	print(5);
-/// 	assume(ret == 0);
+///     ret = -1;
+///     data_ptr = &raw ret;
+///     print(0);
+///     ret = catch_unwind(outer_try_fn, data_ptr, outer_catch_fn);
+///     print(5);
+///     assume(ret == 0);
 /// }
 /// ```
 /// This program is expected to print the numbers 0 to 5 in order.
@@ -307,7 +307,7 @@ fn catch_in_try_fn() {
     assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &["0", "1", "2", "3", "4", "5"]);
 }
 
-/// In this test, a value that is not a raw pointer, is used as data pointer in catch_unwind, which results in an ill-formed program.
+/// In this test, a value that is not a pointer, is used as data pointer in catch_unwind, which results in an ill-formed program.
 #[test]
 fn wrong_data_ptr() {
     let mut p = ProgramBuilder::new();
@@ -337,7 +337,7 @@ fn wrong_data_ptr() {
 
     let p = p.finish_program(main_fn);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator::CatchUnwind: data_ptr must be a raw pointer");
+    assert_ill_formed::<BasicMem>(p, "Terminator::CatchUnwind: data_ptr must be a pointer");
 }
 
 /// Use an integer constant instead of a function pointer for `try_fn` in `catch_unwind`, which results in an ill-formed program.

@@ -329,3 +329,18 @@ impl IntType {
     }
 }
 ```
+
+## Unit type
+
+```rust
+/// Returns the type of a zero-sized, one aligned-tuple.
+pub fn unit_ty() -> Type {
+    let size = Size::from_bytes(<i32 as Into<Int>>::into(0)).unwrap();
+    let align = Align::from_bytes(<i32 as Into<Int>>::into(1)).unwrap();
+    Type::Tuple {
+        sized_fields: List::new(),
+        sized_head_layout: TupleHeadLayout { end: size, align, packed_align: None },
+        unsized_field: None,
+    }
+}
+```

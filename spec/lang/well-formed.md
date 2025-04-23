@@ -760,7 +760,7 @@ impl Terminator {
             ResumeUnwind => {
                  ensure_wf(block_kind == BbKind::Cleanup, "Terminator::ResumeUnwind: has to be called in cleanup block")?;
             }
-            CatchUnwind{try_fn, data_ptr, catch_fn, ret, next_block} => {
+            CatchUnwind { try_fn, data_ptr, catch_fn, ret, next_block } => {
                 // `try_fn` and `catch_fn` should be function pointers.
                 let try_ty = try_fn.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(try_ty, Type::Ptr(PtrType::FnPtr)), "Terminator::CatchUnwind: invalid type")?;
@@ -772,11 +772,8 @@ impl Terminator {
                 ensure_wf(ret_ty == Type::Int(IntType::I32), "Terminator::CatchUnwind: return type should be i32")?;
 
                 // `data_ptr` must typecheck and be a raw pointer.
-                let data_ptr_ty = data_ptr.check_wf::<T>(func.locals, prog)?;
-                if let Type::Ptr(PtrType::Raw{meta_kind: _}) = data_ptr_ty {}
-                else{
-                    throw_ill_formed!("Terminator::CatchUnwind: data_ptr must be a raw pointer");
-                }
+                let data_ptr_ty = data_ptr.check_wf::<T>(func.locals, prog)?;         
+                ensure_wf(matches!(data_ptr_ty, Type::Ptr(_)), "Terminator::CatchUnwind: data_ptr must be a pointer")?;
 
                 // Check if `next_block` is valid.
                 if let Some(next_block) = next_block {

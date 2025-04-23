@@ -54,13 +54,14 @@ impl FunctionBuilder {
         ret: PlaceExpr,
         f: ValueExpr,
         args: &[ArgumentExpr],
+        conv: CallingConvention,
         next_block: Option<BbName>,
         unwind_block: Option<BbName>,
     ) {
         let block_kind = self.cur_block().kind;
         self.finish_block(Terminator::Call {
             callee: f,
-            calling_convention: CallingConvention::C, // FIXME do not hard-code the C calling convention
+            calling_convention: conv,
             arguments: args.iter().copied().collect(),
             ret,
             next_block,
@@ -71,23 +72,24 @@ impl FunctionBuilder {
         }
     }
 
-    /// Calls a function that neither returns nor unwinds.
+    /// Calls a function that neither returns nor unwinds using the Rust calling convention.
     pub fn call_noret(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
-        self.handle_call(ret, f, args, None, None);
+        self.handle_call(ret, f, args, CallingConvention::Rust, None, None);
     }
 
-    /// Call a function that does not unwind.
+    /// Call a function that does not unwind using the Rust calling convention.
     pub fn call_nounwind(&mut self, ret: PlaceExpr, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        self.handle_call(ret, f, args, Some(next_block), None);
+        self.handle_call(ret, f, args, CallingConvention::Rust, Some(next_block), None);
     }
 
-    /// Call a function that does not unwind. Ignore unit type return value.
+    /// Call a function that does not unwind using the Rust calling convention. Ignore unit type return value.
     pub fn call_ignoreret(&mut self, f: ValueExpr, args: &[ArgumentExpr]) {
         let next_block = self.declare_block();
-        self.handle_call(unit_place(), f, args, Some(next_block), None);
+        self.handle_call(unit_place(), f, args, CallingConvention::Rust, Some(next_block), None);
     }
 
+    /// Call a function using the Rust calling convention.
     pub fn call(
         &mut self,
         ret: PlaceExpr,
@@ -96,7 +98,27 @@ impl FunctionBuilder {
         unwind_block: BbName,
     ) {
         let next_block = self.declare_block();
-        self.handle_call(ret, f, args, Some(next_block), Some(unwind_block));
+        self.handle_call(
+            ret,
+            f,
+            args,
+            CallingConvention::Rust,
+            Some(next_block),
+            Some(unwind_block),
+        );
+    }
+
+    /// Call a function using the calling convention determined by `conv`.
+    pub fn call_with_conv(
+        &mut self,
+        ret: PlaceExpr,
+        f: ValueExpr,
+        args: &[ArgumentExpr],
+        conv: CallingConvention,
+        unwind_block: BbName,
+    ) {
+        let next_block = self.declare_block();
+        self.handle_call(ret, f, args, conv, Some(next_block), Some(unwind_block));
     }
 
     // terminators with 1 following block

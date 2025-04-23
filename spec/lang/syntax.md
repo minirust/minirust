@@ -347,7 +347,7 @@ pub enum Terminator {
     Call {
         /// What function or method to call.
         /// This must evaluate to a function pointer and for safe behaviour, the functions signature must match the arguments.
-        /// 
+        ///
         /// Dynamic dispatch is represented with the callee being the result of `VTableMethodLookup(GetMetadata(self))`,
         /// and the `self` argument appropriately cast to a thin pointer type.
         callee: ValueExpr,
@@ -364,7 +364,7 @@ pub enum Terminator {
         /// If `None`, UB will be raised when the function unwinds.
         /// This comes with a well-formedness requirement: if the current block is a regular block,
         /// `unwind_block` must be a cleanup block; otherwise, `unwind_block` must be a terminating block.
-        unwind_block: Option<BbName>
+        unwind_block: Option<BbName>,
     },
     /// Return from the current function.
     Return,
@@ -372,28 +372,28 @@ pub enum Terminator {
     StartUnwind(BbName),
     /// Ends this function call. The unwinding should continue at the caller's stack frame.
     ResumeUnwind,
-    /// Calls the try function. 
+    /// Calls `try_fn`, passing `data_ptr` as argument.
     /// If `try_fn` returns without unwinding, `CatchUnwind` returns 0 and jumps to `next_block`.
-    /// If `try_fn` resumes unwinding, `catch_fn` is called. In this case, `CatchUnwind` returns 1 and 
+    /// If `try_fn` unwinds, `catch_fn` is called with `data_ptr` as argument. In this case, `CatchUnwind` returns 1 and
     /// jumps to `next_block`. The execution is no longer unwinding at that point.
     CatchUnwind {
         /// The function to be called by `catch_unwind`.
-        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*mut u8) -> ()`.
+        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*ptr) -> ()`.
         try_fn: ValueExpr,
         /// The data pointer used as an argument for `try_fn` and `catch_fn`.
         /// This must evaluate to a raw pointer.
         data_ptr: ValueExpr,
-        /// The function to call if `try_fn` resumes unwinding. 
-        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*mut u8) -> ()`.
+        /// The function to call if `try_fn` resumes unwinding.
+        /// This must evaluate to a function pointer, and for safe behavior, the function signature must be `fn(*ptr) -> ()`.
         /// Additionally, `catch_fn` must not unwind.
         catch_fn: ValueExpr,
         /// The place to store the return value.
         /// `CatchUnwind` returns 0 if `try_fn` does not unwind, and 1 if `try_fn` unwinds.
         ret: PlaceExpr,
-        /// The block to jump to after `CatchUnwind` has finished. 
+        /// The block to jump to after `CatchUnwind` has finished.
         /// This occurs when `try_fn` returns without unwinding, or when `catch_fn` returns.
         next_block: Option<BbName>,
-    }
+    },
 }
 
 /// Function arguments can be passed by-value or in-place.
