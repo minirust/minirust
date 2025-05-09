@@ -64,7 +64,14 @@ impl ProgramBuilder {
         }
     }
 
-    pub fn finish_program(self, start_function: FnName) -> Program {
+    pub fn finish_program(&mut self, start_function: FnName) -> Program {
+        // Set the start function to use C calling conventions
+        if let Some(mut f) = self.functions.get(start_function) {
+            f.calling_convention = CallingConvention::C;
+            self.functions.insert(start_function, f);
+        } else {
+            panic!("the start function does not exist.");
+        }
         Program {
             functions: self.functions,
             start: start_function,
@@ -144,6 +151,7 @@ pub struct FunctionBuilder {
 
     start: BbName,
     ret: Option<LocalName>,
+    conv: CallingConvention,
 
     cur_block: Option<CurBlock>,
 
@@ -160,6 +168,7 @@ impl FunctionBuilder {
             args: Default::default(),
             start: BbName(Name::from_internal(0)),
             ret: None,
+            conv: CallingConvention::Rust,
             cur_block: None,
             next_block: 0,
             next_local: 0,
@@ -212,7 +221,7 @@ impl FunctionBuilder {
             locals: self.locals,
             args: self.args,
             ret: self.ret.unwrap(),
-            calling_convention: CallingConvention::C,
+            calling_convention: self.conv,
             blocks: self.blocks,
             start: self.start,
         }
@@ -260,6 +269,11 @@ impl FunctionBuilder {
         self.locals.try_insert(name, ty).unwrap();
         self.args.push(name);
         local_by_name(name)
+    }
+
+    /// Change the calling convention of the current function.
+    pub fn set_conv(&mut self, conv: CallingConvention) {
+        self.conv = conv;
     }
 
     /// Build one or multiple cleanup blocks. The name of the first block is returned.

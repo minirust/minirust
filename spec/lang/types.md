@@ -294,6 +294,7 @@ impl LayoutStrategy {
 ```rust
 impl IntType {
     pub const I8: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(1) };
+    pub const I32: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(4) };
 
     pub fn usize_ty<T: Target>() -> Self {
         IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
@@ -325,6 +326,21 @@ impl IntType {
             },
             unsized_field: None,
         }
+    }
+}
+```
+
+## Unit type
+
+```rust
+/// Returns the type of a zero-sized, one aligned-tuple.
+pub fn unit_ty() -> Type {
+    let size = Size::from_bytes(<i32 as Into<Int>>::into(0)).unwrap();
+    let align = Align::from_bytes(<i32 as Into<Int>>::into(1)).unwrap();
+    Type::Tuple {
+        sized_fields: List::new(),
+        sized_head_layout: TupleHeadLayout { end: size, align, packed_align: None },
+        unsized_field: None,
     }
 }
 ```

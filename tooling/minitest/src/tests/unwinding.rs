@@ -226,6 +226,7 @@ fn resume_in_thread() {
 
     let f = {
         let mut f = p.declare_function();
+        f.set_conv(CallingConvention::C); // thread function needs to use "C" ABI
         let _ = f.declare_arg::<*const ()>();
         let cleanup = f.cleanup_block(|f| f.resume_unwind());
         f.start_unwind(cleanup);
@@ -287,6 +288,6 @@ fn resume_no_unwind_block() {
     dump_program(p);
     assert_ub::<BasicMem>(
         p,
-        "unwinding from a function where caller did not specify an unwind_block",
+        "unwinding from a function where the caller did not specify an unwind_block",
     );
 }

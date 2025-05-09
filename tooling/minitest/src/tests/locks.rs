@@ -49,6 +49,7 @@ fn lock_handover() {
 
     // implement function `second`
     {
+        second.set_conv(CallingConvention::C); // thread function needs to use "C" ABI
         second.declare_arg::<*const ()>();
         second.call_ignoreret(fn_ptr(critical), &[]);
         second.return_();
@@ -122,6 +123,7 @@ fn lock_handover_data_race() {
 
     // implement function `second`
     {
+        second.set_conv(CallingConvention::C);
         second.declare_arg::<*const ()>();
         second.call_ignoreret(fn_ptr(critical), &[]);
         second.return_();
@@ -337,6 +339,7 @@ fn deadlock() {
 
     // implement function `second`
     {
+        second.set_conv(CallingConvention::C);
         second.declare_arg::<*const ()>();
         second.lock_acquire(load(lock));
         second.lock_release(load(lock));

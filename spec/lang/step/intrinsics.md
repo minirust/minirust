@@ -307,10 +307,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `Spawn` intrinsic");
         }
 
-        let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
-            throw_ub!("invalid first argument to `Spawn` intrinsic: not a thin pointer");
-        };
-        let func = self.fn_from_ptr(ptr)?;
+        let fn_ptr = arguments[0].0;
+        let func = self.fn_from_ptr(fn_ptr)?;
 
         let (data_ptr, data_ptr_ty) = arguments[1];
         if !matches!(data_ptr_ty, Type::Ptr(_)) {

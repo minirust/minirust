@@ -96,6 +96,32 @@ fn start_unwind_wrong_nextblock() {
     assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
 }
 
+/// This test checks that a `catch_unwind` with a `next_block` of the wrong kind results in an ill-formed program.
+#[test]
+fn catch_unwind_nextblock_wrong_kind() {
+    let locals = [<i32>::get_type(), <i32>::get_type(), <*mut u8>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        storage_live(1),
+        storage_live(2),
+        assign(local(2), addr_of(local(1), <*mut u8>::get_type())),
+        Terminator::CatchUnwind {
+            try_fn: fn_ptr_internal(1),
+            data_ptr: load(local(2)),
+            catch_fn: fn_ptr_internal(1),
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
+    let b1 = block(&[], exit(), BbKind::Cleanup);
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f, other_f()]);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
+}
+
 /// This test uses `Return` in a cleanup block, which results in an ill-formed program.
 #[test]
 fn return_in_cleanup() {
@@ -195,6 +221,32 @@ fn unwind_block_non_exist() {
         next_block: Some(BbName(Name::from_internal(1))),
         unwind_block: Some(BbName(Name::from_internal(2))),
     });
+    let b1 = block!(exit());
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1]);
+    let p = program(&[f, other_f()]);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator: next block does not exist");
+}
+
+/// In this test the next block of `catch_unwind` does not exist, which results in an ill-formed program.
+#[test]
+fn catch_unwind_next_block_non_exist() {
+    let locals = [<i32>::get_type(), <i32>::get_type(), <*mut u8>::get_type()];
+
+    let b0 = block!(
+        storage_live(0),
+        storage_live(1),
+        storage_live(2),
+        assign(local(2), addr_of(local(1), <*mut u8>::get_type())),
+        Terminator::CatchUnwind {
+            try_fn: fn_ptr_internal(1),
+            data_ptr: load(local(2)),
+            catch_fn: fn_ptr_internal(1),
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(2))),
+        }
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
