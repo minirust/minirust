@@ -2,13 +2,13 @@ use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_const(&mut self, c: &rs::mir::Const<'tcx>, span: rs::Span) -> ValueExpr {
-        let val = match c.eval(self.tcx, rs::ParamEnv::reveal_all(), rs::DUMMY_SP) {
+        let val = match c.eval(self.tcx, self.typing_env(), rs::DUMMY_SP) {
             Ok(val) => val,
             Err(_) => rs::span_bug!(span, "const-eval failed"),
         };
         let tcx_at = self.tcx.at(span);
         let (mut ecx, v) =
-            rs::mk_eval_cx_for_const_val(tcx_at, rs::ParamEnv::reveal_all(), val, c.ty()).unwrap();
+            rs::mk_eval_cx_for_const_val(tcx_at, self.typing_env(), val, c.ty()).unwrap();
         self.translate_const_val(v, &mut ecx, span)
     }
 
@@ -113,7 +113,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             Type::Array { .. } => {
                 let mut t: List<ValueExpr> = List::new();
                 let mut iter = ecx.project_array_fields(&val).unwrap();
-                while let Ok(Some((_, field))) = iter.next(ecx) {
+                while let Some((_, field)) = iter.next(ecx).unwrap() {
                     let field = self.translate_const_val(field, ecx, span);
                     t.push(field);
                 }

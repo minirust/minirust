@@ -6,6 +6,5 @@ attrs = [
     '#![feature(yeet_expr)]',
     '#![feature(never_type)]',
     '#![feature(iterator_try_collect)]',
-    '#![feature(const_option)]',
     '#![feature(try_blocks)]',
 ]

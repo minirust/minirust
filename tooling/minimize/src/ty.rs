@@ -3,10 +3,9 @@ use crate::*;
 impl<'tcx> Ctxt<'tcx> {
     pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
-        let inhabited = !layout.abi().is_uninhabited();
-        let param_env = rs::ParamEnv::reveal_all();
-        let freeze = ty.is_freeze(self.tcx, param_env);
-        let unpin = ty.is_unpin(self.tcx, param_env);
+        let inhabited = !layout.backend_repr().is_uninhabited();
+        let freeze = ty.is_freeze(self.tcx, self.typing_env());
+        let unpin = ty.is_unpin(self.tcx, self.typing_env());
 
         if layout.is_sized() {
             let size = translate_size(layout.size());
@@ -105,7 +104,7 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind() })
             }
             rs::TyKind::Array(ty, c) => {
-                let count = Int::from(c.eval_target_usize(self.tcx, rs::ParamEnv::reveal_all()));
+                let count = Int::from(c.try_to_target_usize(self.tcx).unwrap());
                 let elem = GcCow::new(self.translate_ty(*ty, span));
                 Type::Array { elem, count }
             }
@@ -147,7 +146,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let ty = field.ty(self.tcx, sref);
                 // Field types can be non-normalized even if the ADT type was normalized
                 // (due to associated types on the fields).
-                let ty = self.tcx.normalize_erasing_regions(rs::ParamEnv::reveal_all(), ty);
+                let ty = self.tcx.normalize_erasing_regions(self.typing_env(), ty);
                 let ty = self.translate_ty(ty, span);
                 let offset = shape.offset(i.into());
                 let offset = translate_size(offset);

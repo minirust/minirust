@@ -47,12 +47,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // Then nothing else has to worry about generics.
         let body = cx.tcx.instantiate_and_normalize_erasing_regions(
             instance.args,
-            rs::ParamEnv::reveal_all(),
+            cx.typing_env(),
             rs::EarlyBinder::bind(body.clone()),
         );
         let abi = cx
             .tcx
-            .fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty())))
+            .fn_abi_of_instance(cx.typing_env().as_query_input((instance, rs::List::empty())))
             .unwrap();
         let locals_smir = smir::stable(&body).locals().to_vec();
 

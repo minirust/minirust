@@ -35,7 +35,13 @@ impl<'tcx> Ctxt<'tcx> {
             rs::abi::Endian::Little => Endianness::LittleEndian,
             rs::abi::Endian::Big => Endianness::BigEndian,
         });
-        for rs_int_ty in [rs::abi::I8, rs::abi::I16, rs::abi::I32, rs::abi::I64, rs::abi::I128] {
+        for rs_int_ty in [
+            rs::abi::Integer::I8,
+            rs::abi::Integer::I16,
+            rs::abi::Integer::I32,
+            rs::abi::Integer::I64,
+            rs::abi::Integer::I128,
+        ] {
             let size = translate_size(rs_int_ty.size());
             // Rust alignment:
             let align = translate_align(rs_int_ty.align(dl).abi);
@@ -61,6 +67,10 @@ impl<'tcx> Ctxt<'tcx> {
             functions: Default::default(),
             ty_cache: Default::default(),
         }
+    }
+
+    pub fn typing_env(&self) -> rs::TypingEnv<'tcx> {
+        rs::TypingEnv::fully_monomorphized()
     }
 
     pub fn translate(mut self) -> Program {
@@ -110,7 +120,7 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
-        self.tcx.layout_of(rs::ParamEnv::reveal_all().and(ty)).unwrap().layout
+        self.tcx.layout_of(self.typing_env().as_query_input(ty)).unwrap().layout
     }
     pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rs::Layout<'tcx> {
         self.rs_layout_of(smir::internal(self.tcx, ty))

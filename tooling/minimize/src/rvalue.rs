@@ -122,13 +122,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     smir::NullOp::SizeOf => build::compute_size(ty, build::unit()),
                     smir::NullOp::AlignOf => build::compute_align(ty, build::unit()),
                     smir::NullOp::OffsetOf(fields) => {
-                        let param_env = rs::ParamEnv::reveal_all();
-                        let ty_and_layout = self.tcx.layout_of(param_env.and(rs_ty)).unwrap();
+                        let ty_and_layout =
+                            self.tcx.layout_of(self.typing_env().as_query_input(rs_ty)).unwrap();
                         let fields = fields.iter().map(|field| {
                             (smir::internal(self.tcx, field.0), rs::FieldIdx::from_usize(field.1))
                         });
                         build::const_int(
-                            self.tcx.offset_of_subfield(param_env, ty_and_layout, fields).bytes(),
+                            self.tcx
+                                .offset_of_subfield(self.typing_env(), ty_and_layout, fields)
+                                .bytes(),
                         )
                     }
                 }

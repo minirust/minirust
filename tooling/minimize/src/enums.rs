@@ -20,6 +20,9 @@ impl<'tcx> Ctxt<'tcx> {
         };
 
         let (variants, discriminator) = match layout.variants() {
+            rs::Variants::Empty => {
+                todo!()
+            }
             rs::Variants::Single { index } => {
                 let fields = self.translate_adt_variant_fields(
                     layout.fields(),

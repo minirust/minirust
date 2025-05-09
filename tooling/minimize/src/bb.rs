@@ -139,7 +139,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             | rs::StatementKind::AscribeUserType(_, _)
             | rs::StatementKind::Coverage(_)
             | rs::StatementKind::ConstEvalCounter
-            | rs::StatementKind::Nop => {
+            | rs::StatementKind::Nop
+            | rs::StatementKind::BackwardIncompatibleDropHint { .. } => {
                 rs::span_bug!(span, "Statement not supported: {:?}", stmt.kind);
             }
         })
@@ -285,7 +286,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         target: &Option<rs::BasicBlock>,
         span: rs::Span,
     ) -> TerminatorResult {
-        let param_env = rs::ParamEnv::reveal_all();
         let intrinsic_name = self.tcx.item_name(intrinsic.def_id());
         match intrinsic_name {
             rs::sym::assert_inhabited
@@ -294,8 +294,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let ty = intrinsic.args.type_at(0);
                 let requirement =
                     rs::layout::ValidityRequirement::from_intrinsic(intrinsic_name).unwrap();
-                let should_panic =
-                    !self.tcx.check_validity_requirement((requirement, param_env.and(ty))).unwrap();
+                let should_panic = !self
+                    .tcx
+                    .check_validity_requirement((requirement, self.typing_env().as_query_input(ty)))
+                    .unwrap();
 
                 let terminator = if should_panic {
                     Terminator::Intrinsic {
@@ -342,7 +344,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
 
-                return TerminatorResult { stmts: list!(stmt), terminator };
+                return TerminatorResult { stmts: list![stmt], terminator };
             }
             rs::sym::ptr_offset_from | rs::sym::ptr_offset_from_unsigned => {
                 let unsigned = intrinsic_name == rs::sym::ptr_offset_from_unsigned;
@@ -369,7 +371,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 let stmt = Statement::Assign { destination, source: offset };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-                return TerminatorResult { stmts: list!(stmt), terminator };
+                return TerminatorResult { stmts: list![stmt], terminator };
             }
             rs::sym::ctpop => {
                 let v = self.translate_operand(&args[0].node, span);
@@ -379,7 +381,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let stmt = Statement::Assign { destination, source: val };
 
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-                return TerminatorResult { stmts: list!(stmt), terminator };
+                return TerminatorResult { stmts: list![stmt], terminator };
             }
             rs::sym::exact_div => {
                 let l = self.translate_operand(&args[0].node, span);
@@ -391,7 +393,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
 
-                return TerminatorResult { stmts: list!(stmt), terminator };
+                return TerminatorResult { stmts: list![stmt], terminator };
             }
             rs::sym::size_of_val => {
                 let destination = self.translate_place(destination, span);
@@ -402,7 +404,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     source: build::compute_size(ty, build::get_metadata(ptr)),
                 };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-                TerminatorResult { stmts: list!(stmt), terminator }
+                TerminatorResult { stmts: list![stmt], terminator }
             }
             rs::sym::min_align_of_val => {
                 let destination = self.translate_place(destination, span);
@@ -413,7 +415,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     source: build::compute_align(ty, build::get_metadata(ptr)),
                 };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-                TerminatorResult { stmts: list!(stmt), terminator }
+                TerminatorResult { stmts: list![stmt], terminator }
             }
             rs::sym::unlikely | rs::sym::likely => {
                 // FIXME: use the "fallback body" provided in the standard library.
@@ -423,7 +425,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let stmt = Statement::Assign { destination, source: val };
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
 
-                return TerminatorResult { stmts: list!(stmt), terminator };
+                return TerminatorResult { stmts: list![stmt], terminator };
+            }
+            rs::sym::cold_path => {
+                // Just a NOP for us.
+                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
+                return TerminatorResult { stmts: list![], terminator };
             }
             name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
         }
@@ -441,8 +448,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let rs::Operand::Constant(box f1) = func else { panic!() };
         let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
         let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
-        let param_env = rs::ParamEnv::reveal_all();
-        let instance = rs::Instance::expect_resolve(self.tcx, param_env, f, substs_ref, span);
+        let instance =
+            rs::Instance::expect_resolve(self.tcx, self.typing_env(), f, substs_ref, span);
 
         if matches!(instance.def, rs::InstanceKind::Intrinsic(_)) {
             // A Rust intrinsic.
@@ -491,7 +498,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             let abi = self
                 .cx
                 .tcx
-                .fn_abi_of_instance(rs::ParamEnv::reveal_all().and((instance, rs::List::empty())))
+                .fn_abi_of_instance(self.typing_env().as_query_input((instance, rs::List::empty())))
                 .unwrap();
             let conv = translate_calling_convention(abi.conv);
 

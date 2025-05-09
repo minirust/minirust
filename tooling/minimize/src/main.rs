@@ -6,6 +6,7 @@
 
 // Imports for the rest of the crate
 
+extern crate rustc_abi;
 extern crate rustc_const_eval;
 extern crate rustc_driver;
 extern crate rustc_hir;
@@ -19,15 +20,16 @@ extern crate rustc_target;
 extern crate stable_mir;
 
 mod rs {
+    pub use rustc_abi as abi;
     pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::span_bug;
     pub use rustc_middle::ty::*;
-    pub use rustc_mir_dataflow::storage::always_storage_live_locals;
+    pub use rustc_mir_dataflow::impls::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
     pub use rustc_span::{DUMMY_SP, Span, sym};
-    pub use rustc_target::abi::{self, Align, FieldIdx, Layout, Size, call::*};
+    pub use rustc_target::abi::{Align, FieldIdx, Layout, Size, call::*};
     pub use rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
 
     pub type CompileTimeInterpCx<'tcx> =
@@ -163,7 +165,7 @@ fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
 
 fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
     args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
-    rustc_driver::RunCompiler::new(&args, &mut Cb { callback }).run().unwrap();
+    rustc_driver::RunCompiler::new(&args, &mut Cb { callback }).run();
 }
 
 struct Cb<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> {
@@ -174,15 +176,12 @@ impl<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> rustc_driver::Callbacks f
     fn after_analysis<'tcx>(
         &mut self,
         _compiler: &rustc_interface::interface::Compiler,
-        queries: &'tcx rustc_interface::Queries<'tcx>,
+        tcx: rs::TyCtxt<'tcx>,
     ) -> rustc_driver::Compilation {
-        queries.global_ctxt().unwrap().enter(|tcx| {
-            // StableMIR can only be used inside a `run` call, to guarantee its context is properly
-            // initialized. Calls to StableMIR functions will panic if done outside a run.
-            let prog = smir::run(tcx, || Ctxt::new(tcx).translate()).unwrap();
-            (self.callback)(tcx, prog);
-        });
-
+        // StableMIR can only be used inside a `run` call, to guarantee its context is properly
+        // initialized. Calls to StableMIR functions will panic if done outside a run.
+        let prog = smir::run(tcx, || Ctxt::new(tcx).translate()).unwrap();
+        (self.callback)(tcx, prog);
         rustc_driver::Compilation::Stop
     }
 }

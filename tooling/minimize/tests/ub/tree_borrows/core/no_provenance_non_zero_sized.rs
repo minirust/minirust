@@ -2,8 +2,6 @@
 
 // Check that we forbid retagging a non-zero-sized pointer without provenance.
 
-#![feature(strict_provenance)]
-
 fn foo(_x: &mut u8) {
     // UB! Retagging a non-zero-sized pointer without provenance.
 }

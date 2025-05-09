@@ -2,8 +2,6 @@
 
 // Check that we allow retagging a zero-sized pointer without provenance.
 
-#![feature(strict_provenance)]
-
 fn foo(_x: &mut ()) {
     // It is okay to retag the pointer, because the pointee is zero-sized.
 }
