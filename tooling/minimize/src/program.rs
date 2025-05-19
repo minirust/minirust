@@ -130,6 +130,7 @@ impl<'tcx> Ctxt<'tcx> {
 fn mk_start_fn(entry: u32) -> Function {
     let b0_name = BbName(Name::from_internal(0));
     let b1_name = BbName(Name::from_internal(1));
+    let b2_name = BbName(Name::from_internal(2));
     let l0_name = LocalName(Name::from_internal(0));
 
     let b0 = BasicBlock {
@@ -140,7 +141,7 @@ fn mk_start_fn(entry: u32) -> Function {
             arguments: List::new(),
             ret: build::unit_place(),
             next_block: Some(b1_name),
-            unwind_block: None,
+            unwind_block: Some(b2_name),
         },
         kind: BbKind::Regular,
     };
@@ -156,9 +157,14 @@ fn mk_start_fn(entry: u32) -> Function {
         kind: BbKind::Regular,
     };
 
+    // If `entry` unwinds, we jump here and abort.
+    let b2 =
+        BasicBlock { statements: List::new(), terminator: build::abort(), kind: BbKind::Cleanup };
+
     let mut blocks = Map::new();
     blocks.insert(b0_name, b0);
     blocks.insert(b1_name, b1);
+    blocks.insert(b2_name, b2);
 
     let mut locals = Map::new();
     locals.insert(l0_name, <()>::get_type());

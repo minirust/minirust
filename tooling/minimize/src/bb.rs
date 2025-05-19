@@ -23,6 +23,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn translate_bb(&mut self, name: BbName, bb: &rs::BasicBlockData<'tcx>) {
         let mut cur_block_name = name;
         let mut cur_block_statements = List::new();
+        // Translate the block kind.
+        let block_kind = if bb.is_cleanup { BbKind::Cleanup } else { BbKind::Regular };
+
         for stmt in bb.statements.iter() {
             match self.translate_stmt(stmt) {
                 StatementResult::Statement(stmt) => {
@@ -38,11 +41,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ret: destination,
                         next_block: Some(next_bb),
                     };
-                    // Temporarily set all blocks all blocks to regular kind, since unwinding is not yet supported in minimize.
                     let cur_block = BasicBlock {
                         statements: cur_block_statements,
                         terminator,
-                        kind: BbKind::Regular,
+                        kind: block_kind,
                     };
                     let old = self.blocks.insert(cur_block_name, cur_block);
                     assert!(old.is_none()); // make sure we do not overwrite a bb
@@ -52,12 +54,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
             }
         }
-        let TerminatorResult { stmts, terminator } = self.translate_terminator(bb.terminator());
+        let TerminatorResult { stmts, terminator } = self.translate_terminator(bb);
         for stmt in stmts.iter() {
             cur_block_statements.push(stmt);
         }
         let cur_block =
-            BasicBlock { statements: cur_block_statements, terminator, kind: BbKind::Regular };
+            BasicBlock { statements: cur_block_statements, terminator, kind: block_kind };
         let old = self.blocks.insert(cur_block_name, cur_block);
         assert!(old.is_none()); // make sure we do not overwrite a bb
     }
@@ -146,13 +148,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         })
     }
 
-    fn translate_terminator(&mut self, terminator: &rs::Terminator<'tcx>) -> TerminatorResult {
+    fn translate_terminator(&mut self, bb: &rs::BasicBlockData<'tcx>) -> TerminatorResult {
+        let terminator = bb.terminator();
         let span = terminator.source_info.span;
         let terminator = match &terminator.kind {
             rs::TerminatorKind::Return => Terminator::Return,
             rs::TerminatorKind::Goto { target } => Terminator::Goto(self.bb_name_map[&target]),
-            rs::TerminatorKind::Call { func, target, destination, args, .. } =>
-                return self.translate_call(func, args, destination, target, span),
+            rs::TerminatorKind::Call { func, target, destination, args, unwind, .. } =>
+                return self.translate_call(func, args, destination, target, span, *unwind, bb),
             rs::TerminatorKind::SwitchInt { discr, targets } => {
                 let ty = discr.ty(&self.body, self.tcx);
                 let ty = self.translate_ty(ty, span);
@@ -192,7 +195,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 Terminator::Switch { value, cases, fallback }
             }
             rs::TerminatorKind::Unreachable => Terminator::Unreachable,
-            rs::TerminatorKind::Assert { cond, expected, target, .. } => {
+            rs::TerminatorKind::Assert { cond, expected, target, unwind, .. } => {
                 let mut condition = self.translate_operand(cond, span);
                 // Check equality of `condition` and `expected`.
                 // We do this by inverting `condition` if `expected` is false
@@ -202,19 +205,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
 
                 // Create panic block in case of `expected != condition`
-                let panic_bb = self.fresh_bb_name();
-                let panic_block = BasicBlock {
-                    statements: list![],
-                    terminator: build::abort(),
-                    kind: BbKind::Regular,
-                };
-                self.blocks.try_insert(panic_bb, panic_block).unwrap();
+                let terminator = self.translate_panic(*unwind, bb);
+                let panic_block_name = self.fresh_bb_name();
+                let block_kind = if bb.is_cleanup { BbKind::Cleanup } else { BbKind::Regular };
+                let panic_block = BasicBlock { statements: list![], terminator, kind: block_kind };
+                self.blocks.try_insert(panic_block_name, panic_block).unwrap();
 
                 let next_block = self.bb_name_map[target];
                 Terminator::Switch {
                     value: build::bool_to_int::<u8>(condition),
                     cases: [(Int::from(1), next_block)].into_iter().collect(),
-                    fallback: panic_bb,
+                    fallback: panic_block_name,
                 }
             }
             rs::TerminatorKind::Drop { place, target, .. } => {
@@ -262,9 +263,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     unwind_block: None,
                 }
             }
+            rs::TerminatorKind::UnwindResume => Terminator::ResumeUnwind,
 
-            rs::TerminatorKind::UnwindResume
-            | rs::TerminatorKind::UnwindTerminate(_)
+            rs::TerminatorKind::UnwindTerminate(_)
             | rs::TerminatorKind::TailCall { .. }
             | rs::TerminatorKind::Yield { .. }
             | rs::TerminatorKind::CoroutineDrop
@@ -436,6 +437,78 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         }
     }
 
+    /// Translates an `UnwindAction` to MiniRust.
+    /// May insert a new block into `self`, as MiniRust does not support `UnwindAction` directly.
+    /// Returns the name of the first cleanup block to execute in case of unwinding.
+    fn translate_unwind_action(
+        &mut self,
+        unwind: rs::UnwindAction,
+        bb: &rs::BasicBlockData<'tcx>,
+    ) -> BbName {
+        // FIXME: cache and reuse the new blocks generated by this function.
+        match unwind {
+            rs::UnwindAction::Continue => {
+                // UnwindAction::Continue must only be used by a call in a regular block,
+                // therefore the unwind block should be a cleanup block.
+                assert!(
+                    !bb.is_cleanup,
+                    "A call in a cleanup block cannot use UnwindAction::Continue"
+                );
+                let block_kind = BbKind::Cleanup;
+                let unwind_bb_name = self.fresh_bb_name();
+                let unwind_bb = BasicBlock {
+                    statements: list![],
+                    terminator: Terminator::ResumeUnwind,
+                    kind: block_kind,
+                };
+                self.blocks.insert(unwind_bb_name, unwind_bb);
+                unwind_bb_name
+            }
+            rs::UnwindAction::Unreachable => {
+                let block_kind = if bb.is_cleanup { BbKind::Terminate } else { BbKind::Cleanup };
+                let unwind_bb_name = self.fresh_bb_name();
+                let unwind_bb = BasicBlock {
+                    statements: list![],
+                    terminator: Terminator::Unreachable,
+                    kind: block_kind,
+                };
+                self.blocks.insert(unwind_bb_name, unwind_bb);
+                unwind_bb_name
+            }
+            rs::UnwindAction::Terminate(_) => {
+                // FIXME: do not ignore UnwindTerminateReason
+                let block_kind = if bb.is_cleanup { BbKind::Terminate } else { BbKind::Cleanup };
+                let unwind_bb_name = self.fresh_bb_name();
+                let unwind_bb = BasicBlock {
+                    statements: list![],
+                    terminator: build::abort(),
+                    kind: block_kind,
+                };
+                self.blocks.insert(unwind_bb_name, unwind_bb);
+                unwind_bb_name
+            }
+            rs::UnwindAction::Cleanup(cleanup_block) => self.bb_name_map[&cleanup_block],
+        }
+    }
+
+    /// Simulates a panic function.
+    /// Returns a terminator that either initiates unwinding or aborts, based on the chosen panic strategy.
+    fn translate_panic(
+        &mut self,
+        unwind: rs::UnwindAction,
+        bb: &rs::BasicBlockData<'tcx>,
+    ) -> Terminator {
+        // FIXME: we should just call into the panic runtime here instead of replicating what it does.
+        let panic_strategy = self.cx.tcx.sess.panic_strategy();
+        match panic_strategy {
+            rustc_target::spec::PanicStrategy::Unwind => {
+                let cleanup_block = self.translate_unwind_action(unwind, bb);
+                Terminator::StartUnwind(cleanup_block)
+            }
+            rustc_target::spec::PanicStrategy::Abort => build::abort(),
+        }
+    }
+
     fn translate_call(
         &mut self,
         func: &rs::Operand<'tcx>,
@@ -443,6 +516,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         destination: &rs::Place<'tcx>,
         target: &Option<rs::BasicBlock>,
         span: rs::Span,
+        unwind: rs::UnwindAction,
+        bb: &rs::BasicBlockData<'tcx>,
     ) -> TerminatorResult {
         // For now we only support calling specific functions, not function pointers.
         let rs::Operand::Constant(box f1) = func else { panic!() };
@@ -488,12 +563,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
         } else if is_panic_fn(&instance.to_string()) {
             // We can't translate this call, it takes a string. As a hack we just ignore the argument.
-            Terminator::Intrinsic {
-                intrinsic: IntrinsicOp::Abort,
-                arguments: list![],
-                ret: unit_place(),
-                next_block: None,
-            }
+            self.translate_panic(unwind, bb)
         } else {
             let abi = self
                 .cx
@@ -512,6 +582,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                 })
                 .collect();
+
+            let unwind_block = Some(self.translate_unwind_action(unwind, bb));
 
             // Distinguish direct function calls or dynamic dispatch on a trait object.
             let callee = if let rs::InstanceKind::Virtual(_trait, method) = instance.def {
@@ -539,7 +611,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 arguments: args,
                 ret: self.translate_place(&destination, span),
                 next_block: target.as_ref().map(|t| self.bb_name_map[t]),
-                unwind_block: None,
+                unwind_block,
             }
         };
         TerminatorResult { terminator, stmts: List::new() }
@@ -547,7 +619,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 }
 
 // HACK to skip translating some functions we can't handle yet.
-// These always panic so we just turn them into the panic intrinsic.
+// These always panic so we use `translate_panic` instead.
 fn is_panic_fn(name: &str) -> bool {
     let fns = [
         "core::panicking::panic",
