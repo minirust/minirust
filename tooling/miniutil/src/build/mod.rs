@@ -3,8 +3,9 @@
 //! Example:
 //!
 //! ```rust
+//! use miniutil::build::*;
 //! // Our main function has one local of type `usize`.
-//! let locals = &[<usize>::get_ptype()];
+//! let locals = &[<usize>::get_type()];
 //!
 //! // the basic block `bb` allocates space for this local, and then terminates the program.
 //! let bb = block!(storage_live(0), exit());

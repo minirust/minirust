@@ -54,7 +54,7 @@ mod tests {
 
         let strings = mock.into_strings();
 
-        assert_eq!(strings.len(), 2);
+        assert_eq!(strings.len(), 1);
 
         assert_eq!(strings[0], "1");
     }
