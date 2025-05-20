@@ -1,6 +1,5 @@
 //@revisions: basic tree
 //@[tree]compile-flags: --minimize-tree-borrows
-#![feature(ptr_sub_ptr)]
 
 use std::ptr;
 
@@ -119,6 +118,6 @@ fn offset_from() {
     unsafe {
         assert!(ptr::from_ref(&data[4]).offset_from(&data[0]) == 4);
         assert!(ptr::from_ref(&data[0]).offset_from(&data[4]) == -4);
-        assert!(ptr::from_ref(&data[4]).sub_ptr(&data[0]) == 4);
+        assert!(ptr::from_ref(&data[4]).offset_from_unsigned(&data[0]) == 4);
     }
 }

@@ -21,6 +21,9 @@ extern crate stable_mir;
 
 mod rs {
     pub use rustc_abi as abi;
+    pub use rustc_abi::{
+        Align, FieldIdx, FieldsShape, Layout, Size, TagEncoding, VariantIdx, Variants,
+    };
     pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
@@ -29,15 +32,14 @@ mod rs {
     pub use rustc_mir_dataflow::impls::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
     pub use rustc_span::{DUMMY_SP, Span, sym};
-    pub use rustc_target::abi::{Align, FieldIdx, Layout, Size, call::*};
-    pub use rustc_target::abi::{FieldsShape, TagEncoding, VariantIdx, Variants};
+    pub use rustc_target::callconv::{Conv, FnAbi};
 
     pub type CompileTimeInterpCx<'tcx> =
         InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
 }
 // Traits
+pub use rustc_abi::HasDataLayout as _;
 pub use rustc_middle::ty::layout::IntegerExt as _;
-pub use rustc_target::abi::HasDataLayout as _;
 
 mod smir {
     pub use rustc_smir::rustc_internal::*;
@@ -165,7 +167,7 @@ fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
 
 fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
     args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
-    rustc_driver::RunCompiler::new(&args, &mut Cb { callback }).run();
+    rustc_driver::run_compiler(&args, &mut Cb { callback });
 }
 
 struct Cb<F: FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy> {

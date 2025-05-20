@@ -3,7 +3,7 @@ use crate::*;
 impl<'tcx> Ctxt<'tcx> {
     pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
         let layout = self.rs_layout_of(ty);
-        let inhabited = !layout.backend_repr().is_uninhabited();
+        let inhabited = !layout.is_uninhabited();
         let freeze = ty.is_freeze(self.tcx, self.typing_env());
         let unpin = ty.is_unpin(self.tcx, self.typing_env());
 

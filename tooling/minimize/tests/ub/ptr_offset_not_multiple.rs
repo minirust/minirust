@@ -1,5 +1,3 @@
-#![feature(ptr_sub_ptr)]
-
 use std::ptr;
 
 fn main() {
@@ -7,6 +5,6 @@ fn main() {
     unsafe {
         // Negative offset in `sub_ptr` is UB.
         let ptr = ptr::from_ref(&data[0]).cast::<u8>().add(1).cast::<u16>();
-        ptr::from_ref(&data[4]).sub_ptr(ptr);
+        ptr::from_ref(&data[4]).offset_from_unsigned(ptr);
     }
 }

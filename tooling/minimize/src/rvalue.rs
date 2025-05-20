@@ -119,6 +119,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 match null_op {
                     smir::NullOp::UbChecks => build::const_bool(self.tcx.sess.ub_checks()),
+                    smir::NullOp::ContractChecks => build::const_bool(self.tcx.sess.contract_checks()),
                     smir::NullOp::SizeOf => build::compute_size(ty, build::unit()),
                     smir::NullOp::AlignOf => build::compute_align(ty, build::unit()),
                     smir::NullOp::OffsetOf(fields) => {
