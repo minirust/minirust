@@ -192,14 +192,17 @@ fn other_f() -> Function {
 fn call_next_block_non_exist() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Call {
-        callee: fn_ptr_internal(1),
-        calling_convention: CallingConvention::C,
-        arguments: list![by_value(unit())],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(2))),
-        unwind_block: Some(BbName(Name::from_internal(1))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Call {
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
+            arguments: list![by_value(unit())],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(2))),
+            unwind_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -213,14 +216,17 @@ fn call_next_block_non_exist() {
 fn unwind_block_non_exist() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Call {
-        callee: fn_ptr_internal(1),
-        calling_convention: CallingConvention::C,
-        arguments: list![by_value(unit())],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-        unwind_block: Some(BbName(Name::from_internal(2))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Call {
+            callee: fn_ptr_internal(1),
+            calling_convention: CallingConvention::C,
+            arguments: list![by_value(unit())],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+            unwind_block: Some(BbName(Name::from_internal(2))),
+        }
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);

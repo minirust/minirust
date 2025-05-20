@@ -45,19 +45,20 @@ fn valid_downcast() {
 fn downcasts_give_different_place() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(
-        offset(2),
-        (U8_INTTYPE, 0.into()),
-    )]);
+    let variant1 = enum_variant(
+        tuple_ty(&[(offset(1), u8_t)], size(4), align(2)),
+        &[(offset(2), (U8_INTTYPE, 0.into()))],
+    );
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(
+    let variant2 = enum_variant(
+        tuple_ty(&[(offset(0), u16_t)], size(4), align(2)),
+        &[(offset(2), (U8_INTTYPE, 1.into()))],
+    );
+    let discriminator = discriminator_branch::<u8>(
         offset(2),
-        (U8_INTTYPE, 1.into()),
-    )]);
-    let discriminator = discriminator_branch::<u8>(offset(2), discriminator_invalid(), &[
-        ((0, 1), discriminator_known(0)),
-        ((1, 2), discriminator_known(1)),
-    ]);
+        discriminator_invalid(),
+        &[((0, 1), discriminator_known(0)), ((1, 2), discriminator_known(1))],
+    );
     let enum_ty = enum_ty::<u8>(
         &[(0.into(), variant1), (1.into(), variant2)],
         discriminator,
@@ -84,19 +85,20 @@ fn downcasts_give_different_place() {
 fn downcasts_give_different_place2() {
     // setup enum where the first two bytes are data (u8 / u16) and the third byte is the tag.
     let u8_t = int_ty(Signedness::Unsigned, size(1));
-    let variant1 = enum_variant(tuple_ty(&[(offset(1), u8_t)], size(4), align(2)), &[(
-        offset(2),
-        (U8_INTTYPE, 0.into()),
-    )]);
+    let variant1 = enum_variant(
+        tuple_ty(&[(offset(1), u8_t)], size(4), align(2)),
+        &[(offset(2), (U8_INTTYPE, 0.into()))],
+    );
     let u16_t = int_ty(Signedness::Unsigned, size(2));
-    let variant2 = enum_variant(tuple_ty(&[(offset(0), u16_t)], size(4), align(2)), &[(
+    let variant2 = enum_variant(
+        tuple_ty(&[(offset(0), u16_t)], size(4), align(2)),
+        &[(offset(2), (U8_INTTYPE, 1.into()))],
+    );
+    let discriminator = discriminator_branch::<u8>(
         offset(2),
-        (U8_INTTYPE, 1.into()),
-    )]);
-    let discriminator = discriminator_branch::<u8>(offset(2), discriminator_invalid(), &[
-        ((0, 1), discriminator_known(0)),
-        ((1, 2), discriminator_known(1)),
-    ]);
+        discriminator_invalid(),
+        &[((0, 1), discriminator_known(0)), ((1, 2), discriminator_known(1))],
+    );
     let enum_ty = enum_ty::<u8>(
         &[(0.into(), variant1), (1.into(), variant2)],
         discriminator,

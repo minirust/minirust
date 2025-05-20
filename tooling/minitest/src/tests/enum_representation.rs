@@ -55,10 +55,10 @@ fn ill_formed_discriminator_branch() {
             (0, enum_variant(<u8>::get_type(), &[])),
             (
                 1,
-                enum_variant(tuple_ty(&[], size(1), align(1)), &[(
-                    offset(0),
-                    (U8_INTTYPE, 0.into()),
-                )]),
+                enum_variant(
+                    tuple_ty(&[], size(1), align(1)),
+                    &[(offset(0), (U8_INTTYPE, 0.into()))],
+                ),
             ),
         ],
         Discriminator::Branch {
@@ -82,10 +82,14 @@ fn ill_formed_discriminator_overlaps() {
     let dataless_ty = tuple_ty(&[], size(1), align(1));
     let enum_ty = enum_ty::<u8>(
         &[(0, enum_variant(dataless_ty, &[])), (1, enum_variant(dataless_ty, &[]))],
-        discriminator_branch::<u8>(offset(0), discriminator_known(0), &[
-            ((2.into(), 4.into()), discriminator_known(1)),
-            ((1.into(), 5.into()), discriminator_known(0)), // ill-formed here
-        ]),
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_known(0),
+            &[
+                ((2.into(), 4.into()), discriminator_known(1)),
+                ((1.into(), 5.into()), discriminator_known(0)), // ill-formed here
+            ],
+        ),
         size(1),
         align(1),
     );
@@ -101,10 +105,14 @@ fn ill_formed_discriminator_overlaps_2() {
     let dataless_ty = tuple_ty(&[], size(1), align(1));
     let enum_ty = enum_ty::<u8>(
         &[(0, enum_variant(dataless_ty, &[])), (1, enum_variant(dataless_ty, &[]))],
-        discriminator_branch::<u8>(offset(0), discriminator_known(0), &[
-            ((2, 4), discriminator_known(1)),
-            ((1, 3), discriminator_known(0)), // ill-formed here
-        ]),
+        discriminator_branch::<u8>(
+            offset(0),
+            discriminator_known(0),
+            &[
+                ((2, 4), discriminator_known(1)),
+                ((1, 3), discriminator_known(0)), // ill-formed here
+            ],
+        ),
         size(1),
         align(1),
     );
@@ -136,11 +144,15 @@ fn simple_two_variant_works() {
     let bool_var_ty = enum_variant(Type::Bool, &[]);
     let empty_var_data_ty = tuple_ty(&[], size(1), align(1)); // unit with size 1
     let empty_var_ty = enum_variant(empty_var_data_ty, &[(offset(0), (U8_INTTYPE, 2.into()))]);
-    let discriminator = discriminator_branch::<u8>(offset(0), discriminator_invalid(), &[
-        ((0, 1), discriminator_known(0)),
-        ((1, 2), discriminator_known(0)),
-        ((2, 3), discriminator_known(1)),
-    ]);
+    let discriminator = discriminator_branch::<u8>(
+        offset(0),
+        discriminator_invalid(),
+        &[
+            ((0, 1), discriminator_known(0)),
+            ((1, 2), discriminator_known(0)),
+            ((2, 3), discriminator_known(1)),
+        ],
+    );
     let enum_ty =
         enum_ty::<u8>(&[(0, bool_var_ty), (1, empty_var_ty)], discriminator, size(1), align(1));
 
@@ -232,10 +244,11 @@ fn larger_sized_tag_works() {
             1048576,
             enum_variant(variant_0_tuple_ty, &[(offset(4), (U32_INTTYPE, 1048576.into()))]),
         )],
-        discriminator_branch::<u32>(offset(4), discriminator_invalid(), &[(
-            (1048576, 1048577),
-            discriminator_known(1048576),
-        )]),
+        discriminator_branch::<u32>(
+            offset(4),
+            discriminator_invalid(),
+            &[((1048576, 1048577), discriminator_known(1048576))],
+        ),
         size(8),
         align(4),
     );
@@ -263,10 +276,11 @@ fn larger_tag_has_no_alignment() {
             1048576,
             enum_variant(variant_0_tuple_ty, &[(offset(6), (U32_INTTYPE, 1048576.into()))]),
         )],
-        discriminator_branch::<u32>(offset(6), discriminator_invalid(), &[(
-            (1048576, 1048577),
-            discriminator_known(1048576),
-        )]),
+        discriminator_branch::<u32>(
+            offset(6),
+            discriminator_invalid(),
+            &[((1048576, 1048577), discriminator_known(1048576))],
+        ),
         size(12),
         align(4),
     );
@@ -292,10 +306,11 @@ fn negative_discriminants_work() {
     let variant_0_tuple_ty = tuple_ty(&[(offset(0), <u32>::get_type())], size(8), align(4));
     let enum_ty = enum_ty::<i16>(
         &[(i16::MAX, enum_variant(variant_0_tuple_ty, &[(offset(4), (i16_it, (-12989).into()))]))],
-        discriminator_branch::<i16>(offset(4), discriminator_invalid(), &[(
-            (-12989, -12988),
-            discriminator_known(i16::MAX),
-        )]),
+        discriminator_branch::<i16>(
+            offset(4),
+            discriminator_invalid(),
+            &[((-12989, -12988), discriminator_known(i16::MAX))],
+        ),
         size(8),
         align(4),
     );

@@ -28,12 +28,15 @@ fn dynamic_memory() {
 fn alloc_argcount() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        arguments: list![],
-        ret: local(0),
-        next_block: None,
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            arguments: list![],
+            ret: local(0),
+            next_block: None,
+        },
+    );
 
     let f = function(Ret::No, 0, &locals, &[b0]);
     let p = program(&[f]);
@@ -45,12 +48,15 @@ fn alloc_argcount() {
 fn alloc_align_err() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        arguments: list![const_int::<usize>(4), const_int::<usize>(13)], // 13 is no power of two! hence error!
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            arguments: list![const_int::<usize>(4), const_int::<usize>(13)], // 13 is no power of two! hence error!
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -63,12 +69,15 @@ fn alloc_align_err() {
 fn alloc_size_err() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        arguments: list![const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            arguments: list![const_int::<isize>(-1), const_int::<usize>(4)], // -1 is not a valid size!
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -81,13 +90,16 @@ fn alloc_size_err() {
 fn alloc_wrongarg1() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        // First argument should be an int, so bool is unexpected here!
-        arguments: list![const_bool(true), const_int::<usize>(4)],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            // First argument should be an int, so bool is unexpected here!
+            arguments: list![const_bool(true), const_int::<usize>(4)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -100,13 +112,16 @@ fn alloc_wrongarg1() {
 fn alloc_wrongarg2() {
     let locals = [<*const i32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        // Second argument should be an int, so bool is unexpected here!
-        arguments: list![const_int::<usize>(4), const_bool(true)],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            // Second argument should be an int, so bool is unexpected here!
+            arguments: list![const_int::<usize>(4), const_bool(true)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
@@ -119,12 +134,15 @@ fn alloc_wrongarg2() {
 fn alloc_wrongreturn() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Allocate,
-        arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    },);
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Allocate,
+            arguments: list![const_int::<usize>(4), const_int::<usize>(4)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        },
+    );
     let b1 = block!(exit());
 
     let f = function(Ret::No, 0, &locals, &[b0, b1]);

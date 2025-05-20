@@ -58,9 +58,11 @@ fn dynamic_dispatch() {
 
         let foo_ret = main.declare_local::<usize>();
         main.storage_live(foo_ret);
-        main.call_nounwind(foo_ret, vtable_method_lookup(get_metadata(load(y)), method_a_foo), &[
-            by_value(ptr_to_ptr(get_thin_pointer(load(y)), <&usize>::get_type())),
-        ]);
+        main.call_nounwind(
+            foo_ret,
+            vtable_method_lookup(get_metadata(load(y)), method_a_foo),
+            &[by_value(ptr_to_ptr(get_thin_pointer(load(y)), <&usize>::get_type()))],
+        );
         main.assume(eq(load(x), load(foo_ret)));
 
         main.exit();
@@ -164,9 +166,10 @@ fn weird_wrong_vtable_right_trait() {
         );
 
         // `y.foo()`
-        f.call_ignoreret(vtable_method_lookup(get_metadata(load(y)), method_foo_foo), &[by_value(
-            ptr_to_ptr(get_thin_pointer(load(y)), <&u8>::get_type()),
-        )]);
+        f.call_ignoreret(
+            vtable_method_lookup(get_metadata(load(y)), method_foo_foo),
+            &[by_value(ptr_to_ptr(get_thin_pointer(load(y)), <&u8>::get_type()))],
+        );
 
         f.exit();
         p.finish_function(f)
@@ -432,12 +435,10 @@ fn ill_vtables_wrong_trait() {
     let mut p = p.finish_program(f);
     // Insert vtable without a defined trait (the builder api disallows this)
     let trait_name = TraitName(Name::from_internal(0));
-    p.vtables.insert(VTableName(Name::from_internal(2)), VTable {
-        trait_name: trait_name,
-        size: Size::ZERO,
-        align: Align::ONE,
-        methods: Map::new(),
-    });
+    p.vtables.insert(
+        VTableName(Name::from_internal(2)),
+        VTable { trait_name: trait_name, size: Size::ZERO, align: Align::ONE, methods: Map::new() },
+    );
 
     assert_ill_formed::<BasicMem>(p, "Program: vtable for unknown trait");
 }
@@ -460,12 +461,10 @@ fn ill_vtables_wrong_methods() {
     let mut p = p.finish_program(f);
 
     // Insert vtable without the method (the builder api catches this)
-    p.vtables.insert(VTableName(Name::from_internal(1)), VTable {
-        trait_name: trait_name,
-        size: Size::ZERO,
-        align: Align::ONE,
-        methods: Map::new(),
-    });
+    p.vtables.insert(
+        VTableName(Name::from_internal(1)),
+        VTable { trait_name: trait_name, size: Size::ZERO, align: Align::ONE, methods: Map::new() },
+    );
 
     assert_ill_formed::<BasicMem>(p, "Program: vtable has not the right set of methods");
 }

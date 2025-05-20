@@ -167,12 +167,15 @@ fn acquire_arg_value() {
 fn acquire_wrongreturn() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
-        arguments: list![const_int::<u32>(0)],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Acquire),
+            arguments: list![const_int::<u32>(0)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -231,12 +234,15 @@ fn release_arg_value() {
 fn release_wrongreturn() {
     let locals = [<u32>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
-        arguments: list![const_int::<u32>(0)],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
+            arguments: list![const_int::<u32>(0)],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -279,12 +285,15 @@ fn release_non_owned() {
 fn create_arg_count() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
-        arguments: list![load(local(0))],
-        ret: unit_place(),
-        next_block: Some(BbName(Name::from_internal(1))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
+            arguments: list![load(local(0))],
+            ret: unit_place(),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 
@@ -296,12 +305,15 @@ fn create_arg_count() {
 fn create_wrongreturn() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::Intrinsic {
-        intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
-        arguments: list![],
-        ret: local(0),
-        next_block: Some(BbName(Name::from_internal(1))),
-    });
+    let b0 = block!(
+        storage_live(0),
+        Terminator::Intrinsic {
+            intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Create),
+            arguments: list![],
+            ret: local(0),
+            next_block: Some(BbName(Name::from_internal(1))),
+        }
+    );
     let b1 = block!(exit());
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
 

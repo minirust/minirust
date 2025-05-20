@@ -33,7 +33,8 @@ impl<'tcx> Ctxt<'tcx> {
         // Get the methods of the principal trait, create a method name wrapping the index in its vtable.
         let methods = if let Some(trait_) = trait_.principal() {
             let trait_ref = trait_.with_self_ty(self.tcx, ty);
-            let trait_ref = self.tcx.erase_regions(self.tcx.instantiate_bound_regions_with_erased(trait_ref));
+            let trait_ref =
+                self.tcx.erase_regions(self.tcx.instantiate_bound_regions_with_erased(trait_ref));
             let entries = self.tcx.vtable_entries(trait_ref);
 
             entries

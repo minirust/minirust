@@ -130,9 +130,10 @@ fn unwind_recursive_func() {
 
     let p = p.finish_program(main_fn);
     dump_program(p);
-    assert_eq!(get_stdout::<BasicMem>(p).unwrap(), &[
-        "6", "5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5", "6",
-    ]);
+    assert_eq!(
+        get_stdout::<BasicMem>(p).unwrap(),
+        &["6", "5", "4", "3", "2", "1", "0", "1", "2", "3", "4", "5", "6",]
+    );
 }
 
 /// A test case with non-terminator statements in the cleanup block.
