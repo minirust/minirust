@@ -82,7 +82,7 @@ fn call_unwindblock_wrong_kind() {
     let f1 = function(Ret::No, 0, &[], &[block!(return_())]);
     let p = program(&[f0, f1]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block has the wrong block kind");
 }
 
 /// This test checks that using `StartUnwind` to jump to a regular block results in an ill-formed program.
@@ -93,7 +93,7 @@ fn start_unwind_wrong_nextblock() {
     let f = function(Ret::No, 0, &[], &[bb0, bb1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block has the wrong block kind");
 }
 
 /// This test checks that a `catch_unwind` with a `next_block` of the wrong kind results in an ill-formed program.
@@ -232,7 +232,7 @@ fn unwind_block_non_exist() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block does not exist");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block does not exist");
 }
 
 /// In this test the next block of `catch_unwind` does not exist, which results in an ill-formed program.

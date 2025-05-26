@@ -295,20 +295,37 @@ impl FunctionBuilder {
     }
 
     /// Build one or multiple terminate blocks. The name of the first block is returned.
-    pub fn terminating_block<F>(&mut self, terminat_builer: F) -> BbName
+    pub fn terminating_block<F>(&mut self, terminate_builer: F) -> BbName
     where
         F: Fn(&mut Self),
     {
         let old_cur_block = self.cur_block.take();
         let terminate_block = self.declare_block();
         self.set_cur_block(terminate_block, BbKind::Terminate);
-        terminat_builer(self);
-        // Add Unreachable if no terminator is specified.
+        terminate_builer(self);
+
         if self.cur_block.is_some() {
             panic!("The terminate block is unfinished. The block needs to end with a Terminator.");
         }
         self.cur_block = old_cur_block;
         terminate_block
+    }
+
+    pub fn catch_block<F>(&mut self, catch_builder: F) -> BbName
+    where
+        F: Fn(&mut Self),
+    {
+        let old_cur_block = self.cur_block.take();
+        let catch_block = self.declare_block();
+        self.set_cur_block(catch_block, BbKind::Catch);
+        catch_builder(self);
+
+        if self.cur_block.is_some() {
+            panic!("The catch block is unfinished. The block needs to end with a Terminator.");
+        }
+
+        self.cur_block = old_cur_block;
+        catch_block
     }
 }
 

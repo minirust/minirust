@@ -512,6 +512,8 @@ pub enum BbKind {
     Regular,
     /// Cleanup blocks may use `ResumeUnwind` but not `Return` or `StartUnwind`.
     Cleanup,
+    /// TODO write comment.
+    Catch,
     /// `Terminate` blocks may use neither `Return` nor `ResumeUnwind` nor `StartUnwind`.
     Terminate,
 }

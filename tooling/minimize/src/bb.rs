@@ -279,6 +279,64 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         TerminatorResult { terminator, stmts: List::new() }
     }
 
+    fn translate_catch_unwind(
+        &mut self,
+        args: List<ValueExpr>,
+        destination: PlaceExpr,
+        target: BbName,
+    ) -> Terminator {
+        let try_fn = args.index_at(0);
+        let data = args.index_at(1);
+        let catch_fn = args.index_at(2);
+
+        // generate catch block
+
+        // FIXME temporary value as panic payload is not yet implemented.
+        let payload = build::null();
+        let catch_bb_name = self.fresh_bb_name();
+        let catch_bb = BasicBlock 
+            {   statements: list! [Statement::Assign { destination, source: build::const_int(1) }],
+                terminator: Terminator::Call { 
+                    callee: catch_fn,
+                    calling_convention: CallingConvention::Rust,
+                    arguments: list![build::by_value(data), build::by_value(payload)],
+                    ret: unit_place(),
+                    next_block: Some(target),
+                    unwind_block: None,
+                },
+                kind: BbKind::Catch,
+            };
+           
+           
+        self.blocks.insert(catch_bb_name, catch_bb);
+
+        // generate return block
+        let return_bb_name = self.fresh_bb_name();
+        let return_bb = BasicBlock {
+            statements: list![Statement::Assign { destination, source: build::const_int(0) }],
+            terminator: Terminator::Goto(target),
+            kind: BbKind::Regular,
+        };
+        self.blocks.insert(return_bb_name, return_bb);
+
+        //generate try block
+        let try_bb_name = self.fresh_bb_name();
+        let try_bb = BasicBlock {
+            statements: list![],
+            terminator: Terminator::Call { 
+                callee: try_fn,
+                calling_convention: CallingConvention::Rust,
+                arguments: list![build::by_value(data)],
+                ret: unit_place(),
+                next_block: Some(return_bb_name),
+                unwind_block: Some(catch_bb_name)
+            },
+            kind: BbKind::Regular,
+        };
+        self.blocks.insert(try_bb_name, try_bb);
+
+        Terminator::Goto(try_bb_name)
+    }
     fn translate_rs_intrinsic(
         &mut self,
         intrinsic: rs::Instance<'tcx>,
@@ -432,6 +490,19 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // Just a NOP for us.
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 return TerminatorResult { stmts: list![], terminator };
+            }
+            rs::sym::catch_unwind => {
+                let arguments = args
+                    .iter()
+                    .map(|x| self.translate_operand(&x.node, x.span))
+                    .collect();
+                let ret_place = self.translate_place(destination, span);
+                let terminator = self.translate_catch_unwind(
+                    arguments,
+                    ret_place,
+                    self.bb_name_map[&target.unwrap()],
+                );
+                TerminatorResult { stmts: list![], terminator }
             }
             name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
         }
