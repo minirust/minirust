@@ -296,6 +296,7 @@ fn fmt_bb_kind(bb: BasicBlock) -> String {
     match bb.kind {
         BbKind::Regular => "".to_string(),
         BbKind::Cleanup => " (Cleanup)".to_string(),
+        BbKind::Catch => " (Catch)".to_string(),
         BbKind::Terminate => " (Terminate)".to_string(),
     }
 }
