@@ -95,7 +95,7 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         true => "",
         false => ", uninhabited",
     };
-    let freeze_str = match pointee.freeze {
+    let freeze_str = match pointee.unsafe_cells.is_freeze_outside() {
         true => "",
         false => ", !Freeze",
     };

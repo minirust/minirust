@@ -65,41 +65,149 @@ impl TreeBorrowsFrameExtra {
 Here we define some helper methods to implement the memory interface.
 
 ```rust
+fn act_on_bytes(nonfreeze_bytes: List<(Offset, Offset)>, start: Offset, size: Size, mut f: impl FnMut(Offset, bool) -> Result) -> Result {
+    assert!(nonfreeze_bytes.iter().is_sorted_by(|a, b| a.0 <= b.0));
+
+    let padded_front = std::iter::once((Size::ZERO, Size::ZERO)).chain(nonfreeze_bytes.iter());
+    let padded_back = nonfreeze_bytes.iter().chain(std::iter::once((size, size)));
+
+    // The following `zip` produces iterators that look like this:
+    //
+    // current: (0, 0)       first pair     second pair       …        last pair
+    // next:    first pair   second pair    …             last pair    (size, size)
+    //
+    // This is done so that we know when the "next" range of UnsafeCells starts.
+    // In the first iteration, we "see" an UnsafeCell between offsets 0 and 0,
+    // and we know that the bytes from offset 0 until `(first pair).0` are free
+    // of UnsafeCells.  Only in the second iteration do we actually see the
+    // first real UnsafeCell.  In general, the loop has n+1 iterations, since we
+    // visit the area before the first and after the last UnsafeCell.
+    for (current, next) in padded_front.zip(padded_back) {
+        // These bytes are inside an UnsafeCell
+        for offset in current.0.bytes()..current.1.bytes() {
+            f(Offset::from_bytes(offset).unwrap() + start, false)?
+        }
+        // These bytes are not in an UnsafeCell
+        for offset in current.1.bytes()..next.0.bytes() {
+            f(Offset::from_bytes(offset).unwrap() + start, true)?
+        }
+    }
+    Ok(())
+}
+
+
+/// Call f(start + 0, is_cell_0), f(start + 1, is_cell_1), ..., f(start + size - 1, is_cell_size-1)
+/// where is_cell_i is true if the i-th byte in the range does not contain an UnsafeCell.
+fn iter_freeze_sensitive(
+    cell_strategy: UnsafeCellStrategy,
+    layout_strategy: LayoutStrategy,
+    ptr_metadata: Option<PointerMeta<TreeBorrowsProvenance>>,
+    start: Offset,
+    size: Size,
+    mut f: impl FnMut(Offset, bool) -> Result
+) -> Result {
+    match (cell_strategy, layout_strategy, ptr_metadata) {
+        (UnsafeCellStrategy::Sized { bytes }, ..) => {
+            act_on_bytes(bytes, start, size, f)?
+        },
+        (UnsafeCellStrategy::Slice { element }, LayoutStrategy::Slice(size, _), Some(PointerMeta::ElementCount(count))) => {
+            for i in Int::ZERO..count {
+                let offset = size * i;
+                act_on_bytes(element, start + offset, size, &mut f)?
+            };
+        },
+        (UnsafeCellStrategy::TraitObject { .. }, LayoutStrategy::TraitObject(_trait_name), Some(PointerMeta::VTablePointer(_ptr))) => {
+            todo!("UnsafeCellStrategy::TraitObject non-freeze bytes")
+        },
+        (UnsafeCellStrategy::Tuple { head, tail }, LayoutStrategy::Tuple { head: TupleHeadLayout { end, .. }, tail: tail_layout }, _) => {
+            act_on_bytes(head, start, size, &mut f)?;
+            iter_freeze_sensitive(tail, tail_layout, ptr_metadata, start + end, size, f)?
+        },
+        _ => panic!("Invalid UnsafeCellStrategy, LayoutStrategy and PointerMeta combination"),
+    };
+    Ok(())
+}
+
 impl<T: Target> TreeBorrowsMemory<T> {
     /// Create a new node for a pointer (reborrow)
     fn reborrow(
-        &mut self, 
-        ptr: ThinPointer<TreeBorrowsProvenance>,
-        pointee_size: Size,
-        permission: Permission,
+        &mut self,
+        ptr: Pointer<TreeBorrowsProvenance>,
+        pointee_info: PointeeInfo,
+        mutbl: Mutability,
         protected: Protected,
         frame_extra: &mut TreeBorrowsFrameExtra,
+        vtable_lookup: impl Fn(ThinPointer<TreeBorrowsProvenance>) -> crate::lang::VTable + 'static,
     ) -> Result<ThinPointer<TreeBorrowsProvenance>> {
+        let thin_ptr = ptr.thin_pointer;
+        let (pointee_size, _align) = pointee_info.layout.compute_size_and_align(ptr.metadata, vtable_lookup);
+
         // Make sure the pointer is dereferenceable.
-        self.mem.check_ptr(ptr, pointee_size)?;
+        self.mem.check_ptr(thin_ptr, pointee_size)?;
         // However, ignore the result of `check_ptr`: even if pointee_size is 0, we want to create a child pointer.
-        let Some((alloc_id, parent_path)) = ptr.provenance else {
+        let Some((alloc_id, parent_path)) = thin_ptr.provenance else {
             assert!(pointee_size.is_zero());
             // Pointers without provenance cannot access any memory, so giving them a new
             // tag makes no sense.
-            return ret(ptr);
+            return ret(thin_ptr);
         };
 
         let child_path = self.mem.allocations.mutate_at(alloc_id.0, |allocation| {
+            let size = allocation.size();
+            let offset = Offset::from_bytes(thin_ptr.addr - allocation.addr).unwrap();
+
+            // Permission for the surrounding data of the pointee.  We allow lazily
+            // writing to surrounding data if there is an `UnsafeCell` in the pointee.
+            let (freeze_perm, nonfreeze_perm) = if mutbl == Mutability::Immutable {
+                (Permission::Frozen, Permission::Cell)
+            } else {
+                (Permission::Reserved { conflicted: false }, Permission::ReservedIm)
+            };
+            let default_perm = if pointee_info.unsafe_cells.is_freeze_outside() { freeze_perm } else { nonfreeze_perm };
+            let mut location_states = LocationState::new_list(default_perm, size);
+
+            // Compute permissions
+            iter_freeze_sensitive(pointee_info.unsafe_cells, pointee_info.layout, ptr.metadata, offset, pointee_size, |offset, frozen| {
+                let permission = match mutbl {
+                    // We only use `ReservedIm` for *unprotected* mutable references with interior mutability.
+                    // If the reference is protected, we ignore the interior mutability.
+                    // An example for why "Protected + Interior Mutability" is undesirable
+                    // can be found in tooling/minimize/tests/ub/tree_borrows/protector/ReservedIm_spurious_write.rs.
+                    Mutability::Mutable if !frozen && protected.no() => Permission::ReservedIm,
+                    Mutability::Mutable => Permission::Reserved { conflicted: false },
+                    Mutability::Immutable if !frozen => Permission::Cell,
+                    Mutability::Immutable => Permission::Frozen,
+                };
+
+                location_states.set(offset.bytes(), LocationState {
+                    accessed: Accessed::No, // This gets updated to `Accessed::Yes` if `allocation.extra.root.access(...)` runs.
+                    permission,
+                });
+                Ok(())
+            })?;
+
             // Create the new child node
             let child_node = Node {
                 children: List::new(),
-                location_states: LocationState::new_list(permission, allocation.size()),
+                location_states,
                 protected,
             };
 
             // Add the new node to the tree
             let child_path = allocation.extra.root.add_node(parent_path, child_node);
 
-            // If this is a non-zero-sized reborrow, perform read on the new child, updating all nodes accordingly.
+            // If this is a non-zero-sized reborrow, perform read on the new child if needed, updating all nodes accordingly.
             if pointee_size.bytes() > 0 {
-                let offset = Offset::from_bytes(ptr.addr - allocation.addr).unwrap();
-                allocation.extra.root.access(Some(child_path), AccessKind::Read, offset, pointee_size)?;
+                iter_freeze_sensitive(pointee_info.unsafe_cells, pointee_info.layout, ptr.metadata, offset, pointee_size, |offset, _frozen| {
+                    // We don't want to perform a read access on the non-frozen part if we have a shared reference,
+                    // i.e. when we have a Cell permission.  For mutable references, the only difference between
+                    // the ReservedIM and Reserved permissions is how resistant they are to foreign writes, so
+                    // mutable references should have an implicit read access.
+                    if location_states.get(offset.bytes()).unwrap().permission != Permission::Cell {
+                        allocation.extra.root.access(Some(child_path), AccessKind::Read, offset, Offset::from_bytes_const(1))?
+                    }
+                    Ok(())
+                })?
             }
 
             ret::<Result<Path>>(child_path)
@@ -108,10 +216,10 @@ impl<T: Target> TreeBorrowsMemory<T> {
         // Track the new protector
         if protected.yes() { frame_extra.protectors.push((alloc_id, child_path)); }
 
-        // Create the child pointer and return it 
+        // Create the child pointer and return it
         ret(ThinPointer {
             provenance: Some((alloc_id, child_path)),
-            ..ptr
+            ..thin_ptr
         })
     }
 
@@ -139,25 +247,19 @@ impl<T: Target> TreeBorrowsMemory<T> {
 
     /// Compute the reborrow settings for the given pointer type.
     /// `None` indicates that no reborrow should happen.
-    fn ptr_permissions(ptr_type: PtrType, fn_entry: bool) -> Option<(Permission, LayoutStrategy, Protected)> {
+    fn ptr_reborrow_settings(ptr_type: PtrType, fn_entry: bool) -> Option<(Mutability, Protected, PointeeInfo)> {
         match ptr_type {
-            PtrType::Ref { mutbl, pointee } if !pointee.freeze && mutbl == Mutability::Immutable => {
-                // Shared reference to interior mutable type: retagging is a NOP.
-                None
-            },
             PtrType::Ref { mutbl, pointee } if !pointee.unpin && mutbl == Mutability::Mutable => {
                 // Mutable reference to pinning type: retagging is a NOP.
                 None
             },
             PtrType::Ref { mutbl, pointee } => {
                 let protected = if fn_entry { Protected::Strong } else { Protected::No };
-                let permission = Permission::default(mutbl, pointee, protected);
-                Some((permission, pointee.layout, protected))
+                Some((mutbl, protected, pointee))
             },
             PtrType::Box { pointee } => {
                 let protected = if fn_entry { Protected::Weak } else { Protected::No };
-                let permission = Permission::default(Mutability::Mutable, pointee, protected);
-                Some((permission, pointee.layout, protected))
+                Some((Mutability::Mutable, protected, pointee))
             },
             _ => None,
         }
@@ -234,11 +336,10 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr: Pointer<Self::Provenance>,
         ptr_type: PtrType,
         fn_entry: bool,
-        size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<Self::Provenance>>) -> Size,
+        vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + 'static,
     ) -> Result<Pointer<Self::Provenance>> {
-        ret(if let Some((permission, layout, protected)) = Self::ptr_permissions(ptr_type, fn_entry) {
-            let pointee_size = size_computer(layout, ptr.metadata);
-            self.reborrow(ptr.thin_pointer, pointee_size, permission, protected, frame_extra)?.widen(ptr.metadata)
+        ret(if let Some((mutbl, protected, pointee_info)) = Self::ptr_reborrow_settings(ptr_type, fn_entry) {
+            self.reborrow(ptr, pointee_info, mutbl, protected, frame_extra, vtable_lookup)?.widen(ptr.metadata)
         } else {
             ptr
         })

@@ -530,6 +530,8 @@ pub struct VTable {
     pub size: Size,
     /// The alignment of the type.
     pub align: Align,
+    /// Bytes that are contained in an UnsafeCell.
+    pub cell_bytes: List<(Offset, Offset)>,
     /// The implementations of trait methods.
     pub methods: Map<TraitMethodName, FnName>,
 }

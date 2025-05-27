@@ -106,11 +106,44 @@ pub enum LayoutStrategy {
     },
 }
 
+/// Corresponds to the variants of `LayoutStrategy`
+pub enum UnsafeCellStrategy {
+    /// List of [start, end) ranges where we have UnsafeCells.
+    Sized { bytes: List<(Offset, Offset)> },
+    /// Since the elements of a slice have the same type, we only keep track of the
+    /// UnsafeCell's of one element, we can then "repeat" this for the rest of the slice.
+    Slice { element: List<(Offset, Offset)> },
+    /// The bytes for UnsafeCell's must be looked up in the VTable.
+    TraitObject { is_freeze: bool },
+    /// A Tuple consists of a sized head an unsized tail.
+    Tuple {
+        head: List<(Offset, Offset)>,
+        #[specr::indirection]
+        tail: UnsafeCellStrategy,
+    },
+}
+
+impl UnsafeCellStrategy {
+    /// Tell us whether the range outside of a retag is freeze.
+    pub fn is_freeze_outside(self) -> bool {
+        // This also returns true if the list is empty.
+        let only_empty_ranges = |list: List<(Offset, Offset)>| -> bool {
+            list.all(|(start, end)| start == end)
+        };
+        match self {
+            Self::Sized { bytes } => only_empty_ranges(bytes),
+            Self::Slice { element } => only_empty_ranges(element),
+            Self::TraitObject { is_freeze } => is_freeze,
+            Self::Tuple { head, tail } => (only_empty_ranges(head)) && tail.is_freeze_outside(),
+        }
+    }
+}
+
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
     pub layout: LayoutStrategy,
     pub inhabited: bool,
-    pub freeze: bool,
+    pub unsafe_cells: UnsafeCellStrategy,
     pub unpin: bool,
 }
 
