@@ -813,39 +813,39 @@ impl Function {
     }
 
     /// Checks whether the next block exists and has the correct block kind.
-    fn check_next_block(self, next_block_name: BbName, current_block_kind: BbKind) -> Result <()> {
+    fn check_next_block(self, next_block_name: BbName, current_block_kind: BbKind) -> Result<()> {
         if let Some(next_block) = self.blocks.get(next_block_name) {
-            // for the program to be well-formed one of the following conditions must be true
+            // For the program to be well-formed one of the following conditions must be true.
 
-            // the current block and the next block have the same block kind
+            // The current and the next block have the same block kind.
             let same_kind = next_block.kind == current_block_kind;
 
-            // the current block is a catch block and the next block is a regular block
+            // The current block is a catch block and the next block is a regular block.
             let out_of_catch = current_block_kind == BbKind::Catch && next_block.kind == BbKind::Regular;
 
             ensure_wf(
                 same_kind || out_of_catch,
                 "Terminator: next block has the wrong block kind",
             )?;
-        }
-        else {
+        } else {
             throw_ill_formed!("Terminator: next block does not exist");
         }
         ret(())
     }
 
-     /// Checks whether the next block exists and has the correct block kind.
-    fn check_unwind_block(self, next_block_name: BbName, current_block_kind: BbKind) -> Result <()> {
+    /// Checks whether the unwind block exists and has the correct block kind.
+    fn check_unwind_block(self, unwind_block_name: BbName, current_block_kind: BbKind) -> Result<()> {
         let expected_block_kinds = match current_block_kind {
             BbKind::Regular => list![BbKind::Cleanup, BbKind::Catch],
             BbKind::Cleanup | BbKind::Terminate => list![BbKind::Terminate],
-            BbKind::Catch => throw_ill_formed!("Terminator: unwinding is not allowed in a catch block."),
+            BbKind::Catch => throw_ill_formed!("Terminator: unwinding is not allowed in a catch block"),
         };
-        if let Some(next_block) = self.blocks.get(next_block_name) {
-            ensure_wf(expected_block_kinds.any(|kind| kind == next_block.kind),
-            "Terminator: unwind block has the wrong block kind")?;
-        }
-        else {
+        if let Some(unwind_block) = self.blocks.get(unwind_block_name) {
+            ensure_wf(
+                expected_block_kinds.any(|kind| kind == unwind_block.kind),
+                "Terminator: unwind block has the wrong block kind",
+            )?;
+        } else {
             throw_ill_formed!("Terminator: unwind block does not exist");
         }
         ret(())
