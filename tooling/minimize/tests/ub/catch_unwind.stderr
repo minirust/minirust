@@ -1,0 +1,1 @@
+fatal error: UB: unwinding from a function where the caller did not specify an unwind_block

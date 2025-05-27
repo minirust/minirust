@@ -123,12 +123,6 @@ impl FunctionBuilder {
         self.finish_block(Terminator::Goto(dest));
     }
 
-    pub fn goto_regular_block(&mut self) {
-        let next_block = self.declare_block();
-        self.finish_block(Terminator::Goto(next_block));
-        self.set_cur_block(next_block, BbKind::Regular);
-    }
-
     pub fn assume(&mut self, val: ValueExpr) {
         self.finish_with_next_block(|next_block| assume(val, bbname_into_u32(next_block)));
     }
@@ -233,8 +227,12 @@ impl FunctionBuilder {
         });
     }
 
-    pub fn start_unwind(&mut self, clean_up: BbName) {
-        self.finish_block(start_unwind(clean_up));
+    pub fn start_unwind(&mut self, cleanup: BbName) {
+        self.finish_block(start_unwind(cleanup));
+    }
+
+    pub fn stop_unwind(&mut self, next_block: BbName) {
+        self.finish_block(stop_unwind(next_block));
     }
 
     pub fn catch_unwind(
@@ -434,8 +432,12 @@ pub fn return_() -> Terminator {
     Terminator::Return
 }
 
-pub fn start_unwind(clean_up: BbName) -> Terminator {
-    Terminator::StartUnwind(clean_up)
+pub fn start_unwind(cleanup: BbName) -> Terminator {
+    Terminator::StartUnwind(cleanup)
+}
+
+pub fn stop_unwind(next_block: BbName) -> Terminator {
+    Terminator::StopUnwind(next_block)
 }
 
 pub fn resume_unwind() -> Terminator {

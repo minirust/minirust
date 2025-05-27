@@ -411,6 +411,19 @@ impl<M: Memory> Machine<M> {
 }
 ```
 
+## Stop unwinding
+
+This terminator stops unwinding and jumps to a regular block. `StopUnwind` may only be used in a catch block.
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_terminator(&mut self, Terminator::StopUnwind(block_name): Terminator) -> NdResult {
+        self.jump_to_block(block_name)?;
+        ret(())
+    }
+}
+```
+
 ## Resuming unwinding in the caller
 
 `ResumeUnwind` performs one of the following actions:

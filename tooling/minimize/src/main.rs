@@ -1,6 +1,7 @@
 #![feature(rustc_private)]
 #![feature(box_patterns)]
 #![feature(never_type)]
+#![feature(strict_overflow_ops)]
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 

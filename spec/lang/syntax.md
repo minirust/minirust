@@ -363,13 +363,16 @@ pub enum Terminator {
         /// The block to jump to when this call unwinds.
         /// If `None`, UB will be raised when the function unwinds.
         /// This comes with a well-formedness requirement: if the current block is a regular block,
-        /// `unwind_block` must be a cleanup block; otherwise, `unwind_block` must be a terminating block.
+        /// `unwind_block` must be either a cleanup block or a catch block;
+        /// otherwise, `unwind_block` must be a terminating block.
         unwind_block: Option<BbName>,
     },
     /// Return from the current function.
     Return,
     /// Starts unwinding, jump to the indicated cleanup block.
     StartUnwind(BbName),
+    /// Stops unwinding, jump to the indicated regular block.
+    StopUnwind(BbName),
     /// Ends this function call. The unwinding should continue at the caller's stack frame.
     ResumeUnwind,
     /// Calls `try_fn`, passing `data_ptr` as argument.
@@ -512,7 +515,8 @@ pub enum BbKind {
     Regular,
     /// Cleanup blocks may use `ResumeUnwind` but not `Return` or `StartUnwind`.
     Cleanup,
-    /// TODO write comment.
+    /// Catch blocks may use neither `Return` nor `ResumeUnwind` nor `StartUnwind`. 
+    /// Catch blocks may branch to regular blocks.
     Catch,
     /// `Terminate` blocks may use neither `Return` nor `ResumeUnwind` nor `StartUnwind`.
     Terminate,

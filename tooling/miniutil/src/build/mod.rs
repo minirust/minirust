@@ -182,13 +182,13 @@ impl FunctionBuilder {
         fb
     }
 
-    fn declare_block(&mut self) -> BbName {
+    pub fn declare_block(&mut self) -> BbName {
         let name = BbName(Name::from_internal(self.next_block));
         self.next_block += 1;
         name
     }
 
-    fn set_cur_block(&mut self, name: BbName, kind: BbKind) {
+    pub fn set_cur_block(&mut self, name: BbName, kind: BbKind) {
         if self.blocks.contains_key(name) {
             panic!("Already inserted a block with this name.")
         }
