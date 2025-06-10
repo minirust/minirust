@@ -1,6 +1,7 @@
 # MiniRust
 
-**If you prefer video over text, I recently [presented MiniRust at the RFMIG](https://www.youtube.com/watch?v=eFpHadbv34I).**
+**If you prefer video to text, I recently [presented MiniRust at RustWeek NL](https://www.youtube.com/watch?v=yoeuW_dSe0o).**
+Furthermore, you can check out this [older, but more in-depth presentation of MiniRust for the RFMIG](https://www.youtube.com/watch?v=eFpHadbv34I).
 
 MiniRust is the cornerstone of my vision for a normative specification of Rust semantics.
 It is an idealized MIR-like language with the purpose of serving as a "core language" of Rust.
