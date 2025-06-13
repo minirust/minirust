@@ -293,14 +293,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// // return block
     /// bb1:
     ///     *ret_tmp = 0;
-    ///     goTo -> bb3
+    ///     goTo -> bb4
     /// // catch block
     /// bb2 (Catch):
     ///     *ret_tmp = 1;
     ///     catch_fn_tmp(data_ptr, null) -> return: bb3
     /// // stop_unwind block
     /// bb3:
-    ///     goTo -> bb4
+    ///     StopUnwind -> bb4
     /// // target (next block of the program)
     /// bb4:
     ///     // The program continues
@@ -323,9 +323,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let catch_bb_name = self.fresh_bb_name();
         let stop_unwind_bb_name = self.fresh_bb_name();
 
-        // generate temporary locals to store `catch_fn`, `data` and `ret`.
+        // generate temporary locals to store the arguments and `ret`
         let ret_tmp = self.fresh_local_name();
         self.locals.insert(ret_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let try_fn_tmp = self.fresh_local_name();
+        self.locals.insert(try_fn_tmp, Type::Ptr(PtrType::FnPtr));
         let data_tmp = self.fresh_local_name();
         self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let catch_fn_tmp = self.fresh_local_name();
@@ -334,9 +336,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // generate the try block
         let try_bb = BasicBlock {
             statements: list![
-                Statement::StorageLive(catch_fn_tmp),
                 Statement::StorageLive(ret_tmp),
+                Statement::StorageLive(try_fn_tmp),
                 Statement::StorageLive(data_tmp),
+                Statement::StorageLive(catch_fn_tmp),
                 Statement::Assign {
                     destination: PlaceExpr::Local(ret_tmp),
                     source: ValueExpr::AddrOf {
@@ -344,11 +347,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None }
                     }
                 },
+                Statement::Assign { destination: PlaceExpr::Local(try_fn_tmp), source: try_fn },
                 Statement::Assign { destination: PlaceExpr::Local(data_tmp), source: data },
                 Statement::Assign { destination: PlaceExpr::Local(catch_fn_tmp), source: catch_fn }
             ],
             terminator: Terminator::Call {
-                callee: try_fn,
+                callee: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(try_fn_tmp)) },
                 calling_convention: CallingConvention::Rust,
                 arguments: list![build::by_value(ValueExpr::Load {
                     source: GcCow::new(PlaceExpr::Local(data_tmp))
@@ -373,8 +377,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     },
                     source: build::const_int(0)
                 },
-                Statement::StorageDead(data_tmp),
                 Statement::StorageDead(ret_tmp),
+                Statement::StorageDead(try_fn_tmp),
+                Statement::StorageDead(data_tmp),
                 Statement::StorageDead(catch_fn_tmp)
             ],
             terminator: Terminator::Goto(target),
@@ -415,8 +420,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // generate the stop_unwind block
         let stop_unwind_bb = BasicBlock {
             statements: list![
-                Statement::StorageDead(data_tmp),
                 Statement::StorageDead(ret_tmp),
+                Statement::StorageDead(try_fn_tmp),
+                Statement::StorageDead(data_tmp),
                 Statement::StorageDead(catch_fn_tmp)
             ],
             terminator: Terminator::StopUnwind(target),
