@@ -46,6 +46,13 @@ fn catch_nested_catch_unwind(data_ptr: *mut u8, _payload: *mut u8) {
     }
 }
 
+/// This function causes undefined behavior when executed. It has the signature of a catch function.
+fn catch_unreachable(_data_ptr: *mut u8, _payload: *mut u8) {
+    unsafe {
+        std::hint::unreachable_unchecked();
+    }
+}
+
 /// This function prints the value at the given data pointer.
 /// It is used to check when the expression used as the data pointer gets evaluated.
 fn evaluate_data_ptr(data_ptr: *mut u8) -> *mut u8 {
@@ -70,14 +77,14 @@ fn main() {
     print(0);
 
     // `try_increase_data` does not panic, `catch_print_data` will not be executed.
-    ret = unsafe { core::intrinsics::catch_unwind(try_increase_data, data_ptr, catch_print_data) };
+    ret = unsafe { core::intrinsics::catch_unwind(try_increase_data, data_ptr, catch_unreachable) };
     assert!(ret == 0);
     assert!(data == 6); // data was increased by 1
 
     print(0);
 
     // The execution panics, however the panic gets caught inside `try_nested_catch_unwind`. `try_nested_catch_unwind` prints 6.
-    ret = unsafe { core::intrinsics::catch_unwind(try_nested_catch_unwind, data_ptr, catch_increase_data) };
+    ret = unsafe { core::intrinsics::catch_unwind(try_nested_catch_unwind, data_ptr, catch_unreachable) };
     assert!(ret == 0);
     assert!(data == 6);
 
