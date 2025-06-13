@@ -162,7 +162,7 @@ fn mk_start_fn(entry: u32) -> Function {
 
     // If `entry` unwinds, we jump here and abort.
     let b2 =
-        BasicBlock { statements: List::new(), terminator: build::abort(), kind: BbKind::Cleanup };
+        BasicBlock { statements: List::new(), terminator: build::abort(), kind: BbKind::Catch };
 
     let mut blocks = Map::new();
     blocks.insert(b0_name, b0);

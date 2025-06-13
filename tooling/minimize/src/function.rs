@@ -22,6 +22,9 @@ pub struct FnCtxt<'cx, 'tcx> {
     /// The next free number that can be used as name for a basic block
     next_bb: u32,
 
+    /// The next free number that can be used as name for a local
+    next_local: u32,
+
     pub locals: Map<LocalName, Type>,
     pub blocks: Map<BbName, BasicBlock>,
 }
@@ -66,13 +69,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             blocks: Default::default(),
             locals_smir,
             next_bb: 0,
+            next_local: 0,
         }
     }
 
     pub fn fresh_bb_name(&mut self) -> BbName {
         let name = self.next_bb;
-        self.next_bb = name.checked_add(1).unwrap();
+        self.next_bb = name.strict_add(1);
         BbName(Name::from_internal(name))
+    }
+
+    pub fn fresh_local_name(&mut self) -> LocalName {
+        let name = self.next_local;
+        self.next_local = name.strict_add(1);
+        LocalName(Name::from_internal(name))
     }
 
     /// translates a function body.
@@ -85,8 +95,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         }
 
         for local_id in self.body.local_decls.indices() {
-            let local_name = self.local_name_map.len(); // .len() is the next free index
-            let local_name = LocalName(Name::from_internal(local_name as u32));
+            let local_name = self.fresh_local_name();
             self.local_name_map.insert(local_id, local_name);
         }
 

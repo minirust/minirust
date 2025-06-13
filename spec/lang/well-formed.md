@@ -679,7 +679,7 @@ impl Terminator {
         use Terminator::*;
         match self {
             Goto(block_name) => {
-               func.check_next_block(block_name, block_kind)?;
+                func.check_next_block(block_kind, block_name)?;
             }
             Switch { value, cases, fallback } => {
                 let ty = value.check_wf::<T>(func.locals, prog)?;
@@ -693,11 +693,11 @@ impl Terminator {
                 // Ensure the switch cases are all valid.
                 for (case, next_block) in cases.iter() {
                     ensure_wf(switch_ty.can_represent(case), "Terminator::Switch: value does not fit in switch type")?;
-                    func.check_next_block(next_block, block_kind)?;
+                    func.check_next_block(block_kind, next_block)?;
                 }
 
                 // Ensure the fallback is valid.
-                func.check_next_block(fallback, block_kind)?;
+                func.check_next_block(block_kind, fallback)?;
             }
             Unreachable => {}
             Intrinsic { intrinsic, arguments, ret, next_block } => {
@@ -720,7 +720,7 @@ impl Terminator {
                 }
 
                 if let Some(next_block) = next_block {
-                    func.check_next_block(next_block, block_kind)?;
+                    func.check_next_block(block_kind, next_block)?;
                 }
             }
             Call { callee, calling_convention: _, arguments, ret, next_block, unwind_block } => {
@@ -736,29 +736,26 @@ impl Terminator {
                 }
 
                 if let Some(next_block) = next_block {
-                    func.check_next_block(next_block, block_kind)?;
+                    func.check_next_block(block_kind, next_block)?;
                 }
 
                 if let Some(unwind_block) = unwind_block {
-                    match block_kind {
-                        BbKind::Regular => {
-                            func.check_next_block(unwind_block, BbKind::Cleanup)?;
-                        }
-                        _ => {
-                            func.check_next_block(unwind_block, BbKind::Terminate)?;
-                        }
-                    }
+                    func.check_unwind_block(block_kind, unwind_block)?;
                 }
             }
             Return => {
-                 ensure_wf(block_kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
+                ensure_wf(block_kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
             }
             StartUnwind(unwind_block) => {
-                ensure_wf(block_kind == BbKind::Regular, "Terminator::StartUnwind has to be called in regular block")?;
-                func.check_next_block(unwind_block, BbKind::Cleanup)?;
+                ensure_wf(block_kind == BbKind::Regular, "Terminator::StartUnwind has to be called in a regular block")?;
+                func.check_unwind_block(block_kind, unwind_block)?;
+            }
+            StopUnwind(next_block) => {
+                ensure_wf(block_kind == BbKind::Catch, "Terminator::StopUnwind has to be called in a catch block")?;
+                func.check_next_block(BbKind::Regular, next_block)?;
             }
             ResumeUnwind => {
-                 ensure_wf(block_kind == BbKind::Cleanup, "Terminator::ResumeUnwind: has to be called in cleanup block")?;
+                ensure_wf(block_kind == BbKind::Cleanup, "Terminator::ResumeUnwind: has to be called in cleanup block")?;
             }
             CatchUnwind { try_fn, data_ptr, catch_fn, ret, next_block } => {
                 // `try_fn` and `catch_fn` should be function pointers.
@@ -772,12 +769,12 @@ impl Terminator {
                 ensure_wf(ret_ty == Type::Int(IntType::I32), "Terminator::CatchUnwind: return type should be i32")?;
 
                 // `data_ptr` must typecheck and be a raw pointer.
-                let data_ptr_ty = data_ptr.check_wf::<T>(func.locals, prog)?;         
+                let data_ptr_ty = data_ptr.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(matches!(data_ptr_ty, Type::Ptr(_)), "Terminator::CatchUnwind: data_ptr must be a pointer")?;
 
                 // Check if `next_block` is valid.
                 if let Some(next_block) = next_block {
-                    func.check_next_block(next_block, block_kind)?;
+                    func.check_next_block(block_kind, next_block)?;
                 }
             }
         }
@@ -820,13 +817,31 @@ impl Function {
     }
 
     /// Checks whether the next block exists and has the correct block kind.
-    fn check_next_block(self, next_block_name: BbName, expected_block_kind: BbKind) -> Result <()> {
-        if let Some(next_block) = self.blocks.get(next_block_name){
-            ensure_wf(next_block.kind == expected_block_kind, "Terminator: next block has the wrong block kind")?;
-        }
-        else{
+    fn check_next_block(self, expected_block_kind: BbKind, next_block_name: BbName) -> Result<()> {
+        let Some(next_block) = self.blocks.get(next_block_name) else {
             throw_ill_formed!("Terminator: next block does not exist");
-        }
+        };
+        ensure_wf(
+            next_block.kind == expected_block_kind,
+            "Terminator: next block has the wrong block kind",
+        )?;
+        ret(())
+    }
+
+    /// Checks whether the unwind block exists and has the correct block kind.
+    fn check_unwind_block(self, current_block_kind: BbKind, unwind_block_name: BbName) -> Result<()> {
+        let expected_block_kinds = match current_block_kind {
+            BbKind::Regular => list![BbKind::Cleanup, BbKind::Catch],
+            BbKind::Cleanup | BbKind::Terminate => list![BbKind::Terminate],
+            BbKind::Catch => throw_ill_formed!("Terminator: unwinding is not allowed in a catch block"),
+        };
+        let Some(unwind_block) = self.blocks.get(unwind_block_name) else {
+            throw_ill_formed!("Terminator: unwind block does not exist");
+        };
+        ensure_wf(
+            expected_block_kinds.any(|kind| kind == unwind_block.kind),
+            "Terminator: unwind block has the wrong block kind",
+        )?;
         ret(())
     }
 }

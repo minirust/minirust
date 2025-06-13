@@ -223,6 +223,10 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             let bb_name = fmt_bb_name(block_name);
             format!("    start unwind -> unwind: {bb_name} ")
         }
+        Terminator::StopUnwind(block_name) => {
+            let bb_name = fmt_bb_name(block_name);
+            format!("    start unwind -> unwind: {bb_name} ")
+        }
         Terminator::ResumeUnwind => {
             format!("    resume")
         }
@@ -296,6 +300,7 @@ fn fmt_bb_kind(bb: BasicBlock) -> String {
     match bb.kind {
         BbKind::Regular => "".to_string(),
         BbKind::Cleanup => " (Cleanup)".to_string(),
+        BbKind::Catch => " (Catch)".to_string(),
         BbKind::Terminate => " (Terminate)".to_string(),
     }
 }
