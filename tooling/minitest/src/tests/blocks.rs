@@ -163,7 +163,7 @@ fn start_unwind_in_cleanup() {
     };
     let p = p.finish_program(f);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator::StartUnwind has to be called in regular block");
+    assert_ill_formed::<BasicMem>(p, "Terminator::StartUnwind has to be called in a regular block");
 }
 
 /// This test uses `ResumeUnwind` in a regular block, which results in an ill-formed program.
@@ -282,7 +282,7 @@ fn unwind_in_catch_block() {
         let cleanup_block = f.cleanup_block(|f| f.abort());
         let catch_block = f.catch_block(|f| {
             f.call(unit_place(), fn_ptr(panic_fn), &[], cleanup_block);
-            f.goto(cont);
+            f.stop_unwind(cont);
         });
 
         f.call(unit_place(), fn_ptr(panic_fn), &[], catch_block);

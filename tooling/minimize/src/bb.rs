@@ -285,20 +285,21 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// ```
     /// // try block
     /// bb0:
-    ///     let catch_fn_tmp = catch_fn;
+    ///     let ret_tmp = &raw mut ret;
+    ///     let try_fn_tmp = try_fn;
     ///     let data_tmp = data_ptr;
-    ///     try_fn(data_tmp) -> [return: bb1, unwind: bb2]
+    ///     let catch_fn_tmp = catch_fn;
+    ///     try_fn_tmp(data_tmp) -> [return: bb1, unwind: bb2]
     /// // return block
     /// bb1:
-    ///     ret_tmp = 0;
+    ///     *ret_tmp = 0;
     ///     goTo -> bb3
     /// // catch block
     /// bb2 (Catch):
-    ///     ret_tmp = 1;
-    ///     catch_fn(data_ptr, null) -> return: bb3
-    /// // merge block
+    ///     *ret_tmp = 1;
+    ///     catch_fn_tmp(data_ptr, null) -> return: bb3
+    /// // stop_unwind block
     /// bb3:
-    ///     ret = ret_tmp;
     ///     goTo -> bb4
     /// // target (next block of the program)
     /// bb4:
@@ -320,15 +321,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let try_bb_name = self.fresh_bb_name();
         let return_bb_name = self.fresh_bb_name();
         let catch_bb_name = self.fresh_bb_name();
-        let merge_bb_name = self.fresh_bb_name();
+        let stop_unwind_bb_name = self.fresh_bb_name();
 
         // generate temporary locals to store `catch_fn`, `data` and `ret`.
-        let catch_fn_tmp = self.fresh_local_name();
-        self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
         let ret_tmp = self.fresh_local_name();
-        self.locals.insert(ret_tmp, Type::Int(IntType::I32));
+        self.locals.insert(ret_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let data_tmp = self.fresh_local_name();
         self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let catch_fn_tmp = self.fresh_local_name();
+        self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
 
         // generate the try block
         let try_bb = BasicBlock {
@@ -336,8 +337,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 Statement::StorageLive(catch_fn_tmp),
                 Statement::StorageLive(ret_tmp),
                 Statement::StorageLive(data_tmp),
-                Statement::Assign { destination: PlaceExpr::Local(catch_fn_tmp), source: catch_fn },
-                Statement::Assign { destination: PlaceExpr::Local(data_tmp), source: data }
+                Statement::Assign {
+                    destination: PlaceExpr::Local(ret_tmp),
+                    source: ValueExpr::AddrOf {
+                        target: GcCow::new(destination),
+                        ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None }
+                    }
+                },
+                Statement::Assign { destination: PlaceExpr::Local(data_tmp), source: data },
+                Statement::Assign { destination: PlaceExpr::Local(catch_fn_tmp), source: catch_fn }
             ],
             terminator: Terminator::Call {
                 callee: try_fn,
@@ -355,21 +363,36 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         // generate the return block
         let return_bb = BasicBlock {
-            statements: list![Statement::Assign {
-                destination: PlaceExpr::Local(ret_tmp),
-                source: build::const_int(0)
-            }],
-            terminator: Terminator::Goto(merge_bb_name),
+            statements: list![
+                Statement::Assign {
+                    destination: PlaceExpr::Deref {
+                        ty: Type::Int(IntType::I32),
+                        operand: GcCow::new(ValueExpr::Load {
+                            source: GcCow::new(PlaceExpr::Local(ret_tmp))
+                        })
+                    },
+                    source: build::const_int(0)
+                },
+                Statement::StorageDead(data_tmp),
+                Statement::StorageDead(ret_tmp),
+                Statement::StorageDead(catch_fn_tmp)
+            ],
+            terminator: Terminator::Goto(target),
             kind: BbKind::Regular,
         };
         self.blocks.insert(return_bb_name, return_bb);
 
         // generate the catch block
-        // FIXME: Using temporary value as panic payload is not yet implemented in MiniRust.
+        // FIXME: payload is not yet implemented in MiniRust, we hard-code it to null for now.
         let payload = build::null();
         let catch_bb = BasicBlock {
             statements: list![Statement::Assign {
-                destination: PlaceExpr::Local(ret_tmp),
+                destination: PlaceExpr::Deref {
+                    ty: Type::Int(IntType::I32),
+                    operand: GcCow::new(ValueExpr::Load {
+                        source: GcCow::new(PlaceExpr::Local(ret_tmp))
+                    })
+                },
                 source: build::const_int(1)
             }],
             terminator: Terminator::Call {
@@ -382,28 +405,24 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     build::by_value(payload)
                 ],
                 ret: unit_place(),
-                next_block: Some(merge_bb_name),
+                next_block: Some(stop_unwind_bb_name),
                 unwind_block: None,
             },
             kind: BbKind::Catch,
         };
         self.blocks.insert(catch_bb_name, catch_bb);
 
-        // generate the merge block
-        let merge_bb = BasicBlock {
+        // generate the stop_unwind block
+        let stop_unwind_bb = BasicBlock {
             statements: list![
-                Statement::Assign {
-                    destination: destination,
-                    source: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(ret_tmp)) }
-                },
                 Statement::StorageDead(data_tmp),
                 Statement::StorageDead(ret_tmp),
                 Statement::StorageDead(catch_fn_tmp)
             ],
-            terminator: Terminator::Goto(target),
-            kind: BbKind::Regular,
+            terminator: Terminator::StopUnwind(target),
+            kind: BbKind::Catch,
         };
-        self.blocks.insert(merge_bb_name, merge_bb);
+        self.blocks.insert(stop_unwind_bb_name, stop_unwind_bb);
         Terminator::Goto(try_bb_name)
     }
 

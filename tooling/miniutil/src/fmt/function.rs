@@ -223,6 +223,10 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
             let bb_name = fmt_bb_name(block_name);
             format!("    start unwind -> unwind: {bb_name} ")
         }
+        Terminator::StopUnwind(block_name) => {
+            let bb_name = fmt_bb_name(block_name);
+            format!("    start unwind -> unwind: {bb_name} ")
+        }
         Terminator::ResumeUnwind => {
             format!("    resume")
         }

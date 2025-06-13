@@ -75,13 +75,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
     pub fn fresh_bb_name(&mut self) -> BbName {
         let name = self.next_bb;
-        self.next_bb = name.checked_add(1).unwrap();
+        self.next_bb = name.strict_add(1);
         BbName(Name::from_internal(name))
     }
 
     pub fn fresh_local_name(&mut self) -> LocalName {
         let name = self.next_local;
-        self.next_local = name.checked_add(1).unwrap();
+        self.next_local = name.strict_add(1);
         LocalName(Name::from_internal(name))
     }
 
