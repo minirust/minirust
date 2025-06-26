@@ -89,19 +89,7 @@ enum StackPopAction<M: Memory> {
         /// The location where the caller wants to see the return value.
         /// The caller type already been checked to be suitably compatible with the callee return type.
         ret_val_ptr: ThinPointer<M::Provenance>,
-        /// If `catch_action` is `Some`, the current function is a try function. If the try function unwinds, the corresponding catch function will be executed.
-        catch_action: Option<CatchAction<M>>,
     },
-}
-
-/// Defines the behavior if a try function resumes unwinding.
-struct CatchAction<M: Memory> {
-    /// The function to be called when the try function resumes unwinding.
-    catch_fn: Function,
-    /// The data pointer is used as an argument to both the try function and the catch function.
-    data_ptr: ThinPointer<M::Provenance>,
-    /// The return place of `catch_unwind`.
-    catch_unwind_ret: ThinPointer<M::Provenance>,
 }
 ```
 
