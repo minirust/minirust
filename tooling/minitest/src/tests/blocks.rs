@@ -88,7 +88,7 @@ fn call_unwindblock_wrong_kind() {
 /// This test checks that using `StartUnwind` to jump to a regular block results in an ill-formed program.
 #[test]
 fn start_unwind_wrong_nextblock() {
-    let bb0 = block!(start_unwind(BbName(Name::from_internal(1))));
+    let bb0 = block!(start_unwind(unit_ptr(), BbName(Name::from_internal(1))));
     let bb1 = block!(exit());
     let f = function(Ret::No, 0, &[], &[bb0, bb1]);
     let p = program(&[f]);
@@ -103,7 +103,7 @@ fn return_in_cleanup() {
     let f = {
         let mut f = p.declare_function();
         let c = f.cleanup_block(|f| f.return_());
-        f.start_unwind(c);
+        f.start_unwind(unit_ptr(), c);
         p.finish_function(f)
     };
 
@@ -130,9 +130,9 @@ fn start_unwind_in_cleanup() {
         let mut f = p.declare_function();
         let outer_cleanup = f.cleanup_block(|f| {
             let inner_cleanup = f.cleanup_block(|f| f.exit());
-            f.start_unwind(inner_cleanup);
+            f.start_unwind(unit_ptr(), inner_cleanup);
         });
-        f.start_unwind(outer_cleanup);
+        f.start_unwind(unit_ptr(), outer_cleanup);
         p.finish_function(f)
     };
     let p = p.finish_program(f);
@@ -218,7 +218,7 @@ fn unwind_in_catch_block() {
         let mut f = p.declare_function();
         f.print(const_int(2));
         let cleanup = f.cleanup_block(|f| f.resume_unwind());
-        f.start_unwind(cleanup);
+        f.start_unwind(unit_ptr(), cleanup);
         p.finish_function(f)
     };
 
@@ -250,7 +250,7 @@ fn unwind_in_catch_block() {
 fn goto_from_cleanup_to_catch() {
     let locals = [<()>::get_type()];
 
-    let b0 = block!(storage_live(0), Terminator::StartUnwind(BbName(Name::from_internal(1))));
+    let b0 = block!(storage_live(0), start_unwind(unit_ptr(), BbName(Name::from_internal(1))));
     let b1 = block(&[], Terminator::Goto(BbName(Name::from_internal(2))), BbKind::Cleanup);
     let b2 = block(&[], exit(), BbKind::Catch);
 
