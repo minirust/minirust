@@ -370,7 +370,12 @@ pub enum Terminator {
     /// Return from the current function.
     Return,
     /// Starts unwinding, jump to the indicated cleanup block.
-    StartUnwind(BbName),
+    StartUnwind {
+        /// The payload for this panic. This should evaluate to a thin pointer.
+        payload:  ValueExpr,
+        /// The cleanup or catch block the execution jumps to.
+        unwind_block: BbName,
+    },
     /// Stops unwinding, jump to the indicated regular block.
     StopUnwind(BbName),
     /// Ends this function call. The unwinding should continue at the caller's stack frame.
@@ -430,6 +435,8 @@ pub enum IntrinsicOp {
     PointerExposeProvenance,
     /// Create a new pointer from the given address with some previously exposed provenance.
     PointerWithExposedProvenance,
+    /// Access the panic payload.
+    GetPayload,
 }
 ```
 

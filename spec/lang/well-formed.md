@@ -746,7 +746,7 @@ impl Terminator {
             Return => {
                 ensure_wf(block_kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
             }
-            StartUnwind(unwind_block) => {
+            StartUnwind { unwind_block, .. } => {
                 ensure_wf(block_kind == BbKind::Regular, "Terminator::StartUnwind has to be called in a regular block")?;
                 func.check_unwind_block(block_kind, unwind_block)?;
             }
