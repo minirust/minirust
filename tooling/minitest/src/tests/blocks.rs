@@ -82,7 +82,7 @@ fn call_unwindblock_wrong_kind() {
     let f1 = function(Ret::No, 0, &[], &[block!(return_())]);
     let p = program(&[f0, f1]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block has the wrong block kind");
 }
 
 /// This test checks that using `StartUnwind` to jump to a regular block results in an ill-formed program.
@@ -93,7 +93,7 @@ fn start_unwind_wrong_nextblock() {
     let f = function(Ret::No, 0, &[], &[bb0, bb1]);
     let p = program(&[f]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block has the wrong block kind");
 }
 
 /// This test checks that a `catch_unwind` with a `next_block` of the wrong kind results in an ill-formed program.
@@ -163,7 +163,7 @@ fn start_unwind_in_cleanup() {
     };
     let p = p.finish_program(f);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator::StartUnwind has to be called in regular block");
+    assert_ill_formed::<BasicMem>(p, "Terminator::StartUnwind has to be called in a regular block");
 }
 
 /// This test uses `ResumeUnwind` in a regular block, which results in an ill-formed program.
@@ -232,7 +232,7 @@ fn unwind_block_non_exist() {
     let f = function(Ret::No, 0, &locals, &[b0, b1]);
     let p = program(&[f, other_f()]);
     dump_program(p);
-    assert_ill_formed::<BasicMem>(p, "Terminator: next block does not exist");
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwind block does not exist");
 }
 
 /// In this test the next block of `catch_unwind` does not exist, which results in an ill-formed program.
@@ -259,4 +259,55 @@ fn catch_unwind_next_block_non_exist() {
     let p = program(&[f, other_f()]);
     dump_program(p);
     assert_ill_formed::<BasicMem>(p, "Terminator: next block does not exist");
+}
+
+/// In this test, the call in the catch block has an unwinding control-flow edge, which results in an ill-formed program.
+#[test]
+fn unwind_in_catch_block() {
+    let mut p = ProgramBuilder::new();
+
+    let panic_fn = {
+        let mut f = p.declare_function();
+        f.print(const_int(2));
+        let cleanup = f.cleanup_block(|f| f.resume_unwind());
+        f.start_unwind(cleanup);
+        p.finish_function(f)
+    };
+
+    let main_fn = {
+        let mut f = p.declare_function();
+
+        let cont = f.declare_block();
+
+        let cleanup_block = f.cleanup_block(|f| f.abort());
+        let catch_block = f.catch_block(|f| {
+            f.call(unit_place(), fn_ptr(panic_fn), &[], cleanup_block);
+            f.stop_unwind(cont);
+        });
+
+        f.call(unit_place(), fn_ptr(panic_fn), &[], catch_block);
+        f.goto(cont);
+        f.set_cur_block(cont, BbKind::Regular);
+        f.exit();
+        p.finish_function(f)
+    };
+
+    let p = p.finish_program(main_fn);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator: unwinding is not allowed in a catch block");
+}
+
+/// In this test there is a `goTo`, that jumps from a cleanup to a catch block, which results in an ill-formed program.
+#[test]
+fn goto_from_cleanup_to_catch() {
+    let locals = [<()>::get_type()];
+
+    let b0 = block!(storage_live(0), Terminator::StartUnwind(BbName(Name::from_internal(1))));
+    let b1 = block(&[], Terminator::Goto(BbName(Name::from_internal(2))), BbKind::Cleanup);
+    let b2 = block(&[], exit(), BbKind::Catch);
+
+    let f = function(Ret::No, 0, &locals, &[b0, b1, b2]);
+    let p = program(&[f, other_f()]);
+    dump_program(p);
+    assert_ill_formed::<BasicMem>(p, "Terminator: next block has the wrong block kind");
 }

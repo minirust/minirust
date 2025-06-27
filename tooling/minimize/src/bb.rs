@@ -279,6 +279,159 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         TerminatorResult { terminator, stmts: List::new() }
     }
 
+    /// Translate Rust's `catch_unwind` intrinsic to MiniRust.
+    ///
+    /// This translates `ret = catch_unwind(try_fn, data_ptr, catch_fn)` into the following blocks:
+    /// ```
+    /// // try block
+    /// bb0:
+    ///     let ret_tmp = &raw mut ret;
+    ///     let try_fn_tmp = try_fn;
+    ///     let data_tmp = data_ptr;
+    ///     let catch_fn_tmp = catch_fn;
+    ///     try_fn_tmp(data_tmp) -> [return: bb1, unwind: bb2]
+    /// // return block
+    /// bb1:
+    ///     *ret_tmp = 0;
+    ///     goTo -> bb4
+    /// // catch block
+    /// bb2 (Catch):
+    ///     *ret_tmp = 1;
+    ///     catch_fn_tmp(data_tmp, null) -> return: bb3
+    /// // stop_unwind block
+    /// bb3 (Catch):
+    ///     StopUnwind -> bb4
+    /// // target (next block of the program)
+    /// bb4:
+    ///     // The program continues
+    ///
+    /// ```
+    /// This function returns a `goTo` terminator pointing to the try block.
+    fn translate_catch_unwind(
+        &mut self,
+        args: List<ValueExpr>,
+        destination: PlaceExpr,
+        target: BbName,
+    ) -> Terminator {
+        let try_fn = args.index_at(0);
+        let data = args.index_at(1);
+        let catch_fn = args.index_at(2);
+
+        // the names of the new blocks
+        let try_bb_name = self.fresh_bb_name();
+        let return_bb_name = self.fresh_bb_name();
+        let catch_bb_name = self.fresh_bb_name();
+        let stop_unwind_bb_name = self.fresh_bb_name();
+
+        // generate temporary locals to store the arguments and `ret`
+        let ret_tmp = self.fresh_local_name();
+        self.locals.insert(ret_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let try_fn_tmp = self.fresh_local_name();
+        self.locals.insert(try_fn_tmp, Type::Ptr(PtrType::FnPtr));
+        let data_tmp = self.fresh_local_name();
+        self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let catch_fn_tmp = self.fresh_local_name();
+        self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
+
+        // generate the try block
+        let try_bb = BasicBlock {
+            statements: list![
+                Statement::StorageLive(ret_tmp),
+                Statement::StorageLive(try_fn_tmp),
+                Statement::StorageLive(data_tmp),
+                Statement::StorageLive(catch_fn_tmp),
+                Statement::Assign {
+                    destination: PlaceExpr::Local(ret_tmp),
+                    source: ValueExpr::AddrOf {
+                        target: GcCow::new(destination),
+                        ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None }
+                    }
+                },
+                Statement::Assign { destination: PlaceExpr::Local(try_fn_tmp), source: try_fn },
+                Statement::Assign { destination: PlaceExpr::Local(data_tmp), source: data },
+                Statement::Assign { destination: PlaceExpr::Local(catch_fn_tmp), source: catch_fn }
+            ],
+            terminator: Terminator::Call {
+                callee: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(try_fn_tmp)) },
+                calling_convention: CallingConvention::Rust,
+                arguments: list![build::by_value(ValueExpr::Load {
+                    source: GcCow::new(PlaceExpr::Local(data_tmp))
+                })],
+                ret: unit_place(),
+                next_block: Some(return_bb_name),
+                unwind_block: Some(catch_bb_name),
+            },
+            kind: BbKind::Regular,
+        };
+        self.blocks.insert(try_bb_name, try_bb);
+
+        // generate the return block
+        let return_bb = BasicBlock {
+            statements: list![
+                Statement::Assign {
+                    destination: PlaceExpr::Deref {
+                        ty: Type::Int(IntType::I32),
+                        operand: GcCow::new(ValueExpr::Load {
+                            source: GcCow::new(PlaceExpr::Local(ret_tmp))
+                        })
+                    },
+                    source: build::const_int(0)
+                },
+                Statement::StorageDead(ret_tmp),
+                Statement::StorageDead(try_fn_tmp),
+                Statement::StorageDead(data_tmp),
+                Statement::StorageDead(catch_fn_tmp)
+            ],
+            terminator: Terminator::Goto(target),
+            kind: BbKind::Regular,
+        };
+        self.blocks.insert(return_bb_name, return_bb);
+
+        // generate the catch block
+        // FIXME: payload is not yet implemented in MiniRust, we hard-code it to null for now.
+        let payload = build::null();
+        let catch_bb = BasicBlock {
+            statements: list![Statement::Assign {
+                destination: PlaceExpr::Deref {
+                    ty: Type::Int(IntType::I32),
+                    operand: GcCow::new(ValueExpr::Load {
+                        source: GcCow::new(PlaceExpr::Local(ret_tmp))
+                    })
+                },
+                source: build::const_int(1)
+            }],
+            terminator: Terminator::Call {
+                callee: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(catch_fn_tmp)) },
+                calling_convention: CallingConvention::Rust,
+                arguments: list![
+                    build::by_value(ValueExpr::Load {
+                        source: GcCow::new(PlaceExpr::Local(data_tmp))
+                    }),
+                    build::by_value(payload)
+                ],
+                ret: unit_place(),
+                next_block: Some(stop_unwind_bb_name),
+                unwind_block: None,
+            },
+            kind: BbKind::Catch,
+        };
+        self.blocks.insert(catch_bb_name, catch_bb);
+
+        // generate the stop_unwind block
+        let stop_unwind_bb = BasicBlock {
+            statements: list![
+                Statement::StorageDead(ret_tmp),
+                Statement::StorageDead(try_fn_tmp),
+                Statement::StorageDead(data_tmp),
+                Statement::StorageDead(catch_fn_tmp)
+            ],
+            terminator: Terminator::StopUnwind(target),
+            kind: BbKind::Catch,
+        };
+        self.blocks.insert(stop_unwind_bb_name, stop_unwind_bb);
+        Terminator::Goto(try_bb_name)
+    }
+
     fn translate_rs_intrinsic(
         &mut self,
         intrinsic: rs::Instance<'tcx>,
@@ -432,6 +585,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // Just a NOP for us.
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 return TerminatorResult { stmts: list![], terminator };
+            }
+            rs::sym::catch_unwind => {
+                let arguments =
+                    args.iter().map(|x| self.translate_operand(&x.node, x.span)).collect();
+                let ret_place = self.translate_place(destination, span);
+                let terminator = self.translate_catch_unwind(
+                    arguments,
+                    ret_place,
+                    self.bb_name_map[&target.unwrap()],
+                );
+                TerminatorResult { stmts: list![], terminator }
             }
             name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
         }
