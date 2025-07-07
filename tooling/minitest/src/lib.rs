@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![feature(freeze)]
 
 pub use miniutil::BasicMem;
 pub use miniutil::build::*;
@@ -15,6 +16,7 @@ pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
 pub use std::format;
+pub use std::marker::Freeze;
 pub use std::string::String;
 
 mod tests;
@@ -64,7 +66,7 @@ pub fn assert_ub_eventually<M: Memory>(prog: Program, attempts: usize, msg: &str
 
 /// Create program that assigns `expr` to local of type T and checks if it causes UB.
 #[track_caller]
-pub fn assert_ub_expr<T: TypeConv, M: Memory>(expr: ValueExpr, msg: &str) {
+pub fn assert_ub_expr<T: TypeConv + Freeze, M: Memory>(expr: ValueExpr, msg: &str) {
     let mut p = ProgramBuilder::new();
 
     let mut f = p.declare_function();

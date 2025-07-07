@@ -106,11 +106,57 @@ pub enum LayoutStrategy {
     },
 }
 
+// pub type Range = (Offset, Offset);??
+
+/// Corresponds to the variants of `LayoutStrategy`
+pub enum UnsafeCellStrategy {
+    /// List of [start, end) ranges.
+    Sized { bytes: List<(Offset, Offset)> },
+    /// Since the elements of a slice have the same type, we only keep track of the
+    /// UnsafeCell's of one element, we can then "repeat" this for the rest of the slice.
+    Slice { element: List<(Offset, Offset)> },
+    TraitObject { is_freeze: bool },
+    Tuple {
+        head: List<(Offset, Offset)>,
+        #[specr::indirection]
+        tail: UnsafeCellStrategy,
+    },
+}
+
+impl UnsafeCellStrategy {
+    /// Tell us whether the range outside of a retag is freeze.
+    pub fn is_freeze(self) -> bool {
+        match self {
+            Self::Sized { bytes } => bytes.is_empty(),
+            Self::Slice { element } => element.is_empty(),
+            Self::TraitObject { is_freeze } => is_freeze,
+            Self::Tuple { head, tail } => head.is_empty() && tail.is_freeze(),
+        }
+    }
+
+    pub fn from_frozen_layout(layout: LayoutStrategy) -> Self {
+        match layout {
+            LayoutStrategy::Sized(..) => Self::Sized { bytes: List::new() },
+            LayoutStrategy::Slice(..) => Self::Slice { element: List::new() },
+            LayoutStrategy::TraitObject(..) => Self::TraitObject { is_freeze: true },
+            LayoutStrategy::Tuple { tail, .. } => Self::Tuple { head: List::new(), tail: Self::from_frozen_layout(tail) },
+        }
+    }
+
+    pub fn nonfreeze_bytes(self) -> List<(Offset, Offset)> {
+        match self {
+            Self::Sized { bytes } => bytes,
+            // TODO: Implement for unsized cases
+            _ => List::new(),
+        }
+    }
+}
+
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
     pub layout: LayoutStrategy,
     pub inhabited: bool,
-    pub freeze: bool,
+    pub freeze: UnsafeCellStrategy,
     pub unpin: bool,
 }
 
