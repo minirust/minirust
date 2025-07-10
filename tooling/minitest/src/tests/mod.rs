@@ -30,6 +30,7 @@ mod no_preserve_padding;
 mod no_preserve_prov;
 mod null;
 mod packed;
+mod payload;
 mod place_mention;
 mod print;
 mod ptr;
