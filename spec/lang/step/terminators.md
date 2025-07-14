@@ -387,7 +387,7 @@ impl<M: Memory> Machine<M> {
         let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })) =
             self.eval_value(unwind_payload)?
         else {
-            throw_ub!("StartUnwind: the unwind payload should be a raw pointer");
+            panic!("StartUnwind: the unwind payload is not a raw pointer");
         };
         self.mutate_active_thread(|thread| {
             thread.unwind_payloads.push(unwind_payload.thin_pointer)

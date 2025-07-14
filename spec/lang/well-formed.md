@@ -747,8 +747,16 @@ impl Terminator {
                 ensure_wf(block_kind == BbKind::Regular, "Terminator::Return has to be called in a regular block")?;
             }
             StartUnwind { unwind_payload, unwind_block } => {
-                unwind_payload.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(block_kind == BbKind::Regular, "Terminator::StartUnwind has to be called in a regular block")?;
+                let payload_type = unwind_payload.check_wf::<T>(func.locals, prog)?;
+                ensure_wf(
+                    payload_type == Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }),
+                    "Terminator::StartUnwind: the unwind payload should be a raw pointer",
+                )?;
+                
+                ensure_wf(
+                    block_kind == BbKind::Regular,
+                    "Terminator::StartUnwind has to be called in a regular block",
+                )?;
                 func.check_unwind_block(block_kind, unwind_block)?;
             }
             StopUnwind(next_block) => {

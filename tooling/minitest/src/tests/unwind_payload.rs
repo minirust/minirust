@@ -179,7 +179,7 @@ fn wrong_ret_ty() {
     assert_ub::<BasicMem>(p, "invalid return type for `GetUnwindPayload` intrinsic");
 }
 
-/// In this test the panic payload has the wrong type. Results in ub.
+/// In this test the unwind payload has the wrong type. Results in ub.
 #[test]
 fn payload_wrong_ty() {
     let mut p = ProgramBuilder::new();
@@ -199,5 +199,8 @@ fn payload_wrong_ty() {
 
     let p = p.finish_program(f);
     dump_program(p);
-    assert_ub::<BasicMem>(p, "StartUnwind: the unwind payload should be a raw pointer");
+    assert_ill_formed::<BasicMem>(
+        p,
+        "Terminator::StartUnwind: the unwind payload should be a raw pointer",
+    );
 }
