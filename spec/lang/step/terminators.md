@@ -378,18 +378,20 @@ It should probably do a `Validate` as the next step to encode that it would be U
 
 ## Starting unwinding
 
-To initiate unwinding, we push the panic payload to the payload stack and jump to a cleanup block.
+To initiate unwinding, we push the unwind payload to the payload stack and jump to a cleanup block.
 This will then eventually invoke `ResumeUnwind` and thus propagate upwards through the stack.
 
 ```rust
 impl<M: Memory> Machine<M> {
-    fn eval_terminator(&mut self, Terminator::StartUnwind { payload, unwind_block }: Terminator) -> NdResult {
-        let (Value::Ptr(payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })) =
-            self.eval_value(payload)?
+    fn eval_terminator(&mut self, Terminator::StartUnwind { unwind_payload, unwind_block }: Terminator) -> NdResult {
+        let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })) =
+            self.eval_value(unwind_payload)?
         else {
-            throw_ub!("StartUnwind: The payload should be a raw pointer.");
+            throw_ub!("StartUnwind: the unwind payload should be a raw pointer");
         };
-        self.mutate_active_thread(|thread| thread.payloads.push(payload.thin_pointer));
+        self.mutate_active_thread(|thread| {
+            thread.unwind_payloads.push(unwind_payload.thin_pointer)
+        });
         self.jump_to_block(unwind_block)?;
         ret(())
     }
@@ -404,8 +406,8 @@ This terminator stops unwinding and jumps to a regular block. `StopUnwind` may o
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::StopUnwind(block_name): Terminator) -> NdResult {
         self.mutate_active_thread(|thread| -> Result<()>{
-            let Some(_) = thread.payloads.pop() else {
-                throw_ub!("`StopUnwind`: The payload stack is empty.");
+            let Some(_) = thread.unwind_payloads.pop() else {
+                throw_ub!("StopUnwind: the payload stack is empty");
             };
             ret(())
         } )?;
