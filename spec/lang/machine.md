@@ -104,6 +104,9 @@ pub struct Thread<M: Memory> {
 
     /// Stores whether the thread is ready to run, blocked, or terminated.
     state: ThreadState,
+
+    /// Stores the unwind payloads.
+    unwind_payloads: List<ThinPointer<M::Provenance>>,
 }
 
 pub enum ThreadState {
@@ -245,6 +248,10 @@ impl<M: Memory> Machine<M> {
         self.threads[self.active_thread]
     }
 
+    fn mutate_active_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
+        self.threads.mutate_at(self.active_thread, f)
+    }
+
     fn cur_frame(&self) -> StackFrame<M> {
         self.active_thread().cur_frame()
     }
@@ -314,6 +321,7 @@ impl<M: Memory> Machine<M> {
         let thread = Thread {
             state: ThreadState::Enabled,
             stack: list![init_frame],
+            unwind_payloads: list![],
         };
         let thread_id = ThreadId::from(self.threads.len());
         self.threads.push(thread);

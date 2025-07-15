@@ -227,12 +227,18 @@ impl FunctionBuilder {
         });
     }
 
-    pub fn start_unwind(&mut self, cleanup: BbName) {
-        self.finish_block(start_unwind(cleanup));
+    pub fn start_unwind(&mut self, unwind_payload: ValueExpr, cleanup: BbName) {
+        self.finish_block(start_unwind(unwind_payload, cleanup));
     }
 
     pub fn stop_unwind(&mut self, next_block: BbName) {
         self.finish_block(stop_unwind(next_block));
+    }
+
+    pub fn get_unwind_payload(&mut self, ret: PlaceExpr) {
+        self.finish_with_next_block(|next_block| {
+            get_unwind_payload(ret, bbname_into_u32(next_block))
+        });
     }
 
     // terminators with 2 or more following blocks
@@ -420,8 +426,8 @@ pub fn return_() -> Terminator {
     Terminator::Return
 }
 
-pub fn start_unwind(cleanup: BbName) -> Terminator {
-    Terminator::StartUnwind(cleanup)
+pub fn start_unwind(unwind_payload: ValueExpr, cleanup: BbName) -> Terminator {
+    Terminator::StartUnwind { unwind_block: cleanup, unwind_payload }
 }
 
 pub fn stop_unwind(next_block: BbName) -> Terminator {
@@ -558,6 +564,15 @@ pub fn lock_release(lock_id: ValueExpr, next: u32) -> Terminator {
         intrinsic: IntrinsicOp::Lock(IntrinsicLockOp::Release),
         arguments: list!(lock_id),
         ret: unit_place(),
+        next_block: Some(BbName(Name::from_internal(next))),
+    }
+}
+
+pub fn get_unwind_payload(ret: PlaceExpr, next: u32) -> Terminator {
+    Terminator::Intrinsic {
+        intrinsic: IntrinsicOp::GetUnwindPayload,
+        arguments: list!(),
+        ret,
         next_block: Some(BbName(Name::from_internal(next))),
     }
 }

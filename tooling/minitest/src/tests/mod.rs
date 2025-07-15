@@ -45,6 +45,7 @@ mod trait_object;
 mod uninit_read;
 mod unreachable;
 mod unsized_struct;
+mod unwind_payload;
 mod unwinding;
 mod wide_ptr;
 mod zst;

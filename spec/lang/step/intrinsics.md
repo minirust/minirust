@@ -588,3 +588,34 @@ impl<M: Memory> Machine<M> {
     }
 }
 ```
+## GetPayload
+
+```rust
+impl<M: Memory> Machine<M> {
+    fn eval_intrinsic(
+        &mut self,
+        IntrinsicOp::GetUnwindPayload: IntrinsicOp,
+        arguments: List<(Value<M>, Type)>,
+        ret_ty: Type,
+    ) -> NdResult<Value<M>> {
+        if arguments.len() != 0 {
+            throw_ub!("invalid number of arguments for `GetUnwindPayload` intrinsic");
+        }
+
+        let Type::Ptr(ret_ptr_ty) = ret_ty else {
+            throw_ub!("invalid return type for `GetUnwindPayload` intrinsic");
+        };
+        if ret_ptr_ty.meta_kind() != PointerMetaKind::None {
+            throw_ub!("invalid return type for `GetUnwindPayload` intrinsic");
+        }
+
+        let Some(thin_pointer) = self.active_thread().unwind_payloads.last() else {
+            throw_ub!("GetUnwindPayload: the payload stack is empty");
+        };
+
+        let payload_pointer = Value::Ptr(Pointer { thin_pointer, metadata: None });
+
+        ret(payload_pointer)
+    }
+}
+```

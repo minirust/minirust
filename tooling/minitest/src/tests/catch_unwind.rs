@@ -9,7 +9,7 @@ fn catch_unwind() {
         let mut f = p.declare_function();
         f.print(const_int(2));
         let cleanup = f.cleanup_block(|f| f.resume_unwind());
-        f.start_unwind(cleanup);
+        f.start_unwind(unit_ptr(), cleanup);
         p.finish_function(f)
     };
 
