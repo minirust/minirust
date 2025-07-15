@@ -5,6 +5,8 @@ The core of Tree Borrows is a state machine for each node and each location.
 We first track the *permission* of each node to access each location.
 ```rust
 enum Permission {
+    /// Represents a shared reference to interior mutable data.
+    Cell,
     /// Represents a two-phase borrow during its reservation phase
     Reserved {
         /// Indicates whether there was a foreign read.
@@ -46,19 +48,6 @@ Finally, we define the transition table.
 
 ```rust
 impl Permission {
-    fn default(mutbl: Mutability, pointee: PointeeInfo, protected: Protected) -> Permission {
-        match mutbl {
-            // We only use `ReservedIm` for *unprotected* mutable references with interior mutability.
-            // If the reference is protected, we ignore the interior mutability.
-            // An example for why "Protected + Interior Mutability" is undesirable
-            // can be found in tooling/minimize/tests/ub/tree_borrows/protector/ReservedIm_spurious_write.rs.
-            Mutability::Mutable if !pointee.freeze && protected.no() => Permission::ReservedIm,
-            Mutability::Mutable => Permission::Reserved { conflicted: false },
-            Mutability::Immutable if pointee.freeze => Permission::Frozen,
-            Mutability::Immutable => panic!("Permission::default: interior-mutable shared reference")
-        }
-    }
-
     fn local_read(self) -> Result<Permission> {
         ret(
             match self {
@@ -75,6 +64,7 @@ impl Permission {
                 throw_ub!("Tree Borrows: writing to the local of a protected pointer with Conflicted Reserved permission"),
             Permission::Frozen => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
             Permission::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
+            Permission::Cell => ret(Permission::Cell),
             _ => ret(Permission::Unique),
         }
     }
@@ -91,6 +81,7 @@ impl Permission {
 
     fn foreign_write(self) -> Result<Permission> {
         match self {
+            Permission::Cell => ret(Permission::Cell),
             Permission::ReservedIm => ret(Permission::ReservedIm),
             // All other states become Disabled.
             _ => ret(Permission::Disabled),
@@ -156,6 +147,7 @@ impl LocationState {
                 Permission::Unique => throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
                 Permission::Frozen => throw_ub!("Tree Borrows: a protected pointer with Frozen permission becomes Disabled"),
                 Permission::Reserved { .. } => throw_ub!("Tree Borrows: a protected pointer with Reserved permission becomes Disabled"),
+                Permission::Cell => panic!("Impossible state combination: Cell became Disabled"),
             }
         }
 

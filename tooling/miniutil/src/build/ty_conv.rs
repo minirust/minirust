@@ -73,25 +73,22 @@ impl TypeConv for bool {
     }
 }
 
-impl<T: TypeConv + ?Sized> TypeConv for &T {
+// Add Freeze constraint as we don't know which bytes are non-freeze.
+impl<T: TypeConv + ?Sized + Freeze> TypeConv for &T {
     fn get_type() -> Type {
-        ref_ty(PointeeInfo {
-            layout: T::get_layout(),
-            inhabited: true,
-            freeze: T::FREEZE,
-            unpin: T::UNPIN,
-        })
+        let layout = T::get_layout();
+        let freeze = UnsafeCellStrategy::from_frozen_layout(layout);
+
+        ref_ty(PointeeInfo { layout, inhabited: true, freeze, unpin: T::UNPIN })
     }
 }
 
-impl<T: TypeConv + ?Sized> TypeConv for &mut T {
+impl<T: TypeConv + ?Sized + Freeze> TypeConv for &mut T {
     fn get_type() -> Type {
-        ref_mut_ty(PointeeInfo {
-            layout: T::get_layout(),
-            inhabited: true,
-            freeze: T::FREEZE,
-            unpin: T::UNPIN,
-        })
+        let layout = T::get_layout();
+        let freeze = UnsafeCellStrategy::from_frozen_layout(layout);
+
+        ref_mut_ty(PointeeInfo { layout, inhabited: true, freeze, unpin: T::UNPIN })
     }
 }
 

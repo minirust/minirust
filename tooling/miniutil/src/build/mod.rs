@@ -238,7 +238,7 @@ impl FunctionBuilder {
         name
     }
 
-    pub fn declare_local<T: TypeConv>(&mut self) -> PlaceExpr {
+    pub fn declare_local<T: TypeConv + Freeze>(&mut self) -> PlaceExpr {
         let name = self.fresh_local_name();
         self.locals.try_insert(name, T::get_type()).unwrap();
         local_by_name(name)

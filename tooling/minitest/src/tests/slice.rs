@@ -3,7 +3,7 @@ use crate::*;
 /// This helper implements unsizing coercion with a transmute, instead of a `ConstructWidePointer`.
 ///
 /// It builds code to create a `&[T]` place from an `[T; known_len]` place.
-fn ref_as_transmuted_slice<T: TypeConv>(
+fn ref_as_transmuted_slice<T: TypeConv + Freeze>(
     f: &mut FunctionBuilder,
     arr: PlaceExpr,
     known_len: u64,

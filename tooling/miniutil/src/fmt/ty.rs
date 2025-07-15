@@ -95,7 +95,7 @@ fn fmt_pointee_info(pointee: PointeeInfo) -> String {
         true => "",
         false => ", uninhabited",
     };
-    let freeze_str = match pointee.freeze {
+    let freeze_str = match pointee.freeze.is_freeze() {
         true => "",
         false => ", !Freeze",
     };
