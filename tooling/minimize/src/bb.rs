@@ -205,8 +205,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 }
 
                 // Create panic block in case of `expected != condition`
-                // FIXME: Use actual unwind payload instead of temporary null pointer.
-                let terminator = self.translate_panic(build::unit_ptr(), *unwind, bb);
+                let terminator = self.translate_panic(*unwind, bb);
                 let panic_block_name = self.fresh_bb_name();
                 let block_kind = if bb.is_cleanup { BbKind::Cleanup } else { BbKind::Regular };
                 let panic_block = BasicBlock { statements: list![], terminator, kind: block_kind };
@@ -297,11 +296,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     ///     goTo -> bb5
     /// // get_payload block
     /// bb2 (Catch):
-    ///     let unwind_payload = get_unwind_payload() -> return: bb3
+    ///     let unwind_payload_tmp = get_unwind_payload() -> return: bb3
     /// // catch block
     /// bb3 (Catch):
     ///     *ret_tmp = 1;
-    ///     catch_fn_tmp(data_tmp, unwind_payload) -> return: bb4
+    ///     catch_fn_tmp(data_tmp, unwind_payload_tmp) -> return: bb4
     /// // stop_unwind block
     /// bb4 (Catch):
     ///     StopUnwind -> bb5
@@ -337,9 +336,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let catch_fn_tmp = self.fresh_local_name();
         self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
-        let unwind_payload = self.fresh_local_name();
-        self.locals
-            .insert(unwind_payload, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
+        let unwind_payload_tmp = self.fresh_local_name();
+        self.locals.insert(
+            unwind_payload_tmp,
+            Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }),
+        );
 
         // generate the try block
         let try_bb = BasicBlock {
@@ -397,11 +398,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         // generate the get_payload block
         let get_payload_bb = BasicBlock {
-            statements: list![Statement::StorageLive(unwind_payload)],
+            statements: list![Statement::StorageLive(unwind_payload_tmp)],
             terminator: Terminator::Intrinsic {
                 intrinsic: IntrinsicOp::GetUnwindPayload,
                 arguments: list![],
-                ret: PlaceExpr::Local(unwind_payload),
+                ret: PlaceExpr::Local(unwind_payload_tmp),
                 next_block: Some(catch_bb_name),
             },
             kind: BbKind::Catch,
@@ -409,8 +410,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         self.blocks.insert(get_payload_bb_name, get_payload_bb);
 
         // generate the catch block
-        // FIXME: unwind payload is supported by minimize, we hard-code it to null for now.
-        let unwind_payload = build::null();
         let catch_bb = BasicBlock {
             statements: list![Statement::Assign {
                 destination: PlaceExpr::Deref {
@@ -428,7 +427,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     build::by_value(ValueExpr::Load {
                         source: GcCow::new(PlaceExpr::Local(data_tmp))
                     }),
-                    build::by_value(unwind_payload)
+                    build::by_value(ValueExpr::Load {
+                        source: GcCow::new(PlaceExpr::Local(unwind_payload_tmp))
+                    })
                 ],
                 ret: unit_place(),
                 next_block: Some(stop_unwind_bb_name),
@@ -680,7 +681,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     /// Returns a terminator that either initiates unwinding or aborts, based on the chosen panic strategy.
     fn translate_panic(
         &mut self,
-        unwind_payload: ValueExpr,
         unwind: rs::UnwindAction,
         bb: &rs::BasicBlockData<'tcx>,
     ) -> Terminator {
@@ -689,7 +689,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         match panic_strategy {
             rustc_target::spec::PanicStrategy::Unwind => {
                 let cleanup_block = self.translate_unwind_action(unwind, bb);
-                Terminator::StartUnwind { unwind_payload, unwind_block: cleanup_block }
+                Terminator::StartUnwind {
+                    // FIXME: Use actual unwind payload instead of temporary null pointer.
+                    unwind_payload: build::unit_ptr(),
+                    unwind_block: cleanup_block,
+                }
             }
             rustc_target::spec::PanicStrategy::Abort => build::abort(),
         }
@@ -749,8 +753,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
         } else if is_panic_fn(&instance.to_string()) {
             // We can't translate this call, it takes a string. As a hack we just ignore the argument.
-            // FIXME: Use actual unwind payload instead of temporary null pointer.
-            self.translate_panic(build::unit_ptr(), unwind, bb)
+            self.translate_panic(unwind, bb)
         } else {
             let abi = self
                 .cx
