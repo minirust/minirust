@@ -331,11 +331,13 @@ pub fn downcast(root: PlaceExpr, discriminant: impl Into<Int>) -> PlaceExpr {
     PlaceExpr::Downcast { root: GcCow::new(root), discriminant: discriminant.into() }
 }
 
+/// A pointer suited for 1-aligned zero-sized accesses.
+pub fn unit_ptr() -> ValueExpr {
+    ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()), <*const ()>::get_type())
+}
 /// A place suited for 1-aligned zero-sized accesses.
 pub fn unit_place() -> PlaceExpr {
-    let ptr =
-        ValueExpr::Constant(Constant::PointerWithoutProvenance(1.into()), <*const ()>::get_type());
-    PlaceExpr::Deref { operand: GcCow::new(ptr), ty: <()>::get_type() }
+    PlaceExpr::Deref { operand: GcCow::new(unit_ptr()), ty: <()>::get_type() }
 }
 
 pub fn by_value(val: ValueExpr) -> ArgumentExpr {

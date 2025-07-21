@@ -219,9 +219,10 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
         Terminator::Return => {
             format!("    return;")
         }
-        Terminator::StartUnwind(block_name) => {
-            let bb_name = fmt_bb_name(block_name);
-            format!("    start unwind -> unwind: {bb_name} ")
+        Terminator::StartUnwind { unwind_payload, unwind_block } => {
+            let bb_name = fmt_bb_name(unwind_block);
+            let unwind_payload = fmt_value_expr(unwind_payload, comptypes).to_string();
+            format!("    start unwind({unwind_payload}) -> unwind: {bb_name} ")
         }
         Terminator::StopUnwind(block_name) => {
             let bb_name = fmt_bb_name(block_name);
@@ -251,6 +252,7 @@ fn fmt_terminator(t: Terminator, comptypes: &mut Vec<CompType>) -> String {
                 IntrinsicOp::Lock(IntrinsicLockOp::Release) => "lock_release",
                 IntrinsicOp::PointerExposeProvenance => "pointer_expose_provenance",
                 IntrinsicOp::PointerWithExposedProvenance => "pointer_with_exposed_provenance",
+                IntrinsicOp::GetUnwindPayload => "get_unwind_payload",
             };
             let args: Vec<_> =
                 arguments.iter().map(|arg| fmt_value_expr(arg, comptypes).to_string()).collect();

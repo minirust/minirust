@@ -8,7 +8,7 @@ fn reach_terminate_block() {
     let panic_fn = {
         let mut f = p.declare_function();
         let resume = f.cleanup_block(|f| f.resume_unwind());
-        f.start_unwind(resume);
+        f.start_unwind(unit_ptr(), resume);
         p.finish_function(f)
     };
 
@@ -41,7 +41,7 @@ fn abort_in_cleanup() {
         f.abort();
     });
 
-    f.start_unwind(cleanup);
+    f.start_unwind(unit_ptr(), cleanup);
     let f = p.finish_function(f);
     let p = p.finish_program(f);
     dump_program(p);
@@ -59,7 +59,7 @@ fn start_unwind_in_main() {
         // Call `exit()` instead of `abort()`, because there is currently no way to access the standard output if the program has aborted.
         f.exit();
     });
-    f.start_unwind(cleanup);
+    f.start_unwind(unit_ptr(), cleanup);
     let f = p.finish_function(f);
     let p = p.finish_program(f);
     dump_program(p);
@@ -101,7 +101,7 @@ fn unwind_recursive_func() {
         f.print(load(arg));
         f.if_(
             eq(load(arg), const_int(0)),
-            |f| f.start_unwind(cleanup_resume),
+            |f| f.start_unwind(unit_ptr(), cleanup_resume),
             |f| {
                 f.storage_live(var);
                 f.assign(var, sub_unchecked(load(arg), const_int(1)));
@@ -154,7 +154,7 @@ fn statements_in_cleanup() {
             f.resume_unwind();
         });
         f.storage_live(var);
-        f.start_unwind(cleanup);
+        f.start_unwind(unit_ptr(), cleanup);
         p.finish_function(f)
     };
 
@@ -186,7 +186,7 @@ fn print_after_unwind() {
     let f = {
         let mut f = p.declare_function();
         let cleanup = f.cleanup_block(|f| f.resume_unwind());
-        f.start_unwind(cleanup);
+        f.start_unwind(unit_ptr(), cleanup);
         p.finish_function(f)
     };
 
@@ -213,7 +213,7 @@ fn resume_in_main() {
     let mut p = ProgramBuilder::new();
     let mut f = p.declare_function();
     let cleanup = f.cleanup_block(|f| f.resume_unwind());
-    f.start_unwind(cleanup);
+    f.start_unwind(unit_ptr(), cleanup);
     let f = p.finish_function(f);
     let p = p.finish_program(f);
     dump_program(p);
@@ -230,7 +230,7 @@ fn resume_in_thread() {
         f.set_conv(CallingConvention::C); // thread function needs to use "C" ABI
         let _ = f.declare_arg::<*const ()>();
         let cleanup = f.cleanup_block(|f| f.resume_unwind());
-        f.start_unwind(cleanup);
+        f.start_unwind(unit_ptr(), cleanup);
         p.finish_function(f)
     };
 
@@ -264,7 +264,7 @@ fn resume_no_unwind_block() {
             eq(load(var), const_int(0)),
             |f| {
                 let cleanup = f.cleanup_block(|f| f.resume_unwind());
-                f.start_unwind(cleanup);
+                f.start_unwind(unit_ptr(), cleanup);
             },
             |f| {
                 f.call_nounwind(unit_place(), fn_ptr(f.name()), &[in_place(var)]);
