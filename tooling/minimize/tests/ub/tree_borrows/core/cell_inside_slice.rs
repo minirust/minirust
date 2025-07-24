@@ -3,7 +3,7 @@
 use std::cell::Cell;
 
 fn main() {
-    let root = &[(Cell::new(0), 1), (Cell::new(2), 3)];
+    let root = &[(Cell::new(0), 1), (Cell::new(2), 3)][..];
     let x = &root[0];
     let x: *mut (Cell<i32>, i32) = x as *const _ as *mut _;
     unsafe {
