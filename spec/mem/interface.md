@@ -119,7 +119,8 @@ pub trait Memory {
     /// in particular, it must be `dereferenceable` for its size.
     /// Violating this or breaking this for the return value is a spec bug.
     ///
-    /// The `size_computer` is given, since computing the size requires information about vtables.
+    /// The `vtable_lookup` is given, since computing the size and UnsafeCell positions
+    /// requires information about vtables.
     ///
     /// Return the retagged pointer.
     fn retag_ptr(
@@ -128,7 +129,7 @@ pub trait Memory {
         ptr: Pointer<Self::Provenance>,
         _ptr_type: PtrType,
         _fn_entry: bool,
-        _size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<Self::Provenance>>) -> Size,
+        _vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + 'static,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(ptr)
     }

@@ -36,7 +36,7 @@ fn dynamic_dispatch() {
         p.finish_function(f)
     };
 
-    let mut usize_a_vtable = p.declare_vtable_for_ty(trait_a, <usize>::get_type());
+    let mut usize_a_vtable = p.declare_vtable_for_frozen_ty(trait_a, <usize>::get_type());
     usize_a_vtable.add_method(method_a_foo, impl_a_foo_for_usize);
     let usize_a_vtable = p.finish_vtable(usize_a_vtable);
 
@@ -123,7 +123,7 @@ fn weird_wrong_vtable_right_trait() {
         f.return_();
         p.finish_function(f)
     };
-    let mut vtable_foo_u8 = p.declare_vtable_for_ty(trait_foo, <u8>::get_type());
+    let mut vtable_foo_u8 = p.declare_vtable_for_frozen_ty(trait_foo, <u8>::get_type());
     vtable_foo_u8.add_method(method_foo_foo, impl_foo_foo_for_u8);
     let _vtable_foo_u8 = p.finish_vtable(vtable_foo_u8);
 
@@ -135,7 +135,7 @@ fn weird_wrong_vtable_right_trait() {
         f.return_();
         p.finish_function(f)
     };
-    let mut vtable_foo_i8 = p.declare_vtable_for_ty(trait_foo, <i8>::get_type());
+    let mut vtable_foo_i8 = p.declare_vtable_for_frozen_ty(trait_foo, <i8>::get_type());
     vtable_foo_i8.add_method(method_foo_foo, impl_foo_foo_for_i8);
     let vtable_foo_i8 = p.finish_vtable(vtable_foo_i8);
 
@@ -233,7 +233,7 @@ fn ub_wrong_vtable_ty() {
 
     let t_builder = p.declare_trait();
     let trait1_name = p.finish_trait(t_builder);
-    let v_builder = p.declare_vtable_for_ty(trait1_name, <u8>::get_type());
+    let v_builder = p.declare_vtable_for_frozen_ty(trait1_name, <u8>::get_type());
     let vtable1_name = p.finish_vtable(v_builder);
     let t_builder = p.declare_trait();
     let trait2_name = p.finish_trait(t_builder);
@@ -295,7 +295,7 @@ fn ill_const_wrong_ty() {
 
     let t_builder = p.declare_trait();
     let trait_name = p.finish_trait(t_builder);
-    let v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE);
+    let v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE, List::new());
     let vtable_name = p.finish_vtable(v_builder);
     let false_vtable_ptr_ty = raw_ptr_ty(PointerMetaKind::VTablePointer(trait_name));
 
@@ -364,7 +364,7 @@ fn ill_lookup_wrong_ty() {
     let mut t_builder = p.declare_trait();
     let meth1 = t_builder.declare_method();
     let trait_name = p.finish_trait(t_builder);
-    let mut v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE);
+    let mut v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE, List::new());
     v_builder.add_method(meth1, void_fn);
     let _vtable_name = p.finish_vtable(v_builder);
 
@@ -396,7 +396,7 @@ fn ill_lookup_wrong_method() {
 
     let t_builder = p.declare_trait();
     let trait_name = p.finish_trait(t_builder);
-    let v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE);
+    let v_builder = p.declare_vtable(trait_name, Size::ZERO, Align::ONE, List::new());
     let vtable_name = p.finish_vtable(v_builder);
     let mut t_builder = p.declare_trait();
     let meth2 = t_builder.declare_method();
@@ -437,7 +437,13 @@ fn ill_vtables_wrong_trait() {
     let trait_name = TraitName(Name::from_internal(0));
     p.vtables.insert(
         VTableName(Name::from_internal(2)),
-        VTable { trait_name: trait_name, size: Size::ZERO, align: Align::ONE, methods: Map::new() },
+        VTable {
+            trait_name: trait_name,
+            size: Size::ZERO,
+            align: Align::ONE,
+            cells: List::new(),
+            methods: Map::new(),
+        },
     );
 
     assert_ill_formed::<BasicMem>(p, "Program: vtable for unknown trait");
@@ -463,7 +469,13 @@ fn ill_vtables_wrong_methods() {
     // Insert vtable without the method (the builder api catches this)
     p.vtables.insert(
         VTableName(Name::from_internal(1)),
-        VTable { trait_name: trait_name, size: Size::ZERO, align: Align::ONE, methods: Map::new() },
+        VTable {
+            trait_name: trait_name,
+            size: Size::ZERO,
+            align: Align::ONE,
+            cells: List::new(),
+            methods: Map::new(),
+        },
     );
 
     assert_ill_formed::<BasicMem>(p, "Program: vtable has not the right set of methods");
@@ -476,7 +488,7 @@ fn ill_vtables_unaligned_size() {
 
     let t_builder = p.declare_trait();
     let trait_name = p.finish_trait(t_builder);
-    let v_builder = p.declare_vtable(trait_name, size(3), align(2));
+    let v_builder = p.declare_vtable(trait_name, size(3), align(2), List::new());
     let _vtable = p.finish_vtable(v_builder);
 
     let f = {

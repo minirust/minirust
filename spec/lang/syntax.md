@@ -539,6 +539,8 @@ pub struct VTable {
     pub size: Size,
     /// The alignment of the type.
     pub align: Align,
+    /// Offset and sizes of `UnsafeCell` in this vtable.
+    pub cells: List<(Offset, Size)>,
     /// The implementations of trait methods.
     pub methods: Map<TraitMethodName, FnName>,
 }

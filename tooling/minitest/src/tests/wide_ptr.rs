@@ -331,9 +331,9 @@ fn compare_trait_obj_ptr() {
     let mut p = ProgramBuilder::new();
     let b = p.declare_trait();
     let trait_name = p.finish_trait(b);
-    let b = p.declare_vtable_for_ty(trait_name, <u32>::get_type());
+    let b = p.declare_vtable_for_frozen_ty(trait_name, <u32>::get_type());
     let vtable1 = p.finish_vtable(b);
-    let b = p.declare_vtable_for_ty(trait_name, <i32>::get_type());
+    let b = p.declare_vtable_for_frozen_ty(trait_name, <i32>::get_type());
     let vtable2 = p.finish_vtable(b);
 
     let f = {

@@ -104,9 +104,9 @@ impl<M: Memory> ConcurrentMemory<M> {
         ptr: Pointer<M::Provenance>,
         ptr_type: PtrType,
         fn_entry: bool,
-        size_computer: impl Fn(LayoutStrategy, Option<PointerMeta<M::Provenance>>) -> Size,
+        vtable_lookup: impl Fn(ThinPointer<M::Provenance>) -> crate::lang::VTable + 'static,
     ) -> Result<Pointer<M::Provenance>> {
-        self.memory.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, size_computer)
+        self.memory.retag_ptr(frame_extra, ptr, ptr_type, fn_entry, vtable_lookup)
     }
 
     /// Memory model hook invoked at the end of each function call.

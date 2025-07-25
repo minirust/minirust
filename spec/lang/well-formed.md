@@ -40,8 +40,12 @@ impl LayoutStrategy {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // The align type is always well formed.
         match self {
-            LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
-            LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
+            LayoutStrategy::Sized(size, _align) => {
+                ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?;
+            }
+            LayoutStrategy::Slice(size, _align) => {
+                ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?;
+            }
             LayoutStrategy::TraitObject(trait_name) => {
                 ensure_wf(prog.traits.contains_key(trait_name), "LayoutStrategy: trait name doesn't exist")?;
             }
@@ -73,10 +77,43 @@ impl LayoutStrategy {
     }
 }
 
+impl UnsafeCellStrategy {
+    fn check_cells(cells: List<(Offset, Size)>, size: Size) -> Result<()> {
+        let mut last_end = Size::ZERO;
+        for (start, size) in cells {
+            ensure_wf(start >= last_end, "LayoutStrategy: invalid cells")?;
+            last_end = start + size;
+        }
+        ensure_wf(last_end <= size, "LayoutStrategy: invalid cells")?;
+        ret(())
+    }
+
+    fn check_wf<T: Target>(self, layout: LayoutStrategy) -> Result<()> {
+        match (self, layout) {
+            (UnsafeCellStrategy::Sized { cells }, LayoutStrategy::Sized(size, _)) => {
+                Self::check_cells(cells, size)?;
+            },
+            (UnsafeCellStrategy::Slice { element_cells }, LayoutStrategy::Slice(size, _)) => {
+                Self::check_cells(element_cells, size)?;
+            },
+            (UnsafeCellStrategy::TraitObject, LayoutStrategy::TraitObject(..)) => {},
+            (UnsafeCellStrategy::Tuple { head_cells, tail_cells }, LayoutStrategy::Tuple { head, tail }) => {
+                Self::check_cells(head_cells, head.end)?;
+                tail_cells.check_wf::<T>(tail)?;
+            },
+            _ => {
+                ensure_wf(false, "UnsafeCellStrategy and LayoutStrategy variants do not match")?;
+            },
+        };
+        ret(())
+    }
+}
+
 impl PointeeInfo {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // We do *not* require that size is a multiple of align!
         self.layout.check_wf::<T>(prog)?;
+        self.unsafe_cells.check_wf::<T>(self.layout)?;
 
         ret(())
     }
@@ -121,7 +158,7 @@ impl Type {
                     // Ensure it fits after the one we previously checked.
                     ensure_wf(offset >= last_end, "Type::Tuple: overlapping fields")?;
                     ensure_wf(ty.layout::<T>().is_sized(), "Type::Tuple: unsized field type in head")?;
-                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");    
+                    last_end = offset + ty.layout::<T>().expect_size("ensured to be sized above");
                 }
                 // The unsized field must actually be unsized.
                 if let Some(unsized_field) = unsized_field {
@@ -238,7 +275,7 @@ impl Discriminator {
                     ensure_wf(value_type.can_represent(end - Int::ONE), "Discriminator: invalid branch end bound")?;
                     ensure_wf(start < end, "Discriminator: invalid bound values")?;
                     // Ensure that the ranges don't overlap.
-                    ensure_wf(children.keys().enumerate().all(|(other_idx, (other_start, other_end))| 
+                    ensure_wf(children.keys().enumerate().all(|(other_idx, (other_start, other_end))|
                                 other_end <= start || other_start >= end || idx == other_idx), "Discriminator: branch ranges overlap")?;
                     discriminator.check_wf::<T>(size, variants)?;
                 }
@@ -339,7 +376,7 @@ impl ValueExpr {
                 union_ty
             }
             Variant { discriminant, data, enum_ty } => {
-                let Type::Enum { variants, .. } = enum_ty else { 
+                let Type::Enum { variants, .. } = enum_ty else {
                     throw_ill_formed!("ValueExpr::Variant: invalid type")
                 };
                 enum_ty.check_wf::<T>(prog)?;
@@ -657,7 +694,7 @@ impl Statement {
 
 /// Predicate to indicate if integer bin-op can be used for atomic fetch operations.
 /// Needed for atomic fetch operations.
-/// 
+///
 /// We limit the binops that are allowed to be atomic based on current LLVM and Rust API exposures.
 fn is_atomic_binop(op: IntBinOp) -> bool {
     use IntBinOp as B;
@@ -856,6 +893,7 @@ impl Program {
         // Check vtables: All vtables for the same trait must have all trait methods defined.
         for (_name, vtable) in self.vtables {
             ensure_wf(vtable.size.bytes() % vtable.align.bytes() == 0, "Program: size stored in vtable not a multiple of alignment")?;
+            UnsafeCellStrategy::check_cells(vtable.cells, vtable.size)?;
             let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
                 throw_ill_formed!("Program: vtable for unknown trait");
             };

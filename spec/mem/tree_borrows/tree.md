@@ -22,11 +22,6 @@ impl Protected {
     fn yes(self) -> bool {
         self != Protected::No
     }
-
-    /// Check whether the node is not protected.
-    fn no(self) -> bool {
-        self == Protected::No
-    }
 }
 ```
 
