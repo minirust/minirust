@@ -41,9 +41,9 @@ impl<'tcx> Ctxt<'tcx> {
         let align = translate_align(layout.align.abi);
 
         // See comment in `pointee_info_of` defined in minimize/src/ty.rs for why we sort the ranges.
-        let mut cell_bytes = self.cell_bytes_in_sized_ty(ty, span);
-        cell_bytes.sort_by(|a, b| a.0.cmp(&b.0));
-        let cell_bytes = cell_bytes.into_iter().collect::<List<(Offset, Offset)>>();
+        let mut cells = self.cells_in_sized_ty(ty, span);
+        cells.sort_by_key(|a| a.0);
+        let cells = cells.into_iter().collect::<List<(Offset, Size)>>();
 
         // Get the methods of the principal trait, create a method name wrapping the index in its vtable.
         let methods = if let Some(trait_) = trait_.principal() {
@@ -82,7 +82,7 @@ impl<'tcx> Ctxt<'tcx> {
         };
         let trait_name = self.get_trait_name(trait_obj_ty);
 
-        VTable { trait_name, size, align, cell_bytes, methods }
+        VTable { trait_name, size, align, cells, methods }
     }
 
     /// Returns TraitName for a given trait object. If it does not exist it creates a new one.

@@ -101,6 +101,11 @@ impl Permission {
             (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
         }
     }
+
+    fn init_access(self) -> bool {
+        // Everything except for `Cell` gets an initial access.
+        self != Permission::Cell
+    }
 }
 
 impl Accessed {
@@ -114,18 +119,12 @@ impl Accessed {
 }
 
 impl LocationState {
-    /// Create a location state list:
-    /// all locations share the given permission.
-    fn new_list(permission: Permission, len: Size) -> List<LocationState> {
-        let mut location_states = List::new();
-        for _ in Int::ZERO..len.bytes() {
-            location_states.push(LocationState {
-                accessed: Accessed::No,
-                permission,
-            });
+    /// Create a location state that has not yet been accessed.
+    fn new(permission: Permission) -> LocationState {
+        LocationState {
+            accessed: Accessed::No,
+            permission,
         }
-
-        location_states
     }
 
     fn transition(

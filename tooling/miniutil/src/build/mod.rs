@@ -115,11 +115,11 @@ impl ProgramBuilder {
         trait_name: TraitName,
         size: Size,
         align: Align,
-        cell_bytes: List<(Offset, Offset)>,
+        cells: List<(Offset, Offset)>,
     ) -> VTableBuilder {
         let name = VTableName(Name::from_internal(self.next_vtable));
         self.next_vtable += 1;
-        VTableBuilder::new(trait_name, name, size, align, cell_bytes)
+        VTableBuilder::new(trait_name, name, size, align, cells)
     }
 
     #[track_caller]
@@ -341,7 +341,7 @@ pub struct VTableBuilder {
     name: VTableName,
     size: Size,
     align: Align,
-    cell_bytes: List<(Offset, Offset)>,
+    cells: List<(Offset, Offset)>,
     methods: Map<TraitMethodName, FnName>,
 }
 
@@ -351,9 +351,9 @@ impl VTableBuilder {
         name: VTableName,
         size: Size,
         align: Align,
-        cell_bytes: List<(Offset, Offset)>,
+        cells: List<(Offset, Offset)>,
     ) -> VTableBuilder {
-        VTableBuilder { trait_name, name, size, align, cell_bytes, methods: Map::new() }
+        VTableBuilder { trait_name, name, size, align, cells, methods: Map::new() }
     }
 
     pub fn name(&self) -> VTableName {
@@ -370,7 +370,7 @@ impl VTableBuilder {
             trait_name: self.trait_name,
             size: self.size,
             align: self.align,
-            cell_bytes: self.cell_bytes,
+            cells: self.cells,
             methods: self.methods,
         }
     }

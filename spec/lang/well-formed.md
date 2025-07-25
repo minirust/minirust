@@ -40,8 +40,12 @@ impl LayoutStrategy {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // The align type is always well formed.
         match self {
-            LayoutStrategy::Sized(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?; }
-            LayoutStrategy::Slice(size, _) => { ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?; }
+            LayoutStrategy::Sized(size, _align) => {
+                ensure_wf(T::valid_size(size), "LayoutStrategy: size not valid")?;
+            }
+            LayoutStrategy::Slice(size, _align) => {
+                ensure_wf(T::valid_size(size), "LayoutStrategy: element size not valid")?;
+            }
             LayoutStrategy::TraitObject(trait_name) => {
                 ensure_wf(prog.traits.contains_key(trait_name), "LayoutStrategy: trait name doesn't exist")?;
             }
@@ -74,48 +78,37 @@ impl LayoutStrategy {
 }
 
 impl UnsafeCellStrategy {
-    fn check_wf<T: Target>(self, layout: LayoutStrategy) -> Result<()> {
-        // Ensure that the list containing ranges of non-frozen bytes is sorted
-        // in ascending order and don't contain overlapping ranges.
-        let is_sorted = |list: List<(Offset, Offset)>| { list.iter().is_sorted_by(|a, b| a.0 <= b.0) };
-        let has_overlap = |list: List<(Offset, Offset)> | {
-            let mut last_end = Size::ZERO;
-            for (start, end) in list {
-                if start < last_end {
-                    return true;
-                }
-                last_end = end;
-            }
-            return false;
-        };
-        let greatest_end = |list: List<(Offset, Offset)>| list.last().map(|(_start, end)| end).unwrap_or(Size::ZERO);
+    fn check_cells(cells: List<(Offset, Size)>, size: Size) -> Result<()> {
+        let mut last_end = Size::ZERO;
+        for (start, size) in cells {
+            ensure_wf(start >= last_end, "LayoutStrategy: invalid cells")?;
+            last_end = start + size;
+        }
+        ensure_wf(last_end <= size, "LayoutStrategy: invalid cells")?;
+        ret(())
+    }
 
+    fn check_wf<T: Target>(self, layout: LayoutStrategy) -> Result<()> {
         match (self, layout) {
-            (UnsafeCellStrategy::Sized { bytes }, LayoutStrategy::Sized(size, _)) => {
-                ensure_wf(is_sorted(bytes), "UnsafeCellStrategy::Sized: non-frozen byte ranges not sorted")?;
-                ensure_wf(!has_overlap(bytes), "UnsafeCellStrategy::Sized: non-frozen byte ranges have overlap")?;
-                ensure_wf(greatest_end(bytes) <= size, "UnsafeCellStrategy::Sized non-frozen byte range goes beyond type size")?;
+            (UnsafeCellStrategy::Sized { cells }, LayoutStrategy::Sized(size, _)) => {
+                Self::check_cells(cells, size)?;
             },
-            (UnsafeCellStrategy::Slice { element }, LayoutStrategy::Slice(size, _)) => {
-                ensure_wf(is_sorted(element), "UnsafeCellStrategy::Slice: non-frozen byte ranges not sorted")?;
-                ensure_wf(!has_overlap(element), "UnsafeCellStrategy::Slice: non-frozen byte ranges have overlap")?;
-                ensure_wf(greatest_end(element) <= size, "UnsafeCellStrategy::Slice non-frozen byte range goes beyond type size")?;
+            (UnsafeCellStrategy::Slice { element_cells }, LayoutStrategy::Slice(size, _)) => {
+                Self::check_cells(element_cells, size)?;
             },
-            (UnsafeCellStrategy::TraitObject { .. }, LayoutStrategy::TraitObject(_)) => (),
-            (UnsafeCellStrategy::Tuple { head, tail }, LayoutStrategy::Tuple { head: TupleHeadLayout { end, .. }, tail: layout_tail }) => {
-                ensure_wf(is_sorted(head), "UnsafeCellStrategy::Tuple: non-frozen byte ranges not sorted")?;
-                ensure_wf(!has_overlap(head), "UnsafeCellStrategy::Tuple: non-frozen byte ranges have overlap")?;
-                ensure_wf(greatest_end(head) <= end, "UnsafeCellStrategy::Tuple non-frozen byte range goes beyond type size")?;
-                tail.check_wf::<T>(layout_tail)?;
+            (UnsafeCellStrategy::TraitObject, LayoutStrategy::TraitObject(..)) => {},
+            (UnsafeCellStrategy::Tuple { head_cells, tail_cells }, LayoutStrategy::Tuple { head, tail }) => {
+                Self::check_cells(head_cells, head.end)?;
+                tail_cells.check_wf::<T>(tail)?;
             },
             _ => {
                 ensure_wf(false, "UnsafeCellStrategy and LayoutStrategy variants do not match")?;
             },
         };
-
         ret(())
     }
 }
+
 impl PointeeInfo {
     fn check_wf<T: Target>(self, prog: Program) -> Result<()> {
         // We do *not* require that size is a multiple of align!
@@ -891,6 +884,7 @@ impl Program {
         // Check vtables: All vtables for the same trait must have all trait methods defined.
         for (_name, vtable) in self.vtables {
             ensure_wf(vtable.size.bytes() % vtable.align.bytes() == 0, "Program: size stored in vtable not a multiple of alignment")?;
+            UnsafeCellStrategy::check_cells(vtable.cells, vtable.size)?;
             let Some(trait_methods) = self.traits.get(vtable.trait_name) else {
                 throw_ill_formed!("Program: vtable for unknown trait");
             };

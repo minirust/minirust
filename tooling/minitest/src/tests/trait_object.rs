@@ -441,7 +441,7 @@ fn ill_vtables_wrong_trait() {
             trait_name: trait_name,
             size: Size::ZERO,
             align: Align::ONE,
-            cell_bytes: List::new(),
+            cells: List::new(),
             methods: Map::new(),
         },
     );
@@ -473,7 +473,7 @@ fn ill_vtables_wrong_methods() {
             trait_name: trait_name,
             size: Size::ZERO,
             align: Align::ONE,
-            cell_bytes: List::new(),
+            cells: List::new(),
             methods: Map::new(),
         },
     );

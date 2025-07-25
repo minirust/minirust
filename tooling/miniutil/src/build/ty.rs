@@ -15,13 +15,13 @@ pub fn ref_ty(pointee: PointeeInfo) -> Type {
 /// Create an UnsafeCellStrategy with no UnsafeCell bytes from a LayoutStrategy.
 pub fn from_frozen_layout(layout: LayoutStrategy) -> UnsafeCellStrategy {
     match layout {
-        LayoutStrategy::Sized(..) => UnsafeCellStrategy::Sized { bytes: List::new() },
-        LayoutStrategy::Slice(..) => UnsafeCellStrategy::Slice { element: List::new() },
-        LayoutStrategy::TraitObject(..) => UnsafeCellStrategy::TraitObject { is_freeze: true },
+        LayoutStrategy::Sized(..) => UnsafeCellStrategy::Sized { cells: List::new() },
+        LayoutStrategy::Slice(..) => UnsafeCellStrategy::Slice { element_cells: List::new() },
+        LayoutStrategy::TraitObject(..) => UnsafeCellStrategy::TraitObject,
         LayoutStrategy::Tuple { tail, .. } =>
             UnsafeCellStrategy::Tuple {
-                head: List::new(),
-                tail: GcCow::new(from_frozen_layout(tail.extract())),
+                head_cells: List::new(),
+                tail_cells: GcCow::new(from_frozen_layout(tail.extract())),
             },
     }
 }
@@ -32,7 +32,7 @@ pub fn ref_ty_default_markers_for(ty: Type) -> Type {
     let layout = ty.layout::<DefaultTarget>();
     let unsafe_cells = from_frozen_layout(layout);
 
-    ref_ty(PointeeInfo { layout, inhabited: true, unsafe_cells, unpin: true })
+    ref_ty(PointeeInfo { layout, inhabited: true, unsafe_cells, freeze: true, unpin: true })
 }
 
 pub fn ref_mut_ty(pointee: PointeeInfo) -> Type {
@@ -45,7 +45,7 @@ pub fn ref_mut_ty_default_markers_for(ty: Type) -> Type {
     let layout = ty.layout::<DefaultTarget>();
     let unsafe_cells = from_frozen_layout(layout);
 
-    ref_mut_ty(PointeeInfo { layout, inhabited: true, unsafe_cells, unpin: true })
+    ref_mut_ty(PointeeInfo { layout, inhabited: true, unsafe_cells, freeze: true, unpin: true })
 }
 
 pub fn box_ty(pointee: PointeeInfo) -> Type {
