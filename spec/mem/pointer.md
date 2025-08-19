@@ -106,10 +106,34 @@ pub enum LayoutStrategy {
     },
 }
 
+/// Describes where in a potentially unsized type the UnsafeCell are.
+/// Separate from `LayoutStrategy` since we must be able to compute `LayoutStrategy` from a
+/// MiniRust `Type`, but that does not have enough information for an `UnsafeCellStrategy`.
+/// FIXME: maybe it should?
+pub enum UnsafeCellStrategy {
+    /// List of offsets and sizes of `UnsafeCell`s.
+    Sized { cells: List<(Offset, Size)> },
+    /// Since the elements of a slice have the same type, we only keep track of the
+    /// UnsafeCell's of one element, we can then "repeat" this for the rest of the slice.
+    Slice { element_cells: List<(Offset, Size)> },
+    /// The bytes for UnsafeCell's must be looked up in the VTable.
+    TraitObject,
+    /// A Tuple consists of a sized head an unsized tail.
+    Tuple {
+        head_cells: List<(Offset, Size)>,
+        #[specr::indirection]
+        tail_cells: UnsafeCellStrategy,
+    },
+}
+
 /// Describes what we know about data behind a pointer.
 pub struct PointeeInfo {
     pub layout: LayoutStrategy,
     pub inhabited: bool,
+    /// Indicates where the `UnsafeCell` in this type are, which permit interior mutability.
+    pub unsafe_cells: UnsafeCellStrategy,
+    /// Whether the pointee implements the `Freeze` trait. This is used to determine
+    /// whether the bytes "outside" the pointee have interior mutability.
     pub freeze: bool,
     pub unpin: bool,
 }

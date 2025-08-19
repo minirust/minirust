@@ -169,9 +169,8 @@ impl<M: Memory> Machine<M> {
 
         // Let the aliasing model know.
         let lookup = self.vtable_lookup();
-        let size_computer = move |layout: LayoutStrategy, meta| { layout.compute_size_and_align(meta, &lookup).0 };
         let ptr = self.mutate_cur_frame(|frame, mem| {
-            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, size_computer)
+            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, lookup)
         })?;
         
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))

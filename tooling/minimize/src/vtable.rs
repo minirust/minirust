@@ -3,7 +3,12 @@ use crate::*;
 impl<'tcx> Ctxt<'tcx> {
     /// Gets the vtable name for the given type and trait object or creates it if it doesn't exist yet.
     /// `trait_obj_ty` must be of kind [`rs::TyKind::Dynamic`].
-    pub fn get_vtable(&mut self, ty: rs::Ty<'tcx>, trait_obj_ty: rs::Ty<'tcx>) -> VTableName {
+    pub fn get_vtable(
+        &mut self,
+        ty: rs::Ty<'tcx>,
+        trait_obj_ty: rs::Ty<'tcx>,
+        span: rs::Span,
+    ) -> VTableName {
         let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
             panic!("get_vtable called on non trait object type");
         };
@@ -12,7 +17,7 @@ impl<'tcx> Ctxt<'tcx> {
             *vtable_name
         } else {
             let fresh_name = VTableName(Name::from_internal(self.vtable_map.len() as _));
-            let vtable = self.generate_vtable(ty, trait_obj_ty);
+            let vtable = self.generate_vtable(ty, trait_obj_ty, span);
             self.vtables.insert(fresh_name, vtable);
             self.vtable_map.insert((ty, trait_), fresh_name);
             fresh_name
@@ -20,7 +25,12 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     /// Generates a vtable for the given type and trait object.
-    fn generate_vtable(&mut self, ty: rs::Ty<'tcx>, trait_obj_ty: rs::Ty<'tcx>) -> VTable {
+    fn generate_vtable(
+        &mut self,
+        ty: rs::Ty<'tcx>,
+        trait_obj_ty: rs::Ty<'tcx>,
+        span: rs::Span,
+    ) -> VTable {
         let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
             panic!("generate_vtable called on non trait object type");
         };
@@ -29,6 +39,11 @@ impl<'tcx> Ctxt<'tcx> {
         assert!(layout.is_sized(), "There are no unsized trait objects");
         let size = translate_size(layout.size);
         let align = translate_align(layout.align.abi);
+
+        // See comment in `pointee_info_of` defined in minimize/src/ty.rs for why we sort the ranges.
+        let mut cells = self.cells_in_sized_ty(ty, span);
+        cells.sort_by_key(|a| a.0);
+        let cells = cells.into_iter().collect::<List<(Offset, Size)>>();
 
         // Get the methods of the principal trait, create a method name wrapping the index in its vtable.
         let methods = if let Some(trait_) = trait_.principal() {
@@ -67,7 +82,7 @@ impl<'tcx> Ctxt<'tcx> {
         };
         let trait_name = self.get_trait_name(trait_obj_ty);
 
-        VTable { trait_name, size, align, methods }
+        VTable { trait_name, size, align, cells, methods }
     }
 
     /// Returns TraitName for a given trait object. If it does not exist it creates a new one.

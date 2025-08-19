@@ -1,6 +1,7 @@
 #![feature(never_type)]
 #![feature(decl_macro)]
 #![feature(try_blocks)]
+#![feature(freeze)]
 
 extern crate minirust_rs;
 
@@ -14,6 +15,7 @@ pub use minirust_rs::prelude::NdResult;
 pub use minirust_rs::prelude::*;
 
 pub use std::format;
+pub use std::marker::Freeze;
 pub use std::result::Result;
 pub use std::string::String;
 

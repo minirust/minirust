@@ -96,11 +96,17 @@ impl ProgramBuilder {
         name
     }
 
-    pub fn declare_vtable_for_ty(&mut self, trait_name: TraitName, ty: Type) -> VTableBuilder {
+    /// Only for frozen types.
+    pub fn declare_vtable_for_frozen_ty(
+        &mut self,
+        trait_name: TraitName,
+        ty: Type,
+    ) -> VTableBuilder {
         self.declare_vtable(
             trait_name,
             ty.layout::<DefaultTarget>().expect_size("only sized types can be trait objects"),
             ty.layout::<DefaultTarget>().expect_align("only sized types can be trait objects"),
+            List::new(),
         )
     }
 
@@ -109,10 +115,11 @@ impl ProgramBuilder {
         trait_name: TraitName,
         size: Size,
         align: Align,
+        cells: List<(Offset, Offset)>,
     ) -> VTableBuilder {
         let name = VTableName(Name::from_internal(self.next_vtable));
         self.next_vtable += 1;
-        VTableBuilder::new(trait_name, name, size, align)
+        VTableBuilder::new(trait_name, name, size, align, cells)
     }
 
     #[track_caller]
@@ -238,7 +245,7 @@ impl FunctionBuilder {
         name
     }
 
-    pub fn declare_local<T: TypeConv>(&mut self) -> PlaceExpr {
+    pub fn declare_local<T: TypeConv + Freeze>(&mut self) -> PlaceExpr {
         let name = self.fresh_local_name();
         self.locals.try_insert(name, T::get_type()).unwrap();
         local_by_name(name)
@@ -334,12 +341,19 @@ pub struct VTableBuilder {
     name: VTableName,
     size: Size,
     align: Align,
+    cells: List<(Offset, Offset)>,
     methods: Map<TraitMethodName, FnName>,
 }
 
 impl VTableBuilder {
-    fn new(trait_name: TraitName, name: VTableName, size: Size, align: Align) -> VTableBuilder {
-        VTableBuilder { trait_name, name, size, align, methods: Map::new() }
+    fn new(
+        trait_name: TraitName,
+        name: VTableName,
+        size: Size,
+        align: Align,
+        cells: List<(Offset, Offset)>,
+    ) -> VTableBuilder {
+        VTableBuilder { trait_name, name, size, align, cells, methods: Map::new() }
     }
 
     pub fn name(&self) -> VTableName {
@@ -356,6 +370,7 @@ impl VTableBuilder {
             trait_name: self.trait_name,
             size: self.size,
             align: self.align,
+            cells: self.cells,
             methods: self.methods,
         }
     }

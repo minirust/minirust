@@ -45,7 +45,7 @@ fn unsized_tail() {
         p.finish_function(f)
     };
 
-    let mut usize_bar_vtable = p.declare_vtable_for_ty(trait_bar, <usize>::get_type());
+    let mut usize_bar_vtable = p.declare_vtable_for_frozen_ty(trait_bar, <usize>::get_type());
     usize_bar_vtable.add_method(method_bar_get, impl_bar_get_for_usize);
     let usize_bar_vtable = p.finish_vtable(usize_bar_vtable);
 
@@ -146,7 +146,7 @@ fn packed_tail() {
     let trait_send = prog.finish_trait(trait_send);
     let trait_obj_send_ty = trait_object_ty(trait_send);
 
-    let usize_send_vtable = prog.declare_vtable_for_ty(trait_send, <usize>::get_type());
+    let usize_send_vtable = prog.declare_vtable_for_frozen_ty(trait_send, <usize>::get_type());
     let usize_send_vtable = prog.finish_vtable(usize_send_vtable);
 
     // type `#packed(2) (u8, usize)`

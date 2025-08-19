@@ -73,22 +73,32 @@ impl TypeConv for bool {
     }
 }
 
-impl<T: TypeConv + ?Sized> TypeConv for &T {
+// The Freeze constraint is needed to justify the `from_frozen_layout` below.
+impl<T: TypeConv + ?Sized + Freeze> TypeConv for &T {
     fn get_type() -> Type {
+        assert!(T::FREEZE);
+        let layout = T::get_layout();
+        let unsafe_cells = from_frozen_layout(layout);
+
         ref_ty(PointeeInfo {
-            layout: T::get_layout(),
+            layout,
             inhabited: true,
+            unsafe_cells,
             freeze: T::FREEZE,
             unpin: T::UNPIN,
         })
     }
 }
 
-impl<T: TypeConv + ?Sized> TypeConv for &mut T {
+impl<T: TypeConv + ?Sized + Freeze> TypeConv for &mut T {
     fn get_type() -> Type {
+        let layout = T::get_layout();
+        let unsafe_cells = from_frozen_layout(layout);
+
         ref_mut_ty(PointeeInfo {
-            layout: T::get_layout(),
+            layout,
             inhabited: true,
+            unsafe_cells,
             freeze: T::FREEZE,
             unpin: T::UNPIN,
         })
