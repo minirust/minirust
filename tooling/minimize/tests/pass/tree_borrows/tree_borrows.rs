@@ -31,6 +31,7 @@ fn main() {
     write_does_not_invalidate_all_aliases();
     array_overlapping_read_read();
     not_unpin_not_protected();
+    zst();
 }
 
 
@@ -292,4 +293,24 @@ fn not_unpin_not_protected() {
     unsafe { *ptr = NotUnpin(0, PhantomPinned) };
 
     f(unsafe { &mut *ptr });
+}
+
+fn zst() {
+    unsafe {
+        // Integer pointer.
+        let ptr = ptr::without_provenance_mut::<()>(15);
+        let _ref = &mut *ptr;
+
+        // Out-of-bounds pointer.
+        let mut b = 0u8;
+        let ptr = (&raw mut b).wrapping_add(15) as *mut ();
+        let _ref = &mut *ptr;
+
+        // Deallocated pointer.
+        let ptr = {
+            let mut b = 0u8;
+            &raw mut b as *mut ()
+        };
+        let _ref = &mut *ptr;
+    }
 }
