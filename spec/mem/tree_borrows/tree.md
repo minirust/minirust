@@ -238,6 +238,7 @@ impl Node {
     ///
     /// Return true if there is a strongly protected node.
     fn contains_strong_protector(&self) -> bool {
+        // FIXME: probably needs adjustment to ignore `Cell` nodes.
         self.protected == Protected::Strong || self.children.any(|child| child.contains_strong_protector())
     }
 }
