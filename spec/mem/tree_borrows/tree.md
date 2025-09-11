@@ -235,11 +235,21 @@ impl Node {
 
     /// Recusively check whether there is a strongly protected node in `self` and all its descendants.
     /// This is used to reject deallocation as long as there's a strong protector anywhere.
+    /// Note that not all strongly protected nodes prevent deallocation. Specifically, if all offsets in
+    /// the allocation fulfill the following property, the strong protector is not considered:
+    /// * the offset has `Cell` permission, i.e. is interior mutable.
+    /// * the offset was not accessed yet, i.e. the protector is not active at this offset.
     ///
-    /// Return true if there is a strongly protected node.
-    fn contains_strong_protector(&self) -> bool {
-        // FIXME: probably needs adjustment to ignore `Cell` nodes.
-        self.protected == Protected::Strong || self.children.any(|child| child.contains_strong_protector())
+    /// Return true if there is a strongly protected node preventing deallocation.
+    fn contains_strong_protector_preventing_deallocation(&self) -> bool {
+        // This node must have a protector...
+        (self.protected == Protected::Strong
+            // which is applicable to at least one offset.
+            && self
+                .location_states
+                .any(|st| st.permission != Permission::Cell && st.accessed == Accessed::Yes))
+            // if this node has has no such protector, we recurse.
+            || self.children.any(|child| child.contains_strong_protector_preventing_deallocation())
     }
 }
 ```

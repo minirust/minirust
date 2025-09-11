@@ -139,15 +139,14 @@ impl<T: Target> TreeBorrowsMemory<T> {
         let (alloc_id, path) = provenance;
         self.mem.allocations.mutate_at(alloc_id.0, |allocation| {
             let protected_node = allocation.extra.root.get_node(path);
+            assert_ne!(protected_node.protected, Protected::No);
 
             if !allocation.live {
-                match protected_node.protected {
-                    Protected::Weak => return ret(()),
-                    Protected::Strong =>
-                        panic!("TreeBorrowsMemory::release_protector: strongly protected allocations can't be dead"),
-                    Protected::No =>
-                        panic!("TreeBorrowsMemory::release_protector: no protector"),
-                }
+                // Looks like the protected memory got deallocated anyways. This is fine,
+                // and expected for weak allocations. For strong allocations, this can only
+                // happen if the protector was zero-sized or entirely on interior mutable
+                // data, but nonetheless it can happen.
+                return ret(());
             }
 
             allocation.extra.root.release_protector(Some(path), &protected_node.location_states)
@@ -189,9 +188,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             extra.root.access(Some(path), AccessKind::Write, Offset::ZERO, size)?;
 
             // Check that allocation is not strongly protected.
-            // TODO: This makes it UB to deallocate memory even if the strong protector covers 0 bytes!
-            // That's different from SB, and we might want to change it in the future.
-            if extra.root.contains_strong_protector() {
+            if extra.root.contains_strong_protector_preventing_deallocation() {
                 throw_ub!("Tree Borrows: deallocating strongly protected allocation")
             }
 
