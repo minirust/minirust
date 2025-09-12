@@ -210,6 +210,9 @@ impl Node {
             // a foreign read/write of an Unique location should be UB.
             // This condition is hence equivalent to checking whether there was a (local) write to this location.
             let access_kind = match permission {
+                // As a special case, we do not perform any access on interior mutable data,
+                // because the protector does not really apply there.
+                Permission::Cell => continue,
                 Permission::Unique => AccessKind::Write,
                 _ => AccessKind::Read,
             };
