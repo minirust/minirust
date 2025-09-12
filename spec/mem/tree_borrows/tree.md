@@ -240,7 +240,7 @@ impl Node {
     /// This is used to reject deallocation as long as there's a strong protector anywhere.
     /// Note that not all strongly protected nodes prevent deallocation. Specifically, if all offsets in
     /// the allocation fulfill the following property, the strong protector is not considered:
-    /// * the offset has `Cell` permission, i.e. is interior mutable.
+    /// * the offset has `Cell` permission, i.e. is interior mutable, or
     /// * the offset was not accessed yet, i.e. the protector is not active at this offset.
     ///
     /// Return true if there is a strongly protected node preventing deallocation.

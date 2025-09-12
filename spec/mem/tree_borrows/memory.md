@@ -142,7 +142,7 @@ impl<T: Target> TreeBorrowsMemory<T> {
             assert_ne!(protected_node.protected, Protected::No);
 
             if !allocation.live {
-                // Looks like the protected memory got deallocated anyways. This is fine,
+                // Looks like the protected memory got deallocated already. This is fine,
                 // and expected for weak allocations. For strong allocations, this can only
                 // happen if the protector was zero-sized or entirely on interior mutable
                 // data, but nonetheless it can happen.
