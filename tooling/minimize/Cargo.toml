@@ -9,8 +9,11 @@ rustc_private = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+directories = "6.0.0"
 minirust-rs = { path = "../minirust-rs" }
 miniutil = { path = "../miniutil"}
+rustc-build-sysroot = "0.5.11"
+rustc_version = "0.4.1"
 
 [dev-dependencies]
 ui_test = "0.24"
