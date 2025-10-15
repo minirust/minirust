@@ -25,11 +25,7 @@ COMMAND="$1"
 shift
 case "$COMMAND" in
     test)
-        #Tests will not pass if the sysroot builder prints anything after the custom sysroot is build
-        export MINIRUST_SYSROOT_QUIET=1
 
-        # UI related tests fail with the custom sysroot due to 
-        export MINIRUST_SKIP_CUSTOM_SYSROOT=1
         cargo test --manifest-path=tooling/miniutil/Cargo.toml $CARGOFLAGS "$@"
         cargo test --manifest-path=tooling/minitest/Cargo.toml $CARGOFLAGS "$@"
         cargo test --manifest-path=tooling/minimize/Cargo.toml $CARGOFLAGS "$@"

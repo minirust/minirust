@@ -67,17 +67,13 @@ pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 
 // for our custom sysroot
-use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig, SysrootStatus};
+use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
 // Get back some `std` items
 pub use std::format;
 use std::path::PathBuf;
 use std::process::Command;
-use std::env;
 use std::ffi::OsStr;
-use std::io;
-use std::io::Write;
-use std::ops::Not;
 pub use std::string::String;
 
 mod program;
@@ -130,31 +126,6 @@ macro_rules! show_error {
     ($($tt:tt)*) => { crate::show_error(&format_args!($($tt)*)) };
 }
 
-pub fn ask_to_run(mut cmd: Command, ask: bool, text: &str) {
-    // Disable interactive prompts in CI (GitHub Actions, Travis, AppVeyor, etc).
-    // Azure doesn't set `CI` though (nothing to see here, just Microsoft being Microsoft),
-    // so we also check their `TF_BUILD`.
-    let is_ci = env::var_os("CI").is_some() || env::var_os("TF_BUILD").is_some();
-    if ask && !is_ci {
-        let mut buf = String::new();
-        print!("I will run `{cmd:?}` to {text}. Proceed? [Y/n] ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut buf).unwrap();
-        match buf.trim().to_lowercase().as_ref() {
-            // Proceed.
-            "" | "y" | "yes" => {}
-            "n" | "no" => show_error!("aborting as per your request"),
-            a => show_error!("invalid answer `{}`", a),
-        };
-    } else {
-        eprintln!("Running `{cmd:?}` to {text}.");
-    }
-
-    if cmd.status().unwrap_or_else(|_| panic!("failed to execute {cmd:?}")).success().not() {
-        show_error!("failed to {}", text);
-    }
-}
-
 pub fn get_sysroot_dir() -> PathBuf {
     match std::env::var_os("MINIRUST_SYSROOT") {
         Some(dir) => PathBuf::from(dir),
@@ -184,21 +155,7 @@ fn setup_sysroot() -> PathBuf {
             let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
                 .expect("could not determine sysroot source directory");
             if !rustup_src.exists() {
-                // Ask the user to install the `rust-src` component, and use that.
-                let mut cmd = Command::new("rustup");
-                cmd.args(["component", "add", "rust-src"]);
-                ask_to_run(
-                    cmd,
-                    true,
-                    "install the `rust-src` component for the selected toolchain",
-                );
-                // After installation, try to compute the path again
-                let rustup_src2 = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
-                    .expect("could not determine sysroot source directory after installing rust-src");
-                if !rustup_src2.exists() {
-                    show_error!("`rust-src` still not found after installation");
-                }
-                rustup_src2
+                show_error!("`rust-src` not found");
             }
             else {
                 rustup_src
@@ -231,49 +188,19 @@ fn setup_sysroot() -> PathBuf {
         .or_else(|| std::env::var("CARGO_BUILD_TARGET").ok())
         .unwrap_or_else(|| rustc_version::version_meta().expect("rustc").host);
 
-    // Sysroot configuration and build details.
-    let no_std = match std::env::var_os("MINIRUST_NO_STD") {
-        None =>
-        // No-std heuristic taken from rust/src/bootstrap/config.rs
-        // (https://github.com/rust-lang/rust/blob/25b5af1b3a0b9e2c0c57b223b2d0e3e203869b2c/src/bootstrap/config.rs#L549-L555).
-            target.contains("-none")
-                || target.contains("nvptx")
-                || target.contains("switch")
-                || target.contains("-uefi"),
-        Some(val) => val != "0",
-    };
 
-    let sysroot_config = if no_std {
-        SysrootConfig::NoStd
-    } else {
-        SysrootConfig::WithStd {
+    let sysroot_config = SysrootConfig::WithStd {
             std_features: ["panic_unwind", "backtrace"].into_iter().map(Into::into).collect(),
-        }
-    };
+        };
 
-    let quiet = std::env::var_os("MINIRUST_SYSROOT_QUIET").is_some();
 
     // Do the build.
-    let status = SysrootBuilder::new(&sysroot_dir, &target)
+    SysrootBuilder::new(&sysroot_dir, &target)
         .build_mode(BuildMode::Check)
         .sysroot_config(sysroot_config)
         .rustflags(DEFAULT_ARGS)
-        .when_build_required(|| if !quiet {eprintln!("minirust: building custom sysroot…")})
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
-    
-    if !quiet{
-        match status {
-            SysrootStatus::AlreadyCached => {
-                eprintln!("A sysroot for MiniRust is already available in `{}`.", sysroot_dir.display());
-            }
-            SysrootStatus::SysrootBuilt => {
-                eprintln!("minirust: sysroot ready at {}", sysroot_dir.display());
-            }
-        }
-    
-    }
-
 
     sysroot_dir
 
@@ -284,14 +211,8 @@ fn main() {
     let (minimize_args, mut rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
-    let in_ui_test = std::env::var_os("MINIRUST_SKIP_CUSTOM_SYSROOT").is_some();
-
-    if !in_ui_test {
-        let sysroot = setup_sysroot();
-
-         // Compile against the custom sysroot
-        rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
-    }
+    let sysroot = setup_sysroot();
+    rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
 
     get_mini(rustc_args, |_tcx, prog| {
         if dump {
