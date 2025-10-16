@@ -138,20 +138,10 @@ pub fn get_sysroot_dir() -> PathBuf {
 
 fn setup_sysroot() -> PathBuf {
 
-    if let Some(sysroot) = std::env::var_os("MINIRUST_SYSROOT") {
-        return sysroot.into();
-    }
-
-    // Determine where the rust sources are located.  The env var trumps auto-detection.
-    let rust_src_env_var = std::env::var_os("MINIRUST_LIB_SRC");
-    let rust_src = match rust_src_env_var {
-        Some(path) => {
-            let path = PathBuf::from(path);
-            // Make path absolute if possible.
-            path.canonicalize().unwrap_or(path)
-        }
-        None => {
-            // Check for `rust-src` rustup component.
+    // Determine where the rust sources are located. 
+    let rust_src = 
+    {
+        // Check for `rust-src` rustup component.
             let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
                 .expect("could not determine sysroot source directory");
             if !rustup_src.exists() {
@@ -160,7 +150,6 @@ fn setup_sysroot() -> PathBuf {
             else {
                 rustup_src
             }
-        }
     };
     if !rust_src.exists() {
         show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
@@ -189,19 +178,22 @@ fn setup_sysroot() -> PathBuf {
         .unwrap_or_else(|| rustc_version::version_meta().expect("rustc").host);
 
 
-    let sysroot_config = SysrootConfig::WithStd {
+     let sysroot_config = SysrootConfig::WithStd {
             std_features: ["panic_unwind", "backtrace"].into_iter().map(Into::into).collect(),
-        };
+        }; 
 
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)
-        .build_mode(BuildMode::Check)
+        .build_mode(BuildMode::Build)
         .sysroot_config(sysroot_config)
-        .rustflags(DEFAULT_ARGS)
+        .rustflags(&[
+            "-Zalways-encode-mir",
+            "-Zmir-opt-level=0"
+        ])
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
-
+    
     sysroot_dir
 
 }

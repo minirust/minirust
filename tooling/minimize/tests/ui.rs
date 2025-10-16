@@ -12,9 +12,23 @@ enum Mode {
     Panic,
 }
 
+pub fn get_sysroot_dir() -> PathBuf {
+    match std::env::var_os("MINIRUST_SYSROOT") {
+        Some(dir) => PathBuf::from(dir),
+        None => {
+            let user_dirs = directories::ProjectDirs::from("org", "rust-lang", "minirust").unwrap();
+            user_dirs.cache_dir().to_owned()
+        }
+    }
+}
+
 fn cfg(path: &str, mode: Mode) -> Config {
     let mut program = CommandBuilder::rustc();
     program.program = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
+
+    let sysroot_dir = get_sysroot_dir(); 
+
+
     let mut config = Config {
         program,
         out_dir: PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("ui"),
@@ -28,12 +42,27 @@ fn cfg(path: &str, mode: Mode) -> Config {
     let require_annotations = false; // we're not showing errors in a specifc line anyway
     config.comment_defaults.base().exit_status = Spanned::dummy(exit_status).into();
     config.comment_defaults.base().require_annotations = Spanned::dummy(require_annotations).into();
+
+    let rustflags = format!(
+        "--sysroot={} -Zalways-encode-mir -Zmir-opt-level=0",
+        sysroot_dir.display(),
+    );
+
+    let mut dependency_program = CommandBuilder::cargo();
+
+    dependency_program.envs.push((
+        std::ffi::OsString::from("RUSTFLAGS"),
+        Some(std::ffi::OsString::from(rustflags)),
+    ));
+
+
     // To let tests use dependencies, we have to add a `DependencyBuilder`
     // custom "comment" (with arbitrary name), which will then take care
     // of building the dependencies and making them available in the test.
     config.comment_defaults.base().set_custom(
         "dependencies",
         DependencyBuilder {
+            program:dependency_program,
             crate_manifest_path: "./tests/deps/Cargo.toml".into(),
             ..Default::default()
         },
