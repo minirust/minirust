@@ -44,7 +44,7 @@ fn cfg(path: &str, mode: Mode) -> Config {
     config.comment_defaults.base().require_annotations = Spanned::dummy(require_annotations).into();
 
     let rustflags = format!(
-        "--sysroot={} -Zalways-encode-mir -Zmir-opt-level=0",
+        "--sysroot={} -Zalways-encode-mir -Zmir-opt-level=0 --cfg=miri",
         sysroot_dir.display(),
     );
 
@@ -54,6 +54,9 @@ fn cfg(path: &str, mode: Mode) -> Config {
         std::ffi::OsString::from("RUSTFLAGS"),
         Some(std::ffi::OsString::from(rustflags)),
     ));
+
+    dependency_program.args.remove(0);
+    dependency_program.args.insert(0, "check".into());
 
 
     // To let tests use dependencies, we have to add a `DependencyBuilder`

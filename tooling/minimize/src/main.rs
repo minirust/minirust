@@ -179,21 +179,19 @@ fn setup_sysroot() -> PathBuf {
 
 
      let sysroot_config = SysrootConfig::WithStd {
-            std_features: ["panic_unwind", "backtrace"].into_iter().map(Into::into).collect(),
+            std_features: ["panic-unwind", "backtrace"].into_iter().map(Into::into).collect(),
         }; 
 
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)
-        .build_mode(BuildMode::Build)
+        .build_mode(BuildMode::Check)
         .sysroot_config(sysroot_config)
-        .rustflags(&[
-            "-Zalways-encode-mir",
-            "-Zmir-opt-level=0"
-        ])
+        // NOTE: Eventually want --cfg=miri
+        .rustflags(DEFAULT_ARGS)
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
-    
+            
     sysroot_dir
 
 }
