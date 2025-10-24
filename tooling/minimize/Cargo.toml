@@ -10,6 +10,7 @@ rustc_private = true
 
 [dependencies]
 directories = "6.0.0"
+fluent-bundle = "0.16.0"
 minirust-rs = { path = "../minirust-rs" }
 miniutil = { path = "../miniutil"}
 rustc-build-sysroot = "0.5.11"

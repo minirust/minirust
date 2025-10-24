@@ -12,22 +12,10 @@ enum Mode {
     Panic,
 }
 
-pub fn get_sysroot_dir() -> PathBuf {
-    match std::env::var_os("MINIRUST_SYSROOT") {
-        Some(dir) => PathBuf::from(dir),
-        None => {
-            let user_dirs = directories::ProjectDirs::from("org", "rust-lang", "minirust").unwrap();
-            user_dirs.cache_dir().to_owned()
-        }
-    }
-}
 
 fn cfg(path: &str, mode: Mode) -> Config {
     let mut program = CommandBuilder::rustc();
     program.program = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
-
-    let sysroot_dir = get_sysroot_dir(); 
-
 
     let mut config = Config {
         program,
@@ -43,20 +31,17 @@ fn cfg(path: &str, mode: Mode) -> Config {
     config.comment_defaults.base().exit_status = Spanned::dummy(exit_status).into();
     config.comment_defaults.base().require_annotations = Spanned::dummy(require_annotations).into();
 
-    let rustflags = format!(
-        "--sysroot={} -Zalways-encode-mir -Zmir-opt-level=0 --cfg=miri",
-        sysroot_dir.display(),
-    );
-
     let mut dependency_program = CommandBuilder::cargo();
-
-    dependency_program.envs.push((
-        std::ffi::OsString::from("RUSTFLAGS"),
-        Some(std::ffi::OsString::from(rustflags)),
-    ));
 
     dependency_program.args.remove(0);
     dependency_program.args.insert(0, "check".into());
+
+    // Get the minimize binary to point at as the rustc
+    let minimize_exe = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
+
+    dependency_program.envs.push(("RUSTC".into(), Some(minimize_exe.into())));
+    dependency_program.envs.push(("MINIMIZE_BE_RUSTC".into(), Some("1".into())));
+    dependency_program.envs.push(("MINIMIZE_BUILD_DEPS".into(), Some("1".into())));
 
 
     // To let tests use dependencies, we have to add a `DependencyBuilder`

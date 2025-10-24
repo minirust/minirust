@@ -39,6 +39,7 @@ mod rs {
     pub type CompileTimeInterpCx<'tcx> =
         InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
 }
+
 // Traits
 pub use rustc_abi::HasDataLayout as _;
 pub use rustc_middle::ty::layout::IntegerExt as _;
@@ -75,6 +76,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::ffi::OsStr;
 pub use std::string::String;
+use std::ffi::OsString;
+use std::env;
 
 mod program;
 use program::*;
@@ -103,6 +106,7 @@ mod vtable;
 
 use std::collections::HashMap;
 use std::env::Args;
+
 
 pub const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -136,7 +140,73 @@ pub fn get_sysroot_dir() -> PathBuf {
     }
 }
 
+fn be_rustc(){
+
+    // Get the rest of the command line arguments
+    let mut args: Vec<OsString> = env::args_os().skip(1).collect();
+
+    
+
+    let use_panic_abort = {
+        let mut yes = false;
+        let mut it = args.iter();
+        while let Some(a) = it.next() {
+            if let Some(s) = a.to_str() {
+                if s == "--crate-name" {
+                    if let Some(next) = it.next().and_then(|o| o.to_str()) {
+                        if next == "panic_abort" { yes = true; break; }
+                    }
+                }
+            }
+        }
+        yes
+    };
+
+    // Inject the Rust flags 
+    for arg in DEFAULT_ARGS{
+        args.push(arg.into());
+    }
+
+    // If we are building dependencies, inject the sysroot flag
+    if std::env::var_os("MINIMIZE_BUILD_DEPS").is_some()
+    {
+        let sysroot_dir = setup_sysroot(); 
+        args.push(format!("--sysroot={}", sysroot_dir.display()).into());
+    }
+
+    args.push("-C".into());
+    
+    if use_panic_abort {
+        args.push("panic=abort".into());
+    }
+    else {
+        args.push("panic=unwind".into());
+    }
+    
+
+    // Invoke the rust compiler
+    let status = Command::new("rustc")
+    .args(args)
+    .env_remove("RUSTC")
+    .env_remove("MINIMIZE_BE_RUSTC")
+    .env_remove("MINIMIZE_BUILD_DEPS")
+    .status()
+    .expect("failed to invoke rustc in custom sysroot build");
+
+    std::process::exit(status.code().unwrap_or(1));
+
+
+}
+
 fn setup_sysroot() -> PathBuf {
+
+    // Determine where to put the sysroot.
+    let sysroot_dir = get_sysroot_dir();
+    let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
+
+    if sysroot_dir.join("lib").exists() {
+        return sysroot_dir;
+    }
 
     // Determine where the rust sources are located. 
     let rust_src = 
@@ -162,10 +232,6 @@ fn setup_sysroot() -> PathBuf {
         );
     }
 
-    // Determine where to put the sysroot.
-    let sysroot_dir = get_sysroot_dir();
-    let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
-
     // Final check to make sure the directory creation was actually a success 
     std::fs::create_dir_all(&sysroot_dir)
         .unwrap_or_else(|e| show_error!("create sysroot dir: {e}"));
@@ -180,15 +246,22 @@ fn setup_sysroot() -> PathBuf {
 
      let sysroot_config = SysrootConfig::WithStd {
             std_features: ["panic-unwind", "backtrace"].into_iter().map(Into::into).collect(),
-        }; 
+        };
+    
+    // Get this binary to point at as the rustc
+    let this_exe = std::env::current_exe().expect("current_exe - minimize binary not found"); 
+    std::env::set_var("RUSTC", &this_exe);
 
+    // When we run next, we want to simulate rustc
+    std::env::set_var("MINIMIZE_BE_RUSTC", "1");
+
+    // We are building the sysroot, not builing dependancies in the sysroot 
+    std::env::remove_var("MINIMIZE_BUILD_DEPS");
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)
         .build_mode(BuildMode::Check)
         .sysroot_config(sysroot_config)
-        // NOTE: Eventually want --cfg=miri
-        .rustflags(DEFAULT_ARGS)
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
             
@@ -197,6 +270,10 @@ fn setup_sysroot() -> PathBuf {
 }
 
 fn main() {
+
+    if(std::env::var_os("MINIMIZE_BE_RUSTC")).is_some(){
+        be_rustc();
+    }
 
     let (minimize_args, mut rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
