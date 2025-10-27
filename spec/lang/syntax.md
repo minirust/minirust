@@ -163,9 +163,9 @@ pub enum IntBinOp {
     /// Shift left `<<`
     /// Throws UB if right operand not in range 0..left::BITS.
     ShlUnchecked,
-    /// Shift right `>>` (arithmetic shift for unsigned integers, logical shift for signed integers)
+    /// Shift right `>>` (logical shift for unsigned integers, arithmetic shift for signed integers)
     Shr,
-    /// Shift right `>>` (arithmetic shift for unsigned integers, logical shift for signed integers)
+    /// Shift right `>>` (logical shift for unsigned integers, arithmetic shift for signed integers)
     /// Throws UB if right operand not in range 0..left::BITS.
     ShrUnchecked,
     /// Bitwise-and two integer values.
