@@ -71,13 +71,13 @@ pub use miniutil::run::*;
 use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
 // Get back some `std` items
+use std::env;
+use std::ffi::OsStr;
+use std::ffi::OsString;
 pub use std::format;
 use std::path::PathBuf;
 use std::process::Command;
-use std::ffi::OsStr;
 pub use std::string::String;
-use std::ffi::OsString;
-use std::env;
 
 mod program;
 use program::*;
@@ -106,7 +106,6 @@ mod vtable;
 
 use std::collections::HashMap;
 use std::env::Args;
-
 
 pub const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -140,12 +139,9 @@ pub fn get_sysroot_dir() -> PathBuf {
     }
 }
 
-fn be_rustc(){
-
+fn be_rustc() {
     // Get the rest of the command line arguments
     let mut args: Vec<OsString> = env::args_os().skip(1).collect();
-
-    
 
     let use_panic_abort = {
         let mut yes = false;
@@ -154,7 +150,10 @@ fn be_rustc(){
             if let Some(s) = a.to_str() {
                 if s == "--crate-name" {
                     if let Some(next) = it.next().and_then(|o| o.to_str()) {
-                        if next == "panic_abort" { yes = true; break; }
+                        if next == "panic_abort" {
+                            yes = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -162,44 +161,38 @@ fn be_rustc(){
         yes
     };
 
-    // Inject the Rust flags 
-    for arg in DEFAULT_ARGS{
+    // Inject the Rust flags
+    for arg in DEFAULT_ARGS {
         args.push(arg.into());
     }
 
     // If we are building dependencies, inject the sysroot flag
-    if std::env::var_os("MINIMIZE_BUILD_DEPS").is_some()
-    {
-        let sysroot_dir = setup_sysroot(); 
+    if std::env::var_os("MINIMIZE_BUILD_DEPS").is_some() {
+        let sysroot_dir = setup_sysroot();
         args.push(format!("--sysroot={}", sysroot_dir.display()).into());
     }
 
     args.push("-C".into());
-    
+
     if use_panic_abort {
         args.push("panic=abort".into());
-    }
-    else {
+    } else {
         args.push("panic=unwind".into());
     }
-    
 
     // Invoke the rust compiler
     let status = Command::new("rustc")
-    .args(args)
-    .env_remove("RUSTC")
-    .env_remove("MINIMIZE_BE_RUSTC")
-    .env_remove("MINIMIZE_BUILD_DEPS")
-    .status()
-    .expect("failed to invoke rustc in custom sysroot build");
+        .args(args)
+        .env_remove("RUSTC")
+        .env_remove("MINIMIZE_BE_RUSTC")
+        .env_remove("MINIMIZE_BUILD_DEPS")
+        .status()
+        .expect("failed to invoke rustc in custom sysroot build");
 
     std::process::exit(status.code().unwrap_or(1));
-
-
 }
 
 fn setup_sysroot() -> PathBuf {
-
     // Determine where to put the sysroot.
     let sysroot_dir = get_sysroot_dir();
     let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
@@ -208,18 +201,16 @@ fn setup_sysroot() -> PathBuf {
         return sysroot_dir;
     }
 
-    // Determine where the rust sources are located. 
-    let rust_src = 
-    {
+    // Determine where the rust sources are located.
+    let rust_src = {
         // Check for `rust-src` rustup component.
-            let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
-                .expect("could not determine sysroot source directory");
-            if !rustup_src.exists() {
-                show_error!("`rust-src` not found");
-            }
-            else {
-                rustup_src
-            }
+        let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
+            .expect("could not determine sysroot source directory");
+        if !rustup_src.exists() {
+            show_error!("`rust-src` not found");
+        } else {
+            rustup_src
+        }
     };
     if !rust_src.exists() {
         show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
@@ -232,30 +223,30 @@ fn setup_sysroot() -> PathBuf {
         );
     }
 
-    // Final check to make sure the directory creation was actually a success 
+    // Final check to make sure the directory creation was actually a success
     std::fs::create_dir_all(&sysroot_dir)
         .unwrap_or_else(|e| show_error!("create sysroot dir: {e}"));
 
     let mut it = std::env::args();
-    let target = it.by_ref()
+    let target = it
+        .by_ref()
         .position(|a| a == "--target")
         .and_then(|_| it.next())
         .or_else(|| std::env::var("CARGO_BUILD_TARGET").ok())
         .unwrap_or_else(|| rustc_version::version_meta().expect("rustc").host);
 
+    let sysroot_config = SysrootConfig::WithStd {
+        std_features: ["panic-unwind", "backtrace"].into_iter().map(Into::into).collect(),
+    };
 
-     let sysroot_config = SysrootConfig::WithStd {
-            std_features: ["panic-unwind", "backtrace"].into_iter().map(Into::into).collect(),
-        };
-    
     // Get this binary to point at as the rustc
-    let this_exe = std::env::current_exe().expect("current_exe - minimize binary not found"); 
+    let this_exe = std::env::current_exe().expect("current_exe - minimize binary not found");
     std::env::set_var("RUSTC", &this_exe);
 
     // When we run next, we want to simulate rustc
     std::env::set_var("MINIMIZE_BE_RUSTC", "1");
 
-    // We are building the sysroot, not builing dependancies in the sysroot 
+    // We are building the sysroot, not builing dependancies in the sysroot
     std::env::remove_var("MINIMIZE_BUILD_DEPS");
 
     // Do the build.
@@ -264,14 +255,12 @@ fn setup_sysroot() -> PathBuf {
         .sysroot_config(sysroot_config)
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
-            
-    sysroot_dir
 
+    sysroot_dir
 }
 
 fn main() {
-
-    if(std::env::var_os("MINIMIZE_BE_RUSTC")).is_some(){
+    if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         be_rustc();
     }
 

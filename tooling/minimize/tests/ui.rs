@@ -12,7 +12,6 @@ enum Mode {
     Panic,
 }
 
-
 fn cfg(path: &str, mode: Mode) -> Config {
     let mut program = CommandBuilder::rustc();
     program.program = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
@@ -43,14 +42,13 @@ fn cfg(path: &str, mode: Mode) -> Config {
     dependency_program.envs.push(("MINIMIZE_BE_RUSTC".into(), Some("1".into())));
     dependency_program.envs.push(("MINIMIZE_BUILD_DEPS".into(), Some("1".into())));
 
-
     // To let tests use dependencies, we have to add a `DependencyBuilder`
     // custom "comment" (with arbitrary name), which will then take care
     // of building the dependencies and making them available in the test.
     config.comment_defaults.base().set_custom(
         "dependencies",
         DependencyBuilder {
-            program:dependency_program,
+            program: dependency_program,
             crate_manifest_path: "./tests/deps/Cargo.toml".into(),
             ..Default::default()
         },
