@@ -241,7 +241,7 @@ fn setup_sysroot() -> PathBuf {
 
 fn main() {
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
-        be_rustc();
+        return be_rustc();
     }
 
     let (minimize_args, mut rustc_args) = split_args(std::env::args());
