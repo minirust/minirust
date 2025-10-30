@@ -172,12 +172,8 @@ fn be_rustc() {
         args.push(format!("--sysroot={}", sysroot_dir.display()).into());
     }
 
-    args.push("-C".into());
-
     if use_panic_abort {
-        args.push("panic=abort".into());
-    } else {
-        args.push("panic=unwind".into());
+        args.push("-Cpanic=abort".into());
     }
 
     // Invoke the rust compiler
