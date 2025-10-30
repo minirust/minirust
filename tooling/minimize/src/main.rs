@@ -2,6 +2,7 @@
 #![feature(box_patterns)]
 #![feature(never_type)]
 #![feature(strict_overflow_ops)]
+#![feature(array_windows)]
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 
@@ -101,9 +102,9 @@ mod vtable;
 
 // Imports for `main``
 
+use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 use std::collections::HashMap;
 use std::env::Args;
-use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
 pub const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -141,23 +142,9 @@ fn be_rustc() {
     // Get the rest of the command line arguments
     let mut args: Vec<OsString> = env::args_os().skip(1).collect();
 
-    let use_panic_abort = {
-        let mut yes = false;
-        let mut it = args.iter();
-        while let Some(a) = it.next() {
-            if let Some(s) = a.to_str() {
-                if s == "--crate-name" {
-                    if let Some(next) = it.next().and_then(|o| o.to_str()) {
-                        if next == "panic_abort" {
-                            yes = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        yes
-    };
+    let use_panic_abort = args
+        .array_windows::<2>()
+        .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
 
     // Inject the Rust flags
     for arg in DEFAULT_ARGS {
