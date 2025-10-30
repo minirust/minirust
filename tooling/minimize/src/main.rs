@@ -213,7 +213,6 @@ fn setup_sysroot() -> PathBuf {
         .by_ref()
         .position(|a| a == "--target")
         .and_then(|_| it.next())
-        .or_else(|| std::env::var("CARGO_BUILD_TARGET").ok())
         .unwrap_or_else(|| rustc_version::version_meta().expect("rustc").host);
 
     let sysroot_config = SysrootConfig::WithStd {
