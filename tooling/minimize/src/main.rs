@@ -67,9 +67,6 @@ pub use miniutil::build::{self, TypeConv as _, unit_place};
 pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 
-// for our custom sysroot
-use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
-
 // Get back some `std` items
 use std::env;
 use std::ffi::OsStr;
@@ -106,6 +103,7 @@ mod vtable;
 
 use std::collections::HashMap;
 use std::env::Args;
+use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
 pub const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -172,8 +170,12 @@ fn be_rustc() {
         args.push(format!("--sysroot={}", sysroot_dir.display()).into());
     }
 
+    args.push("-C".into());
+
     if use_panic_abort {
-        args.push("-Cpanic=abort".into());
+        args.push("panic=abort".into());
+    } else {
+        args.push("panic=unwind".into());
     }
 
     // Invoke the rust compiler
@@ -218,10 +220,6 @@ fn setup_sysroot() -> PathBuf {
             rust_src.display()
         );
     }
-
-    // Final check to make sure the directory creation was actually a success
-    std::fs::create_dir_all(&sysroot_dir)
-        .unwrap_or_else(|e| show_error!("create sysroot dir: {e}"));
 
     let mut it = std::env::args();
     let target = it

@@ -25,7 +25,6 @@ COMMAND="$1"
 shift
 case "$COMMAND" in
     test)
-
         cargo test --manifest-path=tooling/miniutil/Cargo.toml $CARGOFLAGS "$@"
         cargo test --manifest-path=tooling/minitest/Cargo.toml $CARGOFLAGS "$@"
         cargo test --manifest-path=tooling/minimize/Cargo.toml $CARGOFLAGS "$@"
