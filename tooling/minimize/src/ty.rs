@@ -89,6 +89,7 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Ref(..) => Vec::new(),
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => Vec::new(),
             rs::TyKind::FnPtr(..) => Vec::new(),
+            rs::TyKind::FnDef(..) => Vec::new(),
             rs::TyKind::Never => Vec::new(),
             rs::TyKind::Tuple(ts) => {
                 let layout = self.rs_layout_of(ty);
@@ -223,6 +224,11 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Array { elem, count }
             }
             rs::TyKind::FnPtr(..) => Type::Ptr(PtrType::FnPtr),
+            rs::TyKind::FnDef(..) => {
+                // FnDef types don't carry data, everything relevant is in the type
+                // (which we handle when translating calls).
+                self.translate_ty(self.tcx.types.unit, span)
+            }
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
             rs::TyKind::Slice(ty) => {
