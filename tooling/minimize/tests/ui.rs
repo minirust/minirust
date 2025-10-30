@@ -32,8 +32,8 @@ fn cfg(path: &str, mode: Mode) -> Config {
 
     let mut dependency_program = CommandBuilder::cargo();
 
-    dependency_program.args.remove(0);
-    dependency_program.args.insert(0, "check".into());
+    // Change cargo command from `build` to `check`.
+    dependency_program.args[0] = "check".into();
 
     // Get the minimize binary to point at as the rustc
     let minimize_exe = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
