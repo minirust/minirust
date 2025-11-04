@@ -182,9 +182,9 @@ fn setup_sysroot() -> PathBuf {
     let sysroot_dir = get_sysroot_dir();
     let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
 
-    if sysroot_dir.join("lib").exists() {
-        return sysroot_dir;
-    }
+    // if sysroot_dir.join("lib").exists() {
+    //     return sysroot_dir;
+    // }
 
     // Determine where the rust sources are located.
     let rust_src = {
