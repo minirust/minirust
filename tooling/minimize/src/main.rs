@@ -236,7 +236,6 @@ fn setup_sysroot() -> PathBuf {
 }
 
 fn main() {
-
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         return be_rustc();
     }
@@ -245,17 +244,17 @@ fn main() {
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
     let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
-    let sysroot:PathBuf;
+    let sysroot: PathBuf;
     match sysroot_mode.as_deref() {
         Some("only") => {
             setup_sysroot();
             std::process::exit(0);
-        }, 
+        }
         Some("off") => {
-            // Don't build the sysroot here 
+            // Don't build the sysroot here
             sysroot = get_sysroot_dir();
             rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
-        }, 
+        }
         _ => {
             sysroot = setup_sysroot();
             rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));

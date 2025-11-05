@@ -88,7 +88,7 @@ fn main() -> Result<()> {
     Command::new(env!("CARGO_BIN_EXE_minimize"))
         .env("MINIMIZE_BUILD_SYSROOT", "only")
         .status()
-        .expect("failed to spawn minimize for prebuilding sysroot");
+        .expect("failed to build sysroot for testing");
 
     run_tests(vec![
         cfg("tests/pass", Mode::Pass),
