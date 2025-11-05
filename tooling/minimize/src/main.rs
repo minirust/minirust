@@ -153,7 +153,7 @@ fn be_rustc() {
 
     // If we are building dependencies, inject the sysroot flag
     if std::env::var_os("MINIMIZE_BUILD_DEPS").is_some() {
-        let sysroot_dir = setup_sysroot();
+        let sysroot_dir = get_sysroot_dir();
         args.push(format!("--sysroot={}", sysroot_dir.display()).into());
     }
 
@@ -181,10 +181,6 @@ fn setup_sysroot() -> PathBuf {
     // Determine where to put the sysroot.
     let sysroot_dir = get_sysroot_dir();
     let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
-
-    // if sysroot_dir.join("lib").exists() {
-    //     return sysroot_dir;
-    // }
 
     // Determine where the rust sources are located.
     let rust_src = {
@@ -240,6 +236,7 @@ fn setup_sysroot() -> PathBuf {
 }
 
 fn main() {
+
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         return be_rustc();
     }
@@ -247,8 +244,23 @@ fn main() {
     let (minimize_args, mut rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
-    let sysroot = setup_sysroot();
-    rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
+    let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
+    let sysroot:PathBuf;
+    match sysroot_mode.as_deref() {
+        Some("only") => {
+            setup_sysroot();
+            std::process::exit(0);
+        }, 
+        Some("off") => {
+            // Don't build the sysroot here 
+            sysroot = get_sysroot_dir();
+            rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
+        }, 
+        _ => {
+            sysroot = setup_sysroot();
+            rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
+        }
+    }
 
     get_mini(rustc_args, |_tcx, prog| {
         if dump {

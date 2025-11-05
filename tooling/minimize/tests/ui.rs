@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::process::Command;
 
 use ui_test::color_eyre::eyre::Result;
 use ui_test::dependencies::DependencyBuilder;
@@ -41,6 +42,7 @@ fn cfg(path: &str, mode: Mode) -> Config {
     dependency_program.envs.push(("RUSTC".into(), Some(minimize_exe.into())));
     dependency_program.envs.push(("MINIMIZE_BE_RUSTC".into(), Some("1".into())));
     dependency_program.envs.push(("MINIMIZE_BUILD_DEPS".into(), Some("1".into())));
+    dependency_program.envs.push(("MINIMIZE_BUILD_SYSROOT".into(), Some("off".into())));
 
     // To let tests use dependencies, we have to add a `DependencyBuilder`
     // custom "comment" (with arbitrary name), which will then take care
@@ -83,6 +85,11 @@ fn run_tests(mut configs: Vec<Config>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    Command::new(env!("CARGO_BIN_EXE_minimize"))
+        .env("MINIMIZE_BUILD_SYSROOT", "only")
+        .status()
+        .expect("failed to spawn minimize for prebuilding sysroot");
+
     run_tests(vec![
         cfg("tests/pass", Mode::Pass),
         cfg("tests/ub", Mode::Panic),
