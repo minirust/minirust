@@ -38,7 +38,7 @@ impl PermissionUnprot {
     fn local_read(self) -> Result<PermissionUnprot> {
         ret(
             match self {
-                PermissionUnprot::Disabled => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
+                PermissionUnprot::Disabled => throw_ub!("Tree Borrows: Uniqueness violation: local read after foreign write"),
                 // All other states are kept unchanged.
                 perm => perm,
             }
@@ -47,8 +47,8 @@ impl PermissionUnprot {
 
     fn local_write(self) -> Result<PermissionUnprot> {
         match self {
-            PermissionUnprot::Frozen => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
-            PermissionUnprot::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
+            PermissionUnprot::Frozen => throw_ub!("Tree Borrows: Read-only violation: local write to a read-only reference (shared, or mutable after a foreign write)"),
+            PermissionUnprot::Disabled => throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign write"),
             PermissionUnprot::Cell => ret(PermissionUnprot::Cell),
             _ => ret(PermissionUnprot::Unique),
         }

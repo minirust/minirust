@@ -27,7 +27,7 @@ impl PermissionProt {
     fn local_read(self) -> Result<PermissionProt> {
         ret(
             match self {
-                PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
+                PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: Uniqueness violation: local read after foreign write on a protected reference"),
                 PermissionProt::Reserved { foreign_read, .. } => PermissionProt::Reserved { local_read: true, foreign_read },
                 PermissionProt::Frozen { .. } => PermissionProt::Frozen { local_read: true },
                 // Cell and Unique are unaffected.
@@ -42,16 +42,17 @@ impl PermissionProt {
             PermissionProt::Unique => ret(PermissionProt::Unique),
             PermissionProt::Reserved { foreign_read: false, .. } => ret(PermissionProt::Unique),
             PermissionProt::Reserved { foreign_read: true, .. } =>
-                throw_ub!("Tree Borrows: writing to the local of a protected pointer with Conflicted Reserved permission"),
-            PermissionProt::Frozen { .. } => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
-            PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
+                throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign read on a protected mutable reference"),
+            PermissionProt::Frozen { .. } => throw_ub!("Tree Borrows: Read-only violation: local write to a read-only protected shared reference"),
+            // we don't know anymore if we were shared or mutable in this state
+            PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign write on a protected reference"),
         }
     }
 
     fn foreign_read(self) -> Result<PermissionProt> {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
-            PermissionProt::Unique => throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
+            PermissionProt::Unique => throw_ub!("Tree Borrows: Uniqueness violation: foreign read after local write on a protected mutable reference"),
             PermissionProt::Reserved { local_read, .. } => ret(PermissionProt::Reserved { local_read, foreign_read: true }),
             // Frozen and Disabled are kept unchanged.
             perm => ret(perm),
@@ -61,10 +62,10 @@ impl PermissionProt {
     fn foreign_write(self) -> Result<PermissionProt> {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
-            PermissionProt::Frozen { local_read } | PermissionProt::Reserved { local_read, .. } if local_read =>
-                    throw_ub!("Tree Borrows: a protected pointer with {} permission becomes Disabled", if matches!(self, PermissionProt::Frozen {..}) { "Frozen" } else { "Reserved" }),
+            PermissionProt::Frozen { local_read: true } | PermissionProt::Reserved { local_read: true, .. } =>
+                    throw_ub!("Tree Borrows: Uniqueness violation: foreign write after local read on a protected {} reference", if matches!(self, PermissionProt::Frozen {..}) { "shared" } else { "mutable" }),
             PermissionProt::Unique =>
-                    throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
+                    throw_ub!("Tree Borrows: Uniqueness violation: foreign write after local write on a protected mutable reference"),
 
             // All other states become Disabled.
             _ => ret(PermissionProt::DisabledForeignWrite),

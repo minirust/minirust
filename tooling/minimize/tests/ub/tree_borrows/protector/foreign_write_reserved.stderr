@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: a protected pointer with Reserved permission becomes Disabled
+fatal error: UB: Tree Borrows: Uniqueness violation: foreign write after local read on a protected mutable reference
