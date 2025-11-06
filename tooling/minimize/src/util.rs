@@ -57,12 +57,11 @@ pub fn be_rustc() {
 
     insert_default_args(&mut args, 0);
 
-    args.push("-C".into());
-
     if use_panic_abort {
-        args.push("panic=abort".into());
-    } else {
-        args.push("panic=unwind".into());
+        args.insert(0, "-Cpanic=abort".into());
+    }
+    else {
+        args.insert(0, "-Cpanic=unwind".into());
     }
 
     // Invoke the rust compiler
