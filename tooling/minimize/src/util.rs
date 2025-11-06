@@ -22,6 +22,8 @@ const DEFAULT_ARGS: &[&str] = &[
 
 pub fn insert_default_args(args: &mut Vec<String>) {
     args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+    let sysroot = get_sysroot_dir();
+    args.insert(1, format!("--sysroot={}", sysroot.display()));
 }
 
 pub fn show_error(msg: &impl std::fmt::Display) -> ! {

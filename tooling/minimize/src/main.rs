@@ -70,7 +70,6 @@ pub use miniutil::run::*;
 
 // Get back some `std` items
 pub use std::format;
-use std::path::PathBuf;
 pub use std::string::String;
 
 mod util;
@@ -109,11 +108,10 @@ fn main() {
         return be_rustc();
     }
 
-    let (minimize_args, mut rustc_args) = split_args(std::env::args());
+    let (minimize_args, rustc_args) = split_args(std::env::args());
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
     let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
-    let sysroot: PathBuf;
     match sysroot_mode.as_deref() {
         Some("only") => {
             setup_sysroot();
@@ -121,14 +119,11 @@ fn main() {
         }
         Some("off") => {
             // Don't build the sysroot here
-            sysroot = get_sysroot_dir();
         }
         _ => {
-            sysroot = setup_sysroot();
+            setup_sysroot();
         }
     }
-
-    rustc_args.insert(1, format!("--sysroot={}", sysroot.display()));
 
     get_mini(rustc_args, |_tcx, prog| {
         if dump {
