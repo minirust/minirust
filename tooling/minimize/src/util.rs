@@ -19,7 +19,7 @@ const DEFAULT_ARGS: &[&str] = &[
     "-Zub-checks=false",
 ];
 
-pub fn insert_default_args(args: &mut Vec<String>, index:usize) {
+pub fn insert_default_args(args: &mut Vec<String>, index: usize) {
     args.splice(index..index, DEFAULT_ARGS.iter().map(ToString::to_string));
     if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
         let sysroot = get_sysroot_dir();
@@ -59,8 +59,7 @@ pub fn be_rustc() {
 
     if use_panic_abort {
         args.insert(0, "-Cpanic=abort".into());
-    }
-    else {
+    } else {
         args.insert(0, "-Cpanic=unwind".into());
     }
 
