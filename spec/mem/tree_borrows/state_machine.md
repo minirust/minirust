@@ -1,17 +1,16 @@
 # State Machine for Tree Borrows
 
 The core of Tree Borrows is a state machine for each node and each location.
+Note that this presentation of Tree Borrows splits the protected from the unprotected state machine.
+The protected state machine is presented in `state_machine_protected.md`
 
 We first track the *permission* of each node to access each location.
 ```rust
-enum Permission {
+enum PermissionUnprot {
     /// Represents a shared reference to interior mutable data.
     Cell,
     /// Represents a two-phase borrow during its reservation phase
-    Reserved {
-        /// Indicates whether there was a foreign read.
-        conflicted: bool,
-    },
+    Reserved,
     /// Represents a interior mutable two-phase borrow during its reservation phase
     ReservedIm,
     /// Represents an activated (written to) mutable reference, i.e. it must actually be unique right now
@@ -23,68 +22,53 @@ enum Permission {
 }
 ```
 
-In addition, we also need to track whether a location has already been accessed with a pointer corresponding to this node.
-
+Which permission we have depends on whether we are protected or not.
 ```rust
-enum Accessed {
-    /// This address has been accessed (read, written, or the initial implicit read upon retag)
-    /// with this borrow tag.
-    Yes,
-    /// This address has not yet been accessed with this borrow tag. We still track how foreign
-    /// accesses affect the current permission so that on the first access, we start in the right state.
-    No,
+enum Permission {
+    Unprot(PermissionUnprot),
+    Prot(PermissionProt)
 }
 ```
 
-Then we define the per-location state tracked by Tree Borrows.
-```rust
-struct LocationState {
-    accessed: Accessed,
-    permission: Permission,
-}
-```
 
 Finally, we define the transition table.
 
 ```rust
-impl Permission {
-    fn local_read(self) -> Result<Permission> {
+impl PermissionUnprot {
+    fn local_read(self) -> Result<PermissionUnprot> {
         ret(
             match self {
-                Permission::Disabled => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
+                PermissionUnprot::Disabled => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
                 // All other states are kept unchanged.
                 perm => perm,
             }
         )
     }
 
-    fn local_write(self, protected: bool) -> Result<Permission> {
+    fn local_write(self) -> Result<PermissionUnprot> {
         match self {
-            Permission::Reserved { conflicted: true } if protected =>
-                throw_ub!("Tree Borrows: writing to the local of a protected pointer with Conflicted Reserved permission"),
-            Permission::Frozen => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
-            Permission::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
-            Permission::Cell => ret(Permission::Cell),
-            _ => ret(Permission::Unique),
+            PermissionUnprot::Frozen => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
+            PermissionUnprot::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
+            PermissionUnprot::Cell => ret(PermissionUnprot::Cell),
+            _ => ret(PermissionUnprot::Unique),
         }
     }
 
-    fn foreign_read(self, protected: bool) -> Result<Permission> {
+    fn foreign_read(self) -> Result<PermissionUnprot> {
         match self {
-            Permission::Unique if protected  => ret(Permission::Disabled),
-            Permission::Reserved { .. } if protected => ret(Permission::Reserved { conflicted: true }),
-            Permission::Unique => ret(Permission::Frozen),
+            PermissionUnprot::Reserved => ret(PermissionUnprot::Reserved),
+            PermissionUnprot::Unique => ret(PermissionUnprot::Frozen),
             // All other states are kept unchanged.
             perm => ret(perm),
         }
     }
 
-    fn foreign_write(self) -> Result<Permission> {
+    fn foreign_write(self) -> Result<PermissionUnprot> {
         match self {
-            Permission::Cell => ret(Permission::Cell),
-            Permission::ReservedIm => ret(Permission::ReservedIm),
+            PermissionUnprot::Cell => ret(PermissionUnprot::Cell),
+            PermissionUnprot::ReservedIm => ret(PermissionUnprot::ReservedIm),
             // All other states become Disabled.
-            _ => ret(Permission::Disabled),
+            _ => ret(PermissionUnprot::Disabled),
         }
     }
 
@@ -92,38 +76,31 @@ impl Permission {
         self,
         access_kind: AccessKind,
         node_relation: NodeRelation,
-        protected: bool,
-    ) -> Result<Permission> {
+    ) -> Result<PermissionUnprot> {
         match (node_relation, access_kind) {
             (NodeRelation::Local, AccessKind::Read) => self.local_read(),
-            (NodeRelation::Local, AccessKind::Write) => self.local_write(protected),
-            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(protected),
+            (NodeRelation::Local, AccessKind::Write) => self.local_write(),
+            (NodeRelation::Foreign, AccessKind::Read) => self.foreign_read(),
             (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
         }
     }
 
-    fn init_access(self) -> bool {
-        // Everything except for `Cell` gets an initial access.
-        self != Permission::Cell
-    }
-}
-
-impl Accessed {
-    fn transition(self, node_relation: NodeRelation) -> Accessed {
-        // A node is "accessed" once any of its children gets accessed.
-        match node_relation {
-            NodeRelation::Foreign => self,
-            NodeRelation::Local => Accessed::Yes,
+    fn init_access(self) -> Option<AccessKind> {
+        // Everything except for `Cell` gets an initial read access.
+        match self {
+            PermissionUnprot::Cell => None,
+            _ => Some(AccessKind::Read)
         }
     }
 }
 
-impl LocationState {
-    /// Create a location state that has not yet been accessed.
-    fn new(permission: Permission) -> LocationState {
-        LocationState {
-            accessed: Accessed::No,
-            permission,
+
+impl Permission {
+
+    fn init_access(self) -> Option<AccessKind> {
+        match self {
+            Permission::Unprot(p) => p.init_access(),
+            Permission::Prot(p) => p.init_access()
         }
     }
 
@@ -133,24 +110,43 @@ impl LocationState {
         node_relation: NodeRelation,
         protected: bool,
     ) -> Result {
-        let old_perm = self.permission;
-        self.permission = old_perm.transition(access_kind, node_relation, protected)?;
-        self.accessed = self.accessed.transition(node_relation);
+        match self {
+            Permission::Unprot(p) => {
+                assert!(!protected);
+                *p = p.transition(access_kind, node_relation)?
+            },
+            Permission::Prot(p) => {
+                assert!(protected);
+                *p = p.transition(access_kind, node_relation)?
+            }
+        };
+        Ok(())
+    }
 
-        // Protected nodes may never transition to "Disabled, Accessed". That is UB.
-        if self.permission == Permission::Disabled && protected && self.accessed == Accessed::Yes {
-            // This is UB, make sure to show a somewhat specific error.
-            match old_perm {
-                Permission::Disabled => panic!("Impossible state combination: Accessed + Protected + Disabled"),
-                Permission::ReservedIm => panic!("Impossible state combination: Accessed + Protected + ReservedIm"),
-                Permission::Unique => throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
-                Permission::Frozen => throw_ub!("Tree Borrows: a protected pointer with Frozen permission becomes Disabled"),
-                Permission::Reserved { .. } => throw_ub!("Tree Borrows: a protected pointer with Reserved permission becomes Disabled"),
-                Permission::Cell => panic!("Impossible state combination: Cell became Disabled"),
+    fn unprotect(&mut self) -> Option<AccessKind> {
+        match self {
+            Permission::Unprot(_) => unreachable!(),
+            Permission::Prot(p) => {
+                let (new_perm, access) = p.into_unprotected();
+                *self = Permission::Unprot(new_perm);
+                access
             }
         }
+    }
 
-        ret(())
+    fn blocks_deallocation(&self) -> bool {
+        match self {
+            Permission::Unprot(_) => false,
+            Permission::Prot(p) => p.blocks_deallocation()
+        }
+    }
+
+    fn select_based_on_protector(prot: Protected, p: (PermissionUnprot, PermissionProt)) -> Self {
+        if prot.yes() {
+            Permission::Prot(p.1)
+        } else {
+            Permission::Unprot(p.0)
+        }
     }
 }
 ```

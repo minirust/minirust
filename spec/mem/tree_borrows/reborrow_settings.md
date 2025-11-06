@@ -116,20 +116,18 @@ impl ReborrowSettings {
         };
 
         // Determine permissions.
-        let no_cell_perm = match ptr_type {
+        let no_cell_perm = Permission::select_based_on_protector(protected, match ptr_type {
             // Shared references are frozen.
-            PtrType::Ref { mutbl: Mutability::Immutable, .. } => Permission::Frozen,
+            PtrType::Ref { mutbl: Mutability::Immutable, .. } => (PermissionUnprot::Frozen, PermissionProt::Frozen { local_read: false }),
             // Mutable references and Boxes are reserved.
-            _ => Permission::Reserved { conflicted: false },
-        };
-        let cell_perm = match ptr_type {
+            _ => (PermissionUnprot::Reserved, PermissionProt::Reserved { local_read: false, foreign_read: false }),
+        });
+        let cell_perm = Permission::select_based_on_protector(protected, match ptr_type {
             // Shared references to UnsafeCell use the "transparent" Cell permission.
-            PtrType::Ref { mutbl: Mutability::Immutable, .. } => Permission::Cell,
-            // *Protected* mutable references and boxes are reserved without regarding for interior mutability.
-            _ if protected.yes() => Permission::Reserved { conflicted: false },
-            // Unprotected mutable references and boxes start in `ReservedIm`.
-            _ => Permission::ReservedIm,
-        };
+            PtrType::Ref { mutbl: Mutability::Immutable, .. } => (PermissionUnprot::Cell, PermissionProt::Cell),
+            // Unprotected mutable references and boxes start in `ReservedIm`, but if they are protected we ignore the `Im`
+            _ => (PermissionUnprot::ReservedIm, PermissionProt::Reserved { local_read: false, foreign_read: false }),
+        });
         let inside = pointee_info.unsafe_cells.freeze_mask(pointee_info.layout, ptr.metadata, vtable_lookup).map(|freeze|
             if freeze { no_cell_perm } else { cell_perm }
         );
