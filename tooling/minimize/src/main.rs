@@ -217,18 +217,16 @@ fn setup_sysroot() -> PathBuf {
 
     // Get this binary to point at as the rustc
     let this_exe = std::env::current_exe().expect("current_exe - minimize binary not found");
-    std::env::set_var("RUSTC", &this_exe);
 
-    // When we run next, we want to simulate rustc
-    std::env::set_var("MINIMIZE_BE_RUSTC", "1");
-
-    // We are building the sysroot, not builing dependancies in the sysroot
-    std::env::remove_var("MINIMIZE_BUILD_DEPS");
+    // We want to act as rustc
+    let mut cargo_command = Command::new("cargo");
+    cargo_command.env("RUSTC", &this_exe).env("MINIMIZE_BE_RUSTC", "1");
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)
         .build_mode(BuildMode::Check)
         .sysroot_config(sysroot_config)
+        .cargo(cargo_command)
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
 
