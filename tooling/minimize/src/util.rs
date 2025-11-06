@@ -1,6 +1,5 @@
 use std::env;
 use std::ffi::OsStr;
-use std::ffi::OsString;
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -20,10 +19,12 @@ const DEFAULT_ARGS: &[&str] = &[
     "-Zub-checks=false",
 ];
 
-pub fn insert_default_args(args: &mut Vec<String>) {
-    args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
-    let sysroot = get_sysroot_dir();
-    args.insert(1, format!("--sysroot={}", sysroot.display()));
+pub fn insert_default_args(args: &mut Vec<String>, index:usize) {
+    args.splice(index..index, DEFAULT_ARGS.iter().map(ToString::to_string));
+    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
+        let sysroot = get_sysroot_dir();
+        args.insert(index, format!("--sysroot={}", sysroot.display()));
+    }
 }
 
 pub fn show_error(msg: &impl std::fmt::Display) -> ! {
@@ -48,22 +49,13 @@ pub fn get_sysroot_dir() -> PathBuf {
 
 pub fn be_rustc() {
     // Get the rest of the command line arguments
-    let mut args: Vec<OsString> = env::args_os().skip(1).collect();
+    let mut args: Vec<String> = env::args().skip(1).collect();
 
     let use_panic_abort = args
         .array_windows::<2>()
         .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
 
-    // Inject the Rust flags
-    for arg in DEFAULT_ARGS {
-        args.push(arg.into());
-    }
-
-    // Inject the sysroot flag unless we are building the sysroot itself
-    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
-        let sysroot_dir = get_sysroot_dir();
-        args.push(format!("--sysroot={}", sysroot_dir.display()).into());
-    }
+    insert_default_args(&mut args, 0);
 
     args.push("-C".into());
 

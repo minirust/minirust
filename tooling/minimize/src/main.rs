@@ -169,7 +169,7 @@ fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
 }
 
 fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
-    insert_default_args(&mut args);
+    insert_default_args(&mut args, 1);
     rustc_driver::run_compiler(&args, &mut Cb { callback });
 }
 
