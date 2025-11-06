@@ -7,7 +7,7 @@ use std::process::Command;
 
 use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
-pub const DEFAULT_ARGS: &[&str] = &[
+const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
     "--cfg=miri",
     "-Zalways-encode-mir",
@@ -19,6 +19,10 @@ pub const DEFAULT_ARGS: &[&str] = &[
     // Also disable UB checks (since `cfg(miri)` in the standard library do not trigger for us).
     "-Zub-checks=false",
 ];
+
+pub fn insert_default_args(args: &mut Vec<String>) {
+    args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+}
 
 pub fn show_error(msg: &impl std::fmt::Display) -> ! {
     eprintln!("fatal error: {msg}");
