@@ -53,8 +53,8 @@ pub fn be_rustc() {
         args.push(arg.into());
     }
 
-    // If we are building dependencies, inject the sysroot flag
-    if std::env::var_os("MINIMIZE_BUILD_DEPS").is_some() {
+    // Inject the sysroot flag unless we are building the sysroot itself
+    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
         let sysroot_dir = get_sysroot_dir();
         args.push(format!("--sysroot={}", sysroot_dir.display()).into());
     }
@@ -72,13 +72,13 @@ pub fn be_rustc() {
         .args(args)
         .env_remove("RUSTC")
         .env_remove("MINIMIZE_BE_RUSTC")
-        .env_remove("MINIMIZE_BUILD_DEPS")
         .status()
         .expect("failed to invoke rustc in custom sysroot build");
 
     std::process::exit(status.code().unwrap_or(1));
 }
 
+// Builds (if necessary) and returns a path to the sysroot for our custom MIR compiled libraries
 pub fn setup_sysroot() -> PathBuf {
     // Determine where to put the sysroot.
     let sysroot_dir = get_sysroot_dir();
@@ -122,7 +122,7 @@ pub fn setup_sysroot() -> PathBuf {
 
     // We want to act as rustc
     let mut cargo_command = Command::new("cargo");
-    cargo_command.env("RUSTC", &this_exe).env("MINIMIZE_BE_RUSTC", "1");
+    cargo_command.env("RUSTC", &this_exe).env("MINIMIZE_BE_RUSTC", "sysroot");
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)

@@ -40,8 +40,7 @@ fn cfg(path: &str, mode: Mode) -> Config {
     let minimize_exe = PathBuf::from(env!("CARGO_BIN_EXE_minimize"));
 
     dependency_program.envs.push(("RUSTC".into(), Some(minimize_exe.into())));
-    dependency_program.envs.push(("MINIMIZE_BE_RUSTC".into(), Some("1".into())));
-    dependency_program.envs.push(("MINIMIZE_BUILD_DEPS".into(), Some("1".into())));
+    dependency_program.envs.push(("MINIMIZE_BE_RUSTC".into(), Some("deps".into())));
     dependency_program.envs.push(("MINIMIZE_BUILD_SYSROOT".into(), Some("off".into())));
 
     // To let tests use dependencies, we have to add a `DependencyBuilder`
