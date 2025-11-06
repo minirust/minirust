@@ -1,2 +1,0 @@
-[build]
-rustflags = ["--sysroot", "/Users/maxsmith/Library/Caches/org.rust-lang.minirust", "--cfg=miri", "-Zalways-encode-mir", "-Zextra-const-ub-checks", "-Zmir-emit-retag", "-Zmir-opt-level=0", "-Zmir-enable-passes=-CheckAlignment", "-Zmir-keep-place-mention", "-Zub-checks=false"]
