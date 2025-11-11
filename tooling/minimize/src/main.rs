@@ -69,11 +69,13 @@ pub use miniutil::fmt::dump_program;
 pub use miniutil::run::*;
 
 // Get back some `std` items
+pub use std::env;
 pub use std::format;
+pub use std::process::Command;
 pub use std::string::String;
 
-mod util;
-use util::*;
+mod sysroot;
+use sysroot::*;
 
 mod program;
 use program::*;
@@ -102,6 +104,64 @@ mod vtable;
 
 use std::collections::HashMap;
 use std::env::Args;
+
+const DEFAULT_ARGS: &[&str] = &[
+    // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
+    "--cfg=miri",
+    "-Zalways-encode-mir",
+    "-Zextra-const-ub-checks",
+    "-Zmir-emit-retag",
+    "-Zmir-opt-level=0",
+    "-Zmir-enable-passes=-CheckAlignment",
+    "-Zmir-keep-place-mention",
+    // Also disable UB checks (since `cfg(miri)` in the standard library do not trigger for us).
+    "-Zub-checks=false",
+];
+
+pub fn insert_default_args(args: &mut Vec<String>, index: usize) {
+    args.splice(index..index, DEFAULT_ARGS.iter().map(ToString::to_string));
+    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
+        let sysroot = get_sysroot_dir();
+        args.insert(index, format!("--sysroot={}", sysroot.display()));
+    }
+}
+
+pub fn show_error(msg: &impl std::fmt::Display) -> ! {
+    eprintln!("fatal error: {msg}");
+    std::process::exit(101) // exit code needed to make ui_test happy
+}
+
+#[macro_export]
+macro_rules! show_error {
+    ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
+}
+
+pub fn be_rustc() {
+    // Get the rest of the command line arguments
+    let mut args: Vec<String> = env::args().skip(1).collect();
+
+    let use_panic_abort = args
+        .array_windows::<2>()
+        .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
+
+    insert_default_args(&mut args, 0);
+
+    if use_panic_abort {
+        args.insert(0, "-Cpanic=abort".into());
+    } else {
+        args.insert(0, "-Cpanic=unwind".into());
+    }
+
+    // Invoke the rust compiler
+    let status = Command::new("rustc")
+        .args(args)
+        .env_remove("RUSTC")
+        .env_remove("MINIMIZE_BE_RUSTC")
+        .status()
+        .expect("failed to invoke rustc in custom sysroot build");
+
+    std::process::exit(status.code().unwrap_or(1));
+}
 
 fn main() {
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {

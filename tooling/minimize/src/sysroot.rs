@@ -1,41 +1,9 @@
-use std::env;
 use std::ffi::OsStr;
 
 use std::path::PathBuf;
 use std::process::Command;
 
 use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
-
-const DEFAULT_ARGS: &[&str] = &[
-    // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
-    "--cfg=miri",
-    "-Zalways-encode-mir",
-    "-Zextra-const-ub-checks",
-    "-Zmir-emit-retag",
-    "-Zmir-opt-level=0",
-    "-Zmir-enable-passes=-CheckAlignment",
-    "-Zmir-keep-place-mention",
-    // Also disable UB checks (since `cfg(miri)` in the standard library do not trigger for us).
-    "-Zub-checks=false",
-];
-
-pub fn insert_default_args(args: &mut Vec<String>, index: usize) {
-    args.splice(index..index, DEFAULT_ARGS.iter().map(ToString::to_string));
-    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
-        let sysroot = get_sysroot_dir();
-        args.insert(index, format!("--sysroot={}", sysroot.display()));
-    }
-}
-
-pub fn show_error(msg: &impl std::fmt::Display) -> ! {
-    eprintln!("fatal error: {msg}");
-    std::process::exit(101) // exit code needed to make ui_test happy
-}
-
-#[macro_export]
-macro_rules! show_error {
-    ($($tt:tt)*) => {show_error(&format_args!($($tt)*)) };
-}
 
 pub fn get_sysroot_dir() -> PathBuf {
     match std::env::var_os("MINIRUST_SYSROOT") {
@@ -45,33 +13,6 @@ pub fn get_sysroot_dir() -> PathBuf {
             user_dirs.cache_dir().to_owned()
         }
     }
-}
-
-pub fn be_rustc() {
-    // Get the rest of the command line arguments
-    let mut args: Vec<String> = env::args().skip(1).collect();
-
-    let use_panic_abort = args
-        .array_windows::<2>()
-        .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
-
-    insert_default_args(&mut args, 0);
-
-    if use_panic_abort {
-        args.insert(0, "-Cpanic=abort".into());
-    } else {
-        args.insert(0, "-Cpanic=unwind".into());
-    }
-
-    // Invoke the rust compiler
-    let status = Command::new("rustc")
-        .args(args)
-        .env_remove("RUSTC")
-        .env_remove("MINIMIZE_BE_RUSTC")
-        .status()
-        .expect("failed to invoke rustc in custom sysroot build");
-
-    std::process::exit(status.code().unwrap_or(1));
 }
 
 // Builds (if necessary) and returns a path to the sysroot for our custom MIR compiled libraries
@@ -86,16 +27,15 @@ pub fn setup_sysroot() -> PathBuf {
         let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
             .expect("could not determine sysroot source directory");
         if !rustup_src.exists() {
-            show_error!("`rust-src` not found");
-        } else {
-            rustup_src
+            crate::show_error!("`rust-src` not found");
         }
+        rustup_src
     };
     if !rust_src.exists() {
-        show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
+        crate::show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
     }
     if rust_src.file_name().and_then(OsStr::to_str) != Some("library") {
-        show_error!(
+        crate::show_error!(
             "given Rust source directory `{}` does not seem to be the `library` subdirectory of \
              a Rust source checkout.",
             rust_src.display()
