@@ -128,8 +128,7 @@ macro_rules! show_error {
 }
 struct BeRustcCallbacks;
 
-impl rustc_driver::Callbacks for BeRustcCallbacks {
-}
+impl rustc_driver::Callbacks for BeRustcCallbacks {}
 
 pub fn be_rustc(args: &mut Vec<String>) {
     let use_panic_abort = args
@@ -146,9 +145,8 @@ pub fn be_rustc(args: &mut Vec<String>) {
     let exit_code = rustc_driver::catch_with_exit_code(move || {
         rustc_driver::run_compiler(args, &mut BeRustcCallbacks)
     });
-    
-    std::process::exit(exit_code);
 
+    std::process::exit(exit_code);
 }
 
 fn main() {
