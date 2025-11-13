@@ -19,7 +19,6 @@ pub fn get_sysroot_dir() -> PathBuf {
 pub fn setup_sysroot() -> PathBuf {
     // Determine where to put the sysroot.
     let sysroot_dir = get_sysroot_dir();
-    let sysroot_dir = sysroot_dir.canonicalize().unwrap_or(sysroot_dir); // Absolute path 
 
     // Determine where the rust sources are located.
     let rust_src = {
