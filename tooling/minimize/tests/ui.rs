@@ -84,6 +84,7 @@ fn run_tests(mut configs: Vec<Config>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    // Ensure we have an up-to-date sysroot.
     Command::new(env!("CARGO_BIN_EXE_minimize"))
         .env("MINIMIZE_BUILD_SYSROOT", "only")
         .status()
