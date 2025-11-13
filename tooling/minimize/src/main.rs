@@ -137,10 +137,7 @@ pub fn be_rustc(args: &mut Vec<String>) {
 
     if use_panic_abort {
         args.insert(1, "-Cpanic=abort".into());
-    } else {
-        // #FIXME: we should not need to add this
-        args.insert(1, "-Cpanic=unwind".into());
-    }
+    } 
 
     let exit_code = rustc_driver::catch_with_exit_code(move || {
         rustc_driver::run_compiler(args, &mut BeRustcCallbacks)
