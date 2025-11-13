@@ -135,6 +135,7 @@ pub fn be_rustc(args: &mut Vec<String>) {
     if use_panic_abort {
         args.insert(0, "-Cpanic=abort".into());
     } else {
+        // #FIXME: we should not need to add this
         args.insert(0, "-Cpanic=unwind".into());
     }
 
