@@ -117,14 +117,6 @@ const DEFAULT_ARGS: &[&str] = &[
     "-Zub-checks=false",
 ];
 
-pub fn insert_default_args(args: &mut Vec<String>, index: usize) {
-    args.splice(index..index, DEFAULT_ARGS.iter().map(ToString::to_string));
-    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
-        let sysroot = get_sysroot_dir();
-        args.insert(index, format!("--sysroot={}", sysroot.display()));
-    }
-}
-
 pub fn show_error(msg: &impl std::fmt::Display) -> ! {
     eprintln!("fatal error: {msg}");
     std::process::exit(101) // exit code needed to make ui_test happy
@@ -136,7 +128,6 @@ macro_rules! show_error {
 }
 
 pub fn be_rustc(args: &mut Vec<String>) {
-
     let use_panic_abort = args
         .array_windows::<2>()
         .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
@@ -159,10 +150,13 @@ pub fn be_rustc(args: &mut Vec<String>) {
 }
 
 fn main() {
-
     let mut all_args: Vec<String> = env::args().collect();
 
-    insert_default_args(&mut all_args, 1);
+    all_args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
+        let sysroot = get_sysroot_dir();
+        all_args.insert(1, format!("--sysroot={}", sysroot.display()));
+    }
 
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         let mut rustc_args: Vec<String> = all_args.into_iter().skip(1).collect();
