@@ -41,11 +41,10 @@ pub fn setup_sysroot() -> PathBuf {
         );
     }
 
-    let mut it = std::env::args();
-    let target = it
-        .by_ref()
-        .position(|a| a == "--target")
-        .and_then(|_| it.next())
+    let target = std::env::args()
+        .collect::<Vec<_>>()
+        .array_windows::<2>()
+        .find_map(|[first, second]| (first == "--target").then(|| second.clone()))
         .unwrap_or_else(|| rustc_version::version_meta().expect("rustc").host);
 
     let sysroot_config = SysrootConfig::WithStd {
