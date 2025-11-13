@@ -126,6 +126,10 @@ pub fn show_error(msg: &impl std::fmt::Display) -> ! {
 macro_rules! show_error {
     ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
 }
+struct BeRustcCallbacks;
+
+impl rustc_driver::Callbacks for BeRustcCallbacks {
+}
 
 pub fn be_rustc(args: &mut Vec<String>) {
     let use_panic_abort = args
@@ -133,21 +137,18 @@ pub fn be_rustc(args: &mut Vec<String>) {
         .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
 
     if use_panic_abort {
-        args.insert(0, "-Cpanic=abort".into());
+        args.insert(1, "-Cpanic=abort".into());
     } else {
         // #FIXME: we should not need to add this
-        args.insert(0, "-Cpanic=unwind".into());
+        args.insert(1, "-Cpanic=unwind".into());
     }
 
-    // Invoke the rust compiler
-    let status = Command::new("rustc")
-        .args(args)
-        .env_remove("RUSTC")
-        .env_remove("MINIMIZE_BE_RUSTC")
-        .status()
-        .expect("failed to invoke rustc in custom sysroot build");
+    let exit_code = rustc_driver::catch_with_exit_code(move || {
+        rustc_driver::run_compiler(args, &mut BeRustcCallbacks)
+    });
+    
+    std::process::exit(exit_code);
 
-    std::process::exit(status.code().unwrap_or(1));
 }
 
 fn main() {
@@ -160,7 +161,7 @@ fn main() {
     }
 
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
-        let mut rustc_args: Vec<String> = all_args.into_iter().skip(1).collect();
+        let mut rustc_args: Vec<String> = all_args.into_iter().collect();
         return be_rustc(&mut rustc_args);
     }
 

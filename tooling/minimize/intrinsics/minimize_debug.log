@@ -1,0 +1,317 @@
+
+========================================
+be_rustc called at: SystemTime { tv_sec: 1763070947, tv_nsec: 172474000 }
+
+Environment variables:
+  MINIMIZE_BE_RUSTC = Ok("deps")
+  RUSTC = Ok("/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/debug/minimize")
+  PWD = Ok("/Users/maxsmith/Desktop/minirust/mts-minirust-work")
+
+Initial args (count = 42):
+  [0]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [1]: --cfg=miri
+  [2]: -Zalways-encode-mir
+  [3]: -Zextra-const-ub-checks
+  [4]: -Zmir-emit-retag
+  [5]: -Zmir-opt-level=0
+  [6]: -Zmir-enable-passes=-CheckAlignment
+  [7]: -Zmir-keep-place-mention
+  [8]: -Zub-checks=false
+  [9]: --crate-name
+  [10]: intrinsics
+  [11]: --edition=2021
+  [12]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [13]: --error-format=json
+  [14]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [15]: --crate-type
+  [16]: lib
+  [17]: --emit=dep-info,metadata
+  [18]: -C
+  [19]: embed-bitcode=no
+  [20]: -C
+  [21]: debuginfo=2
+  [22]: -C
+  [23]: split-debuginfo=unpacked
+  [24]: --check-cfg
+  [25]: cfg(docsrs,test)
+  [26]: --check-cfg
+  [27]: cfg(feature, values())
+  [28]: -C
+  [29]: metadata=e702b75c67d61ec2
+  [30]: -C
+  [31]: extra-filename=-1da2633c53d90bd9
+  [32]: --out-dir
+  [33]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [34]: --target
+  [35]: aarch64-apple-darwin
+  [36]: -C
+  [37]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [38]: -L
+  [39]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [40]: -L
+  [41]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+
+is_panic_abort_crate: false
+has_panic_flag in args: false
+
+Sysroot-related args:
+  --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+
+Decision: NOT compiling panic_abort, adding -Cpanic=unwind
+Inserted -Cpanic=unwind at position 0
+Inserted 'rustc' at position 0
+
+Final args (count = 44):
+  [0]: rustc
+  [1]: -Cpanic=unwind
+  [2]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [3]: --cfg=miri
+  [4]: -Zalways-encode-mir
+  [5]: -Zextra-const-ub-checks
+  [6]: -Zmir-emit-retag
+  [7]: -Zmir-opt-level=0
+  [8]: -Zmir-enable-passes=-CheckAlignment
+  [9]: -Zmir-keep-place-mention
+  [10]: -Zub-checks=false
+  [11]: --crate-name
+  [12]: intrinsics
+  [13]: --edition=2021
+  [14]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [15]: --error-format=json
+  [16]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [17]: --crate-type
+  [18]: lib
+  [19]: --emit=dep-info,metadata
+  [20]: -C
+  [21]: embed-bitcode=no
+  [22]: -C
+  [23]: debuginfo=2
+  [24]: -C
+  [25]: split-debuginfo=unpacked
+  [26]: --check-cfg
+  [27]: cfg(docsrs,test)
+  [28]: --check-cfg
+  [29]: cfg(feature, values())
+  [30]: -C
+  [31]: metadata=e702b75c67d61ec2
+  [32]: -C
+  [33]: extra-filename=-1da2633c53d90bd9
+  [34]: --out-dir
+  [35]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [36]: --target
+  [37]: aarch64-apple-darwin
+  [38]: -C
+  [39]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [40]: -L
+  [41]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [42]: -L
+  [43]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+
+Calling rustc_driver::run_compiler...
+rustc_driver returned with exit code: 0
+========================================
+
+
+========================================
+be_rustc called at: SystemTime { tv_sec: 1763071568, tv_nsec: 11883000 }
+
+Environment variables:
+  MINIMIZE_BE_RUSTC = Ok("deps")
+  RUSTC = Ok("/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/debug/minimize")
+  PWD = Ok("/Users/maxsmith/Desktop/minirust/mts-minirust-work")
+
+Initial args (count = 42):
+  [0]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [1]: --cfg=miri
+  [2]: -Zalways-encode-mir
+  [3]: -Zextra-const-ub-checks
+  [4]: -Zmir-emit-retag
+  [5]: -Zmir-opt-level=0
+  [6]: -Zmir-enable-passes=-CheckAlignment
+  [7]: -Zmir-keep-place-mention
+  [8]: -Zub-checks=false
+  [9]: --crate-name
+  [10]: intrinsics
+  [11]: --edition=2021
+  [12]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [13]: --error-format=json
+  [14]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [15]: --crate-type
+  [16]: lib
+  [17]: --emit=dep-info,metadata
+  [18]: -C
+  [19]: embed-bitcode=no
+  [20]: -C
+  [21]: debuginfo=2
+  [22]: -C
+  [23]: split-debuginfo=unpacked
+  [24]: --check-cfg
+  [25]: cfg(docsrs,test)
+  [26]: --check-cfg
+  [27]: cfg(feature, values())
+  [28]: -C
+  [29]: metadata=e702b75c67d61ec2
+  [30]: -C
+  [31]: extra-filename=-1da2633c53d90bd9
+  [32]: --out-dir
+  [33]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [34]: --target
+  [35]: aarch64-apple-darwin
+  [36]: -C
+  [37]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [38]: -L
+  [39]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [40]: -L
+  [41]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+
+use_panic_abort: false
+has_panic_flag in args: false
+
+Sysroot-related args:
+  --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+
+Decision: use_panic_abort is FALSE, adding -Cpanic=unwind
+
+Final args (count = 43):
+  [0]: -Cpanic=unwind
+  [1]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [2]: --cfg=miri
+  [3]: -Zalways-encode-mir
+  [4]: -Zextra-const-ub-checks
+  [5]: -Zmir-emit-retag
+  [6]: -Zmir-opt-level=0
+  [7]: -Zmir-enable-passes=-CheckAlignment
+  [8]: -Zmir-keep-place-mention
+  [9]: -Zub-checks=false
+  [10]: --crate-name
+  [11]: intrinsics
+  [12]: --edition=2021
+  [13]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [14]: --error-format=json
+  [15]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [16]: --crate-type
+  [17]: lib
+  [18]: --emit=dep-info,metadata
+  [19]: -C
+  [20]: embed-bitcode=no
+  [21]: -C
+  [22]: debuginfo=2
+  [23]: -C
+  [24]: split-debuginfo=unpacked
+  [25]: --check-cfg
+  [26]: cfg(docsrs,test)
+  [27]: --check-cfg
+  [28]: cfg(feature, values())
+  [29]: -C
+  [30]: metadata=e702b75c67d61ec2
+  [31]: -C
+  [32]: extra-filename=-1da2633c53d90bd9
+  [33]: --out-dir
+  [34]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [35]: --target
+  [36]: aarch64-apple-darwin
+  [37]: -C
+  [38]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [39]: -L
+  [40]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [41]: -L
+  [42]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+
+Calling rustc_driver::run_compiler...
+rustc_driver returned with exit code: 0
+========================================
+
+
+========== be_rustc called ==========
+Initial args:
+  [0]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [1]: --cfg=miri
+  [2]: -Zalways-encode-mir
+  [3]: -Zextra-const-ub-checks
+  [4]: -Zmir-emit-retag
+  [5]: -Zmir-opt-level=0
+  [6]: -Zmir-enable-passes=-CheckAlignment
+  [7]: -Zmir-keep-place-mention
+  [8]: -Zub-checks=false
+  [9]: --crate-name
+  [10]: intrinsics
+  [11]: --edition=2021
+  [12]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [13]: --error-format=json
+  [14]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [15]: --crate-type
+  [16]: lib
+  [17]: --emit=dep-info,metadata
+  [18]: -C
+  [19]: embed-bitcode=no
+  [20]: -C
+  [21]: debuginfo=2
+  [22]: -C
+  [23]: split-debuginfo=unpacked
+  [24]: --check-cfg
+  [25]: cfg(docsrs,test)
+  [26]: --check-cfg
+  [27]: cfg(feature, values())
+  [28]: -C
+  [29]: metadata=e702b75c67d61ec2
+  [30]: -C
+  [31]: extra-filename=-1da2633c53d90bd9
+  [32]: --out-dir
+  [33]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [34]: --target
+  [35]: aarch64-apple-darwin
+  [36]: -C
+  [37]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [38]: -L
+  [39]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [40]: -L
+  [41]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+use_panic_abort: false
+Adding -Cpanic=unwind
+Final args:
+  [0]: -Cpanic=unwind
+  [1]: --sysroot=/Users/maxsmith/Library/Caches/org.rust-lang.minirust
+  [2]: --cfg=miri
+  [3]: -Zalways-encode-mir
+  [4]: -Zextra-const-ub-checks
+  [5]: -Zmir-emit-retag
+  [6]: -Zmir-opt-level=0
+  [7]: -Zmir-enable-passes=-CheckAlignment
+  [8]: -Zmir-keep-place-mention
+  [9]: -Zub-checks=false
+  [10]: --crate-name
+  [11]: intrinsics
+  [12]: --edition=2021
+  [13]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/minimize/intrinsics/src/lib.rs
+  [14]: --error-format=json
+  [15]: --json=diagnostic-rendered-ansi,artifacts,future-incompat
+  [16]: --crate-type
+  [17]: lib
+  [18]: --emit=dep-info,metadata
+  [19]: -C
+  [20]: embed-bitcode=no
+  [21]: -C
+  [22]: debuginfo=2
+  [23]: -C
+  [24]: split-debuginfo=unpacked
+  [25]: --check-cfg
+  [26]: cfg(docsrs,test)
+  [27]: --check-cfg
+  [28]: cfg(feature, values())
+  [29]: -C
+  [30]: metadata=e702b75c67d61ec2
+  [31]: -C
+  [32]: extra-filename=-1da2633c53d90bd9
+  [33]: --out-dir
+  [34]: /Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [35]: --target
+  [36]: aarch64-apple-darwin
+  [37]: -C
+  [38]: incremental=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/incremental
+  [39]: -L
+  [40]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/aarch64-apple-darwin/debug/deps
+  [41]: -L
+  [42]: dependency=/Users/maxsmith/Desktop/minirust/mts-minirust-work/tooling/target/tmp/ui/debug/deps
+Exit code: 0
+==================
+
