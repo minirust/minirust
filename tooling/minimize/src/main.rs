@@ -103,7 +103,6 @@ mod vtable;
 // Imports for `main``
 
 use std::collections::HashMap;
-use std::env::Args;
 
 const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -136,15 +135,11 @@ macro_rules! show_error {
     ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
 }
 
-pub fn be_rustc() {
-    // Get the rest of the command line arguments
-    let mut args: Vec<String> = env::args().skip(1).collect();
+pub fn be_rustc(args: &mut Vec<String>) {
 
     let use_panic_abort = args
         .array_windows::<2>()
         .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
-
-    insert_default_args(&mut args, 0);
 
     if use_panic_abort {
         args.insert(0, "-Cpanic=abort".into());
@@ -164,11 +159,17 @@ pub fn be_rustc() {
 }
 
 fn main() {
+
+    let mut all_args: Vec<String> = env::args().collect();
+
+    insert_default_args(&mut all_args, 1);
+
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
-        return be_rustc();
+        let mut rustc_args: Vec<String> = all_args.into_iter().skip(1).collect();
+        return be_rustc(&mut rustc_args);
     }
 
-    let (minimize_args, rustc_args) = split_args(std::env::args());
+    let (minimize_args, rustc_args) = split_args(all_args);
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
     let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
@@ -207,7 +208,7 @@ fn main() {
 }
 
 /// split arguments into arguments for minimize and rustc
-fn split_args(args: Args) -> (Vec<String>, Vec<String>) {
+fn split_args(args: Vec<String>) -> (Vec<String>, Vec<String>) {
     let mut minimize_args: Vec<String> = Vec::new();
     let mut rustc_args: Vec<String> = Vec::new();
     for arg in args {
@@ -228,8 +229,7 @@ fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
     }
 }
 
-fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
-    insert_default_args(&mut args, 1);
+fn get_mini(args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
     rustc_driver::run_compiler(&args, &mut Cb { callback });
 }
 
