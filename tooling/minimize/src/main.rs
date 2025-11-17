@@ -126,11 +126,11 @@ pub fn show_error(msg: &impl std::fmt::Display) -> ! {
 macro_rules! show_error {
     ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
 }
-struct BeRustcCallbacks;
-
-impl rustc_driver::Callbacks for BeRustcCallbacks {}
 
 pub fn be_rustc(args: &mut Vec<String>) {
+    struct BeRustcCallbacks;
+    impl rustc_driver::Callbacks for BeRustcCallbacks {}
+
     let use_panic_abort = args
         .array_windows::<2>()
         .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
