@@ -127,7 +127,7 @@ macro_rules! show_error {
     ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
 }
 
-pub fn be_rustc(args: &mut Vec<String>) {
+pub fn be_rustc(mut args: Vec<String>) {
     struct BeRustcCallbacks;
     impl rustc_driver::Callbacks for BeRustcCallbacks {}
 
@@ -140,7 +140,7 @@ pub fn be_rustc(args: &mut Vec<String>) {
     }
 
     let exit_code = rustc_driver::catch_with_exit_code(move || {
-        rustc_driver::run_compiler(args, &mut BeRustcCallbacks)
+        rustc_driver::run_compiler(&args, &mut BeRustcCallbacks)
     });
 
     std::process::exit(exit_code);
@@ -158,43 +158,42 @@ fn main() {
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         return be_rustc(all_args);
     }
-        let (minimize_args, rustc_args) = split_args(all_args);
-        let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
+    let (minimize_args, rustc_args) = split_args(all_args);
+    let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
-        let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
-        match sysroot_mode.as_deref() {
-            Some("only") => {
-                setup_sysroot();
-                std::process::exit(0);
-            }
-            Some("off") => {
-                // Don't build the sysroot here
-            }
-            _ => {
-                setup_sysroot();
+    let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
+    match sysroot_mode.as_deref() {
+        Some("only") => {
+            setup_sysroot();
+            std::process::exit(0);
+        }
+        Some("off") => {
+            // Don't build the sysroot here
+        }
+        _ => {
+            setup_sysroot();
+        }
+    }
+
+    get_mini(rustc_args, |_tcx, prog| {
+        if dump {
+            dump_program(prog);
+        } else {
+            match run_prog(prog, &minimize_args) {
+                // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
+                TerminationInfo::IllFormed(err) =>
+                    show_error!(
+                        "program not well-formed (this is a bug in minimize):\n    {}",
+                        err.get_internal()
+                    ),
+                TerminationInfo::MachineStop => { /* silent exit. */ }
+                TerminationInfo::Abort => show_error!("program aborted"),
+                TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
+                TerminationInfo::Deadlock => show_error!("program dead-locked"),
+                TerminationInfo::MemoryLeak => show_error!("program leaked memory"),
             }
         }
-
-        get_mini(rustc_args, |_tcx, prog| {
-            if dump {
-                dump_program(prog);
-            } else {
-                match run_prog(prog, &minimize_args) {
-                    // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
-                    TerminationInfo::IllFormed(err) =>
-                        show_error!(
-                            "program not well-formed (this is a bug in minimize):\n    {}",
-                            err.get_internal()
-                        ),
-                    TerminationInfo::MachineStop => { /* silent exit. */ }
-                    TerminationInfo::Abort => show_error!("program aborted"),
-                    TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
-                    TerminationInfo::Deadlock => show_error!("program dead-locked"),
-                    TerminationInfo::MemoryLeak => show_error!("program leaked memory"),
-                }
-            }
-        });
-    }
+    });
 }
 
 /// split arguments into arguments for minimize and rustc
