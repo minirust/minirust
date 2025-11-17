@@ -156,8 +156,8 @@ fn main() {
     }
 
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
-        be_rustc(&mut all_args);
-    } else {
+        return be_rustc(all_args);
+    }
         let (minimize_args, rustc_args) = split_args(all_args);
         let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
