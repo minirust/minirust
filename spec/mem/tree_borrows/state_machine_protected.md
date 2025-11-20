@@ -1,51 +1,51 @@
 # Protected State Machine for Tree Borrows
 
-The core of Tree Borrows is a state machine for each node and each location.
-The protected state machine is more complicated than the unprotected state machine.
+The states of the protected state machine are given by `PermissionProt`.
+This state machine is more complicated than the one for unprotected permissions.
+
 ```rust
 enum PermissionProt {
     /// Represents a shared reference to interior mutable data.
     Cell,
-    /// The various flavours of `Reserved` correspond to a protected/noalias node where no writes happened yet
+    /// The various flavours of `Reserved` correspond to a protected/noalias node where no writes happened yet.
     Reserved { 
-        local_read: bool,
-        foreign_read: bool
+        had_local_read: bool,
+        had_foreign_read: bool
     },
-    /// Represents an activated (written to) mutable reference, i.e. it must actually be unique right now
+    /// Represents an activated (written to) mutable reference, i.e. it must actually be unique right now.
     Unique,
-    /// Represents a shared (immutable) reference
-    Frozen { local_read: bool },
-    /// Represents a dead reference
-    DisabledForeignWrite,
+    /// Represents a shared (immutable) reference.
+    Frozen { had_local_read: bool },
+    /// Represents a reference that experienced a foreign write. It can not be used locally anymore.
+    Disabled,
 }
 ```
 
-Finally, we define the transition table.
+The state machine transition table is given by these functions below.
+When they return `Err` / signal UB, this means the state machine got stuck.
 
 ```rust
 impl PermissionProt {
     fn local_read(self) -> Result<PermissionProt> {
-        ret(
-            match self {
-                PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: Uniqueness violation: local read after foreign write on a protected reference"),
-                PermissionProt::Reserved { foreign_read, .. } => PermissionProt::Reserved { local_read: true, foreign_read },
-                PermissionProt::Frozen { .. } => PermissionProt::Frozen { local_read: true },
-                // Cell and Unique are unaffected.
-                perm => perm,
-            }
-        )
+        match self {
+            PermissionProt::Cell => ret(PermissionProt::Cell),
+            PermissionProt::Reserved { had_foreign_read, .. } => ret(PermissionProt::Reserved { had_local_read: true, had_foreign_read }),
+            PermissionProt::Unique => ret(PermissionProt::Unique),
+            PermissionProt::Frozen { .. } => ret(PermissionProt::Frozen { had_local_read: true }),
+            PermissionProt::Disabled => throw_ub!("Tree Borrows: Uniqueness violation: local read after foreign write on a protected reference"),
+        }
     }
 
     fn local_write(self) -> Result<PermissionProt> {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
             PermissionProt::Unique => ret(PermissionProt::Unique),
-            PermissionProt::Reserved { foreign_read: false, .. } => ret(PermissionProt::Unique),
-            PermissionProt::Reserved { foreign_read: true, .. } =>
+            PermissionProt::Reserved { had_foreign_read: false, .. } => ret(PermissionProt::Unique),
+            PermissionProt::Reserved { had_foreign_read: true, .. } =>
                 throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign read on a protected mutable reference"),
             PermissionProt::Frozen { .. } => throw_ub!("Tree Borrows: Read-only violation: local write to a read-only protected shared reference"),
             // we don't know anymore if we were shared or mutable in this state
-            PermissionProt::DisabledForeignWrite => throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign write on a protected reference"),
+            PermissionProt::Disabled => throw_ub!("Tree Borrows: Uniqueness violation: local write after foreign write on a protected reference"),
         }
     }
 
@@ -53,22 +53,24 @@ impl PermissionProt {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
             PermissionProt::Unique => throw_ub!("Tree Borrows: Uniqueness violation: foreign read after local write on a protected mutable reference"),
-            PermissionProt::Reserved { local_read, .. } => ret(PermissionProt::Reserved { local_read, foreign_read: true }),
+            PermissionProt::Reserved { had_local_read, .. } => ret(PermissionProt::Reserved { had_local_read, had_foreign_read: true }),
             // Frozen and Disabled are kept unchanged.
-            perm => ret(perm),
+            PermissionProt::Frozen { had_local_read } => ret(PermissionProt::Frozen { had_local_read }),
+            PermissionProt::Disabled => ret(PermissionProt::Disabled),
         }
     }
 
     fn foreign_write(self) -> Result<PermissionProt> {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
-            PermissionProt::Frozen { local_read: true } | PermissionProt::Reserved { local_read: true, .. } =>
+            PermissionProt::Frozen { had_local_read: true } | PermissionProt::Reserved { had_local_read: true, .. } =>
                     throw_ub!("Tree Borrows: Uniqueness violation: foreign write after local read on a protected {} reference", if matches!(self, PermissionProt::Frozen {..}) { "shared" } else { "mutable" }),
             PermissionProt::Unique =>
                     throw_ub!("Tree Borrows: Uniqueness violation: foreign write after local write on a protected mutable reference"),
 
-            // All other states become Disabled.
-            _ => ret(PermissionProt::DisabledForeignWrite),
+            // not yet locally accessed states become Disabled
+            PermissionProt::Frozen { had_local_read: false } | PermissionProt::Reserved { had_local_read: false, .. } => ret(PermissionProt::Disabled),
+            PermissionProt::Disabled => ret(PermissionProt::Disabled),
         }
     }
 
@@ -93,28 +95,41 @@ impl PermissionProt {
         }
     }
 
+}
+```
+
+Protectors are ephemeral, they eventually end.
+When they do, they cause a special "protector end access," and the state machine switches back to the unprotected state machine.
+The following function defines which accesses are caused (this depends on the permission), and also defines how protected permissions turn into unprotected permissions for the unprotected state machine.
+
+```rust
+impl PermissionProt {
     /// When a protector is released, we transition to the unprotected state machine.
     fn into_unprotected(self) -> (PermissionUnprot, Option<AccessKind>) {
         match self {
             PermissionProt::Unique => (PermissionUnprot::Unique, Some(AccessKind::Write)),
-            PermissionProt::Reserved { local_read: true, .. } => (PermissionUnprot::Reserved, Some(AccessKind::Read)),
-            PermissionProt::Frozen { local_read: true } => (PermissionUnprot::Frozen, Some(AccessKind::Read)),
-            PermissionProt::Reserved { local_read: false, .. } => (PermissionUnprot::Reserved, None),
-            PermissionProt::Frozen { local_read: false } => (PermissionUnprot::Frozen, None),
-            PermissionProt::DisabledForeignWrite => (PermissionUnprot::Disabled, None),
+            PermissionProt::Reserved { had_local_read: true, .. } => (PermissionUnprot::Reserved, Some(AccessKind::Read)),
+            PermissionProt::Reserved { had_local_read: false, .. } => (PermissionUnprot::Reserved, None),
+            PermissionProt::Frozen { had_local_read: true } => (PermissionUnprot::Frozen, Some(AccessKind::Read)),
+            PermissionProt::Frozen { had_local_read: false } => (PermissionUnprot::Frozen, None),
+            PermissionProt::Disabled => (PermissionUnprot::Disabled, None),
 
             PermissionProt::Cell => (PermissionUnprot::Cell, None),
         }
     }
 
-    /// Protected nodes might block allocation, based on their permission.
-    /// Specifically, they block allocation iff they would cause UB on a foreign write.
-    fn blocks_deallocation(&self) -> bool {
+    /// Strongly protected nodes can block deallocation, based on their permission.
+    /// Specifically, they block allocation iff they would cause UB on a foreign write,
+    /// that is, if they have been locally accessed ("used"), with an exception for `Cell`.
+    /// The check for whether the protector is actually strong happens elsewhere.
+    fn prevents_deallocation(&self) -> bool {
         match self {
             PermissionProt::Unique => true,
-            PermissionProt::Reserved { local_read, .. } | PermissionProt::Frozen { local_read } => *local_read,
+            PermissionProt::Reserved { had_local_read, .. } | PermissionProt::Frozen { had_local_read } => *had_local_read,
 
-            PermissionProt::DisabledForeignWrite => false,
+            PermissionProt::Disabled => false,
+
+            // Cell never prevents deallocation
             PermissionProt::Cell => false,
         }
         // TODO maybe instead do the following?

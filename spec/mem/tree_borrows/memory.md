@@ -107,6 +107,9 @@ impl<T: Target> TreeBorrowsMemory<T> {
                 protected: settings.protected,
             };
 
+            // Debug assert that the Node's internal invariant is upheld.
+            assert!(child_node.permissions.all(|x| if child_node.protected.yes() { matches!(x, Permission::Prot(_)) } else { matches!(x, Permission::Unprot(_)) }));
+
             // Add the new node to the tree
             let child_path = allocation.extra.root.add_node(parent_path, child_node);
 
@@ -140,14 +143,16 @@ impl<T: Target> TreeBorrowsMemory<T> {
         self.mem.allocations.mutate_at(alloc_id.0, |allocation| {
             let protector_accesses : List<_> = allocation.extra.root.access_node(path, |node| {
                 assert!(node.protected.yes());
-                // we would like to iter_mut here, but sadly this is not supported in specr.
+                // We get a list of pairs, and need to turn this into a pair of lists.
                 let mut new_perms = list![];
                 let mut derived_accs = list![];
-                for mut permission in node.permissions {
-                    let derived_access = permission.unprotect();
-                    new_perms.push(permission);
+                for permission in node.permissions {
+                    // One list contains the first component, the other the second.
+                    let (new_perm, derived_access) = permission.unprotect();
+                    new_perms.push(new_perm);
                     derived_accs.push(derived_access);
                 }
+                // We save the new permissions in the node, and use the list of accesses later on.
                 node.permissions = new_perms;
                 derived_accs
             });

@@ -30,12 +30,15 @@ Then we can define the node. Structurally, we use the usual functional represent
 ```rust
 struct Node {
     children: List<Node>,
-    /// State for each location
+    /// State for each location.
     permissions: List<Permission>,
     /// Indicates whether the node is protected by a function call,
     /// i.e., whether the original reference passed as an argument of a function call.
     /// This will be some kind of protection (weak or strong) if and only if this node is in
     /// some frame's `extra.protectors` list.
+    /// There is an invariant between this field and the `permissions`:
+    /// If `protected.yes()`, then all states in `permissions` must be `Permission::Prot()`.
+    /// If `!protected.yes()`, they must all be `Permission::Unprot()`.
     protected: Protected,
 }
 ```
@@ -77,7 +80,7 @@ impl Node {
         let offset_start = offset_in_alloc.bytes();
         for offset in offset_start..offset_start + size.bytes() {
             self.permissions.mutate_at(offset, |permission|{
-                permission.transition(access_kind, node_relation, self.protected.yes())
+                permission.transition(access_kind, node_relation)
             })?;
         }
 
@@ -161,13 +164,6 @@ impl Node {
         child_path
     }
 
-    /// Get a child node of `self`
-    /// `path` is the path from `self` to the target child node.
-    #[allow(unused)]
-    fn get_node(&mut self, path: Path) -> Node {
-        self.access_node(path, |node| *node)
-    }
-
     /// Check whether `self` is a leaf.
     fn is_leaf(&self) -> bool {
         self.children.len() == Int::ZERO
@@ -202,12 +198,12 @@ impl Node {
         }
 
         for (offset, access) in accesses.iter().enumerate() {
-            // if it is None, this means we do nothing.
-            let Some(access) = access else {continue};
-            // otherwise we perform the requested access
-            self.permissions.mutate_at(Int::from(offset), |permission|{
+            // If it is None, this means we do nothing.
+            let Some(access) = access else { continue };
+            // Otherwise we perform the requested access
+            self.permissions.mutate_at(Int::from(offset), |permission| {
                 // Perform state transition on `self`.
-                permission.transition(access, node_relation, self.protected.yes())
+                permission.transition(access, node_relation)
             })?;
         }
 
@@ -230,6 +226,7 @@ impl Node {
     /// the allocation fulfill the following property, the strong protector is not considered:
     /// * the offset has `Cell` permission, i.e. is interior mutable, or
     /// * the offset was not accessed yet, i.e. the protector is not active at this offset.
+    /// See `prevents_deallocation` which implements by actually looking at the permission.
     ///
     /// Return true if there is a strongly protected node preventing deallocation.
     fn contains_strong_protector_preventing_deallocation(&self) -> bool {
@@ -238,8 +235,8 @@ impl Node {
             // which is applicable to at least one offset.
             && self
                 .permissions
-                .any(|st| st.blocks_deallocation()))
-            // if this node has has no such protector, we recurse.
+                .any(|st| st.prevents_deallocation()))
+            // even if this node has has no such protector, we recurse to look in the rest of the tree.
             || self.children.any(|child| child.contains_strong_protector_preventing_deallocation())
     }
 }
