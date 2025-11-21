@@ -71,6 +71,7 @@ pub use miniutil::run::*;
 // Get back some `std` items
 pub use std::env;
 pub use std::format;
+use std::path::PathBuf;
 pub use std::process::Command;
 pub use std::string::String;
 
@@ -147,12 +148,27 @@ pub fn be_rustc(mut args: Vec<String>) {
 }
 
 fn main() {
+    let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
+    let mut sysroot_directory: Option<PathBuf> = None;
+    match sysroot_mode.as_deref() {
+        Some("only") => {
+            setup_sysroot();
+            return;
+        }
+        Some("off") => {
+            // Don't build the sysroot here
+        }
+        _ => {
+            sysroot_directory = Some(setup_sysroot());
+        }
+    }
+
     let mut all_args: Vec<String> = env::args().collect();
 
     all_args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
-    if std::env::var("MINIMIZE_BE_RUSTC").as_deref() != Ok("sysroot") {
-        let sysroot = get_sysroot_dir();
-        all_args.insert(1, format!("--sysroot={}", sysroot.display()));
+    
+    if sysroot_directory.is_some() {
+        all_args.insert(1, format!("--sysroot={}", sysroot_directory.unwrap().display()));
     }
 
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
@@ -160,20 +176,6 @@ fn main() {
     }
     let (minimize_args, rustc_args) = split_args(all_args);
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
-
-    let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
-    match sysroot_mode.as_deref() {
-        Some("only") => {
-            setup_sysroot();
-            std::process::exit(0);
-        }
-        Some("off") => {
-            // Don't build the sysroot here
-        }
-        _ => {
-            setup_sysroot();
-        }
-    }
 
     get_mini(rustc_args, |_tcx, prog| {
         if dump {

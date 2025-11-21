@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
+use rustc_version::VersionMeta;
 
-pub fn get_sysroot_dir() -> PathBuf {
+fn get_sysroot_dir() -> PathBuf {
     match std::env::var_os("MINIRUST_SYSROOT") {
         Some(dir) => PathBuf::from(dir),
         None => {
@@ -54,14 +55,27 @@ pub fn setup_sysroot() -> PathBuf {
     // Get this binary to point at as the rustc
     let this_exe = std::env::current_exe().expect("current_exe - minimize binary not found");
 
+    // Probe ourselves for our version
+    let mut version_command = Command::new(&this_exe);
+    version_command.env("MINIMIZE_BUILD_SYSROOT", "off");
+    version_command.env("MINIMIZE_BE_RUSTC", "1");
+
+    let version = VersionMeta::for_command(version_command).unwrap();
+
+
     // We want to act as rustc
     let mut cargo_command = Command::new("cargo");
-    cargo_command.env("RUSTC", &this_exe).env("MINIMIZE_BE_RUSTC", "sysroot");
+    cargo_command.env("RUSTC", &this_exe);
+    cargo_command.env("MINIMIZE_BE_RUSTC", "1");
+    cargo_command.env("MINIMIZE_BUILD_SYSROOT", "off");
+
+    // In the sysroot build, set rustc_version()
 
     // Do the build.
     SysrootBuilder::new(&sysroot_dir, &target)
         .build_mode(BuildMode::Check)
         .sysroot_config(sysroot_config)
+        .rustc_version(version)
         .cargo(cargo_command)
         .build_from_source(&rust_src)
         .expect("sysroot build failed");
