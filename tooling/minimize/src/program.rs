@@ -122,10 +122,10 @@ impl<'tcx> Ctxt<'tcx> {
         self.get_fn_name(smir::internal(self.tcx, key))
     }
 
-    pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
-        self.tcx.layout_of(self.typing_env().as_query_input(ty)).unwrap().layout
+    pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rustc_abi::TyAndLayout<'tcx, rs::Ty<'tcx>> {
+        self.tcx.layout_of(self.typing_env().as_query_input(ty)).unwrap()
     }
-    pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rs::Layout<'tcx> {
+    pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rustc_abi::TyAndLayout<'tcx, rs::Ty<'tcx>> {
         self.rs_layout_of(smir::internal(self.tcx, ty))
     }
 }
