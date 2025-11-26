@@ -148,25 +148,28 @@ pub fn be_rustc(mut args: Vec<String>) {
 }
 
 fn main() {
+    let mut all_args: Vec<String> = env::args().collect();
+
     let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
     let mut sysroot_directory: Option<PathBuf> = None;
-    match sysroot_mode.as_deref() {
-        Some("only") => {
-            setup_sysroot();
-            return;
-        }
-        Some("off") => {
-            // Don't build the sysroot here
-        }
-        _ => {
-            sysroot_directory = Some(setup_sysroot());
+
+    if all_args.iter().all(|a| a != "-vV") {
+        match sysroot_mode.as_deref() {
+            Some("only") => {
+                setup_sysroot();
+                return;
+            }
+            Some("off") => {
+                // Don't build the sysroot here
+            }
+            _ => {
+                sysroot_directory = Some(setup_sysroot());
+            }
         }
     }
 
-    let mut all_args: Vec<String> = env::args().collect();
-
     all_args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
-    
+
     if sysroot_directory.is_some() {
         all_args.insert(1, format!("--sysroot={}", sysroot_directory.unwrap().display()));
     }
