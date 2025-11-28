@@ -2,6 +2,7 @@
 #![feature(box_patterns)]
 #![feature(never_type)]
 #![feature(strict_overflow_ops)]
+#![feature(array_windows)]
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 
@@ -39,6 +40,7 @@ mod rs {
     pub type CompileTimeInterpCx<'tcx> =
         InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
 }
+
 // Traits
 pub use rustc_abi::HasDataLayout as _;
 pub use rustc_middle::ty::layout::IntegerExt as _;
@@ -70,6 +72,9 @@ pub use miniutil::run::*;
 pub use std::format;
 pub use std::string::String;
 
+mod sysroot;
+use sysroot::*;
+
 mod program;
 use program::*;
 
@@ -96,9 +101,9 @@ mod vtable;
 // Imports for `main``
 
 use std::collections::HashMap;
-use std::env::Args;
+use std::env;
 
-pub const DEFAULT_ARGS: &[&str] = &[
+const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
     "--cfg=miri",
     "-Zalways-encode-mir",
@@ -111,17 +116,61 @@ pub const DEFAULT_ARGS: &[&str] = &[
     "-Zub-checks=false",
 ];
 
-fn show_error(msg: &impl std::fmt::Display) -> ! {
+pub fn show_error(msg: &impl std::fmt::Display) -> ! {
     eprintln!("fatal error: {msg}");
     std::process::exit(101) // exit code needed to make ui_test happy
 }
 
+#[macro_export]
 macro_rules! show_error {
-    ($($tt:tt)*) => { crate::show_error(&format_args!($($tt)*)) };
+    ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
+}
+
+pub fn be_rustc(mut args: Vec<String>) {
+    struct BeRustcCallbacks;
+    impl rustc_driver::Callbacks for BeRustcCallbacks {}
+
+    let use_panic_abort = args
+        .array_windows::<2>()
+        .any(|[first, second]| first == "--crate-name" && second == "panic_abort");
+
+    if use_panic_abort {
+        args.insert(1, "-Cpanic=abort".into());
+    }
+
+    let exit_code = rustc_driver::catch_with_exit_code(move || {
+        rustc_driver::run_compiler(&args, &mut BeRustcCallbacks)
+    });
+
+    std::process::exit(exit_code);
 }
 
 fn main() {
-    let (minimize_args, rustc_args) = split_args(std::env::args());
+    // Compute the rustc flags we will use. Start by adding our default flags before the
+    // user-defined ones.
+    let mut all_args: Vec<String> = env::args().collect();
+    all_args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+
+    // Do sysroot setup, and add the flag for that.
+    let sysroot_mode = std::env::var("MINIMIZE_BUILD_SYSROOT").ok();
+    match sysroot_mode.as_deref() {
+        Some("only") => {
+            setup_sysroot();
+            return;
+        }
+        Some("off") => {}
+        // If we are probed for our version as rustc, act like sysroot_mode is off to avoid infinite looping
+        _ if all_args.iter().any(|a| a == "-vV") => {}
+        _ => {
+            let dir = setup_sysroot();
+            all_args.insert(1, format!("--sysroot={}", dir.display()));
+        }
+    }
+
+    if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
+        return be_rustc(all_args);
+    }
+    let (minimize_args, rustc_args) = split_args(all_args);
     let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
 
     get_mini(rustc_args, |_tcx, prog| {
@@ -146,7 +195,7 @@ fn main() {
 }
 
 /// split arguments into arguments for minimize and rustc
-fn split_args(args: Args) -> (Vec<String>, Vec<String>) {
+fn split_args(args: Vec<String>) -> (Vec<String>, Vec<String>) {
     let mut minimize_args: Vec<String> = Vec::new();
     let mut rustc_args: Vec<String> = Vec::new();
     for arg in args {
@@ -167,8 +216,7 @@ fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
     }
 }
 
-fn get_mini(mut args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
-    args.splice(1..1, DEFAULT_ARGS.iter().map(ToString::to_string));
+fn get_mini(args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {
     rustc_driver::run_compiler(&args, &mut Cb { callback });
 }
 

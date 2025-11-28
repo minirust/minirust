@@ -710,9 +710,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         bb: &rs::BasicBlockData<'tcx>,
     ) -> TerminatorResult {
         // For now we only support calling specific functions, not function pointers.
-        let rs::Operand::Constant(box f1) = func else { panic!() };
-        let rs::mir::Const::Val(_, f2) = f1.const_ else { panic!() };
-        let &rs::TyKind::FnDef(f, substs_ref) = f2.kind() else { panic!() };
+        // FIXME: func operand still needs to be evaluated in some way
+        let fn_ty = func.ty(&self.body, self.tcx);
+        let (f, substs_ref) = match *fn_ty.kind() {
+            rs::TyKind::FnDef(id, substs) => (id, substs),
+            rs::TyKind::FnPtr(..) => panic!(),
+            _ => panic!(),
+        };
         let instance =
             rs::Instance::expect_resolve(self.tcx, self.typing_env(), f, substs_ref, span);
 
