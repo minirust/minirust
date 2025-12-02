@@ -10,7 +10,7 @@ impl<'tcx> Ctxt<'tcx> {
         sref: rs::GenericArgsRef<'tcx>,
         span: rs::Span,
     ) -> Type {
-        let layout = self.rs_layout_of(ty);
+        let layout = self.rs_layout_of(ty).layout;
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 

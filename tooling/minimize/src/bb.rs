@@ -766,16 +766,61 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 .unwrap();
             let conv = translate_calling_convention(abi.conv);
 
-            let mut args: List<_> = rs_args
-                .iter()
-                .map(|x| {
-                    match &x.node {
-                        rs::Operand::Move(place) =>
-                            ArgumentExpr::InPlace(self.translate_place(place, x.span)),
-                        op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
+            let fn_sig = fn_ty.fn_sig(self.tcx);
+            let mut args: List<ArgumentExpr> = if fn_sig.abi() == rustc_abi::ExternAbi::RustCall
+                && !rs_args.is_empty()
+            {
+                // Untuple the last argument
+                let (tuple_arg, other_args) = rs_args.split_last().unwrap();
+
+                match &tuple_arg.node {
+                    rs::Operand::Move(tuple_place) | rs::Operand::Copy(tuple_place) => {
+                        let tuple_ty = tuple_arg.node.ty(&self.body, self.tcx);
+
+                        let rs::TyKind::Tuple(tuple_tys) = tuple_ty.kind() else {
+                            panic!("Expected tuple for rust-call last argument");
+                        };
+
+                        let tuple_args: Vec<_> = tuple_tys
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| {
+                                let field_place = tuple_place.project_deeper(
+                                    &[rs::PlaceElem::Field(rs::FieldIdx::from_usize(i), ty)],
+                                    self.tcx,
+                                );
+                                ArgumentExpr::InPlace(
+                                    self.translate_place(&field_place, tuple_arg.span),
+                                )
+                            })
+                            .collect();
+
+                        other_args
+                            .iter()
+                            .map(|x| {
+                                match &x.node {
+                                    rs::Operand::Move(place) =>
+                                        ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                                    op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
+                                }
+                            })
+                            .chain(tuple_args)
+                            .collect()
                     }
-                })
-                .collect();
+                    _ => panic!("Expected Move or Copy operand for rust-call tuple argument"),
+                }
+            } else {
+                rs_args
+                    .iter()
+                    .map(|x| {
+                        match &x.node {
+                            rs::Operand::Move(place) =>
+                                ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                            op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
+                        }
+                    })
+                    .collect()
+            };
 
             let unwind_block = Some(self.translate_unwind_action(unwind, bb));
 

@@ -122,11 +122,29 @@ impl<'tcx> Ctxt<'tcx> {
         self.get_fn_name(smir::internal(self.tcx, key))
     }
 
-    pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rs::Layout<'tcx> {
-        self.tcx.layout_of(self.typing_env().as_query_input(ty)).unwrap().layout
+    pub fn rs_layout_of(&self, ty: rs::Ty<'tcx>) -> rustc_abi::TyAndLayout<'tcx, rs::Ty<'tcx>> {
+        self.tcx.layout_of(self.typing_env().as_query_input(ty)).unwrap()
     }
-    pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rs::Layout<'tcx> {
+    pub fn rs_layout_of_smir(&self, ty: smir::Ty) -> rustc_abi::TyAndLayout<'tcx, rs::Ty<'tcx>> {
         self.rs_layout_of(smir::internal(self.tcx, ty))
+    }
+}
+
+impl<'tcx> rustc_abi::HasDataLayout for Ctxt<'tcx> {
+    fn data_layout(&self) -> &rustc_abi::TargetDataLayout {
+        &self.tcx.data_layout()
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::HasTyCtxt<'tcx> for Ctxt<'tcx> {
+    fn tcx(&self) -> rs::TyCtxt<'tcx> {
+        self.tcx
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::HasTypingEnv<'tcx> for Ctxt<'tcx> {
+    fn typing_env(&self) -> rs::TypingEnv<'tcx> {
+        self.typing_env()
     }
 }
 
