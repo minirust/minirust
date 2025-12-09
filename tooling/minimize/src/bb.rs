@@ -709,12 +709,37 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         unwind: rs::UnwindAction,
         bb: &rs::BasicBlockData<'tcx>,
     ) -> TerminatorResult {
-        // For now we only support calling specific functions, not function pointers.
         // FIXME: func operand still needs to be evaluated in some way
         let fn_ty = func.ty(&self.body, self.tcx);
         let (f, substs_ref) = match *fn_ty.kind() {
             rs::TyKind::FnDef(id, substs) => (id, substs),
-            rs::TyKind::FnPtr(..) => panic!(),
+            rs::TyKind::FnPtr(..) => {
+                let func = self.translate_operand(func, span);
+
+                let args: List<_> = rs_args
+                    .iter()
+                    .map(|x| {
+                        match &x.node {
+                            rs::Operand::Move(place) =>
+                                ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                            op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
+                        }
+                    })
+                    .collect();
+
+                let unwind_block = Some(self.translate_unwind_action(unwind, bb));
+
+                let terminator = Terminator::Call {
+                    callee: func,
+                    calling_convention: CallingConvention::Rust,
+                    arguments: args,
+                    ret: self.translate_place(&destination, span),
+                    next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                    unwind_block,
+                };
+
+                return TerminatorResult { terminator, stmts: List::new() };
+            }
             _ => panic!(),
         };
         let instance =
