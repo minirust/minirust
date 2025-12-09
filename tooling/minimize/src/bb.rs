@@ -1,3 +1,5 @@
+use rustc_middle::ty::layout::FnAbiOf;
+
 use crate::*;
 
 // Some Rust features are not supported, and are ignored by `minimize`.
@@ -709,12 +711,45 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         unwind: rs::UnwindAction,
         bb: &rs::BasicBlockData<'tcx>,
     ) -> TerminatorResult {
-        // For now we only support calling specific functions, not function pointers.
         // FIXME: func operand still needs to be evaluated in some way
         let fn_ty = func.ty(&self.body, self.tcx);
         let (f, substs_ref) = match *fn_ty.kind() {
             rs::TyKind::FnDef(id, substs) => (id, substs),
-            rs::TyKind::FnPtr(..) => panic!(),
+            rs::TyKind::FnPtr(signature, header) => {
+                let func = self.translate_operand(func, span);
+
+                // combine with info from the header so we can call fn_abi_of_fn_ptr
+                let signature = signature.with(header);
+
+                let abi = self.fn_abi_of_fn_ptr(signature, rs::List::empty());
+                let conv = translate_calling_convention(abi.conv);
+
+                // FIXME: deduplicate this with the argument handling below. In particular,
+                // technically we also need the tuple argument handling here...
+                let args: List<_> = rs_args
+                    .iter()
+                    .map(|x| {
+                        match &x.node {
+                            rs::Operand::Move(place) =>
+                                ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                            op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
+                        }
+                    })
+                    .collect();
+
+                let unwind_block = Some(self.translate_unwind_action(unwind, bb));
+
+                let terminator = Terminator::Call {
+                    callee: func,
+                    calling_convention: conv,
+                    arguments: args,
+                    ret: self.translate_place(&destination, span),
+                    next_block: target.as_ref().map(|t| self.bb_name_map[t]),
+                    unwind_block,
+                };
+
+                return TerminatorResult { terminator, stmts: List::new() };
+            }
             _ => panic!(),
         };
         let instance =
