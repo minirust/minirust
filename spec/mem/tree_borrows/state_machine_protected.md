@@ -102,10 +102,15 @@ Protectors are ephemeral, they eventually end.
 When they do, they cause a special "protector end access," and the state machine switches back to the unprotected state machine.
 The following function defines which accesses are caused (this depends on the permission), and also defines how protected permissions turn into unprotected permissions for the unprotected state machine.
 
+Note that the high-level idea is that if there previously was a local write, we again emit a local write; if there was a local read, we emit a local read.
+If no local accesses happened, there also is no protector end access.
+
 ```rust
 impl PermissionProt {
     /// When a protector is released, we transition to the unprotected state machine.
-    fn into_unprotected(self) -> (PermissionUnprot, Option<AccessKind>) {
+    /// Additionally, we might emit a _protector end access_, depending on our current state.
+    /// The second state indicates that access, or is `None` when no access should happen.
+    fn unprotect(self) -> (PermissionUnprot, Option<AccessKind>) {
         match self {
             PermissionProt::Unique => (PermissionUnprot::Unique, Some(AccessKind::Write)),
             PermissionProt::Reserved { had_local_read: true, .. } => (PermissionUnprot::Reserved, Some(AccessKind::Read)),
@@ -132,8 +137,7 @@ impl PermissionProt {
             // Cell never prevents deallocation
             PermissionProt::Cell => false,
         }
-        // TODO maybe instead do the following?
-        // self.foreign_write().is_err()
+        // Note: the above is equivalent to `self.foreign_write().is_err()`
     }
 }
 

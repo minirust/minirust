@@ -84,6 +84,9 @@ impl Node {
             })?;
         }
 
+        // Re-assert the invariant that our state machine corresponds to our protectedness.
+        assert!(self.permissions.all(|x| x.matches_protector(self.protected)));
+
         ret(())
     }
 
@@ -236,7 +239,7 @@ impl Node {
             && self
                 .permissions
                 .any(|st| st.prevents_deallocation()))
-            // even if this node has has no such protector, we recurse to look in the rest of the tree.
+            // Even if this node has has no such protector, we recurse to look in the rest of the tree.
             || self.children.any(|child| child.contains_strong_protector_preventing_deallocation())
     }
 }

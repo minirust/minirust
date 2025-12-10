@@ -5,7 +5,7 @@ The states of this state machine are called `Permission` since they regulate wha
 Note that this presentation of Tree Borrows splits the protected from the unprotected state machine.
 See `state_machine_protected.md` for the protected state machine, and `state_machine_unprotected.md` for the unprotected one.
 
-The `Permission` just type just tracks which of the two state machines we are currrently using, and delegates the everything appropiately.
+The `Permission` type just tracks which of the two state machines we are currently using, and delegates everything appropriately.
 
 ```rust
 enum Permission {
@@ -14,13 +14,6 @@ enum Permission {
 }
 
 impl Permission {
-
-    fn init_access(self) -> Option<AccessKind> {
-        match self {
-            Permission::Unprot(p) => p.init_access(),
-            Permission::Prot(p) => p.init_access()
-        }
-    }
 
     fn transition(
         &mut self,
@@ -38,14 +31,24 @@ impl Permission {
         Ok(())
     }
 
-    /// Switches from the protected to the unprotected state machine on protector end.
-    /// Also defines the protector end action.
+    fn init_access(self) -> Option<AccessKind> {
+        match self {
+            Permission::Unprot(p) => p.init_access(),
+            Permission::Prot(p) => p.init_access()
+        }
+    }
+
+    /// When a protector is released, we transition to the unprotected state machine.
+    /// Additionally, we might emit a _protector end access_, depending on our current state.
+    /// The second state indicates that access, or is `None` when no access should happen.
+    /// 
+    /// This method may only be called when a protector is present.
     fn unprotect(self) -> (Permission, Option<AccessKind>) {
         match self {
             // This method is only called on protected nodes.
             Permission::Unprot(_) => unreachable!(),
             Permission::Prot(p) => {
-                let (new_perm, access) = p.into_unprotected();
+                let (new_perm, access) = p.unprotect();
                 (Permission::Unprot(new_perm), access)
             }
         }
@@ -54,12 +57,17 @@ impl Permission {
     /// Strongly protected nodes can block deallocation, based on their permission.
     /// Specifically, they block allocation iff they would cause UB on a foreign write,
     /// that is, if they have been locally accessed ("used"), with an exception for `Cell`.
-    /// The check for whether the protector is actually strong happens elsewhere.
+    /// The check for whether the protector is actually strong happens elsewhere, before
+    /// this method is called.
     fn prevents_deallocation(&self) -> bool {
         match self {
-            Permission::Unprot(_) => false,
+            Permission::Unprot(p) => p.prevents_deallocation(),
             Permission::Prot(p) => p.prevents_deallocation()
         }
+    }
+
+    fn matches_protector(&self, protected: Protected) -> bool {
+        if protected.yes() { matches!(self, Permission::Prot(_)) } else { matches!(self, Permission::Unprot(_)) }
     }
 }
 ```

@@ -107,8 +107,8 @@ impl<T: Target> TreeBorrowsMemory<T> {
                 protected: settings.protected,
             };
 
-            // Debug assert that the Node's internal invariant is upheld.
-            assert!(child_node.permissions.all(|x| if child_node.protected.yes() { matches!(x, Permission::Prot(_)) } else { matches!(x, Permission::Unprot(_)) }));
+            // Assert that the node's internal invariant is upheld.
+            assert!(child_node.permissions.all(|x| x.matches_protector(child_node.protected)));
 
             // Add the new node to the tree
             let child_path = allocation.extra.root.add_node(parent_path, child_node);

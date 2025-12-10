@@ -73,12 +73,23 @@ impl PermissionUnprot {
             (NodeRelation::Foreign, AccessKind::Write) => self.foreign_write(),
         }
     }
+
+
+    /// Strongly protected nodes can block deallocation, based on their permission.
+    /// This method is never called because we first check whether there is a strong protector,
+    /// but it is here anyways for consistency.
+    fn prevents_deallocation(&self) -> bool {
+        // Note: this is equivalent to `self.foreign_write().is_err()`, just like for protected
+        // references, since unprotected references never trigger UB for foreign accesses.
+        false
+    }
 }
 ```
 
 When a new node is created, it causes an implicit access, usually an implicit read.
-This is so the optimizer can insert reads the moment a reference is created.
-Note that some nodes do not cause an implicit read, this depends on the permission, and is defined by the `init_access` function.
+This is so the optimizer can insert reads as soon as a reference is created.
+Note that the implicit read is not universal, and depends on the permission.
+The details are defined by the `init_access` function.
 
 ```rust
 impl PermissionUnprot {
