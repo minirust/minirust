@@ -24,9 +24,7 @@ extern crate stable_mir;
 
 mod rs {
     pub use rustc_abi as abi;
-    pub use rustc_abi::{
-        Align, FieldIdx, FieldsShape, Layout, Size, TagEncoding, VariantIdx, Variants,
-    };
+    pub use rustc_abi::{Align, FieldIdx, FieldsShape, Size, TagEncoding, VariantIdx, Variants};
     pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};

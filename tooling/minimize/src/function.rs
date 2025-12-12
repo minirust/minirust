@@ -107,6 +107,54 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             self.locals.insert(*local_name, ty);
         }
 
+        let mut args = List::default(); // the locals that receive the function arguments
+        let mut init_statements: Vec<Statement> = Vec::new(); // statements which make up the first bb of the function
+
+        let spread_local_idx = self.body.spread_arg.map(|local| local.as_usize());
+
+        // The argument indices start at 1 since 0 is the return value.
+        for i in 1..=(self.body.arg_count) {
+            if Some(i) == spread_local_idx {
+                let spread_local = self.body.spread_arg.unwrap();
+                let spread_local_name = self.local_name_map[&spread_local];
+
+                let spread_decl = &self.body.local_decls[spread_local];
+                let (tuple_fields, span) = if let rs::TyKind::Tuple(fields) = spread_decl.ty.kind()
+                {
+                    (fields, spread_decl.source_info.span)
+                } else {
+                    panic!(
+                        "spread_arg local {spread_local:?} is not a tuple, has type: {:?}",
+                        spread_decl.ty
+                    );
+                };
+
+                // We need the spread argument to be storage live before we can write to its fields
+                init_statements.push(Statement::StorageLive(spread_local_name));
+
+                for (field_idx, field_ty_rs) in tuple_fields.iter().enumerate() {
+                    let temp_local = self.fresh_local_name();
+
+                    let field_ty = self.cx.translate_ty(field_ty_rs, span);
+                    self.locals.insert(temp_local, field_ty);
+
+                    args.push(temp_local);
+
+                    let destination = PlaceExpr::Field {
+                        root: GcCow::new(PlaceExpr::Local(spread_local_name)),
+                        field: Int::from(field_idx),
+                    };
+
+                    let source =
+                        ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(temp_local)) };
+
+                    init_statements.push(Statement::Assign { destination, source });
+                }
+            } else {
+                args.push(LocalName(Name::from_internal(i as _)));
+            }
+        }
+
         // the number of locals which are implicitly storage live.
         let free_argc = self.body.arg_count + 1;
 
@@ -116,16 +164,20 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // this block allocates all "always_storage_live_locals",
         // except for those which are implicitly storage live in Minirust;
         // like the return local and function args.
-        let init_blk = BasicBlock {
-            statements: rs::always_storage_live_locals(&self.body)
+        init_statements.extend(
+            rs::always_storage_live_locals(&self.body)
                 .iter()
                 .map(|loc| self.local_name_map[&loc])
                 .filter(|LocalName(i)| i.get_internal() as usize >= free_argc)
-                .map(Statement::StorageLive)
-                .collect(),
+                .map(Statement::StorageLive),
+        );
+
+        let init_blk = BasicBlock {
+            statements: init_statements.into_iter().collect(),
             terminator: Terminator::Goto(self.bb_name_map[&rs::mir::START_BLOCK]),
             kind: BbKind::Regular,
         };
+
         self.blocks.insert(init_bb, init_blk);
 
         // convert MIR BBs to minirust.
@@ -137,13 +189,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // "The first local is the return value pointer, followed by arg_count locals for the function arguments, followed by any user-declared variables and temporaries."
         // - https://doc.rust-lang.org/stable/nightly-rustc/rustc_middle/mir/struct.Body.html
         let ret = LocalName(Name::from_internal(0));
-
-        let mut args = List::default();
-        for i in 0..self.body.arg_count {
-            let i = i + 1; // this starts counting with 1, as id 0 is the return value of the function.
-            let local_name = LocalName(Name::from_internal(i as _));
-            args.push(local_name);
-        }
 
         let f = Function {
             locals: self.locals,

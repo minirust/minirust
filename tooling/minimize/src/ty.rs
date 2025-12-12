@@ -2,7 +2,7 @@ use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
     pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
-        let layout = self.rs_layout_of(ty);
+        let layout = self.rs_layout_of(ty).layout;
         let inhabited = !layout.is_uninhabited();
         let freeze = ty.is_freeze(self.tcx, self.typing_env());
         let unpin = ty.is_unpin(self.tcx, self.typing_env());
@@ -31,7 +31,7 @@ impl<'tcx> Ctxt<'tcx> {
         // Handle Unsized types:
         match ty.kind() {
             &rs::TyKind::Slice(element_ty) => {
-                let element_layout = self.rs_layout_of(element_ty);
+                let element_layout = self.rs_layout_of(element_ty).layout;
                 let mut element_cells = self.cells_in_sized_ty(element_ty, span);
                 element_cells.sort_by_key(|a| a.0);
                 let element_cells = element_cells.into_iter().collect::<List<(Offset, Offset)>>();
@@ -92,7 +92,7 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::FnDef(..) => Vec::new(),
             rs::TyKind::Never => Vec::new(),
             rs::TyKind::Tuple(ts) => {
-                let layout = self.rs_layout_of(ty);
+                let layout = self.rs_layout_of(ty).layout;
                 ts.iter()
                     .enumerate()
                     .flat_map(|(i, ty)| {
@@ -104,12 +104,12 @@ impl<'tcx> Ctxt<'tcx> {
                     .collect()
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_unsafe_cell() => {
-                let layout = self.rs_layout_of(ty);
+                let layout = self.rs_layout_of(ty).layout;
                 let size = translate_size(layout.size());
                 vec![(Size::ZERO, size)]
             }
             rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
-                let layout = self.rs_layout_of(ty);
+                let layout = self.rs_layout_of(ty).layout;
                 adt_def
                     .non_enum_variant()
                     .fields
@@ -130,15 +130,27 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Adt(adt_def, _sref) if adt_def.is_union() || adt_def.is_enum() => {
                 // If any variant has an `UnsafeCell` somewhere in it, the whole range will be non-freeze.
                 let ty_is_freeze = ty.is_freeze(self.tcx, self.typing_env());
-                let layout = self.rs_layout_of(ty);
+                let layout = self.rs_layout_of(ty).layout;
                 let size = translate_size(layout.size());
 
                 if ty_is_freeze { Vec::new() } else { vec![(Size::ZERO, size)] }
             }
+            rs::TyKind::Closure(..) => {
+                let layout = self.rs_layout_of(ty);
+                (0..layout.fields.count())
+                    .flat_map(|i| {
+                        let offset = translate_size(layout.fields.offset(i));
+                        let t = layout.field(self, i).ty;
+                        self.cells_in_sized_ty(t, span)
+                            .into_iter()
+                            .map(move |(start, len)| (start + offset, len))
+                    })
+                    .collect()
+            }
             rs::TyKind::Array(elem_ty, c) => {
                 let range = self.cells_in_sized_ty(*elem_ty, span);
                 if !range.is_empty() {
-                    let layout = self.rs_layout_of(*elem_ty);
+                    let layout = self.rs_layout_of(*elem_ty).layout;
                     let size = translate_size(layout.size());
                     let count = c.try_to_target_usize(self.tcx).unwrap();
                     let ranges = vec![0, count];
@@ -175,7 +187,7 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
             rs::TyKind::Tuple(ts) => {
-                let layout = self.rs_layout_of(ty);
+                let layout = self.rs_layout_of(ty).layout;
                 let size = translate_size(layout.size());
                 let align = translate_align(layout.align().abi);
 
@@ -228,6 +240,23 @@ impl<'tcx> Ctxt<'tcx> {
                 // FnDef types don't carry data, everything relevant is in the type
                 // (which we handle when translating calls).
                 self.translate_ty(self.tcx.types.unit, span)
+            }
+            rs::TyKind::Closure(..) => {
+                let layout = self.rs_layout_of(ty);
+                let size = translate_size(layout.size);
+                let align = translate_align(layout.align.abi);
+
+                let fields = (0..layout.fields.count())
+                    .map(|i| {
+                        let t = layout.field(self, i).ty;
+                        let t = self.translate_ty(t, span);
+                        let offset = layout.fields.offset(i);
+                        let offset = translate_size(offset);
+                        (offset, t)
+                    })
+                    .collect::<Vec<_>>();
+
+                build::tuple_ty(&fields, size, align)
             }
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
@@ -283,7 +312,7 @@ impl<'tcx> Ctxt<'tcx> {
         sref: rs::GenericArgsRef<'tcx>,
         span: rs::Span,
     ) -> (Fields, Size, Align) {
-        let layout = self.rs_layout_of(ty);
+        let layout = self.rs_layout_of(ty).layout;
         let fields = self.translate_adt_variant_fields(
             layout.fields(),
             adt_def.non_enum_variant(),
