@@ -144,17 +144,11 @@ impl<T: Target> TreeBorrowsMemory<T> {
             let protector_accesses : List<_> = allocation.extra.root.access_node(path, |node| {
                 assert!(node.protected.yes());
                 // We get a list of pairs, and need to turn this into a pair of lists.
-                let mut new_perms = list![];
-                let mut derived_accs = list![];
-                for permission in node.permissions {
-                    // One list contains the first component, the other the second.
-                    let (new_perm, derived_access) = permission.unprotect();
-                    new_perms.push(new_perm);
-                    derived_accs.push(derived_access);
-                }
-                // We save the new permissions in the node, and use the list of accesses later on.
-                node.permissions = new_perms;
-                derived_accs
+                let list_of_perms_and_accesses = node.permissions.map(|x| x.unprotect());
+                // The list of unprotected permissions is stored back in the tree.
+                node.permissions = list_of_perms_and_accesses.map(|(perm, acc)| perm);
+                // The resulting accesses are used further down.
+                list_of_perms_and_accesses.map(|(perm, acc)| acc)
             });
 
             if !allocation.live {

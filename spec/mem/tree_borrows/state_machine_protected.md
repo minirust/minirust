@@ -1,7 +1,7 @@
 # Protected State Machine for Tree Borrows
 
 The states of the protected state machine are given by `PermissionProt`.
-This state machine is more complicated than the one for unprotected permissions.
+This state machine is more complicated than the one for unprotected permissions, since it can also trigger UB on foreign accesses.
 
 ```rust
 enum PermissionProt {

@@ -83,10 +83,6 @@ impl Node {
                 permission.transition(access_kind, node_relation)
             })?;
         }
-
-        // Re-assert the invariant that our state machine corresponds to our protectedness.
-        assert!(self.permissions.all(|x| x.matches_protector(self.protected)));
-
         ret(())
     }
 

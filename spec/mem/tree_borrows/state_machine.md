@@ -66,8 +66,14 @@ impl Permission {
         }
     }
 
+    /// This function checking this node's internal invariant.
+    /// It is only used in debug asserts.
     fn matches_protector(&self, protected: Protected) -> bool {
-        if protected.yes() { matches!(self, Permission::Prot(_)) } else { matches!(self, Permission::Unprot(_)) }
+        if protected.yes() {
+            matches!(self, Permission::Prot(_))
+        } else {
+            matches!(self, Permission::Unprot(_))
+        }
     }
 }
 ```
