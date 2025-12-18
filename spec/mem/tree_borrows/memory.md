@@ -146,9 +146,9 @@ impl<T: Target> TreeBorrowsMemory<T> {
                 // We get a list of pairs, and need to turn this into a pair of lists.
                 let list_of_perms_and_accesses = node.permissions.map(|x| x.unprotect());
                 // The list of unprotected permissions is stored back in the tree.
-                node.permissions = list_of_perms_and_accesses.map(|(perm, acc)| perm);
+                node.permissions = list_of_perms_and_accesses.map(|(perm, _acc)| perm);
                 // The resulting accesses are used further down.
-                list_of_perms_and_accesses.map(|(perm, acc)| acc)
+                list_of_perms_and_accesses.map(|(_perm, acc)| acc)
             });
 
             if !allocation.live {
