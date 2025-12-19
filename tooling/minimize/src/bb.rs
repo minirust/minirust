@@ -1,3 +1,5 @@
+use rustc_middle::ty::PseudoCanonicalInput;
+
 use crate::*;
 
 // Some Rust features are not supported, and are ignored by `minimize`.
@@ -713,9 +715,30 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let fn_ty = func.ty(&self.body, self.tcx);
         let (f, substs_ref) = match *fn_ty.kind() {
             rs::TyKind::FnDef(id, substs) => (id, substs),
-            rs::TyKind::FnPtr(..) => {
+            rs::TyKind::FnPtr(signature, header) => {
                 let func = self.translate_operand(func, span);
 
+                // combine with info from the header so we can call fn_abi_of_fn_ptr
+                let signature = signature.map_bound(|tys| {
+                    rustc_middle::ty::FnSig {
+                        inputs_and_output: tys.inputs_and_output,
+                        c_variadic: header.c_variadic,
+                        safety: header.safety,
+                        abi: header.abi,
+                    }
+                });
+
+                let abi = self
+                    .tcx
+                    .fn_abi_of_fn_ptr(PseudoCanonicalInput {
+                        typing_env: self.typing_env(),
+                        value: (signature, rs::List::empty()),
+                    })
+                    .unwrap();
+                let conv = translate_calling_convention(abi.conv);
+
+                // FIXME: deduplicate this with the argument handling below. In particular,
+                // technically we also need the tuple argument handling here...
                 let args: List<_> = rs_args
                     .iter()
                     .map(|x| {
@@ -731,7 +754,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 let terminator = Terminator::Call {
                     callee: func,
-                    calling_convention: CallingConvention::Rust,
+                    calling_convention: conv,
                     arguments: args,
                     ret: self.translate_place(&destination, span),
                     next_block: target.as_ref().map(|t| self.bb_name_map[t]),
