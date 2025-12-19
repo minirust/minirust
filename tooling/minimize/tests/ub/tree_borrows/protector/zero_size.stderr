@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: Uniqueness violation: foreign read after local write on a protected mutable reference
+fatal error: UB: Tree Borrows: foreign read of protected Unique reference

@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: Read-only violation: local write to a read-only reference (shared, or mutable after a foreign write)
+fatal error: UB: Tree Borrows: local write of Frozen reference

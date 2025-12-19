@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: Uniqueness violation: local write after foreign write
+fatal error: UB: Tree Borrows: local write of Disabled reference
