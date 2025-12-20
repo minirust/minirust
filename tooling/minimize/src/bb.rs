@@ -1,5 +1,3 @@
-use rustc_middle::ty::PseudoCanonicalInput;
-
 use crate::*;
 
 // Some Rust features are not supported, and are ignored by `minimize`.
@@ -719,18 +717,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let func = self.translate_operand(func, span);
 
                 // combine with info from the header so we can call fn_abi_of_fn_ptr
-                let signature = signature.map_bound(|tys| {
-                    rustc_middle::ty::FnSig {
-                        inputs_and_output: tys.inputs_and_output,
-                        c_variadic: header.c_variadic,
-                        safety: header.safety,
-                        abi: header.abi,
-                    }
-                });
+                let signature = signature.with(header);
 
                 let abi = self
                     .tcx
-                    .fn_abi_of_fn_ptr(PseudoCanonicalInput {
+                    .fn_abi_of_fn_ptr(rs::PseudoCanonicalInput {
                         typing_env: self.typing_env(),
                         value: (signature, rs::List::empty()),
                     })
