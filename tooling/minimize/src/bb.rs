@@ -1,3 +1,5 @@
+use rustc_middle::ty::layout::FnAbiOf;
+
 use crate::*;
 
 // Some Rust features are not supported, and are ignored by `minimize`.
@@ -719,13 +721,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 // combine with info from the header so we can call fn_abi_of_fn_ptr
                 let signature = signature.with(header);
 
-                let abi = self
-                    .tcx
-                    .fn_abi_of_fn_ptr(rs::PseudoCanonicalInput {
-                        typing_env: self.typing_env(),
-                        value: (signature, rs::List::empty()),
-                    })
-                    .unwrap();
+                let abi = self.fn_abi_of_fn_ptr(signature, rs::List::empty());
                 let conv = translate_calling_convention(abi.conv);
 
                 // FIXME: deduplicate this with the argument handling below. In particular,

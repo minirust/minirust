@@ -43,6 +43,50 @@ impl<'cx, 'tcx> std::ops::DerefMut for FnCtxt<'cx, 'tcx> {
     }
 }
 
+impl<'cx, 'tcx> rustc_abi::HasDataLayout for FnCtxt<'cx, 'tcx> {
+    fn data_layout(&self) -> &rustc_abi::TargetDataLayout {
+        self.cx.tcx.data_layout()
+    }
+}
+
+impl<'cx, 'tcx> rustc_middle::ty::layout::HasTyCtxt<'tcx> for FnCtxt<'cx, 'tcx> {
+    fn tcx(&self) -> rs::TyCtxt<'tcx> {
+        self.cx.tcx
+    }
+}
+
+impl<'cx, 'tcx> rustc_middle::ty::layout::HasTypingEnv<'tcx> for FnCtxt<'cx, 'tcx> {
+    fn typing_env(&self) -> rs::TypingEnv<'tcx> {
+        self.cx.typing_env()
+    }
+}
+
+impl<'cx, 'tcx> rustc_middle::ty::layout::LayoutOfHelpers<'tcx> for FnCtxt<'cx, 'tcx> {
+    type LayoutOfResult = rs::TyAndLayout<'tcx>;
+
+    fn handle_layout_err(
+        &self,
+        err: rs::LayoutError<'tcx>,
+        span: rs::Span,
+        _ty: rs::Ty<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "layout error: {:?}", err)
+    }
+}
+
+impl<'cx, 'tcx> rustc_middle::ty::layout::FnAbiOfHelpers<'tcx> for FnCtxt<'cx, 'tcx> {
+    type FnAbiOfResult = &'tcx rs::FnAbi<'tcx, rs::Ty<'tcx>>;
+
+    fn handle_fn_abi_err(
+        &self,
+        err: rs::FnAbiError<'tcx>,
+        span: rs::Span,
+        _fn_abi_request: rs::FnAbiRequest<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "function abi error: {:?}", err)
+    }
+}
+
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     pub fn new(instance: rs::Instance<'tcx>, cx: &'cx mut Ctxt<'tcx>) -> Self {
         let body = cx.tcx.instance_mir(instance.def);
