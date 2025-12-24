@@ -2,7 +2,7 @@ use crate::*;
 
 impl<'tcx> Ctxt<'tcx> {
     pub fn pointee_info_of(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> PointeeInfo {
-        let layout = self.rs_layout_of(ty);
+        let layout = self.rs_layout_of(ty).layout;
         let inhabited = !layout.is_uninhabited();
         let freeze = ty.is_freeze(self.tcx, self.typing_env());
         let unpin = ty.is_unpin(self.tcx, self.typing_env());
@@ -31,7 +31,7 @@ impl<'tcx> Ctxt<'tcx> {
         // Handle Unsized types:
         match ty.kind() {
             &rs::TyKind::Slice(element_ty) => {
-                let element_layout = self.rs_layout_of(element_ty);
+                let element_layout = self.rs_layout_of(element_ty).layout;
                 let mut element_cells = self.cells_in_sized_ty(element_ty, span);
                 element_cells.sort_by_key(|a| a.0);
                 let element_cells = element_cells.into_iter().collect::<List<(Offset, Offset)>>();
@@ -80,6 +80,22 @@ impl<'tcx> Ctxt<'tcx> {
         self.translate_ty(smir::internal(self.tcx, ty), span)
     }
 
+    fn cells_from_layout(
+        &mut self,
+        layout: rs::TyAndLayout<'tcx>,
+        span: rs::Span,
+    ) -> Vec<(Offset, Size)> {
+        (0..layout.fields.count())
+            .flat_map(|i| {
+                let offset = translate_size(layout.fields.offset(i));
+                let ty = layout.field(self, i).ty;
+                self.cells_in_sized_ty(ty, span)
+                    .into_iter()
+                    .map(move |(start, len)| (start + offset, len))
+            })
+            .collect()
+    }
+
     pub fn cells_in_sized_ty(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> Vec<(Offset, Size)> {
         match ty.kind() {
             rs::TyKind::Bool => Vec::new(),
@@ -91,55 +107,36 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::FnPtr(..) => Vec::new(),
             rs::TyKind::FnDef(..) => Vec::new(),
             rs::TyKind::Never => Vec::new(),
-            rs::TyKind::Tuple(ts) => {
+            rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
-                ts.iter()
-                    .enumerate()
-                    .flat_map(|(i, ty)| {
-                        let offset = translate_size(layout.fields().offset(i));
-                        self.cells_in_sized_ty(ty, span)
-                            .into_iter()
-                            .map(move |(start, len)| (start + offset, len))
-                    })
-                    .collect()
+                self.cells_from_layout(layout, span)
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_unsafe_cell() => {
                 let layout = self.rs_layout_of(ty);
-                let size = translate_size(layout.size());
+                let size = translate_size(layout.size);
                 vec![(Size::ZERO, size)]
             }
-            rs::TyKind::Adt(adt_def, sref) if adt_def.is_struct() => {
+            rs::TyKind::Adt(adt_def, _sref) if adt_def.is_struct() => {
                 let layout = self.rs_layout_of(ty);
-                adt_def
-                    .non_enum_variant()
-                    .fields
-                    .iter_enumerated()
-                    .flat_map(|(i, field)| {
-                        let ty = field.ty(self.tcx, sref);
-                        // Field types can be non-normalized even if the ADT type was normalized
-                        // (due to associated types on the fields).
-                        let ty = self.tcx.normalize_erasing_regions(self.typing_env(), ty);
-                        let offset = layout.fields().offset(i.into());
-                        let offset = translate_size(offset);
-                        self.cells_in_sized_ty(ty, span)
-                            .into_iter()
-                            .map(move |(start, len)| (start + offset, len))
-                    })
-                    .collect()
+                self.cells_from_layout(layout, span)
             }
             rs::TyKind::Adt(adt_def, _sref) if adt_def.is_union() || adt_def.is_enum() => {
                 // If any variant has an `UnsafeCell` somewhere in it, the whole range will be non-freeze.
                 let ty_is_freeze = ty.is_freeze(self.tcx, self.typing_env());
                 let layout = self.rs_layout_of(ty);
-                let size = translate_size(layout.size());
+                let size = translate_size(layout.size);
 
                 if ty_is_freeze { Vec::new() } else { vec![(Size::ZERO, size)] }
+            }
+            rs::TyKind::Closure(..) => {
+                let layout = self.rs_layout_of(ty);
+                self.cells_from_layout(layout, span)
             }
             rs::TyKind::Array(elem_ty, c) => {
                 let range = self.cells_in_sized_ty(*elem_ty, span);
                 if !range.is_empty() {
                     let layout = self.rs_layout_of(*elem_ty);
-                    let size = translate_size(layout.size());
+                    let size = translate_size(layout.size);
                     let count = c.try_to_target_usize(self.tcx).unwrap();
                     let ranges = vec![0, count];
 
@@ -159,6 +156,23 @@ impl<'tcx> Ctxt<'tcx> {
         }
     }
 
+    fn tuple_from_layout(&mut self, layout: rs::TyAndLayout<'tcx>, span: rs::Span) -> Type {
+        let size = translate_size(layout.size);
+        let align = translate_align(layout.align.abi);
+
+        let fields: Vec<(Size, Type)> = (0..layout.fields.count())
+            .map(|i| {
+                let ty = layout.field(self, i).ty;
+                let ty = self.translate_ty(ty, span);
+                let offset = layout.fields.offset(i);
+                let offset = translate_size(offset);
+                (offset, ty)
+            })
+            .collect();
+
+        build::tuple_ty(&fields, size, align)
+    }
+
     pub fn translate_ty(&mut self, ty: rs::Ty<'tcx>, span: rs::Span) -> Type {
         if let Some(mini_ty) = self.ty_cache.get(&ty) {
             return *mini_ty;
@@ -174,24 +188,9 @@ impl<'tcx> Ctxt<'tcx> {
                 let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
                 Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
-            rs::TyKind::Tuple(ts) => {
+            rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
-                let size = translate_size(layout.size());
-                let align = translate_align(layout.align().abi);
-
-                let fields = ts
-                    .iter()
-                    .enumerate()
-                    .map(|(i, t)| {
-                        let t = self.translate_ty(t, span);
-                        let offset = layout.fields().offset(i);
-                        let offset = translate_size(offset);
-
-                        (offset, t)
-                    })
-                    .collect::<Vec<_>>();
-
-                build::tuple_ty(&fields, size, align)
+                self.tuple_from_layout(layout, span)
             }
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => {
                 let ty = ty.expect_boxed_ty();
@@ -228,6 +227,10 @@ impl<'tcx> Ctxt<'tcx> {
                 // FnDef types don't carry data, everything relevant is in the type
                 // (which we handle when translating calls).
                 self.translate_ty(self.tcx.types.unit, span)
+            }
+            rs::TyKind::Closure(..) => {
+                let layout = self.rs_layout_of(ty);
+                self.tuple_from_layout(layout, span)
             }
             rs::TyKind::Never =>
                 build::enum_ty::<u8>(&[], Discriminator::Invalid, build::size(0), build::align(1)),
@@ -283,7 +286,7 @@ impl<'tcx> Ctxt<'tcx> {
         sref: rs::GenericArgsRef<'tcx>,
         span: rs::Span,
     ) -> (Fields, Size, Align) {
-        let layout = self.rs_layout_of(ty);
+        let layout = self.rs_layout_of(ty).layout;
         let fields = self.translate_adt_variant_fields(
             layout.fields(),
             adt_def.non_enum_variant(),
