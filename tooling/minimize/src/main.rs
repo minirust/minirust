@@ -29,7 +29,7 @@ mod rs {
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
     pub use rustc_middle::span_bug;
-    pub use rustc_middle::ty::layout::TyAndLayout;
+    pub use rustc_middle::ty::layout::{FnAbiError, FnAbiRequest, LayoutError, TyAndLayout};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::impls::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;

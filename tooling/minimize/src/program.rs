@@ -148,6 +148,32 @@ impl<'tcx> rustc_middle::ty::layout::HasTypingEnv<'tcx> for Ctxt<'tcx> {
     }
 }
 
+impl<'tcx> rustc_middle::ty::layout::LayoutOfHelpers<'tcx> for Ctxt<'tcx> {
+    type LayoutOfResult = rs::TyAndLayout<'tcx>;
+
+    fn handle_layout_err(
+        &self,
+        err: rs::LayoutError<'tcx>,
+        span: rs::Span,
+        _ty: rs::Ty<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "layout error: {:?}", err)
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::FnAbiOfHelpers<'tcx> for Ctxt<'tcx> {
+    type FnAbiOfResult = &'tcx rs::FnAbi<'tcx, rs::Ty<'tcx>>;
+
+    fn handle_fn_abi_err(
+        &self,
+        err: rs::FnAbiError<'tcx>,
+        span: rs::Span,
+        _fn_abi_request: rs::FnAbiRequest<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "function abi error: {:?}", err)
+    }
+}
+
 fn mk_start_fn(entry: u32) -> Function {
     let b0_name = BbName(Name::from_internal(0));
     let b1_name = BbName(Name::from_internal(1));
