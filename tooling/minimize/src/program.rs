@@ -130,6 +130,50 @@ impl<'tcx> Ctxt<'tcx> {
     }
 }
 
+impl<'tcx> rustc_abi::HasDataLayout for Ctxt<'tcx> {
+    fn data_layout(&self) -> &rustc_abi::TargetDataLayout {
+        &self.tcx.data_layout()
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::HasTyCtxt<'tcx> for Ctxt<'tcx> {
+    fn tcx(&self) -> rs::TyCtxt<'tcx> {
+        self.tcx
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::HasTypingEnv<'tcx> for Ctxt<'tcx> {
+    fn typing_env(&self) -> rs::TypingEnv<'tcx> {
+        self.typing_env()
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::LayoutOfHelpers<'tcx> for Ctxt<'tcx> {
+    type LayoutOfResult = rs::TyAndLayout<'tcx>;
+
+    fn handle_layout_err(
+        &self,
+        err: rs::LayoutError<'tcx>,
+        span: rs::Span,
+        _ty: rs::Ty<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "layout error: {:?}", err)
+    }
+}
+
+impl<'tcx> rustc_middle::ty::layout::FnAbiOfHelpers<'tcx> for Ctxt<'tcx> {
+    type FnAbiOfResult = &'tcx rs::FnAbi<'tcx, rs::Ty<'tcx>>;
+
+    fn handle_fn_abi_err(
+        &self,
+        err: rs::FnAbiError<'tcx>,
+        span: rs::Span,
+        _fn_abi_request: rs::FnAbiRequest<'tcx>,
+    ) -> ! {
+        rs::span_bug!(span, "function abi error: {:?}", err)
+    }
+}
+
 fn mk_start_fn(entry: u32) -> Function {
     let b0_name = BbName(Name::from_internal(0));
     let b1_name = BbName(Name::from_internal(1));
