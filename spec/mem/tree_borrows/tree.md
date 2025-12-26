@@ -30,12 +30,15 @@ Then we can define the node. Structurally, we use the usual functional represent
 ```rust
 struct Node {
     children: List<Node>,
-    /// State for each location
-    location_states: List<LocationState>,
+    /// State for each location.
+    permissions: List<Permission>,
     /// Indicates whether the node is protected by a function call,
     /// i.e., whether the original reference passed as an argument of a function call.
     /// This will be some kind of protection (weak or strong) if and only if this node is in
     /// some frame's `extra.protectors` list.
+    /// There is an invariant between this field and the `permissions`:
+    /// If `protected.yes()`, then all states in `permissions` must be `Permission::Prot()`.
+    /// If `!protected.yes()`, they must all be `Permission::Unprot()`.
     protected: Protected,
 }
 ```
@@ -76,11 +79,10 @@ impl Node {
     ) -> Result {
         let offset_start = offset_in_alloc.bytes();
         for offset in offset_start..offset_start + size.bytes() {
-            self.location_states.mutate_at(offset, |location_state|{
-                location_state.transition(access_kind, node_relation, self.protected.yes())
+            self.permissions.mutate_at(offset, |permission|{
+                permission.transition(access_kind, node_relation)
             })?;
         }
-
         ret(())
     }
 
@@ -161,12 +163,6 @@ impl Node {
         child_path
     }
 
-    /// Get a child node of `self`
-    /// `path` is the path from `self` to the target child node.
-    fn get_node(&mut self, path: Path) -> Node {
-        self.access_node(path, |node| *node)
-    }
-
     /// Check whether `self` is a leaf.
     fn is_leaf(&self) -> bool {
         self.children.len() == Int::ZERO
@@ -181,11 +177,11 @@ impl Node {
     /// Recusively do state transition on all foreigns of the protected node.
     /// `path` is the path from `self` to the proctected node.
     /// `path` is None when the protected node is not a descendant of `self`.
-    /// `location_states` are the location states of the protected node.
+    /// `accesses` describes which access happens at which offset.
     fn release_protector(
         &mut self,
         path: Option<Path>, // self -> protected node
-        location_states: &List<LocationState>,
+        accesses: &List<Option<AccessKind>>,
     ) -> Result {
         // Indicates whether the protected node is a local or foreign
         // *from the perspective of `self`*.
@@ -193,33 +189,20 @@ impl Node {
 
         // If `self` is the protected node, we are done: the special access
         // does not apply to children of the protected node.
+        // We also don't need to do the access itself here, since the nodes are all invariant
+        // under the respective access.
         if path.is_some_and(|p| p.is_empty()) {
             self.protected = Protected::No;
             return ret(());
         }
 
-        for offset in Int::ZERO..location_states.len() {
-            let LocationState { accessed, permission } = location_states[offset];
-
-            // If the location has never been accessed, there is no need to perform an access here.
-            if accessed != Accessed::Yes { continue; }
-
-            // If the permission is Unique,
-            // we perform a write access here. Otherwise, we perform a read access here.
-            // Note that since this implicit access only occurs with actively protected nodes,
-            // a foreign read/write of an Unique location should be UB.
-            // This condition is hence equivalent to checking whether there was a (local) write to this location.
-            let access_kind = match permission {
-                // As a special case, we do not perform any access on interior mutable data,
-                // because the protector does not really apply there.
-                Permission::Cell => continue,
-                Permission::Unique => AccessKind::Write,
-                _ => AccessKind::Read,
-            };
-
-            self.location_states.mutate_at(Int::from(offset), |location_state|{
+        for (offset, access) in accesses.iter().enumerate() {
+            // If it is None, this means we do nothing.
+            let Some(access) = access else { continue };
+            // Otherwise we perform the requested access
+            self.permissions.mutate_at(Int::from(offset), |permission| {
                 // Perform state transition on `self`.
-                location_state.transition(access_kind, node_relation, self.protected.yes())
+                permission.transition(access, node_relation)
             })?;
         }
 
@@ -230,7 +213,7 @@ impl Node {
                 _ => None,
             };
 
-            self.children.mutate_at(child_id, |child| { child.release_protector(sub_path, &location_states) })?;
+            self.children.mutate_at(child_id, |child| { child.release_protector(sub_path, accesses) })?;
         }
 
         ret(())
@@ -242,6 +225,7 @@ impl Node {
     /// the allocation fulfill the following property, the strong protector is not considered:
     /// * the offset has `Cell` permission, i.e. is interior mutable, or
     /// * the offset was not accessed yet, i.e. the protector is not active at this offset.
+    /// See `prevents_deallocation` which implements by actually looking at the permission.
     ///
     /// Return true if there is a strongly protected node preventing deallocation.
     fn contains_strong_protector_preventing_deallocation(&self) -> bool {
@@ -249,9 +233,9 @@ impl Node {
         (self.protected == Protected::Strong
             // which is applicable to at least one offset.
             && self
-                .location_states
-                .any(|st| st.permission != Permission::Cell && st.accessed == Accessed::Yes))
-            // if this node has has no such protector, we recurse.
+                .permissions
+                .any(|st| st.prevents_deallocation()))
+            // Even if this node has has no such protector, we recurse to look in the rest of the tree.
             || self.children.any(|child| child.contains_strong_protector_preventing_deallocation())
     }
 }

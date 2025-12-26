@@ -115,20 +115,21 @@ impl ReborrowSettings {
             Protected::No
         };
 
+        // Helper to choose the correct permission, based on protection.
+        let mk_perm = |unprot, prot| if protected.yes() { Permission::Prot(prot) } else { Permission::Unprot(unprot) };
+
         // Determine permissions.
         let no_cell_perm = match ptr_type {
             // Shared references are frozen.
-            PtrType::Ref { mutbl: Mutability::Immutable, .. } => Permission::Frozen,
+            PtrType::Ref { mutbl: Mutability::Immutable, .. } => mk_perm(PermissionUnprot::Frozen, PermissionProt::Frozen { had_local_read: false }),
             // Mutable references and Boxes are reserved.
-            _ => Permission::Reserved { conflicted: false },
+            _ => mk_perm(PermissionUnprot::Reserved, PermissionProt::Reserved { had_local_read: false, had_foreign_read: false }),
         };
         let cell_perm = match ptr_type {
             // Shared references to UnsafeCell use the "transparent" Cell permission.
-            PtrType::Ref { mutbl: Mutability::Immutable, .. } => Permission::Cell,
-            // *Protected* mutable references and boxes are reserved without regarding for interior mutability.
-            _ if protected.yes() => Permission::Reserved { conflicted: false },
-            // Unprotected mutable references and boxes start in `ReservedIm`.
-            _ => Permission::ReservedIm,
+            PtrType::Ref { mutbl: Mutability::Immutable, .. } => mk_perm(PermissionUnprot::Cell, PermissionProt::Cell),
+            // Unprotected mutable references and boxes start in `ReservedIm`, but if they are protected we ignore the `Im`
+            _ => mk_perm(PermissionUnprot::ReservedIm, PermissionProt::Reserved { had_local_read: false, had_foreign_read: false }),
         };
         let inside = pointee_info.unsafe_cells.freeze_mask(pointee_info.layout, ptr.metadata, vtable_lookup).map(|freeze|
             if freeze { no_cell_perm } else { cell_perm }

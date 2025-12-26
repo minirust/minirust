@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: writing to the local of a pointer with Disabled permission
+fatal error: UB: Tree Borrows: local write of Disabled reference
