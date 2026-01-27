@@ -32,7 +32,7 @@ impl PermissionProt {
             PermissionProt::Reserved { had_foreign_read, .. } => ret(PermissionProt::Reserved { had_local_read: true, had_foreign_read }),
             PermissionProt::Unique => ret(PermissionProt::Unique),
             PermissionProt::Frozen { .. } => ret(PermissionProt::Frozen { had_local_read: true }),
-            PermissionProt::Disabled => throw_ub!("Tree Borrows: local read of a pointer with Disabled permission"),
+            PermissionProt::Disabled => throw_ub!("Tree Borrows: local read of protected Disabled reference"),
         }
     }
 
@@ -42,17 +42,17 @@ impl PermissionProt {
             PermissionProt::Unique => ret(PermissionProt::Unique),
             PermissionProt::Reserved { had_foreign_read: false, .. } => ret(PermissionProt::Unique),
             PermissionProt::Reserved { had_foreign_read: true, .. } =>
-                throw_ub!("Tree Borrows: writing to the local of a protected pointer with Conflicted Reserved permission"),
-            PermissionProt::Frozen { .. } => throw_ub!("Tree Borrows: writing to the local of a pointer with Frozen permission"),
+                throw_ub!("Tree Borrows: local write to protected Reserved reference that had a foreign read"),
+            PermissionProt::Frozen { .. } => throw_ub!("Tree Borrows: local write to protected Frozen reference"),
             // we don't know anymore if we were shared or mutable in this state
-            PermissionProt::Disabled => throw_ub!("Tree Borrows: writing to the local of a pointer with Disabled permission"),
+            PermissionProt::Disabled => throw_ub!("Tree Borrows: local write to protected Disabled reference"),
         }
     }
 
     fn foreign_read(self) -> Result<PermissionProt> {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
-            PermissionProt::Unique => throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
+            PermissionProt::Unique => throw_ub!("Tree Borrows: foreign read of protected Unique reference"),
             PermissionProt::Reserved { had_local_read, .. } => ret(PermissionProt::Reserved { had_local_read, had_foreign_read: true }),
             // Frozen and Disabled are kept unchanged.
             PermissionProt::Frozen { had_local_read } => ret(PermissionProt::Frozen { had_local_read }),
@@ -64,9 +64,9 @@ impl PermissionProt {
         match self {
             PermissionProt::Cell => ret(PermissionProt::Cell),
             PermissionProt::Frozen { had_local_read: true } | PermissionProt::Reserved { had_local_read: true, .. } =>
-                    throw_ub!("Tree Borrows: a protected pointer with {} permission becomes Disabled", if matches!(self, PermissionProt::Frozen {..}) { "Frozen" } else { "Reserved" }),
+                    throw_ub!("Tree Borrows: foreign write of protected {} reference which had a local read", if matches!(self, PermissionProt::Frozen {..}) { "Frozen" } else { "Reserved" }),
             PermissionProt::Unique =>
-                    throw_ub!("Tree Borrows: a protected pointer with Unique permission becomes Disabled"),
+                    throw_ub!("Tree Borrows: foreign read of protected Unique reference"),
 
             // not yet locally accessed states become Disabled
             PermissionProt::Frozen { had_local_read: false } | PermissionProt::Reserved { had_local_read: false, .. } => ret(PermissionProt::Disabled),

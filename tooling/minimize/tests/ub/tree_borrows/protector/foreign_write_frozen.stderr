@@ -1,1 +1,1 @@
-fatal error: UB: Tree Borrows: a protected pointer with Frozen permission becomes Disabled
+fatal error: UB: Tree Borrows: foreign write of protected Frozen reference which had a local read
