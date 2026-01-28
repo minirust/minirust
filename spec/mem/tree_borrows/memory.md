@@ -86,26 +86,29 @@ impl<T: Target> TreeBorrowsMemory<T> {
         };
 
         let child_path = self.mem.allocations.mutate_at(alloc_id.0, |allocation| {
-            // Prepare `location_states` which covers the *entire allocation*, not just
+            // Prepare `permissions` which covers the *entire allocation*, not just
             // the part "inside" the pointer. This will initially not be marked as "accessed"
             // anywhere; we'll then do an access which will set that flag.
             let alloc_size = allocation.size();
             let offset = Offset::from_bytes(ptr.addr - allocation.addr).unwrap();
 
-            let mut location_states = list![LocationState::new(settings.outside); alloc_size.bytes()];
+            let mut permissions = list![settings.outside; alloc_size.bytes()];
             if settings.inside.len() > 0 {
-                location_states.write_subslice_at_index(
+                permissions.write_subslice_at_index(
                     offset.bytes(),
-                    settings.inside.map(|p| LocationState::new(p)),
+                    settings.inside,
                 );
             }
 
             // Create the new child node
             let child_node = Node {
                 children: List::new(),
-                location_states,
+                permissions,
                 protected: settings.protected,
             };
+
+            // Assert that the node's internal invariant is upheld.
+            assert!(child_node.permissions.all(|x| x.matches_protector(child_node.protected)));
 
             // Add the new node to the tree
             let child_path = allocation.extra.root.add_node(parent_path, child_node);
@@ -114,8 +117,8 @@ impl<T: Target> TreeBorrowsMemory<T> {
             for (idx, perm) in settings.inside.iter().enumerate() {
                 let idx = Int::from(idx); // FIXME: we need a version of `enumerate` that yields `Int`s.
                 let idx = Size::from_bytes(idx).unwrap();
-                if perm.init_access() {
-                    allocation.extra.root.access(Some(child_path), AccessKind::Read, offset+idx, Offset::from_bytes_const(1))?
+                if let Some(access) = perm.init_access() {
+                    allocation.extra.root.access(Some(child_path), access, offset+idx, Offset::from_bytes_const(1))?
                 }
             }
 
@@ -138,18 +141,24 @@ impl<T: Target> TreeBorrowsMemory<T> {
     fn release_protector(&mut self, provenance: TreeBorrowsProvenance) -> Result {
         let (alloc_id, path) = provenance;
         self.mem.allocations.mutate_at(alloc_id.0, |allocation| {
-            let protected_node = allocation.extra.root.get_node(path);
-            assert_ne!(protected_node.protected, Protected::No);
+            let protector_accesses : List<_> = allocation.extra.root.access_node(path, |node| {
+                assert!(node.protected.yes());
+                // We get a list of pairs, and need to turn this into a pair of lists.
+                let list_of_perms_and_accesses = node.permissions.map(|x| x.unprotect());
+                // The list of unprotected permissions is stored back in the tree.
+                node.permissions = list_of_perms_and_accesses.map(|(perm, _acc)| perm);
+                // The resulting accesses are used further down.
+                list_of_perms_and_accesses.map(|(_perm, acc)| acc)
+            });
 
             if !allocation.live {
                 // Looks like the protected memory got deallocated already. This is fine,
-                // and expected for weak allocations. For strong allocations, this can only
-                // happen if the protector was zero-sized or entirely on interior mutable
-                // data, but nonetheless it can happen.
+                // and expected for weak allocations. For strong allocations, this can e.g.
+                // happen if the protector was zero-sized, or on interior mutable data.
                 return ret(());
             }
 
-            allocation.extra.root.release_protector(Some(path), &protected_node.location_states)
+            allocation.extra.root.release_protector(Some(path), &protector_accesses)
         })
     }
 }
@@ -174,7 +183,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         // Initially, we set the permission as `Unique`.
         let root = Node {
             children: List::new(),
-            location_states: list![LocationState::new(Permission::Unique); size.bytes()],
+            permissions: list![Permission::Unprot(PermissionUnprot::Unique); size.bytes()],
             protected: Protected::No,
         };
         let path = Path::new();
