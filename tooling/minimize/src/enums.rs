@@ -21,24 +21,37 @@ impl<'tcx> Ctxt<'tcx> {
 
         let (variants, discriminator) = match layout.variants() {
             rs::Variants::Empty => {
-                todo!()
+                // These have no variants... right?
+                for _ in adt_def.variants().iter_enumerated() {
+                    unreachable!()
+                }
+                (Map::new(), Discriminator::Invalid)
             }
-            rs::Variants::Single { index } => {
-                let fields = self.translate_adt_variant_fields(
-                    layout.fields(),
-                    adt_def.variant(*index),
-                    sref,
-                    span,
-                );
-                let variants = [(
-                    Int::ZERO,
-                    Variant {
+            rs::Variants::Single { index: single_variant_idx } => {
+                // There is a single *inhabited* variant, but there can be other uninhabited variants.
+                let mut translated_variants = Map::new();
+                for (variant_idx, variant_def) in adt_def.variants().iter_enumerated() {
+                    let discr = adt_def.discriminant_for_variant(self.tcx, variant_idx);
+                    let discr_int = int_from_bits(discr.val, discriminant_ty);
+                    let fields = self.translate_adt_variant_fields(
+                        (variant_idx == *single_variant_idx).then_some(layout.fields()),
+                        variant_def,
+                        sref,
+                        span,
+                    );
+                    let variant = Variant {
                         ty: build::tuple_ty(&fields.iter().collect::<Vec<_>>(), size, align),
                         tagger: Map::new(),
-                    },
-                )];
-                let discriminator = Discriminator::Known(Int::ZERO);
-                (variants.into_iter().collect::<Map<Int, Variant>>(), discriminator)
+                    };
+                    translated_variants.insert(discr_int, variant);
+                }
+
+                // With only one inhabited variant, there's nothing to discriminate.
+                let discriminator = Discriminator::Known({
+                    let discr = adt_def.discriminant_for_variant(self.tcx, *single_variant_idx);
+                    int_from_bits(discr.val, discriminant_ty)
+                });
+                (translated_variants, discriminator)
             }
             rs::Variants::Multiple { tag, tag_encoding, tag_field, variants } => {
                 // compute the offset of the tag for the tagger and discriminator construction
@@ -55,7 +68,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let mut discriminator_branches = Map::new();
                 for (variant_idx, variant_def) in adt_def.variants().iter_enumerated() {
                     let fields = self.translate_adt_variant_fields(
-                        &variants[variant_idx].fields,
+                        Some(&variants[variant_idx].fields),
                         &variant_def,
                         sref,
                         span,

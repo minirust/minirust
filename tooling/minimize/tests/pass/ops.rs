@@ -1,4 +1,3 @@
-#![feature(unchecked_shifts)]
 use std::cmp::Ordering;
 
 fn black_box<T>(t: T) -> T { t }

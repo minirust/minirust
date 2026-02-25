@@ -58,7 +58,7 @@ impl<'tcx> Ctxt<'tcx> {
                     unpin,
                 }
             }
-            &rs::TyKind::Dynamic(_, _, rs::DynKind::Dyn) => {
+            &rs::TyKind::Dynamic(_, _) => {
                 let layout = LayoutStrategy::TraitObject(self.get_trait_name(ty));
                 PointeeInfo {
                     layout,
@@ -250,8 +250,7 @@ impl<'tcx> Ctxt<'tcx> {
                 }));
                 Type::Slice { elem }
             }
-            rs::TyKind::Dynamic(_, _, rs::DynKind::Dyn) =>
-                Type::TraitObject(self.get_trait_name(ty)),
+            rs::TyKind::Dynamic(_, _) => Type::TraitObject(self.get_trait_name(ty)),
             x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
         };
         self.ty_cache.insert(ty, mini_ty);
@@ -261,7 +260,7 @@ impl<'tcx> Ctxt<'tcx> {
     /// Constructs the fields of a given variant.
     pub fn translate_adt_variant_fields(
         &mut self,
-        shape: &rs::FieldsShape<rs::FieldIdx>,
+        shape: Option<&rs::FieldsShape<rs::FieldIdx>>,
         variant: &rs::VariantDef,
         sref: rs::GenericArgsRef<'tcx>,
         span: rs::Span,
@@ -275,7 +274,16 @@ impl<'tcx> Ctxt<'tcx> {
                 // (due to associated types on the fields).
                 let ty = self.tcx.normalize_erasing_regions(self.typing_env(), ty);
                 let ty = self.translate_ty(ty, span);
-                let offset = shape.offset(i.into());
+                let offset = match shape {
+                    Some(shape) => shape.offset(i.into()),
+                    None => {
+                        // Fields in an elided enum variant. Must all be zero-sized at offset zero.
+                        assert!(
+                            ty.layout::<DefaultTarget>().expect_size("broken enum") == Size::ZERO
+                        );
+                        rs::Size::ZERO
+                    }
+                };
                 let offset = translate_size(offset);
 
                 (offset, ty)
@@ -292,7 +300,7 @@ impl<'tcx> Ctxt<'tcx> {
     ) -> (Fields, Size, Align) {
         let layout = self.rs_layout_of(ty).layout;
         let fields = self.translate_adt_variant_fields(
-            layout.fields(),
+            Some(layout.fields()),
             adt_def.non_enum_variant(),
             sref,
             span,

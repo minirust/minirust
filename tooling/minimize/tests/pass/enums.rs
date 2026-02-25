@@ -1,3 +1,5 @@
+#![feature(never_type)]
+
 fn test_int_cast() {
     #[repr(i16)]
     enum ReprEnum {
@@ -95,10 +97,31 @@ fn test_full_enum() {
     assert!(X4::_15 as i8 == -113)
 }
 
+fn test_uninhabited_variant() {
+    let x: Result<(), !> = Ok(());
+    match x {
+        Ok(_) => {},
+        Err(_) => unreachable!(),
+    }
+    let y: Result<!, ()> = Err(());
+    match y {
+        Err(_) => {},
+        Ok(_) => unreachable!(),
+    }
+}
+
+fn no_variant() {
+    enum Void {}
+
+    let _x: Option<Void> = None;
+}
+
 fn main() {
     test_int_cast();
     test_overaligned_int_cast();
     // FIXME: cache type translation
     // test_big_enum();
     test_full_enum();
+    test_uninhabited_variant();
+    no_variant();
 }

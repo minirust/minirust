@@ -79,8 +79,9 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     pub fn translate(mut self) -> Program {
-        let (entry, _ty) = self.tcx.entry_fn(()).unwrap();
-        let entry_instance = rs::Instance::mono(self.tcx, entry);
+        let tcx = self.tcx;
+        let (entry, _ty) = tcx.entry_fn(()).unwrap();
+        let entry_instance = rs::Instance::mono(tcx, entry);
         let entry_name = FnName(Name::from_internal(0));
 
         self.fn_name_map.insert(entry_instance, entry_name);
@@ -97,7 +98,10 @@ impl<'tcx> Ctxt<'tcx> {
                 FnCtxt::new(instance, &mut self).translate()
             }))
             .unwrap_or_else(|err| {
-                eprintln!("This error occurred while translating {instance}");
+                eprintln!(
+                    "This error occurred while translating {instance} ({:?})",
+                    tcx.def_span(instance.def_id()),
+                );
                 panic::resume_unwind(err);
             });
             self.functions.insert(fn_name, f);

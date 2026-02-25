@@ -9,7 +9,7 @@ impl<'tcx> Ctxt<'tcx> {
         trait_obj_ty: rs::Ty<'tcx>,
         span: rs::Span,
     ) -> VTableName {
-        let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _) = *trait_obj_ty.kind() else {
             panic!("get_vtable called on non trait object type");
         };
         if let Some(vtable_name) = self.vtable_map.get(&(ty, trait_)) {
@@ -31,7 +31,7 @@ impl<'tcx> Ctxt<'tcx> {
         trait_obj_ty: rs::Ty<'tcx>,
         span: rs::Span,
     ) -> VTable {
-        let rs::TyKind::Dynamic(trait_, _, rs::DynKind::Dyn) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _) = *trait_obj_ty.kind() else {
             panic!("generate_vtable called on non trait object type");
         };
         // Get the size and align
@@ -48,8 +48,9 @@ impl<'tcx> Ctxt<'tcx> {
         // Get the methods of the principal trait, create a method name wrapping the index in its vtable.
         let methods = if let Some(trait_) = trait_.principal() {
             let trait_ref = trait_.with_self_ty(self.tcx, ty);
-            let trait_ref =
-                self.tcx.erase_regions(self.tcx.instantiate_bound_regions_with_erased(trait_ref));
+            let trait_ref = self.tcx.erase_and_anonymize_regions(
+                self.tcx.instantiate_bound_regions_with_erased(trait_ref),
+            );
             let entries = self.tcx.vtable_entries(trait_ref);
 
             entries
@@ -88,7 +89,7 @@ impl<'tcx> Ctxt<'tcx> {
     /// Returns TraitName for a given trait object. If it does not exist it creates a new one.
     /// `trait_obj_ty` must be of kind [`rs::TyKind::Dynamic`].
     pub fn get_trait_name(&mut self, trait_obj_ty: rs::Ty<'tcx>) -> TraitName {
-        let rs::TyKind::Dynamic(trait_, _, _) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _) = *trait_obj_ty.kind() else {
             panic!("get_trait_name called on non trait object type");
         };
         if let Some(trait_name) = self.trait_map.get(&trait_) {
@@ -105,7 +106,7 @@ impl<'tcx> Ctxt<'tcx> {
 
     /// Generates the set of method names for a given trait object type.
     fn generate_trait(&mut self, trait_obj_ty: rs::Ty<'tcx>) -> Set<TraitMethodName> {
-        let rs::TyKind::Dynamic(trait_, _, _) = *trait_obj_ty.kind() else {
+        let rs::TyKind::Dynamic(trait_, _) = *trait_obj_ty.kind() else {
             panic!("generate_trait called on non trait object type");
         };
 

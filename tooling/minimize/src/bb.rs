@@ -105,10 +105,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
                 Statement::Validate { place, fn_entry }
             }
-            rs::StatementKind::Deinit(place) => {
-                let place = self.translate_place(place, span);
-                Statement::Deinit { place }
-            }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
                     rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
@@ -701,7 +697,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     unwind_block: cleanup_block,
                 }
             }
-            rustc_target::spec::PanicStrategy::Abort => build::abort(),
+            rustc_target::spec::PanicStrategy::Abort
+            | rustc_target::spec::PanicStrategy::ImmediateAbort => build::abort(),
         }
     }
 
@@ -909,6 +906,7 @@ fn is_panic_fn(name: &str) -> bool {
         "core::slice::index::slice_end_index_overflow_fail",
         "core::slice::index::slice_index_order_fail",
         "core::str::slice_error_fail",
+        "std::rt::panic_fmt",
     ];
     fns.contains(&name)
 }
