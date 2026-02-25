@@ -105,10 +105,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
                 Statement::Validate { place, fn_entry }
             }
-            rs::StatementKind::Deinit(place) => {
-                let place = self.translate_place(place, span);
-                Statement::Deinit { place }
-            }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
                     rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
@@ -584,7 +580,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 TerminatorResult { stmts: list![stmt], terminator }
             }
-            rs::sym::min_align_of_val => {
+            rs::sym::align_of_val => {
                 let destination = self.translate_place(destination, span);
                 let ptr = self.translate_operand(&args[0].node, span);
                 let ty = self.translate_ty(intrinsic.args.type_at(0), span);
@@ -619,6 +615,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     ret_place,
                     self.bb_name_map[&target.unwrap()],
                 );
+                TerminatorResult { stmts: list![], terminator }
+            }
+            rs::sym::abort => {
+                let terminator = build::abort();
                 TerminatorResult { stmts: list![], terminator }
             }
             name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
@@ -697,7 +697,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     unwind_block: cleanup_block,
                 }
             }
-            rustc_target::spec::PanicStrategy::Abort => build::abort(),
+            rustc_target::spec::PanicStrategy::Abort
+            | rustc_target::spec::PanicStrategy::ImmediateAbort => build::abort(),
         }
     }
 
@@ -899,11 +900,13 @@ fn is_panic_fn(name: &str) -> bool {
         "core::panicking::panic",
         "core::panicking::panic_fmt",
         "core::panicking::panic_nounwind",
+        "core::panicking::panic_nounwind_fmt",
         "core::slice::index::slice_start_index_len_fail",
         "core::slice::index::slice_end_index_len_fail",
         "core::slice::index::slice_end_index_overflow_fail",
         "core::slice::index::slice_index_order_fail",
         "core::str::slice_error_fail",
+        "std::rt::panic_fmt",
     ];
     fns.contains(&name)
 }

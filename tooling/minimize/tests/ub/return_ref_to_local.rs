@@ -1,3 +1,4 @@
+#![allow(dangling_pointers_from_locals)]
 extern crate intrinsics;
 use intrinsics::*;
 

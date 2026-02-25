@@ -1,3 +1,5 @@
+use std::panic;
+
 use crate::*;
 
 pub struct Ctxt<'tcx> {
@@ -29,8 +31,8 @@ impl<'tcx> Ctxt<'tcx> {
     pub fn new(tcx: rs::TyCtxt<'tcx>) -> Self {
         // Ensure consistency with the DefaultTarget
         let dl = tcx.data_layout();
-        assert_eq!(DefaultTarget::PTR_SIZE, translate_size(dl.pointer_size));
-        assert_eq!(DefaultTarget::PTR_ALIGN, translate_align(dl.pointer_align.abi));
+        assert_eq!(DefaultTarget::PTR_SIZE, translate_size(dl.pointer_size()));
+        assert_eq!(DefaultTarget::PTR_ALIGN, translate_align(dl.pointer_align().abi));
         assert_eq!(
             DefaultTarget::ENDIANNESS,
             match dl.endian {
@@ -77,8 +79,9 @@ impl<'tcx> Ctxt<'tcx> {
     }
 
     pub fn translate(mut self) -> Program {
-        let (entry, _ty) = self.tcx.entry_fn(()).unwrap();
-        let entry_instance = rs::Instance::mono(self.tcx, entry);
+        let tcx = self.tcx;
+        let (entry, _ty) = tcx.entry_fn(()).unwrap();
+        let entry_instance = rs::Instance::mono(tcx, entry);
         let entry_name = FnName(Name::from_internal(0));
 
         self.fn_name_map.insert(entry_instance, entry_name);
@@ -89,9 +92,18 @@ impl<'tcx> Ctxt<'tcx> {
             self.fn_name_map.values().find(|k| !self.functions.contains_key(**k)).copied()
         {
             let instance =
-                self.fn_name_map.iter().find(|(_, f)| **f == fn_name).map(|(r, _)| r).unwrap();
+                *self.fn_name_map.iter().find(|(_, f)| **f == fn_name).map(|(r, _)| r).unwrap();
 
-            let f = FnCtxt::new(*instance, &mut self).translate();
+            let f = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                FnCtxt::new(instance, &mut self).translate()
+            }))
+            .unwrap_or_else(|err| {
+                eprintln!(
+                    "This error occurred while translating {instance} ({:?})",
+                    tcx.def_span(instance.def_id()),
+                );
+                panic::resume_unwind(err);
+            });
             self.functions.insert(fn_name, f);
         }
 

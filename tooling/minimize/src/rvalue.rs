@@ -61,7 +61,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let res = build::cmp(l, r);
                         // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
                         // so we have to transmute the result.
-                        let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(None);
+                        let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(rs::DUMMY_SP);
                         let ordering_ty: Type = self.translate_ty(ordering_ty, span);
                         build::transmute(res, ordering_ty)
                     }
@@ -113,27 +113,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 ValueExpr::AddrOf { target, ptr_ty }
             }
-            smir::Rvalue::NullaryOp(null_op, ty) => {
-                let rs_ty = smir::internal(self.tcx, ty);
-                let ty = self.translate_ty(rs_ty, span);
-
+            smir::Rvalue::NullaryOp(null_op) => {
                 match null_op {
-                    smir::NullOp::UbChecks => build::const_bool(self.tcx.sess.ub_checks()),
-                    smir::NullOp::ContractChecks =>
-                        build::const_bool(self.tcx.sess.contract_checks()),
-                    smir::NullOp::SizeOf => build::compute_size(ty, build::unit()),
-                    smir::NullOp::AlignOf => build::compute_align(ty, build::unit()),
-                    smir::NullOp::OffsetOf(fields) => {
-                        let ty_and_layout =
-                            self.tcx.layout_of(self.typing_env().as_query_input(rs_ty)).unwrap();
-                        let fields = fields.iter().map(|field| {
-                            (smir::internal(self.tcx, field.0), rs::FieldIdx::from_usize(field.1))
-                        });
-                        build::const_int(
-                            self.tcx
-                                .offset_of_subfield(self.typing_env(), ty_and_layout, fields)
-                                .bytes(),
-                        )
+                    smir::NullOp::RuntimeChecks(check) => {
+                        // SMIR provides no way to convert this back to what we need :/
+                        let sess = self.tcx.sess;
+                        let val = match check {
+                            smir::RuntimeChecks::UbChecks => sess.ub_checks(),
+                            smir::RuntimeChecks::ContractChecks => sess.contract_checks(),
+                            smir::RuntimeChecks::OverflowChecks => sess.overflow_checks(),
+                        };
+                        build::const_bool(val)
                     }
                 }
             }
@@ -181,7 +171,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         // We represent the multiple fields of an enum variant as a MiniRust tuple.
                         let data = GcCow::new(ValueExpr::Tuple(
                             ops,
-                            variants.get(discriminant).unwrap().ty,
+                            variants
+                                .get(discriminant)
+                                .unwrap_or_else(|| {
+                                    panic!("something is wrong with this enum: {ty:#?}")
+                                })
+                                .ty,
                         ));
                         ValueExpr::Variant { discriminant, data, enum_ty: ty }
                     }
@@ -315,10 +310,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                     Type::Ptr(new_ptr_ty),
                                 )
                             }
-                            (
-                                rs::TyKind::Dynamic(data_a, _, rs::Dyn),
-                                rs::TyKind::Dynamic(data_b, _, rs::Dyn),
-                            ) => {
+                            (rs::TyKind::Dynamic(data_a, _), rs::TyKind::Dynamic(data_b, _)) => {
                                 // MIR building generates odd NOP casts, prevent them from causing unexpected trouble.
                                 // See <https://github.com/rust-lang/rust/issues/128880>.
                                 if data_a == data_b {
@@ -327,7 +319,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                     rs::span_bug!(span, "Unsupported super trait unsizing coercion")
                                 }
                             }
-                            (_, rs::TyKind::Dynamic(_, _, rs::Dyn)) => {
+                            (_, rs::TyKind::Dynamic(_, _)) => {
                                 let vtable =
                                     self.cx.get_vtable(old_pointee_rs_ty, new_pointee_rs_ty, span);
                                 let trait_name = self.cx.get_trait_name(new_pointee_rs_ty);
@@ -382,7 +374,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     smir::CastKind::FloatToFloat
                     | smir::CastKind::FloatToInt
                     | smir::CastKind::IntToFloat
-                    | smir::CastKind::DynStar
+                    | smir::CastKind::Subtype
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::ClosureFnPointer(
                         ..,
                     )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
@@ -453,10 +445,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         PlaceExpr::Downcast { root, discriminant }
                     }
 
-                    stable_mir::mir::ProjectionElem::ConstantIndex { .. }
-                    | stable_mir::mir::ProjectionElem::Subslice { .. }
-                    | stable_mir::mir::ProjectionElem::OpaqueCast(_)
-                    | stable_mir::mir::ProjectionElem::Subtype(_) => {
+                    smir::ProjectionElem::ConstantIndex { .. }
+                    | smir::ProjectionElem::Subslice { .. }
+                    | smir::ProjectionElem::OpaqueCast(_) => {
                         rs::span_bug!(span, "Place Projection not supported: {:?}", proj);
                     }
                 };

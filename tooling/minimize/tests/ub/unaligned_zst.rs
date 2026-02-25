@@ -1,3 +1,4 @@
+#![allow(integer_to_ptr_transmutes)]
 use std::mem::transmute;
 
 fn main() {
