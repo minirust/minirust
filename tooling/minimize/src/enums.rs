@@ -42,7 +42,8 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::Variants::Multiple { tag, tag_encoding, tag_field, variants } => {
                 // compute the offset of the tag for the tagger and discriminator construction
-                let tag_offset: Offset = translate_size(layout.fields().offset(*tag_field));
+                let tag_offset: Offset =
+                    translate_size(layout.fields().offset(tag_field.as_usize()));
                 let Type::Int(tag_ty) =
                     self.translate_ty(tag.primitive().to_int_ty(self.tcx), span)
                 else {

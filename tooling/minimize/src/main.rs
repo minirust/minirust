@@ -16,15 +16,16 @@ extern crate rustc_index;
 extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
+extern crate rustc_public;
 extern crate rustc_session;
-extern crate rustc_smir;
 extern crate rustc_span;
 extern crate rustc_target;
-extern crate stable_mir;
 
 mod rs {
     pub use rustc_abi as abi;
-    pub use rustc_abi::{Align, FieldIdx, FieldsShape, Size, TagEncoding, VariantIdx, Variants};
+    pub use rustc_abi::{
+        Align, CanonAbi, FieldIdx, FieldsShape, Size, TagEncoding, VariantIdx, Variants,
+    };
     pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
@@ -34,7 +35,7 @@ mod rs {
     pub use rustc_mir_dataflow::impls::always_storage_live_locals;
     pub use rustc_span::source_map::Spanned;
     pub use rustc_span::{DUMMY_SP, Span, sym};
-    pub use rustc_target::callconv::{Conv, FnAbi};
+    pub use rustc_target::callconv::FnAbi;
 
     pub type CompileTimeInterpCx<'tcx> =
         InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
@@ -45,10 +46,10 @@ pub use rustc_abi::HasDataLayout as _;
 pub use rustc_middle::ty::layout::IntegerExt as _;
 
 mod smir {
-    pub use rustc_smir::rustc_internal::*;
-    pub use stable_mir::mir::mono::*;
-    pub use stable_mir::mir::*;
-    pub use stable_mir::ty::*;
+    pub use rustc_public::mir::mono::*;
+    pub use rustc_public::mir::*;
+    pub use rustc_public::rustc_internal::*;
+    pub use rustc_public::ty::*;
 }
 
 pub use minirust_rs::libspecr::hidden::*;
@@ -110,7 +111,7 @@ const DEFAULT_ARGS: &[&str] = &[
     "-Zmir-emit-retag",
     "-Zmir-opt-level=0",
     "-Zmir-enable-passes=-CheckAlignment",
-    "-Zmir-keep-place-mention",
+    "-Zmir-preserve-ub",
     // Also disable UB checks (since `cfg(miri)` in the standard library do not trigger for us).
     "-Zub-checks=false",
 ];
@@ -159,7 +160,7 @@ fn main() {
         }
         Some("off") => {}
         // If we are probed for our version as rustc, act like sysroot_mode is off to avoid infinite looping
-        _ if all_args.iter().any(|a| a == "-vV") => {}
+        _ if all_args.iter().any(|a| a == "-vV" || a.starts_with("--print=")) => {}
         _ => {
             let dir = setup_sysroot();
             all_args.insert(1, format!("--sysroot={}", dir.display()));

@@ -584,7 +584,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 TerminatorResult { stmts: list![stmt], terminator }
             }
-            rs::sym::min_align_of_val => {
+            rs::sym::align_of_val => {
                 let destination = self.translate_place(destination, span);
                 let ptr = self.translate_operand(&args[0].node, span);
                 let ty = self.translate_ty(intrinsic.args.type_at(0), span);
@@ -619,6 +619,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     ret_place,
                     self.bb_name_map[&target.unwrap()],
                 );
+                TerminatorResult { stmts: list![], terminator }
+            }
+            rs::sym::abort => {
+                let terminator = build::abort();
                 TerminatorResult { stmts: list![], terminator }
             }
             name => rs::span_bug!(span, "unsupported Rust intrinsic `{}`", name),
@@ -899,6 +903,7 @@ fn is_panic_fn(name: &str) -> bool {
         "core::panicking::panic",
         "core::panicking::panic_fmt",
         "core::panicking::panic_nounwind",
+        "core::panicking::panic_nounwind_fmt",
         "core::slice::index::slice_start_index_len_fail",
         "core::slice::index::slice_end_index_len_fail",
         "core::slice::index::slice_end_index_overflow_fail",

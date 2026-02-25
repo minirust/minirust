@@ -55,7 +55,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         ),
                 };
                 // Depending on the provenance of the pointer, a different constant is built.
-                let (prov, offset) = thin_ptr.into_parts();
+                let (prov, offset) = thin_ptr.into_raw_parts();
                 let ptr = match prov {
                     None => {
                         let addr: Int = offset.bytes_usize().into();
@@ -82,7 +82,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 assert!(unsized_field.extract().is_none(), "constant unsized values do not exist!");
                 let mut t: List<ValueExpr> = List::new();
                 for (idx, _) in sized_fields.iter().enumerate() {
-                    let val = ecx.project_field(&val, idx).unwrap();
+                    let val = ecx.project_field(&val, rs::FieldIdx::from_usize(idx)).unwrap();
                     t.push(self.translate_const_val(val, ecx, span));
                 }
                 ValueExpr::Tuple(t, ty)
@@ -94,7 +94,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let variant = ecx.project_downcast(&val, variant_idx).unwrap();
                 let mut fields: List<ValueExpr> = List::new();
                 for i in 0..variant.layout.fields.count() {
-                    let field = ecx.project_field(&variant, i).unwrap();
+                    let field = ecx.project_field(&variant, rs::FieldIdx::from_usize(i)).unwrap();
                     let field = self.translate_const_val(field, ecx, span);
                     fields.push(field);
                 }

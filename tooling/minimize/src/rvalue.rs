@@ -61,7 +61,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let res = build::cmp(l, r);
                         // MiniRust expects an i8 for BinOp::Cmp but MIR uses an Ordering enum,
                         // so we have to transmute the result.
-                        let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(None);
+                        let ordering_ty: rs::Ty = self.tcx.ty_ordering_enum(rs::DUMMY_SP);
                         let ordering_ty: Type = self.translate_ty(ordering_ty, span);
                         build::transmute(res, ordering_ty)
                     }
@@ -382,7 +382,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     smir::CastKind::FloatToFloat
                     | smir::CastKind::FloatToInt
                     | smir::CastKind::IntToFloat
-                    | smir::CastKind::DynStar
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::ClosureFnPointer(
                         ..,
                     )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
@@ -453,10 +452,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         PlaceExpr::Downcast { root, discriminant }
                     }
 
-                    stable_mir::mir::ProjectionElem::ConstantIndex { .. }
-                    | stable_mir::mir::ProjectionElem::Subslice { .. }
-                    | stable_mir::mir::ProjectionElem::OpaqueCast(_)
-                    | stable_mir::mir::ProjectionElem::Subtype(_) => {
+                    smir::ProjectionElem::ConstantIndex { .. }
+                    | smir::ProjectionElem::Subslice { .. }
+                    | smir::ProjectionElem::OpaqueCast(_)
+                    | smir::ProjectionElem::Subtype(_) => {
                         rs::span_bug!(span, "Place Projection not supported: {:?}", proj);
                     }
                 };

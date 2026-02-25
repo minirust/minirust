@@ -188,6 +188,10 @@ impl<'tcx> Ctxt<'tcx> {
                 let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
                 Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
+            rs::TyKind::Char => {
+                // FIXME: not the right model for `char`! Doesn't have the right niches.
+                Type::Int(IntType { size: Size::from_bytes_const(4), signed: Signedness::Unsigned })
+            }
             rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
                 self.tuple_from_layout(layout, span)
@@ -322,10 +326,10 @@ pub fn translate_align(align: rs::Align) -> Align {
     Align::from_bytes(align.bytes()).unwrap()
 }
 
-pub fn translate_calling_convention(conv: rs::Conv) -> CallingConvention {
+pub fn translate_calling_convention(conv: rs::CanonAbi) -> CallingConvention {
     match conv {
-        rs::Conv::C => CallingConvention::C,
-        rs::Conv::Rust => CallingConvention::Rust,
+        rs::CanonAbi::C => CallingConvention::C,
+        rs::CanonAbi::Rust => CallingConvention::Rust,
         _ => todo!(),
     }
 }
