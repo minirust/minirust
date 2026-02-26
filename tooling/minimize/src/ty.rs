@@ -101,6 +101,7 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Bool => Vec::new(),
             rs::TyKind::Int(_) => Vec::new(),
             rs::TyKind::Uint(_) => Vec::new(),
+            rs::TyKind::Char => Vec::new(),
             rs::TyKind::RawPtr(..) => Vec::new(),
             rs::TyKind::Ref(..) => Vec::new(),
             rs::TyKind::Adt(adt_def, _) if adt_def.is_box() => Vec::new(),
@@ -152,7 +153,7 @@ impl<'tcx> Ctxt<'tcx> {
                     Vec::new()
                 }
             }
-            x => rs::span_bug!(span, "TyKind not supported: {x:?}"),
+            x => rs::span_bug!(span, "cells_in_sized_ty: TyKind not supported: {x:?}"),
         }
     }
 
