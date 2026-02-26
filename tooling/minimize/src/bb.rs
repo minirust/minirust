@@ -794,6 +794,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         } else if is_panic_fn(&instance.to_string()) {
             // We can't translate this call, it takes a string. As a hack we just ignore the argument.
             self.translate_panic(unwind, bb)
+        } else if self.tcx.is_foreign_item(instance.def_id()) {
+            // Foreign functions don't have MIR.
+            rs::span_bug!(span, "cannot call foreign function {instance}");
         } else {
             let abi = self
                 .cx
@@ -905,6 +908,7 @@ fn is_panic_fn(name: &str) -> bool {
         "core::slice::index::slice_end_index_len_fail",
         "core::slice::index::slice_end_index_overflow_fail",
         "core::slice::index::slice_index_order_fail",
+        "core::slice::index::slice_index_fail",
         "core::str::slice_error_fail",
         "std::rt::panic_fmt",
     ];
