@@ -120,8 +120,9 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Thi
         bytes[0].provenance_frag().map(|frag| frag.provenance),
         |acc, idx, byte| {
             // Crucially, if `acc` is ever `None`, it remains `None`.
-            let frag = byte.provenance_frag()?;
-            if frag.position == idx && Some(frag.provenance) == acc {
+            if let Some(frag) = byte.provenance_frag() &&
+                frag.position == idx && Some(frag.provenance) == acc
+            {
                 acc
             } else {
                 None
