@@ -115,19 +115,29 @@ fn decode_ptr<M: Memory>(bytes: List<AbstractByte<M::Provenance>>) -> Option<Thi
     let bytes_data = bytes.try_map(|b| b.data())?;
     let addr = M::T::ENDIANNESS.decode(Unsigned, bytes_data);
     // Get the provenance. Must be the same for all bytes, else we use `None`.
-    let mut provenance: Option<M::Provenance> = bytes[0].provenance();
-    for b in bytes {
-        if b.provenance() != provenance {
-            provenance = None;
+    // As start value we use the first byte's provenance (to avoid having to add a "top" element).
+    let provenance = bytes.fold_with_idx(
+        bytes[0].provenance_frag().map(|frag| frag.provenance),
+        |acc, idx, byte| {
+            // Crucially, if `acc` is ever `None`, it remains `None`.
+            let frag = byte.provenance_frag()?;
+            if frag.position == idx && Some(frag.provenance) == acc {
+                acc
+            } else {
+                None
+            }
         }
-    }
+    );
     ret(ThinPointer { addr, provenance })
 }
 
 fn encode_ptr<M: Memory>(ptr: ThinPointer<M::Provenance>) -> List<AbstractByte<M::Provenance>> {
     let bytes_data = M::T::ENDIANNESS.encode(Unsigned, M::T::PTR_SIZE, ptr.addr).unwrap();
-    bytes_data.map(|b| AbstractByte::Init(b, ptr.provenance))
-    
+    bytes_data.map_with_idx(|i, b|
+        AbstractByte::Init(b, ptr.provenance.map(|provenance|
+            ProvenanceFrag { provenance, position: i }
+        ))
+    )
 }
 
 impl PointerMetaKind {

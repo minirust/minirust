@@ -18,11 +18,18 @@ Abstract bytes differ from `u8` to support representing uninitialized Memory and
 We define the `AbstractByte` type as follows, where `Provenance` will later be instantiated with the `Memory::Provenance` associated type.
 
 ```rust
+/// A one-byte provenance fragment stores the provenance and which position
+/// in the pointer this fragment had.
+pub struct ProvenanceFrag<Provenance> {
+    pub provenance: Provenance,
+    pub position: Int,
+}
+
 pub enum AbstractByte<Provenance> {
     /// An uninitialized byte.
     Uninit,
     /// An initialized byte, optionally with some provenance (if it is encoding a pointer).
-    Init(u8, Option<Provenance>),
+    Init(u8, Option<ProvenanceFrag<Provenance>>),
 }
 
 impl<Provenance> AbstractByte<Provenance> {
@@ -33,10 +40,10 @@ impl<Provenance> AbstractByte<Provenance> {
         }
     }
 
-    pub fn provenance(self) -> Option<Provenance> {
+    pub fn provenance_frag(self) -> Option<ProvenanceFrag<Provenance>> {
         match self {
             AbstractByte::Uninit => None,
-            AbstractByte::Init(_, provenance) => provenance,
+            AbstractByte::Init(_, frag) => frag,
         }
     }
 }
