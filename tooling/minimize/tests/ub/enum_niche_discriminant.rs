@@ -6,7 +6,7 @@ enum Foo {
 }
 
 fn main() {
-    let x = 3u8; // this represents Var2 but encoded as a non-niched variant, which doesn't make sense
+    let x = 3u8; // this represents Var2 but encoded as a tagged variant, which doesn't make sense
     let invalid: *const Foo = (&raw const x).cast();
     unsafe {
         let _is_niched = matches!(*invalid, Foo::Var2(_));
