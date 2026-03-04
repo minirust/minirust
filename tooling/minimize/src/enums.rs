@@ -99,48 +99,58 @@ impl<'tcx> Ctxt<'tcx> {
                             untagged_variant,
                             niche_variants,
                             niche_start,
-                        } if *untagged_variant != variant_idx => {
-                            // this is a tagged variant, meaning that it writes its tag and has a discriminator branch entry.
+                        } => {
                             let discr_int = int_from_bits(discr.val, tag_ty);
                             let tag_int = (discr_int
                                 - Int::from(niche_variants.start().as_usize())
                                 + Int::from(*niche_start))
                             .bring_in_bounds(tag_ty.signed, tag_ty.size);
-                            let tagger = [(tag_offset, (tag_ty, tag_int))]
-                                .into_iter()
-                                .collect::<Map<_, _>>();
-                            discriminator_branches.insert(
-                                (tag_int, tag_int + Int::ONE),
-                                Discriminator::Known(discr_int),
-                            );
-                            translated_variants.insert(
-                                discr_int,
-                                Variant {
-                                    ty: build::tuple_ty(
-                                        &fields.iter().collect::<Vec<_>>(),
-                                        size,
-                                        align,
-                                    ),
-                                    tagger,
-                                },
-                            );
+                            if *untagged_variant != variant_idx {
+                                // this is a tagged variant, meaning that it writes its tag and has a discriminator branch entry.
+                                discriminator_branches.insert(
+                                    (tag_int, tag_int + Int::ONE),
+                                    Discriminator::Known(discr_int),
+                                );
+                                let tagger = [(tag_offset, (tag_ty, tag_int))]
+                                    .into_iter()
+                                    .collect::<Map<_, _>>();
+                                translated_variants.insert(
+                                    discr_int,
+                                    Variant {
+                                        ty: build::tuple_ty(
+                                            &fields.iter().collect::<Vec<_>>(),
+                                            size,
+                                            align,
+                                        ),
+                                        tagger,
+                                    },
+                                );
+                            } else {
+                                // this is the untagged variant
+                                translated_variants.insert(
+                                    discr_int,
+                                    Variant {
+                                        ty: build::tuple_ty(
+                                            &fields.iter().collect::<Vec<_>>(),
+                                            size,
+                                            align,
+                                        ),
+                                        tagger: Map::new(),
+                                    },
+                                );
+                                // In the discriminator we mark it as UB if this specific variant is
+                                // encoded via the untagged encoding. This matches what Miri does.
+                                // However, this variant is not always in the `niche_variants` range;
+                                // if it's not, we can't add this as it'd overlap with other cases.
+                                if niche_variants.contains(&variant_idx) {
+                                    discriminator_branches.insert(
+                                        (tag_int, tag_int + Int::ONE),
+                                        Discriminator::Invalid,
+                                    );
+                                }
+                            }
                         }
-                        rs::TagEncoding::Niche { .. } => {
-                            // this is the untagged variant
-                            // we don't add it to the discriminator branches as it will be the fallback.
-                            translated_variants.insert(
-                                discr_int,
-                                Variant {
-                                    ty: build::tuple_ty(
-                                        &fields.iter().collect::<Vec<_>>(),
-                                        size,
-                                        align,
-                                    ),
-                                    tagger: Map::new(),
-                                },
-                            );
-                        }
-                    };
+                    }
                 }
 
                 let fallback = match tag_encoding {
