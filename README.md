@@ -1,6 +1,6 @@
 # MiniRust
 
-**If you prefer video to text, I recently [presented MiniRust at RustWeek NL](https://www.youtube.com/watch?v=yoeuW_dSe0o).**
+**If you prefer video to text, I recently [presented MiniRust at RustWeek 2025](https://www.youtube.com/watch?v=yoeuW_dSe0o).**
 Furthermore, you can check out this [older, but more in-depth presentation of MiniRust for the RFMIG](https://www.youtube.com/watch?v=eFpHadbv34I).
 
 MiniRust is the cornerstone of my vision for a normative specification of Rust semantics.
