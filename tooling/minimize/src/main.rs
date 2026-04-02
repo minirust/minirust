@@ -1,7 +1,4 @@
 #![feature(rustc_private)]
-#![feature(box_patterns)]
-#![feature(never_type)]
-#![feature(array_windows)]
 // This is required since `get::Cb` contained `Option<Program>`.
 #![recursion_limit = "256"]
 
@@ -32,7 +29,7 @@ mod rs {
     pub use rustc_middle::ty::layout::{FnAbiError, FnAbiRequest, LayoutError, TyAndLayout};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::impls::always_storage_live_locals;
-    pub use rustc_span::source_map::Spanned;
+    pub use rustc_span::Spanned;
     pub use rustc_span::{DUMMY_SP, Span, sym};
     pub use rustc_target::callconv::FnAbi;
 
@@ -101,6 +98,7 @@ mod vtable;
 
 use std::collections::HashMap;
 use std::env;
+use std::process::ExitCode;
 
 const DEFAULT_ARGS: &[&str] = &[
     // This is the same as Miri's `MIRI_DEFAULT_ARGS`, ensuring we get a MIR with all the UB still present.
@@ -141,7 +139,11 @@ pub fn be_rustc(mut args: Vec<String>) {
         rustc_driver::run_compiler(&args, &mut BeRustcCallbacks)
     });
 
-    std::process::exit(exit_code);
+    std::process::exit(if exit_code == ExitCode::SUCCESS {
+        rustc_driver::EXIT_SUCCESS
+    } else {
+        rustc_driver::EXIT_FAILURE
+    });
 }
 
 fn main() {

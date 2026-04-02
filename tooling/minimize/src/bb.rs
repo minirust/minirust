@@ -69,7 +69,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> StatementResult {
         let span = stmt.source_info.span;
         StatementResult::Statement(match &stmt.kind {
-            rs::StatementKind::Assign(box (place, rval)) => {
+            rs::StatementKind::Assign(operands) => {
+                let (place, rval) = &**operands;
                 let destination = self.translate_place(place, span);
                 // Some things that MIR handles as rvalues are non-deterministic,
                 // so MiniRust treats them differently.
@@ -114,8 +115,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     value: discriminant,
                 }
             }
-            rs::StatementKind::Intrinsic(box intrinsic) => {
-                match intrinsic {
+            rs::StatementKind::Intrinsic(intrinsic) => {
+                match &**intrinsic {
                     rs::NonDivergingIntrinsic::Assume(op) => {
                         let op = self.translate_operand(op, span);
                         // Doesn't return anything, get us a dummy place.
@@ -591,16 +592,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
                 TerminatorResult { stmts: list![stmt], terminator }
             }
-            rs::sym::unlikely | rs::sym::likely => {
-                // FIXME: use the "fallback body" provided in the standard library.
-                let destination = self.translate_place(&destination, span);
-                let val = self.translate_operand(&args[0].node, span);
-
-                let stmt = Statement::Assign { destination, source: val };
-                let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
-
-                return TerminatorResult { stmts: list![stmt], terminator };
-            }
             rs::sym::cold_path => {
                 // Just a NOP for us.
                 let terminator = Terminator::Goto(self.bb_name_map[&target.unwrap()]);
@@ -732,7 +723,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     .map(|x| {
                         match &x.node {
                             rs::Operand::Move(place) =>
-                                ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                                ArgumentExpr::InPlace(self.translate_place(&place, x.span)),
                             op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
                         }
                     })
@@ -839,7 +830,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             .map(|x| {
                                 match &x.node {
                                     rs::Operand::Move(place) =>
-                                        ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                                        ArgumentExpr::InPlace(self.translate_place(&place, x.span)),
                                     op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
                                 }
                             })
@@ -854,7 +845,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     .map(|x| {
                         match &x.node {
                             rs::Operand::Move(place) =>
-                                ArgumentExpr::InPlace(self.translate_place(place, x.span)),
+                                ArgumentExpr::InPlace(self.translate_place(&place, x.span)),
                             op => ArgumentExpr::ByValue(self.translate_operand(op, x.span)),
                         }
                     })

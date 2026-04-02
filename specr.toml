@@ -5,8 +5,6 @@ attrs = [
     '#![recursion_limit = "256"]',
     '#![feature(yeet_expr)]',
     '#![feature(never_type)]',
-    '#![feature(iterator_try_collect)]',
-    '#![feature(try_blocks)]',
 ]
 # Uncomment this to build against a local copy of libspecr.
 # This is relative to the `minirust-rs` folder, so `../../` is the folder containing this file.

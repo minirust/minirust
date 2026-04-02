@@ -113,20 +113,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 ValueExpr::AddrOf { target, ptr_ty }
             }
-            smir::Rvalue::NullaryOp(null_op) => {
-                match null_op {
-                    smir::NullOp::RuntimeChecks(check) => {
-                        // SMIR provides no way to convert this back to what we need :/
-                        let sess = self.tcx.sess;
-                        let val = match check {
-                            smir::RuntimeChecks::UbChecks => sess.ub_checks(),
-                            smir::RuntimeChecks::ContractChecks => sess.contract_checks(),
-                            smir::RuntimeChecks::OverflowChecks => sess.overflow_checks(),
-                        };
-                        build::const_bool(val)
-                    }
-                }
-            }
             smir::Rvalue::AddressOf(_mutbl, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let place = self.translate_place_smir(place, span);
@@ -343,7 +329,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let ty = self.translate_ty_smir(*cast_ty, span);
                         build::transmute(operand, ty)
                     }
-                    smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer) => {
+                    smir::CastKind::PointerCoercion(smir::PointerCoercion::ReifyFnPointer(_)) => {
                         // FIXME: Currently we always use the same result pointer here.
                         // Should we make this non-deterministic to model the duplication of
                         // functions hat rustc performs?
@@ -380,12 +366,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
                 }
             }
-            smir::Rvalue::ShallowInitBox(op, ty) => {
-                // This is just a transmute that borrowck treats specially.
-                let op = self.translate_operand_smir(op, span);
-                let boxed_ty = smir::Ty::new_box(*ty);
-                build::transmute(op, self.translate_ty_smir(boxed_ty, span))
-            }
             smir::Rvalue::ThreadLocalRef(..) => rs::span_bug!(span, "rvalue not supported: {rv:?}"),
         }
     }
@@ -401,6 +381,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
             smir::Operand::Move(place) =>
                 ValueExpr::Load { source: GcCow::new(self.translate_place_smir(place, span)) },
+            smir::Operand::RuntimeChecks(check) => {
+                // SMIR provides no way to convert this back to what we need :/
+                let sess = self.tcx.sess;
+                let val = match check {
+                    smir::RuntimeChecks::UbChecks => sess.ub_checks(),
+                    smir::RuntimeChecks::ContractChecks => sess.contract_checks(),
+                    smir::RuntimeChecks::OverflowChecks => sess.overflow_checks(),
+                };
+                build::const_bool(val)
+            }
         }
     }
 

@@ -9,7 +9,7 @@ set -e
 ## The part that is always needed
 
 # Fixed specr-transpile version
-SPECR_VERSION="0.1.36"
+SPECR_VERSION="0.1.37"
 
 # Stricter checks on CI
 if [ -n "$CI" ]; then
@@ -17,7 +17,7 @@ if [ -n "$CI" ]; then
     export CARGOFLAGS="--locked"
 fi
 
-cargo install "specr-transpile@${SPECR_VERSION}"
+cargo +stable install "specr-transpile@${SPECR_VERSION}"
 specr-transpile specr.toml --check
 
 ## Dispath to specific command

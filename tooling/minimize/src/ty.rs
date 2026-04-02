@@ -193,6 +193,10 @@ impl<'tcx> Ctxt<'tcx> {
                 // FIXME: not the right model for `char`! Doesn't have the right niches.
                 Type::Int(IntType { size: Size::from_bytes_const(4), signed: Signedness::Unsigned })
             }
+            rs::TyKind::Pat(inner, _pat) => {
+                // FIXME: not the right model for `char`! Doesn't have the right niches.
+                self.translate_ty(*inner, span)
+            }
             rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
                 self.tuple_from_layout(layout, span)
