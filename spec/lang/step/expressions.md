@@ -3,7 +3,7 @@
 This defines the evaluation of place and value expressions.
 
 One design decision I made here is that `eval_value` and `eval_place` return both a `Value`/`Place` and its type.
-Separately, [well-formedness](well-formed.md) defines `check_wf` functions that return a `Type`.
+Separately, [well-formedness](../well-formed.md) defines `check_wf` functions that return a `Type`.
 This adds some redundancy (we basically have two definitions of what the type of an expression is).
 The separate `check_wf` enforces structurally that the type information is determined entirely statically.
 The type propagated during evaluation means we only do a single recursive traversal, and we avoid losing track of which type a given value has (which would be a problem since a value without a type is fairly meaningless).
