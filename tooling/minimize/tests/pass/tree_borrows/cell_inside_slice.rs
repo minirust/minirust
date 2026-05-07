@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 /// Write to Cell objects inside a slice.
 

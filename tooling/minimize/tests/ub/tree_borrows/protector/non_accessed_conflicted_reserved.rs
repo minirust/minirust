@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that a foreign read makes future child writes to this mutable reference UB, even though the reference is non-accessed.
 

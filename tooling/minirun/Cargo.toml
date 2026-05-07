@@ -1,0 +1,8 @@
+[package]
+name = "minirun"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+minirust-rs = { path = "../minirust-rs" }
+miniutil = { path = "../miniutil"}

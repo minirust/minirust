@@ -20,8 +20,10 @@ pub use std::result::Result;
 pub use std::string::String;
 
 pub mod build;
-pub mod fmt;
+pub mod cli;
+pub mod json;
 pub mod mock_write;
+pub mod pretty;
 pub mod run;
 
 pub type DefaultTarget = x86_64;

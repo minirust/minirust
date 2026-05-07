@@ -334,6 +334,7 @@ dependencies = [
  "bitmaps",
  "rand_core",
  "rand_xoshiro",
+ "serde",
  "sized-chunks",
  "typenum",
  "version_check",
@@ -424,9 +425,9 @@ dependencies = [
 
 [[package]]
 name = "libspecr"
-version = "0.1.37"
+version = "0.1.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a59392ec1b7fdd91ca7d6a9c46ffa532129acd779c49c3b1a109f8c368e7342d"
+checksum = "a23c2036afbcc0fac3c7f5cb91aadd8a20288ec22866f3ab4e65035b00b8a474"
 dependencies = [
  "gccompat-derive",
  "im",
@@ -434,6 +435,8 @@ dependencies = [
  "num-integer",
  "num-traits",
  "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -461,10 +464,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "minirun"
+version = "0.1.0"
+dependencies = [
+ "minirust-rs",
+ "miniutil",
+]
+
+[[package]]
 name = "minirust-rs"
 version = "0.1.0"
 dependencies = [
  "libspecr",
+ "serde",
 ]
 
 [[package]]
@@ -480,6 +492,7 @@ name = "miniutil"
 version = "0.1.0"
 dependencies = [
  "minirust-rs",
+ "serde_json",
 ]
 
 [[package]]

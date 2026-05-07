@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // The tests were taken from Miri Tree Borrows 
 // https://github.com/rust-lang/miri/blob/master/tests/pass/tree_borrows/sb_fails.rs

@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that we allow retagging a zero-sized pointer without provenance.
 

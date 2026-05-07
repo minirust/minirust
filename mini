@@ -9,7 +9,7 @@ set -e
 ## The part that is always needed
 
 # Fixed specr-transpile version
-SPECR_VERSION="0.1.37"
+SPECR_VERSION="0.1.39"
 
 # Stricter checks on CI
 if [ -n "$CI" ]; then
@@ -31,6 +31,9 @@ case "$COMMAND" in
         ;;
     run)
         exec cargo run --manifest-path=tooling/minimize/Cargo.toml -- "$@"
+        ;;
+    runjson)
+        exec cargo run --manifest-path=tooling/minirun/Cargo.toml -- "$@"
         ;;
     *)
         echo "Invalid command."

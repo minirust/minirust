@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that protectors work even with a zero-sized pointee.
 

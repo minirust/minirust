@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 /// UB-free counterpart to `tests/pass/tree_borrows/cell_inside_struct.rs`.
 

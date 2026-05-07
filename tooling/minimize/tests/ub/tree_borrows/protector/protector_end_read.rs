@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // This test was taken from Miri Tree Borrows
 // https://github.com/rust-lang/miri/blob/master/tests/fail/tree_borrows/spurious_read.rs

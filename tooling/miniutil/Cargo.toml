@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 minirust-rs = { path = "../minirust-rs" }
+serde_json = "1.0"

@@ -37,6 +37,8 @@ mod rs {
         InterpCx<'tcx, rustc_const_eval::const_eval::CompileTimeMachine<'tcx>>;
 }
 
+use miniutil::cli::MinirustMachineConfig;
+use miniutil::show_error;
 // Traits
 pub use rustc_abi::HasDataLayout as _;
 pub use rustc_middle::ty::layout::IntegerExt as _;
@@ -61,7 +63,8 @@ pub use miniutil::BasicMem;
 pub use miniutil::DefaultTarget;
 pub use miniutil::TreeBorrowMem;
 pub use miniutil::build::{self, TypeConv as _, unit_place};
-pub use miniutil::fmt::dump_program;
+pub use miniutil::json;
+pub use miniutil::pretty;
 pub use miniutil::run::*;
 
 // Get back some `std` items
@@ -113,16 +116,6 @@ const DEFAULT_ARGS: &[&str] = &[
     "-Zub-checks=false",
 ];
 
-pub fn show_error(msg: &impl std::fmt::Display) -> ! {
-    eprintln!("fatal error: {msg}");
-    std::process::exit(101) // exit code needed to make ui_test happy
-}
-
-#[macro_export]
-macro_rules! show_error {
-    ($($tt:tt)*) => {crate::show_error(&format_args!($($tt)*)) };
-}
-
 pub fn be_rustc(mut args: Vec<String>) {
     struct BeRustcCallbacks;
     impl rustc_driver::Callbacks for BeRustcCallbacks {}
@@ -171,50 +164,61 @@ fn main() {
     if (std::env::var_os("MINIMIZE_BE_RUSTC")).is_some() {
         return be_rustc(all_args);
     }
-    let (minimize_args, rustc_args) = split_args(all_args);
-    let dump = minimize_args.iter().any(|x| x == "--minimize-dump");
+    let (config, rustc_args) = parse_args(all_args);
 
     get_mini(rustc_args, |_tcx, prog| {
-        if dump {
-            dump_program(prog);
-        } else {
-            match run_prog(prog, &minimize_args) {
-                // We can't use tcx.dcx().fatal due to <https://github.com/oli-obk/ui_test/issues/226>
-                TerminationInfo::IllFormed(err) =>
-                    show_error!(
-                        "program not well-formed (this is a bug in minimize):\n    {}",
-                        err.get_internal()
-                    ),
-                TerminationInfo::MachineStop => { /* silent exit. */ }
-                TerminationInfo::Abort => show_error!("program aborted"),
-                TerminationInfo::Ub(err) => show_error!("UB: {}", err.get_internal()),
-                TerminationInfo::Deadlock => show_error!("program dead-locked"),
-                TerminationInfo::MemoryLeak => show_error!("program leaked memory"),
+        if let Some(ref dump_kind) = config.dump {
+            match dump_kind.as_str() {
+                "pretty" => pretty::dump_program(prog),
+                "json" => json::dump_program(&prog),
+                x => show_error!("Unknown dump format {x}"),
             }
+        } else {
+            if config.check_json_roundtrip {
+                json::assert_roundtrip(&prog);
+            }
+            config.machine_config.run_prog_and_print_errors(prog);
         }
     });
 }
 
-/// split arguments into arguments for minimize and rustc
-fn split_args(args: Vec<String>) -> (Vec<String>, Vec<String>) {
-    let mut minimize_args: Vec<String> = Vec::new();
+struct MinimizeConfig {
+    /// The argument of `--minimize-dump=...`, or `None` if this flag was not given.
+    dump: Option<String>,
+    /// If we should check whether de- and reserializing a program round-trips.
+    check_json_roundtrip: bool,
+    /// The flags we collected for the machine config.
+    machine_config: MinirustMachineConfig,
+}
+
+/// split arguments into arguments for minimize, minirun, and rustc
+fn parse_args(args: Vec<String>) -> (MinimizeConfig, Vec<String>) {
+    let mut config = MinimizeConfig {
+        dump: None,
+        check_json_roundtrip: false,
+        machine_config: MinirustMachineConfig::default(),
+    };
     let mut rustc_args: Vec<String> = Vec::new();
     for arg in args {
-        if arg.starts_with("--minimize-") {
-            minimize_args.push(arg);
+        if let Some(arg) = arg.strip_prefix("--minimize-") {
+            if let Some(arg) = arg.strip_prefix("dump=") {
+                if config.dump.is_some() {
+                    show_error!("Argument --minimize-dump was given twice!");
+                } else {
+                    config.dump = Some(arg.to_string())
+                }
+            } else if arg == "check-json-roundtrip" {
+                config.check_json_roundtrip = true;
+            } else {
+                show_error!("Unknown minimize argument --minimize-{arg}!");
+            }
+        } else if config.machine_config.consume_arg(&arg) {
+            continue;
         } else {
             rustc_args.push(arg);
         }
     }
-    (minimize_args, rustc_args)
-}
-
-fn run_prog(prog: Program, args: &Vec<String>) -> TerminationInfo {
-    if args.iter().any(|x| x == "--minimize-tree-borrows") {
-        run_program::<TreeBorrowMem>(prog)
-    } else {
-        run_program::<BasicMem>(prog)
-    }
+    (config, rustc_args)
 }
 
 fn get_mini(args: Vec<String>, callback: impl FnOnce(rs::TyCtxt<'_>, Program) + Send + Copy) {

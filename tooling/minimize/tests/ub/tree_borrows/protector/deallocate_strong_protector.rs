@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that deallocating an allocation containing a strongly protected node is UB.
 // FIXME: Add test for deallocating weak protectors after `Box` is supported.

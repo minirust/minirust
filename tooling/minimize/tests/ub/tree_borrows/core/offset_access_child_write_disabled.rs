@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that a foreign write to a location only disables
 // the active mutable reference at that offset.

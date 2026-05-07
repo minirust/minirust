@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that writing to a location via a mutable reference can also
 // make writing to this location via another mutable reference UB.

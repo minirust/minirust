@@ -3,7 +3,7 @@
 
 pub use miniutil::BasicMem;
 pub use miniutil::build::*;
-pub use miniutil::fmt::*;
+pub use miniutil::pretty::*;
 pub use miniutil::run::*;
 
 pub use minirust_rs::libspecr::hidden::*;
