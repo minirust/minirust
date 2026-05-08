@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // test that protector end writes don't trigger for non-accessed or `Cell` bytes.
 use std::cell::Cell;

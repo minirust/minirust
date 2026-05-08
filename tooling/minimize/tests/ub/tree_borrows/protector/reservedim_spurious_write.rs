@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 //@revisions: without with
 
 // This test was taken from Miri Tree Borrows

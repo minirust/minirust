@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that deallocating an allocation is allowed even in the presence of a strong protector only covering interior mutable data.
 

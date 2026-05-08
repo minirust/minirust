@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that a foreign write makes an frozen shared reference disabled.
 // After that, reading from this shared reference is UB.

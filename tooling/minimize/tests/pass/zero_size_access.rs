@@ -1,5 +1,5 @@
 //@revisions: basic tree
-//@[tree]compile-flags: --minimize-tree-borrows
+//@[tree]compile-flags: --minirust-tree-borrows
 
 // Check that we allow out-of-range zero-sized accesses and reborrows.
 

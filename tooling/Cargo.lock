@@ -464,6 +464,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "minirun"
+version = "0.1.0"
+dependencies = [
+ "minirust-rs",
+ "miniutil",
+]
+
+[[package]]
 name = "minirust-rs"
 version = "0.1.0"
 dependencies = [
@@ -484,6 +492,7 @@ name = "miniutil"
 version = "0.1.0"
 dependencies = [
  "minirust-rs",
+ "serde_json",
 ]
 
 [[package]]

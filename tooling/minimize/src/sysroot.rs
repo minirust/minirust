@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::Command;
 
+use miniutil::show_error;
 use rustc_build_sysroot::{BuildMode, SysrootBuilder, SysrootConfig};
 
 fn get_sysroot_dir() -> PathBuf {
@@ -26,15 +27,15 @@ pub fn setup_sysroot() -> PathBuf {
         let rustup_src = rustc_build_sysroot::rustc_sysroot_src(Command::new("rustc"))
             .expect("could not determine sysroot source directory");
         if !rustup_src.exists() {
-            crate::show_error!("`rust-src` not found");
+            show_error!("`rust-src` not found");
         }
         rustup_src
     };
     if !rust_src.exists() {
-        crate::show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
+        show_error!("given Rust source directory `{}` does not exist.", rust_src.display());
     }
     if rust_src.file_name().and_then(OsStr::to_str) != Some("library") {
-        crate::show_error!(
+        show_error!(
             "given Rust source directory `{}` does not seem to be the `library` subdirectory of \
              a Rust source checkout.",
             rust_src.display()

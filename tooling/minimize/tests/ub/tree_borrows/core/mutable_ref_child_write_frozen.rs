@@ -1,4 +1,4 @@
-//@ compile-flags: --minimize-tree-borrows
+//@ compile-flags: --minirust-tree-borrows
 
 // Check that a foreign read makes an active mutable reference frozen.
 // After that, writing to this mutable reference is UB.
