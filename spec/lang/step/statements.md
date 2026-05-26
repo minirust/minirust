@@ -101,8 +101,14 @@ impl<M: Memory> Machine<M> {
                 val,
             // base case
             (Value::Ptr(ptr), Type::Ptr(ptr_type)) => {
+                // `retag_val` runs on values loaded from a place (e.g., during `Validate`).
+                // The projection chain that produced the place lives in `eval_place` and is
+                // discarded by load; we pass an empty niche-claims list here. In practice
+                // `Validate`'s place is usually a Local with no projections, so this is
+                // the right semantics. Niche claims from `Downcast :: Field` chains are
+                // attached at `AddrOf` (the actual reference-creation site).
                 let lookup = self.vtable_lookup();
-                let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, lookup) })?;
+                let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, List::new(), lookup) })?;
                 Value::Ptr(val)
             }
             // recurse into tuples/arrays/enums

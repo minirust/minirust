@@ -147,7 +147,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         kind: AllocationKind,
         size: Size,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra) -> Result,
+        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, List<AbstractByte<Provenance<ProvExtra>>>) -> Result,
     ) -> Result {
         let Some((id, prov_extra)) = ptr.provenance else {
             throw_ub!("deallocating invalid pointer")
@@ -172,8 +172,10 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
             throw_ub!("deallocating with incorrect alignment information");
         }
 
-        // Check "extra" things.
-        handle_extra(&mut allocation.extra, prov_extra)?;
+        // Check "extra" things. We pass the current `data` so aliasing models
+        // can inspect the bytes (e.g. for the niche check on the implicit
+        // Foreign Write that deallocation entails).
+        handle_extra(&mut allocation.extra, prov_extra, allocation.data)?;
 
         // Mark it as dead.
         allocation.live = false;
@@ -229,7 +231,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         ptr: ThinPointer<Provenance<ProvExtra>>,
         bytes: List<AbstractByte<Provenance<ProvExtra>>>,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset) -> Result,
+        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset, List<AbstractByte<Provenance<ProvExtra>>>) -> Result,
     ) -> Result {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("store to a misaligned pointer");
@@ -240,8 +242,10 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         };
         let mut allocation = self.allocations[id.0];
 
-        // Check and update "extra" state.
-        handle_extra(&mut allocation.extra, prov_extra, offset)?;
+        // Check and update "extra" state. The current (pre-write) `data` is
+        // passed so the aliasing model can inspect the bytes that are about
+        // to be overwritten (e.g. for the niche check at Foreign Write).
+        handle_extra(&mut allocation.extra, prov_extra, offset, allocation.data)?;
 
         // Slice into the contents, and put the new bytes there.
         allocation.data.write_subslice_at_index(offset.bytes(), bytes);
@@ -255,7 +259,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         ptr: ThinPointer<Provenance<ProvExtra>>,
         len: Size,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset) -> Result,
+        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset, List<AbstractByte<Provenance<ProvExtra>>>) -> Result,
     ) -> Result<List<AbstractByte<Provenance<ProvExtra>>>> {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("load from a misaligned pointer");
@@ -265,8 +269,10 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         };
         let mut allocation = self.allocations[id.0];
 
-        // Check and update "extra" state.
-        handle_extra(&mut allocation.extra, prov_extra, offset)?;
+        // Check and update "extra" state. The current `data` is passed so the
+        // aliasing model can inspect the bytes that are about to be read
+        // (e.g. for the niche check at Foreign Read).
+        handle_extra(&mut allocation.extra, prov_extra, offset, allocation.data)?;
         self.allocations.set(id.0, allocation);
 
         // Slice into the contents, and copy them to a new list.
@@ -321,15 +327,15 @@ impl<T: Target> Memory for BasicMemory<T> {
     }
 
     fn deallocate(&mut self, ptr: ThinPointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
-        self.deallocate(ptr, kind, size, align, |(), ()| ret(()))
+        self.deallocate(ptr, kind, size, align, |(), (), _data| ret(()))
     }
 
     fn store(&mut self, ptr: ThinPointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
-        self.store(ptr, bytes, align, |(), (), _offset| ret(()))
+        self.store(ptr, bytes, align, |(), (), _offset, _data| ret(()))
     }
 
     fn load(&mut self, ptr: ThinPointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>> {
-        self.load(ptr, len, align, |(), (), _offset| ret(()))
+        self.load(ptr, len, align, |(), (), _offset, _data| ret(()))
     }
 
     fn dereferenceable(&self, ptr: ThinPointer<Self::Provenance>, len: Size) -> Result {

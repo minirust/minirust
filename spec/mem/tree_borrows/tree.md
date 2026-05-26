@@ -40,6 +40,11 @@ struct Node {
     /// If `protected.yes()`, then all states in `permissions` must be `Permission::Prot()`.
     /// If `!protected.yes()`, they must all be `Permission::Unprot()`.
     protected: Protected,
+    /// Niche claims attached to this node by the niche-bearing retag clause; see
+    /// [niche_claims.md](niche_claims.md). In normal use only synthetic intermediate
+    /// tags (`T_n` in the proposal) carry a non-empty list; user-visible reborrow
+    /// tags carry an empty list.
+    niche_claims: List<NicheClaim>,
 }
 ```
 
@@ -58,7 +63,7 @@ The state transition depends on both the node relation and the type of access op
 
 ```rust
 enum AccessKind {
-    Read, 
+    Read,
     Write,
 }
 ```
@@ -71,7 +76,7 @@ impl Node {
     /// The `node_relation` indicates whether the accessed node is a local or foreign
     /// *from the perspective of `self`*.
     fn transition(
-        &mut self, 
+        &mut self,
         node_relation: NodeRelation,
         access_kind: AccessKind,
         offset_in_alloc: Offset,
@@ -86,24 +91,83 @@ impl Node {
         ret(())
     }
 
-    /// Recusively do state transition on `self` node and all its descendants.
-    /// `path` is the path from `self` to the accessed node.
-    /// `path` is None when the accessed node is not a descendant of `self`.
+    /// Recursively do a TB access through the tag at `path` on this subtree.
+    /// `path` is the path from `self` to the accessed tag, or `None` when the
+    /// accessed tag is not a descendant of `self` (so `self` is foreign).
     ///
-    /// This method will throw UBs, representing the undefined behavior captured by Tree Borrows.
-    fn access(
+    /// At each visited node, do the per-node permission transition and, when
+    /// `do_niche_check` is `true` and the node is foreign for the access,
+    /// run the niche check on its claims (see [niche_claims.md](niche_claims.md)):
+    /// decode the current bytes via each claim's discriminator (UB on mismatch),
+    /// phantom-read niche bytes outside the access range, and discharge the
+    /// claim on a passing Foreign Write.
+    ///
+    /// Phantom reads are issued at the niche tag itself (`self`, when we are
+    /// at `T_n`) as `self.access(Some(Path::new()), …, false)`, so they walk
+    /// only `T_n`'s subtree: Local at `T_n`, Foreign at its descendants. The
+    /// `false` argument stops the recursion (state transitions only, no
+    /// nested niche check). The proposal's phantom-read safety argument
+    /// (§6.6, Lemma 2 + corollary) shows this is operationally equivalent to
+    /// walking the whole tree from the root -- propagation to `T_n`'s siblings
+    /// is provably a no-op, and propagation to `T_n`'s ancestors is subsumed
+    /// by `T_n`'s implicit init Read at retag time.
+    fn access<M: Memory>(
         &mut self,
         path: Option<Path>, // self -> accessed node
         access_kind: AccessKind,
         offset_in_alloc: Offset,
         size: Size,
+        alloc_addr: Address,
+        alloc_data: List<AbstractByte<M::Provenance>>,
+        do_niche_check: bool,
     ) -> Result {
-        // Indicates whether the accessed node is a local or foreign
-        // *from the perspective of `self`*.
-        //
-        // If `self` is an ancestor of the accessed node, the accessed node is local to `self`.
-        // Otherwise, the accessed node is a `foreign` of `self`.
-        let node_relation = if path.is_some() { NodeRelation::Local } else { NodeRelation::Foreign };
+        let is_foreign = path.is_none();
+        let node_relation = if is_foreign { NodeRelation::Foreign } else { NodeRelation::Local };
+
+        // Niche check, only on foreign nodes and only when requested.
+        // Phantom reads pass `do_niche_check = false` to stay state-only.
+        if do_niche_check && is_foreign {
+            let access_end = offset_in_alloc + size;
+            let mut new_claims = List::new();
+            for claim in self.niche_claims {
+                let niche_bytes = claim.niche_region_in_alloc(alloc_addr);
+                let touches = niche_bytes.iter().any(|b|
+                    offset_in_alloc <= b && b < access_end);
+                if !touches {
+                    new_claims.push(claim);
+                    continue;
+                }
+                // (1) Decode current bytes via the claim's discriminator. For
+                //     Foreign Write triggers these are pre-write bytes (the
+                //     store hook runs before the data is committed); for
+                //     Foreign Read triggers nothing changes either way.
+                let decoded = claim.decode::<M>(alloc_addr, alloc_data);
+                if decoded != Some(claim.variant) {
+                    throw_ub!("Tree Borrows: niche claim violated -- bytes do not decode to the claimed variant");
+                }
+                // (2) Phantom Local Reads through `self` (= T_n) for niche
+                //     bytes outside the access range. We restart the walk at
+                //     `self` with `path = Some(Path::new())` so `self` is
+                //     local and descendants see Foreign Reads. The proposal's
+                //     Lemma 2 shows the omitted propagation to siblings and
+                //     ancestors is a no-op.
+                for byte in niche_bytes {
+                    let in_access = offset_in_alloc <= byte && byte < access_end;
+                    if !in_access {
+                        self.access::<M>(
+                            Some(Path::new()),
+                            AccessKind::Read, byte, Offset::from_bytes_const(1),
+                            alloc_addr, alloc_data, false)?;
+                    }
+                }
+            }
+            // (3) Discharge the claim on a passing Foreign Write -- the
+            //     bytes the claim was about are being overwritten, so it
+            //     is moot. Retained across Foreign Reads.
+            if access_kind == AccessKind::Write {
+                self.niche_claims = new_claims;
+            }
+        }
 
         // Perform state transition on `self`.
         self.transition(node_relation, access_kind, offset_in_alloc, size)?;
@@ -117,7 +181,9 @@ impl Node {
             };
 
             self.children.mutate_at(child_id, |child| {
-                child.access(sub_path, access_kind, offset_in_alloc, size)
+                child.access::<M>(
+                    sub_path, access_kind, offset_in_alloc, size,
+                    alloc_addr, alloc_data, do_niche_check)
             })?;
         }
 

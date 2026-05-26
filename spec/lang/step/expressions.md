@@ -167,12 +167,14 @@ impl<M: Memory> Machine<M> {
         // Remember that places are basically raw pointers so this is not guaranteed!
         self.check_value(Value::Ptr(place.ptr), Type::Ptr(ptr_ty))?;
 
-        // Let the aliasing model know.
+        // Let the aliasing model know. Niche claims accumulated by `Downcast`
+        // projections on `target` ride along: the tree-borrows model uses them
+        // to build the two-child retag structure (see `mem/tree_borrows/niche_claims.md`).
         let lookup = self.vtable_lookup();
         let ptr = self.mutate_cur_frame(|frame, mem| {
-            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, lookup)
+            mem.retag_ptr(&mut frame.extra, place.ptr, ptr_ty, /* fn_entry */ false, place.niche_claims, lookup)
         })?;
-        
+
         ret((Value::Ptr(ptr), Type::Ptr(ptr_ty)))
     }
 }
@@ -231,7 +233,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("access to a dead local");
         };
 
-        ret((Place { ptr: ptr.widen(None), aligned: true }, ty))
+        ret((Place { ptr: ptr.widen(None), aligned: true, niche_claims: List::new() }, ty))
     }
 }
 ```
@@ -259,7 +261,7 @@ impl<M: Memory> Machine<M> {
         // However, they cannot be loaded from.
         let aligned = self.compute_align(ty.layout::<M::T>(), ptr.metadata).is_aligned(ptr.thin_pointer.addr);
 
-        ret((Place { ptr, aligned }, ty))
+        ret((Place { ptr, aligned, niche_claims: List::new() }, ty))
     }
 }
 ```
@@ -292,7 +294,7 @@ impl<M: Memory> Machine<M> {
         let ptr = if !field_ty.layout::<M::T>().is_sized() {
             // Unsized fields should retain the metadata
             ptr.widen(root.ptr.metadata)
-        } else { 
+        } else {
             ptr.widen(None)
         };
         ret((Place { ptr, ..root }, field_ty))
@@ -329,13 +331,22 @@ impl<M: Memory> Machine<M> {
     }
 
     fn eval_place(&mut self, PlaceExpr::Downcast { root, discriminant }: PlaceExpr) -> Result<(Place<M>, Type)> {
-        let (root, ty) = self.eval_place(root)?;
+        let (mut root, ty) = self.eval_place(root)?;
         // We only need to downcast the enum type into the variant data type
         // since all the enum data must have the same size with offset 0 (invariant).
         let var_ty = match ty {
             Type::Enum { variants, .. } => variants[discriminant].ty,
             _ => panic!("enum downcast on non-enum"),
         };
+        // Record a niche claim for this Downcast: the bytes at `root.ptr.addr` must
+        // decode (via `ty`'s discriminator) to `discriminant`. The claim attaches at
+        // any subsequent retag whose place chain passes through here (typically a
+        // following Field projection that binds the variant's payload field).
+        root.niche_claims.push(mem::NicheClaim {
+            enum_addr: root.ptr.thin_pointer.addr,
+            enum_ty: ty,
+            variant: discriminant,
+        });
         ret((root, var_ty))
     }
 }

@@ -130,12 +130,19 @@ pub trait Memory {
     /// requires information about vtables.
     ///
     /// Return the retagged pointer.
+    ///
+    /// `niche_claims` carries any [niche claims](tree_borrows/niche_claims.md)
+    /// collected from `Downcast` projections in the source place's chain (see
+    /// [Place](../lang/values.md)). Most memory models can ignore this; the
+    /// tree-borrows model uses it to attach claims to synthetic intermediate
+    /// tags.
     fn retag_ptr(
         &mut self,
         _frame_extra: &mut Self::FrameExtra,
         ptr: Pointer<Self::Provenance>,
         _ptr_type: PtrType,
         _fn_entry: bool,
+        _niche_claims: List<NicheClaim>,
         _vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + 'static,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(ptr)

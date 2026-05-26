@@ -66,6 +66,16 @@ impl Permission {
         }
     }
 
+    /// Whether a `Local` write through a tag with this permission would
+    /// succeed (i.e. would not raise UB). Used by the niche-extension to
+    /// decide whether a tag can mutate a given byte.
+    fn is_writable(self) -> bool {
+        match self {
+            Permission::Unprot(p) => p.local_write().is_ok(),
+            Permission::Prot(p) => p.local_write().is_ok(),
+        }
+    }
+
     /// This function checking this node's internal invariant.
     /// It is only used in debug asserts.
     fn matches_protector(&self, protected: Protected) -> bool {
