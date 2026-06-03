@@ -29,11 +29,17 @@ The definition is likely incomplete, and even if it was complete now, we might e
 That is okay; all previously defined representation relations are still well-defined when the domain grows, the newly added values will just not be valid for old types as one would expect.
 
 We also define the values that come out of place evaluation, called *places*:
-they store a pointer to memory, and a boolean flag indicating whether when this place was initially created, it had sufficient alignment.
+they store a pointer to memory, a boolean flag indicating whether when this place was initially created, it had sufficient alignment,
+and a list of niche claims collected from any `Downcast` projections in the place's projection chain
+(see [niche_claims.md](../mem/tree_borrows/niche_claims.md) and the niche-extension proposal).
 
 ```rust
 struct Place<M: Memory> {
     ptr: Pointer<M::Provenance>,
     aligned: bool,
+    /// Niche claims accumulated from `Downcast(E, V)` projections in this place's
+    /// history. Consumed at retag (`AddrOf` and `Validate`); other consumers ignore
+    /// them. See [`NicheClaim`](../mem/tree_borrows/niche_claims.md) for the type definition.
+    niche_claims: List<NicheClaim>,
 }
 ```

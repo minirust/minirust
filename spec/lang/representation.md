@@ -32,7 +32,7 @@ If any pattern is not covered, that is a bug in the spec.)
 ```rust
 impl Type {
     /// Decode a list of bytes into a value.
-    /// 
+    ///
     /// This can fail if `bytes` is not a valid encoding for the type,
     /// which typically means Undefined Behavior.
     /// Assumes `self` is well formed and `bytes.len()` matches the types size (violating this is a spec bug).
@@ -40,7 +40,7 @@ impl Type {
     fn decode<M: Memory>(self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> { .. }
 
     /// Encode `v` into a list of bytes according to the type `self`.
-    /// 
+    ///
     /// Assumes `self` is well formed and `val` is well-formed for this type (violating this is a spec bug)..
     #[specr::argmatch(self)]
     fn encode<M: Memory>(self, val: Value<M>) -> List<AbstractByte<M::Provenance>> { .. }
@@ -358,7 +358,7 @@ This is to ensure that pointers to the data always contain valid values.
 /// The accessor is given an offset relative to the beginning of the encoded enum value,
 /// and it should return the abstract byte at that offset.
 /// FIXME: we have multiple quite different fail sources, it would be nice to return more error information.
-fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, Size) -> Result<List<AbstractByte<M::Provenance>>>, discriminator: Discriminator) -> Result<Option<Int>> {
+pub fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, Size) -> Result<List<AbstractByte<M::Provenance>>>, discriminator: Discriminator) -> Result<Option<Int>> {
     match discriminator {
         Discriminator::Known(val) => ret(Some(val)),
         Discriminator::Invalid => ret(None),
@@ -471,7 +471,7 @@ Generally, this is already dealt with by `decode`: if decoding succeeds, the rep
 However, pointer types have further runtime constraints: specifically, [safe pointers][ptr_type] require the address to be aligned, dereferenceable and non-null, and they require the pointee type to be inhabited.
 This is separated from `decode`, because checking alignment or the well-formedness of a trait object pointer needs vtable information, and dereferenceablity need information about the current state of memory.
 Dropping dereferenceablity as a requirement to unify these steps was discussed, see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/77), but for trait objects this separation is desireable.
-Therefore usages for `decode` will either follow up by calling `check_value` to raise UB or reason about why this is statically ensured already. 
+Therefore usages for `decode` will either follow up by calling `check_value` to raise UB or reason about why this is statically ensured already.
 
 So types like `&!`, have many byte lists which decode without problems, but none are *well-formed*:
 when the pointee type is uninhabited, there exists no valid reference to that type.
@@ -791,7 +791,7 @@ impl<M: Memory> Machine<M> {
         assert!(
             type1.layout::<M::T>().expect_size("WF ensures sized operands")
                 == type2.layout::<M::T>().expect_size("WF ensures sized operands")
-        );        
+        );
         let bytes = type1.encode::<M>(val);
         if let Some(raw_value) = type2.decode::<M>(bytes) {
             self.check_value(raw_value, type2)?;

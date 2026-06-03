@@ -65,12 +65,20 @@ impl TreeBorrowsFrameExtra {
 Here we define some helper methods to implement the memory interface.
 
 ```rust
-impl<T: Target> TreeBorrowsMemory<T> {
-    /// Create a new node for a pointer (reborrow)
+impl<T: Target> TreeBorrowsMemory<T> where Self: Memory<Provenance = TreeBorrowsProvenance> {
+    /// Create a new node for a pointer (reborrow).
+    ///
+    /// If any of `niche_claims` overlap the new tag's pointee, the retag uses
+    /// the two-child structure of the niche-extension: a single synthetic
+    /// intermediate tag (`T_n` in the proposal) is created carrying all the
+    /// surviving claims, and the user-visible tag (`T_c`) becomes its child.
+    /// Claims whose niche bytes are disjoint from the new tag's pointee are
+    /// silently dropped (the proposal's disjoint clause).
     fn reborrow(
         &mut self,
         ptr: ThinPointer<TreeBorrowsProvenance>,
         settings: ReborrowSettings,
+        niche_claims: List<NicheClaim>,
         frame_extra: &mut TreeBorrowsFrameExtra,
     ) -> Result<ThinPointer<TreeBorrowsProvenance>> {
         let pointee_size = Size::from_bytes(settings.inside.len()).unwrap();
@@ -92,6 +100,66 @@ impl<T: Target> TreeBorrowsMemory<T> {
             let alloc_size = allocation.size();
             let offset = Offset::from_bytes(ptr.addr - allocation.addr).unwrap();
 
+            // Filter niche_claims to those that have at least one niche byte
+            // inside T_c's pointee for which T_c's `inside` permission at that
+            // byte is writable. Bytes outside the pointee are inaccessible
+            // through T_c, and bytes whose inside permission is read-only
+            // (e.g. `Frozen` on a shared borrow) cannot violate the niche;
+            // either way no T_n is needed. The disjoint clause and the gating
+            // on shared borrows both fall out of this single check.
+            let mut surviving_claims: List<NicheClaim> = List::new();
+            let mut surviving_bytes: Set<Offset> = Set::new();
+            for claim in niche_claims {
+                // The niche region is in general a non-contiguous set of bytes:
+                // minirust's `Discriminator` is a decision tree and different
+                // paths may read at unrelated offsets. We take only the bytes
+                // on paths that end in `claim.variant`.
+                let niche_bytes = claim.niche_region_in_alloc(allocation.addr);
+                let writable_overlap = niche_bytes.iter().any(|b| {
+                    offset <= b && b < offset + pointee_size
+                        && settings.inside.index_at(b.bytes() - offset.bytes()).is_writable()
+                });
+                if writable_overlap {
+                    surviving_claims.push(claim);
+                    for byte in niche_bytes { surviving_bytes.insert(byte); }
+                }
+            }
+
+            // If any claims survived, build a single T_n carrying all of them
+            // and parent T_c under it. T_n is unprotected (synthetic, no user
+            // reference holds it), and uniformly `Reserved` everywhere -- bytes
+            // inside the union of niche regions are initialised by the implicit
+            // access below; bytes outside are irrelevant to the niche check and
+            // never accessed through T_n.
+            let current_parent_path = if surviving_claims.is_empty() {
+                parent_path
+            } else {
+                let perm = Permission::Unprot(PermissionUnprot::Reserved);
+                let inner_node = Node {
+                    children: List::new(),
+                    permissions: list![perm; alloc_size.bytes()],
+                    protected: Protected::No,
+                    niche_claims: surviving_claims,
+                };
+                assert!(inner_node.permissions.all(|x| x.matches_protector(inner_node.protected)));
+                let inner_path = allocation.extra.root.add_node(parent_path, inner_node);
+                // T_n's implicit init access at each byte in the union: a
+                // single-byte Local Read, matching what
+                // `Permission::Unprot(Reserved).init_access()` yields. We
+                // iterate byte-by-byte since the union may be non-contiguous;
+                // this mirrors the per-byte init loop for T_c below.
+                if let Some(access) = perm.init_access() {
+                    for byte in surviving_bytes {
+                        allocation.extra.root.access::<Self>(
+                            Some(inner_path), access, byte, Offset::from_bytes_const(1),
+                            allocation.addr, allocation.data, true)?;
+                    }
+                }
+                inner_path
+            };
+
+            // Create T_c (the user-visible tag) as a child of the deepest T_n (or of
+            // the original parent if no T_n was created).
             let mut permissions = list![settings.outside; alloc_size.bytes()];
             if settings.inside.len() > 0 {
                 permissions.write_subslice_at_index(
@@ -105,20 +173,23 @@ impl<T: Target> TreeBorrowsMemory<T> {
                 children: List::new(),
                 permissions,
                 protected: settings.protected,
+                niche_claims: List::new(),
             };
 
             // Assert that the node's internal invariant is upheld.
             assert!(child_node.permissions.all(|x| x.matches_protector(child_node.protected)));
 
             // Add the new node to the tree
-            let child_path = allocation.extra.root.add_node(parent_path, child_node);
+            let child_path = allocation.extra.root.add_node(current_parent_path, child_node);
 
             // Perform a read access on all bytes inside the pointee whose permission requires such an access.
             for (idx, perm) in settings.inside.iter().enumerate() {
                 let idx = Int::from(idx); // FIXME: we need a version of `enumerate` that yields `Int`s.
                 let idx = Size::from_bytes(idx).unwrap();
                 if let Some(access) = perm.init_access() {
-                    allocation.extra.root.access(Some(child_path), access, offset+idx, Offset::from_bytes_const(1))?
+                    allocation.extra.root.access::<Self>(
+                        Some(child_path), access, offset+idx,  Offset::from_bytes_const(1),
+                        allocation.addr, allocation.data, true)?
                 }
             }
 
@@ -185,6 +256,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
             children: List::new(),
             permissions: list![Permission::Unprot(PermissionUnprot::Unique); size.bytes()],
             protected: Protected::No,
+            niche_claims: List::new(),
         };
         let path = Path::new();
         let extra = TreeBorrowsAllocationExtra { root };
@@ -192,9 +264,11 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
     }
 
     fn deallocate(&mut self, ptr: ThinPointer<Self::Provenance>, kind: AllocationKind, size: Size, align: Align) -> Result {
-        self.mem.deallocate(ptr, kind, size, align, |extra, path| {
+        self.mem.deallocate(ptr, kind, size, align, |extra, path, data| {
             // Check that ptr has the permission to write the entire allocation.
-            extra.root.access(Some(path), AccessKind::Write, Offset::ZERO, size)?;
+            extra.root.access::<Self>(
+                Some(path), AccessKind::Write, Offset::ZERO, size,
+                ptr.addr, data, true)?;
 
             // Check that allocation is not strongly protected.
             if extra.root.contains_strong_protector_preventing_deallocation() {
@@ -206,17 +280,21 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
     }
 
     fn load(&mut self, ptr: ThinPointer<Self::Provenance>, len: Size, align: Align) -> Result<List<AbstractByte<Self::Provenance>>> {
-        self.mem.load(ptr, len, align, |extra, path, offset| {
+        self.mem.load(ptr, len, align, |extra, path, offset, data| {
             // Check for aliasing violations.
-            extra.root.access(Some(path), AccessKind::Read, offset, len)
+            extra.root.access::<Self>(
+                Some(path), AccessKind::Read, offset, len,
+                ptr.addr - offset.bytes(), data, true)
         })
     }
 
     fn store(&mut self, ptr: ThinPointer<Self::Provenance>, bytes: List<AbstractByte<Self::Provenance>>, align: Align) -> Result {
         let size = Size::from_bytes(bytes.len()).unwrap();
-        self.mem.store(ptr, bytes, align, |extra, path, offset| {
+        self.mem.store(ptr, bytes, align, |extra, path, offset, data| {
             // Check for aliasing violations.
-            extra.root.access(Some(path), AccessKind::Write, offset, size)
+            extra.root.access::<Self>(
+                Some(path), AccessKind::Write, offset, size,
+                ptr.addr - offset.bytes(), data, true)
         })
     }
 
@@ -231,10 +309,11 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr: Pointer<Self::Provenance>,
         ptr_type: PtrType,
         fn_entry: bool,
+        niche_claims: List<NicheClaim>,
         vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + 'static,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(if let Some(perms) = ReborrowSettings::new(ptr, ptr_type, fn_entry, vtable_lookup) {
-            self.reborrow(ptr.thin_pointer, perms, frame_extra)?.widen(ptr.metadata)
+            self.reborrow(ptr.thin_pointer, perms, niche_claims, frame_extra)?.widen(ptr.metadata)
         } else {
             ptr
         })
