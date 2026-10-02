@@ -7,7 +7,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
     pub fn translate_rvalue_smir(&mut self, rv: &smir::Rvalue, span: rs::Span) -> ValueExpr {
         match rv {
-            smir::Rvalue::Use(operand) => self.translate_operand_smir(operand, span),
+            smir::Rvalue::Use(operand, _) => self.translate_operand_smir(operand, span),
             smir::Rvalue::BinaryOp(bin_op, l, r) => {
                 let lty_smir = l.ty(&self.locals_smir).unwrap();
                 let lty = self.translate_ty_smir(lty_smir, span);
@@ -360,13 +360,15 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     smir::CastKind::FloatToFloat
                     | smir::CastKind::FloatToInt
                     | smir::CastKind::IntToFloat
+                    | smir::CastKind::BoxDerefTransmute
                     | smir::CastKind::Subtype
                     | smir::CastKind::PointerCoercion(smir::PointerCoercion::ClosureFnPointer(
                         ..,
                     )) => rs::span_bug!(span, "cast not supported: {cast_kind:?}"),
                 }
             }
-            smir::Rvalue::ThreadLocalRef(..) => rs::span_bug!(span, "rvalue not supported: {rv:?}"),
+            smir::Rvalue::ThreadLocalRef(..) | smir::Rvalue::Reborrow(..) =>
+                rs::span_bug!(span, "rvalue not supported: {rv:?}"),
         }
     }
 

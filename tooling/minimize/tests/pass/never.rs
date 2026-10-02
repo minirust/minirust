@@ -1,5 +1,3 @@
-#![feature(never_type)]
-
 fn main() {
     // While this is not going to run it is forcing the minimizer to minimize `!`.
     if false {

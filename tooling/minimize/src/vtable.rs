@@ -64,8 +64,7 @@ impl<'tcx> Ctxt<'tcx> {
                                 self.get_fn_name(*func),
                             )),
                         rs::VtblEntry::MetadataDropInPlace => {
-                            let drop_in_place_fn =
-                                rs::Instance::resolve_drop_in_place(self.tcx, ty);
+                            let drop_in_place_fn = rs::Instance::resolve_drop_glue(self.tcx, ty);
                             Some((
                                 TraitMethodName(Name::from_internal(
                                     rs::COMMON_VTABLE_ENTRIES_DROPINPLACE as _,
