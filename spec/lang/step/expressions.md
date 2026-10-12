@@ -124,7 +124,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("ValueExpr::GetDiscriminant encountered invalid discriminant.");
         };
 
-        ret((Value::Int(discriminant), Type::Int(discriminant_ty)))
+        ret((Value::Int(discriminant), Type::Int { ty: discriminant_ty, niches: list![] }))
     }
 }
 ```

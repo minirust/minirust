@@ -77,7 +77,7 @@ fn check_abi_compatibility(
     // FIXME: we also reject too much here, e.g. we do not reflect `repr(transparent)`,
     // let alone `Option<&T>` being compatible with `*const T`.
     match (caller_ty, callee_ty) {
-        (Type::Int(caller_ty), Type::Int(callee_ty)) =>
+        (Type::Int { ty: caller_ty, niches: _ }, Type::Int { ty: callee_ty, niches: _ }) =>
             // The sign *does* matter for some ABIs, so we compare it as well.
             caller_ty == callee_ty,
         (Type::Bool, Type::Bool) =>
@@ -384,7 +384,7 @@ This will then eventually invoke `ResumeUnwind` and thus propagate upwards throu
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::StartUnwind { unwind_payload, unwind_block }: Terminator) -> NdResult {
-        let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })) =
+        let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None, .. })) =
             self.eval_value(unwind_payload)?
         else {
             panic!("StartUnwind: the unwind payload is not a raw pointer");

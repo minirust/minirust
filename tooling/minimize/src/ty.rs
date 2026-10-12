@@ -187,20 +187,21 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Bool => Type::Bool,
             rs::TyKind::Int(t) => {
                 let sz = rs::abi::Integer::from_int_ty(&self.tcx, *t).size();
-                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Signed })
+                build::int_ty(Signedness::Signed, translate_size(sz))
             }
             rs::TyKind::Uint(t) => {
                 let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
-                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
+                build::int_ty(Signedness::Unsigned, translate_size(sz))
             }
             rs::TyKind::Char => {
-                // FIXME: not the right model for `char`! Doesn't have the right niches.
-                Type::Int(IntType { size: Size::from_bytes_const(4), signed: Signedness::Unsigned })
+                let ty = IntType { size: Size::from_bytes_const(4), signed: Signedness::Unsigned };
+                let niches = list![
+                    (Int::from(0xD800), Int::from(0xE000)),
+                    (Int::from(0x110000), Int::from(u32::MAX) + Int::ONE)
+                ];
+                Type::Int { ty, niches }
             }
-            rs::TyKind::Pat(inner, _pat) => {
-                // FIXME: not the right model for `char`! Doesn't have the right niches.
-                self.translate_ty(*inner, span)
-            }
+            rs::TyKind::Pat(inner, pat) => self.translate_pat(*inner, *pat, span),
             rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
                 self.tuple_from_layout(layout, span)
@@ -228,7 +229,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
                 let pointee = self.pointee_info_of(*ty, span);
-                Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind() })
+                Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind(), may_be_null: true })
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.try_to_target_usize(self.tcx).unwrap());
@@ -253,10 +254,10 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Str => {
                 // Treat `str` like `[u8]`.
-                let elem = GcCow::new(Type::Int(IntType {
-                    size: Size::from_bytes_const(1),
-                    signed: Signedness::Unsigned,
-                }));
+                let elem = GcCow::new(build::int_ty(
+                    Signedness::Unsigned,
+                    Size::from_bytes_const(1),
+                ));
                 Type::Slice { elem }
             }
             rs::TyKind::Dynamic(_, _) => Type::TraitObject(self.get_trait_name(ty)),
@@ -321,6 +322,68 @@ impl<'tcx> Ctxt<'tcx> {
 
         (fields, size, align)
     }
+
+    fn translate_pat(
+        &mut self,
+        inner: rs::Ty<'tcx>,
+        pat: rs::Pattern<'tcx>,
+        span: rs::Span,
+    ) -> Type {
+        let inner_ty = self.translate_ty(inner, span);
+        match *pat {
+            rs::PatternKind::NotNull => {
+                let Type::Ptr(PtrType::Raw { meta_kind, may_be_null: _ }) = inner_ty else {
+                    rs::span_bug!(span, "`!null` pattern applied to non-raw-pointer type: {inner}");
+                };
+                Type::Ptr(PtrType::Raw { meta_kind, may_be_null: false })
+            }
+            rs::PatternKind::Range { .. } | rs::PatternKind::Or(..) => {
+                let Type::Int { ty: int_ty, niches: inner_niches } = inner_ty else {
+                    rs::span_bug!(span, "range pattern applied to non-integer type: {inner}");
+                };
+                let eval_range = |p: rs::PatternKind<'tcx>| -> Option<(Int, Int)> {
+                    let rs::PatternKind::Range { start, end } = p else {
+                        rs::span_bug!(span, "unsupported pattern in integer pattern type: {p:?}");
+                    };
+                    let eval_const = |c: rustc_middle::ty::Const<'tcx>| -> Int {
+                        let c = self
+                            .tcx
+                            .normalize_erasing_regions(self.typing_env(), Unnormalized::new_wip(c));
+                        let bits = c.try_to_value().unwrap().to_leaf().to_bits_unchecked();
+                        int_from_bits(bits, int_ty)
+                    };
+                    let s = eval_const(start);
+                    let e = eval_const(end);
+                    (s <= e).then_some((s, e + Int::ONE))
+                };
+                let mut valid_ranges: Vec<(Int, Int)> = match *pat {
+                    rs::PatternKind::Range { .. } => eval_range(*pat).into_iter().collect(),
+                    rs::PatternKind::Or(pats) => pats.iter().filter_map(|p| eval_range(*p)).collect(),
+                    rs::PatternKind::NotNull => unreachable!(),
+                };
+                let valid_ranges = merge_intervals(&mut valid_ranges);
+
+                let (min_val, max_val) = crate::enums::int_bounds(int_ty);
+                let max_val_excl = max_val + Int::ONE;
+
+                let mut all_niches: Vec<(Int, Int)> = inner_niches.iter().collect();
+                let mut cursor = min_val;
+                for (v_start, v_end) in valid_ranges {
+                    if cursor < v_start {
+                        all_niches.push((cursor, v_start));
+                    }
+                    if cursor < v_end {
+                        cursor = v_end;
+                    }
+                }
+                if cursor < max_val_excl {
+                    all_niches.push((cursor, max_val_excl));
+                }
+                let niches = merge_intervals(&mut all_niches).into_iter().collect();
+                Type::Int { ty: int_ty, niches }
+            }
+        }
+    }
 }
 
 pub fn translate_mutbl(mutbl: rs::Mutability) -> Mutability {
@@ -351,4 +414,21 @@ pub fn translate_calling_convention(conv: rs::CanonAbi) -> CallingConvention {
         rs::CanonAbi::Rust => CallingConvention::Rust,
         _ => todo!(),
     }
+}
+
+fn merge_intervals(intervals: &mut Vec<(Int, Int)>) -> Vec<(Int, Int)> {
+    intervals.retain(|(s, e)| s < e);
+    intervals.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    let mut merged: Vec<(Int, Int)> = Vec::with_capacity(intervals.len());
+    for &(s, e) in intervals.iter() {
+        match merged.last_mut() {
+            Some(last) if s <= last.1 => {
+                if last.1 < e {
+                    last.1 = e;
+                }
+            }
+            _ => merged.push((s, e)),
+        }
+    }
+    merged
 }

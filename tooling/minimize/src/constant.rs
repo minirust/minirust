@@ -24,7 +24,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     ) -> ValueExpr {
         let ty = self.translate_ty(val.layout.ty, span);
         match ty {
-            Type::Int(int_ty) => {
+            Type::Int { ty: int_ty, .. } => {
                 let scalar = ecx.read_scalar(&val).unwrap();
                 let val: Int = match int_ty.signed {
                     Signed => scalar.to_int(scalar.size()).unwrap().into(),

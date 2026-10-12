@@ -19,7 +19,15 @@ In the future, we might want to separate a type from its layout, and consider th
 ```rust
 /// The types of MiniRust.
 pub enum Type {
-    Int(IntType),
+    Int {
+        /// The kind of integer, i.e. `i32`.
+        ty: IntType,
+        // the niches. Usually this is empty, and then there are no restrictions.
+        // For modelling e.g. `NonZeroI32`, this would contain the range `0..1`, indicating
+        // that 0 is not a valid value. There can be several niches, to rule out disjoint ranges
+        // of numbers.
+        niches: List<(Int, Int)>
+    },
     Bool,
     /// `Ptr` represents all pointer types: references, raw pointers, boxes, function and vtable pointers.
     /// A pointer type does *not* need the full pointee type, since (de)serializing a pointer does not
@@ -151,7 +159,7 @@ impl Type {
         use Type::*;
         use LayoutStrategy::Sized;
         match self {
-            Int(int_type) => Sized(int_type.size, int_type.align::<T>()),
+            Int { ty, .. } => Sized(ty.size, ty.align::<T>()),
             Bool => Sized(Size::from_bytes_const(1), Align::ONE),
             Ptr(p) if p.meta_kind() == PointerMetaKind::None => Sized(T::PTR_SIZE, T::PTR_ALIGN),
             Ptr(_) => Sized(libspecr::Int::from(2) * T::PTR_SIZE, T::PTR_ALIGN),
@@ -311,7 +319,7 @@ impl IntType {
     /// Generate the return type for IntWithOverflow
     pub fn with_overflow<T: Target>(&self) -> Type {
         // Define a tuple type with two fields: An integer followed directly by a boolean.
-        let fields = list![(Size::ZERO, Type::Int(*self)), (self.size, Type::Bool)];
+        let fields = list![(Size::ZERO, Type::Int { ty: *self, niches: list![] }), (self.size, Type::Bool)];
         // Alignment is always the one of the integer as boolean has align requirement 1.
         let align = self.align::<T>();
         // The total size is `self.size + 1` rounded up to the next multiple of `align`.

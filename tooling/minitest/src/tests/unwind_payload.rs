@@ -85,7 +85,7 @@ fn recursive_payload_test() {
             x_ptr,
             ValueExpr::AddrOf {
                 target: GcCow::new(x),
-                ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None },
+                ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true },
             },
         );
         let cleanup = f.catch_block(|f| {
@@ -100,8 +100,8 @@ fn recursive_payload_test() {
             );
             f.storage_live(payload);
             f.get_unwind_payload(payload);
-            f.assume(eq(load(deref(load(payload), Type::Int(IntType::I32))), load(x)));
-            f.print(load(deref(load(payload), Type::Int(IntType::I32))));
+            f.assume(eq(load(deref(load(payload), i32::get_type())), load(x)));
+            f.print(load(deref(load(payload), i32::get_type())));
             f.stop_unwind(bb2);
         });
 

@@ -14,7 +14,8 @@ impl<'tcx> Ctxt<'tcx> {
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 
-        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        let Type::Int { ty: discriminant_ty, .. } =
+            self.translate_ty(ty.discriminant_ty(self.tcx), span)
         else {
             panic!("Discriminant type is not integer!")
         };
@@ -57,7 +58,7 @@ impl<'tcx> Ctxt<'tcx> {
                 // compute the offset of the tag for the tagger and discriminator construction
                 let tag_offset: Offset =
                     translate_size(layout.fields().offset(tag_field.as_usize()));
-                let Type::Int(tag_ty) =
+                let Type::Int { ty: tag_ty, .. } =
                     self.translate_ty(tag.primitive().to_int_ty(self.tcx), span)
                 else {
                     panic!("enum tag has invalid primitive type")
@@ -167,17 +168,7 @@ impl<'tcx> Ctxt<'tcx> {
                         let end = int_from_bits(tag_valid_range.end, tag_ty);
                         if start <= end {
                             // The range of valid values is continuous, so the invalid values are between the ends of the range and the domain.
-                            let rsize = tag.size(&self.tcx);
-                            let min = if tag_ty.signed == Signedness::Signed {
-                                Int::from(rsize.signed_int_min())
-                            } else {
-                                Int::ZERO
-                            };
-                            let max = if tag_ty.signed == Signedness::Signed {
-                                Int::from(rsize.signed_int_max())
-                            } else {
-                                Int::from(rsize.unsigned_int_max())
-                            };
+                            let (min, max) = int_bounds(tag_ty);
                             if end < max {
                                 discriminator_branches.insert(
                                     (end + Int::ONE, max + Int::ONE),
@@ -234,7 +225,8 @@ impl<'tcx> Ctxt<'tcx> {
             panic!("Getting discriminant for a variant of a non-enum type!")
         };
         assert!(adt_def.is_enum());
-        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        let Type::Int { ty: discriminant_ty, .. } =
+            self.translate_ty(ty.discriminant_ty(self.tcx), span)
         else {
             panic!("Discriminant type is not integer!")
         };
@@ -250,5 +242,14 @@ pub fn int_from_bits(bits: u128, ity: IntType) -> Int {
     } else {
         let signed_val = rs_size.sign_extend(bits) as i128;
         Int::from(signed_val)
+    }
+}
+
+pub fn int_bounds(ity: IntType) -> (Int, Int) {
+    let rs_size = rs::Size::from_bits(ity.size.bits().try_to_u8().unwrap());
+    if ity.signed == Signedness::Signed {
+        (Int::from(rs_size.signed_int_min()), Int::from(rs_size.signed_int_max()))
+    } else {
+        (Int::ZERO, Int::from(rs_size.unsigned_int_max()))
     }
 }

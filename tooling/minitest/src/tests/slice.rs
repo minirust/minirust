@@ -10,7 +10,7 @@ fn ref_as_transmuted_slice<T: TypeConv + Freeze>(
 ) -> PlaceExpr {
     // construct fake wide ptr
     let arr_ref = addr_of(arr, <*const T>::get_type());
-    let pair_ty = PtrType::Raw { meta_kind: PointerMetaKind::ElementCount }
+    let pair_ty = PtrType::Raw { meta_kind: PointerMetaKind::ElementCount, may_be_null: true }
         .as_wide_pair::<miniutil::DefaultTarget>()
         .expect("PtrType is wide");
     let fake_ptr = f.declare_local_with_ty(pair_ty);

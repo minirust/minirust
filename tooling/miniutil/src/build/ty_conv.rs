@@ -32,7 +32,10 @@ macro_rules! type_conv_int_impl {
     ($ty:ty, $signed:expr, $size:expr) => {
         impl TypeConv for $ty {
             fn get_type() -> Type {
-                Type::Int(IntType { signed: $signed, size: $size })
+                Type::Int {
+                    ty: IntType { signed: $signed, size: $size },
+                    niches: list![]
+                }
             }
         }
     };

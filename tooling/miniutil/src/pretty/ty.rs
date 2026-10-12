@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match t {
-        Type::Int(int_ty) => FmtExpr::Atomic(fmt_int_type(int_ty)),
+        Type::Int { ty, niches: _ } => FmtExpr::Atomic(fmt_int_type(ty)),
         Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
         Type::Bool => FmtExpr::Atomic(format!("bool")),
         Type::Tuple { .. } | Type::Union { .. } | Type::Enum { .. } => {
@@ -47,9 +47,12 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let pointee_info_str = fmt_pointee_info(pointee);
             FmtExpr::Atomic(format!("Box<{pointee_info_str}>"))
         }
-        PtrType::Raw { meta_kind } => {
+        PtrType::Raw { meta_kind, may_be_null } => {
             let meta_kind_str = fmt_meta_kind(meta_kind);
-            FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
+            FmtExpr::NonAtomic(format!(
+                "*raw({meta_kind_str}{})",
+                if may_be_null { "" } else { ", non_null" }
+            ))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
         PtrType::VTablePtr(_) => FmtExpr::Atomic("{vtable}".into()),

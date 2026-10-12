@@ -34,21 +34,21 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         build::ptr_offset(l, offset_bytes, build::InBounds::Yes)
                     }
 
-                    (Add, Type::Int(_)) => build::add(l, r),
-                    (Sub, Type::Int(_)) => build::sub(l, r),
-                    (Mul, Type::Int(_)) => build::mul(l, r),
-                    (Div, Type::Int(_)) => build::div(l, r),
-                    (Rem, Type::Int(_)) => build::rem(l, r),
-                    (Shl, Type::Int(_)) => build::shl(l, r),
-                    (Shr, Type::Int(_)) => build::shr(l, r),
-                    (BitAnd, Type::Int(_)) => build::bit_and(l, r),
-                    (BitOr, Type::Int(_)) => build::bit_or(l, r),
-                    (BitXor, Type::Int(_)) => build::bit_xor(l, r),
-                    (AddUnchecked, Type::Int(_)) => build::add_unchecked(l, r),
-                    (SubUnchecked, Type::Int(_)) => build::sub_unchecked(l, r),
-                    (MulUnchecked, Type::Int(_)) => build::mul_unchecked(l, r),
-                    (ShlUnchecked, Type::Int(_)) => build::shl_unchecked(l, r),
-                    (ShrUnchecked, Type::Int(_)) => build::shr_unchecked(l, r),
+                    (Add, Type::Int { .. }) => build::add(l, r),
+                    (Sub, Type::Int { .. }) => build::sub(l, r),
+                    (Mul, Type::Int { .. }) => build::mul(l, r),
+                    (Div, Type::Int { .. }) => build::div(l, r),
+                    (Rem, Type::Int { .. }) => build::rem(l, r),
+                    (Shl, Type::Int { .. }) => build::shl(l, r),
+                    (Shr, Type::Int { .. }) => build::shr(l, r),
+                    (BitAnd, Type::Int { .. }) => build::bit_and(l, r),
+                    (BitOr, Type::Int { .. }) => build::bit_or(l, r),
+                    (BitXor, Type::Int { .. }) => build::bit_xor(l, r),
+                    (AddUnchecked, Type::Int { .. }) => build::add_unchecked(l, r),
+                    (SubUnchecked, Type::Int { .. }) => build::sub_unchecked(l, r),
+                    (MulUnchecked, Type::Int { .. }) => build::mul_unchecked(l, r),
+                    (ShlUnchecked, Type::Int { .. }) => build::shl_unchecked(l, r),
+                    (ShrUnchecked, Type::Int { .. }) => build::shr_unchecked(l, r),
 
                     (Lt, _) => build::lt(l, r),
                     (Le, _) => build::le(l, r),
@@ -93,8 +93,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
                 use smir::UnOp::*;
                 match (unop, ty) {
-                    (Neg, Type::Int(_)) => build::neg(operand),
-                    (Not, Type::Int(_)) => build::bit_not(operand),
+                    (Neg, Type::Int { .. }) => build::neg(operand),
+                    (Not, Type::Int { .. }) => build::bit_not(operand),
                     (Not, Type::Bool) => build::not(operand),
                     (PtrMetadata, Type::Ptr(_)) => build::get_metadata(operand),
                     (op, _) =>
@@ -116,12 +116,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             smir::Rvalue::AddressOf(_mutbl, place) => {
                 let ty = place.ty(&self.locals_smir).unwrap();
                 let place = self.translate_place_smir(place, span);
-                let target = GcCow::new(place);
                 let meta_kind = self.pointee_info_of_smir(ty, span).layout.meta_kind();
 
-                let ptr_ty = PtrType::Raw { meta_kind };
-
-                ValueExpr::AddrOf { target, ptr_ty }
+                build::addr_of(place, build::raw_ptr_ty(meta_kind))
             }
             smir::Rvalue::Aggregate(agg, operands) => {
                 let ty = rv.ty(&self.locals_smir).unwrap();
@@ -225,12 +222,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
                         let operand_ty = self.translate_ty_smir(operand_ty, span);
                         let operand = self.translate_operand_smir(operand, span);
-                        let Type::Int(int_ty) = self.translate_ty_smir(*cast_ty, span) else {
+                        let target_ty = self.translate_ty_smir(*cast_ty, span);
+                        let Type::Int { ty: int_ty, niches } = target_ty else {
                             rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
                         };
 
                         let operand = match operand_ty {
-                            Type::Int(_) => operand,
+                            Type::Int { .. } => operand,
                             // bool2int casts first go to u8, and then to the final type.
                             Type::Bool => build::transmute(operand, u8::get_type()),
                             _ =>
@@ -239,35 +237,45 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                                     "Attempting to cast non-int and non-boolean type to int!"
                                 ),
                         };
-                        ValueExpr::UnOp {
+                        let res = ValueExpr::UnOp {
                             operator: UnOp::Cast(CastOp::IntToInt(int_ty)),
                             operand: GcCow::new(operand),
-                        }
+                        };
+                        if niches.is_empty() { res } else { build::transmute(res, target_ty) }
                     }
 
                     smir::CastKind::PtrToPtr => {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
-                        let Type::Ptr(PtrType::Raw { meta_kind: old_meta_kind }) =
-                            self.translate_ty_smir(operand_ty, span)
+                        let Type::Ptr(PtrType::Raw {
+                            meta_kind: old_meta_kind,
+                            may_be_null: old_may_be_null,
+                        }) = self.translate_ty_smir(operand_ty, span)
                         else {
                             rs::span_bug!(span, "ptr to ptr cast on non-raw-pointer");
                         };
-                        let Type::Ptr(PtrType::Raw { meta_kind: new_meta_kind }) =
-                            self.translate_ty_smir(*cast_ty, span)
+                        let target_ty = self.translate_ty_smir(*cast_ty, span);
+                        let Type::Ptr(PtrType::Raw {
+                            meta_kind: new_meta_kind,
+                            may_be_null: new_may_be_null,
+                        }) = target_ty
                         else {
                             rs::span_bug!(span, "ptr to ptr cast to non-raw-pointer");
                         };
                         let operand = self.translate_operand_smir(operand, span);
-                        if old_meta_kind == new_meta_kind {
-                            // Since raw pointers do only know care about the meta kind, no transmute is necessary here.
-                            operand
+                        let (ptr, cur_may_be_null) = if old_meta_kind == new_meta_kind {
+                            (operand, old_may_be_null)
                         } else if new_meta_kind == PointerMetaKind::None {
-                            build::get_thin_pointer(operand)
+                            (build::get_thin_pointer(operand), true)
                         } else {
                             rs::span_bug!(
                                 span,
-                                "PtrToPtr cast with wide target `{cast_ty:?}` that differes from source `{operand_ty:?}`"
+                                "PtrToPtr cast with wide target `{cast_ty:?}` that differs from source `{operand_ty:?}`"
                             );
+                        };
+                        if cur_may_be_null == new_may_be_null {
+                            ptr
+                        } else {
+                            build::transmute(ptr, target_ty)
                         }
                     }
                     smir::CastKind::PointerCoercion(smir::PointerCoercion::Unsize) => {
