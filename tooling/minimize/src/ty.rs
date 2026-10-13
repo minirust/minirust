@@ -201,7 +201,10 @@ impl<'tcx> Ctxt<'tcx> {
                 ];
                 Type::Int { ty, niches }
             }
-            rs::TyKind::Pat(inner, pat) => self.translate_pat(*inner, *pat, span),
+            rs::TyKind::Pat(inner, pat) => {
+                let inner = self.translate_ty(*inner, span);
+                self.apply_pat(inner, *pat, span)
+            }
             rs::TyKind::Tuple(..) => {
                 let layout = self.rs_layout_of(ty);
                 self.tuple_from_layout(layout, span)
@@ -323,65 +326,66 @@ impl<'tcx> Ctxt<'tcx> {
         (fields, size, align)
     }
 
-    fn translate_pat(
-        &mut self,
-        inner: rs::Ty<'tcx>,
-        pat: rs::Pattern<'tcx>,
-        span: rs::Span,
-    ) -> Type {
-        let inner_ty = self.translate_ty(inner, span);
+    fn apply_pat(&mut self, ty: Type, pat: rs::Pattern<'tcx>, span: rs::Span) -> Type {
         match *pat {
             rs::PatternKind::NotNull => {
-                let Type::Ptr(PtrType::Raw { meta_kind, may_be_null: _ }) = inner_ty else {
-                    rs::span_bug!(span, "`!null` pattern applied to non-raw-pointer type: {inner}");
+                let Type::Ptr(PtrType::Raw { meta_kind, may_be_null: _ }) = ty else {
+                    rs::span_bug!(span, "`!null` pattern applied to non-raw-pointer type: {ty:?}");
                 };
                 Type::Ptr(PtrType::Raw { meta_kind, may_be_null: false })
             }
-            rs::PatternKind::Range { .. } | rs::PatternKind::Or(..) => {
-                let Type::Int { ty: int_ty, niches: inner_niches } = inner_ty else {
-                    rs::span_bug!(span, "range pattern applied to non-integer type: {inner}");
+            rs::PatternKind::Range { start, end } => {
+                let Type::Int { ty: int_ty, niches: inner_niches } = ty else {
+                    rs::span_bug!(span, "range pattern applied to non-integer type: {ty:?}");
                 };
-                let eval_range = |p: rs::PatternKind<'tcx>| -> Option<(Int, Int)> {
-                    let rs::PatternKind::Range { start, end } = p else {
-                        rs::span_bug!(span, "unsupported pattern in integer pattern type: {p:?}");
-                    };
-                    let eval_const = |c: rustc_middle::ty::Const<'tcx>| -> Int {
-                        let c = self
-                            .tcx
-                            .normalize_erasing_regions(self.typing_env(), Unnormalized::new_wip(c));
-                        let bits = c.try_to_value().unwrap().to_leaf().to_bits_unchecked();
-                        int_from_bits(bits, int_ty)
-                    };
-                    let s = eval_const(start);
-                    let e = eval_const(end);
-                    (s <= e).then_some((s, e + Int::ONE))
+                let eval_const = |c: rustc_middle::ty::Const<'tcx>| -> Int {
+                    let c = self
+                        .tcx
+                        .normalize_erasing_regions(self.typing_env(), Unnormalized::new_wip(c));
+                    let bits = c.try_to_value().unwrap().to_leaf().to_bits_unchecked();
+                    int_from_bits(bits, int_ty)
                 };
-                let mut valid_ranges: Vec<(Int, Int)> = match *pat {
-                    rs::PatternKind::Range { .. } => eval_range(*pat).into_iter().collect(),
-                    rs::PatternKind::Or(pats) => pats.iter().filter_map(|p| eval_range(*p)).collect(),
-                    rs::PatternKind::NotNull => unreachable!(),
-                };
-                let valid_ranges = merge_intervals(&mut valid_ranges);
-
+                let start = eval_const(start);
+                let end = eval_const(end);
                 let (min_val, max_val) = crate::enums::int_bounds(int_ty);
                 let max_val_excl = max_val + Int::ONE;
 
-                let mut all_niches: Vec<(Int, Int)> = inner_niches.iter().collect();
-                let mut cursor = min_val;
-                for (v_start, v_end) in valid_ranges {
-                    if cursor < v_start {
-                        all_niches.push((cursor, v_start));
+                let mut niches: Vec<(Int, Int)> = inner_niches.iter().collect();
+                if start <= end {
+                    if min_val < start {
+                        niches.push((min_val, start));
                     }
-                    if cursor < v_end {
-                        cursor = v_end;
+                    if end + Int::ONE < max_val_excl {
+                        niches.push((end + Int::ONE, max_val_excl));
                     }
+                } else {
+                    niches.push((min_val, max_val_excl));
                 }
-                if cursor < max_val_excl {
-                    all_niches.push((cursor, max_val_excl));
-                }
-                let niches = merge_intervals(&mut all_niches).into_iter().collect();
+                let niches = merge_intervals(&mut niches).into_iter().collect();
                 Type::Int { ty: int_ty, niches }
             }
+            rs::PatternKind::Or(pats) => pats
+                .iter()
+                .map(|p| self.apply_pat(ty, p, span))
+                .reduce(|t1, t2| match (t1, t2) {
+                    (
+                        Type::Int { ty: ty1, niches: n1 },
+                        Type::Int { ty: ty2, niches: n2 },
+                    ) => {
+                        assert_eq!(ty1, ty2);
+                        let niches = intersect_intervals(&n1, &n2).into_iter().collect();
+                        Type::Int { ty: ty1, niches }
+                    }
+                    (
+                        Type::Ptr(PtrType::Raw { meta_kind: m1, may_be_null: n1 }),
+                        Type::Ptr(PtrType::Raw { meta_kind: m2, may_be_null: n2 }),
+                    ) => {
+                        assert_eq!(m1, m2);
+                        Type::Ptr(PtrType::Raw { meta_kind: m1, may_be_null: n1 || n2 })
+                    }
+                    _ => rs::span_bug!(span, "incompatible types in or-pattern: {t1:?} and {t2:?}"),
+                })
+                .unwrap(),
         }
     }
 }
@@ -431,4 +435,24 @@ fn merge_intervals(intervals: &mut Vec<(Int, Int)>) -> Vec<(Int, Int)> {
         }
     }
     merged
+}
+
+fn intersect_intervals(a: &List<(Int, Int)>, b: &List<(Int, Int)>) -> Vec<(Int, Int)> {
+    let a: Vec<(Int, Int)> = a.iter().collect();
+    let b: Vec<(Int, Int)> = b.iter().collect();
+    let (mut i, mut j) = (0, 0);
+    let mut out = Vec::new();
+    while i < a.len() && j < b.len() {
+        let s = a[i].0.max(b[j].0);
+        let e = a[i].1.min(b[j].1);
+        if s < e {
+            out.push((s, e));
+        }
+        if a[i].1 < b[j].1 {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    out
 }

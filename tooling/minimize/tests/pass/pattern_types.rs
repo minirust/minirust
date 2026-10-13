@@ -13,11 +13,12 @@ use core::pattern_type;
 use core::ptr::NonNull;
 
 type SmallU32 = pattern_type!(u32 is 1..=10);
-type NonZeroSignedPat = pattern_type!(i32 is ..0 | 1..);
+type SignedOrPat = pattern_type!(i32 is ..=-5 | 10..);
 type NonNullPtr<T> = pattern_type!(*const T is !null);
+type NestedNonNullPtr<T> = pattern_type!(NonNullPtr<T> is !null);
 
 fn main() {
-    // 1. Range pattern type (`1..=10`) & niche layout optimization with `Option`
+    // 1. Range pattern type (`1..=10`) & niche layout optimization
     assert!(size_of::<Option<SmallU32>>() == size_of::<u32>());
     let s: SmallU32 = unsafe { transmute(7u32) };
     let back: u32 = unsafe { transmute(s) };
@@ -28,18 +29,18 @@ fn main() {
     assert!(opt_some.is_some());
     assert!(opt_none.is_none());
 
-    // 2. Signed OR-range pattern type (`..0 | 1..`)
-    let neg: NonZeroSignedPat = unsafe { transmute(-42i32) };
-    let pos: NonZeroSignedPat = unsafe { transmute(99i32) };
+    // 2. Signed OR-range pattern type (`..=-5 | 10..`)
+    let neg: SignedOrPat = unsafe { transmute(-42i32) };
+    let pos: SignedOrPat = unsafe { transmute(99i32) };
     let neg_val: i32 = unsafe { transmute(neg) };
     let pos_val: i32 = unsafe { transmute(pos) };
     print(neg_val);
     print(pos_val);
 
-    // 3. `!null` raw pointer pattern type and `NonNull<T>`
+    // 3. `!null` raw pointer pattern type, nested `!null`, and `NonNull<T>`
     let x: i32 = 123;
     let raw: *const i32 = &raw const x;
-    let nonnull_pat: NonNullPtr<i32> = unsafe { transmute(raw) };
+    let nonnull_pat: NestedNonNullPtr<i32> = unsafe { transmute(raw) };
     let raw_back: *const i32 = unsafe { transmute(nonnull_pat) };
     print(unsafe { *raw_back });
 

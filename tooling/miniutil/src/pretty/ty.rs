@@ -2,7 +2,16 @@ use super::*;
 
 pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match t {
-        Type::Int { ty, niches: _ } => FmtExpr::Atomic(fmt_int_type(ty)),
+        Type::Int { ty, niches } => {
+            let s = fmt_int_type(ty);
+            if niches.is_empty() {
+                FmtExpr::Atomic(s)
+            } else {
+                let niches: Vec<_> =
+                    niches.iter().map(|(start, end)| format!("{start}..{end}")).collect();
+                FmtExpr::NonAtomic(format!("{s} (niches: {})", niches.join(", ")))
+            }
+        }
         Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
         Type::Bool => FmtExpr::Atomic(format!("bool")),
         Type::Tuple { .. } | Type::Union { .. } | Type::Enum { .. } => {
