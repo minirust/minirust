@@ -124,7 +124,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid number of arguments for `Create` lock intrinsic");
         }
 
-        if !matches!(ret_ty, Type::Int { niches, .. } if niches.is_empty()) {
+        if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `Create` lock intrinsic")
         }
 

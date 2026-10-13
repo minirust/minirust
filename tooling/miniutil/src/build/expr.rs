@@ -72,10 +72,10 @@ pub fn count_ones(v: ValueExpr) -> ValueExpr {
 
 #[track_caller]
 pub fn int_cast<T: TypeConv>(v: ValueExpr) -> ValueExpr {
-    let Type::Int { ty, .. } = T::get_type() else {
+    let Type::Int(t) = T::get_type() else {
         panic!("int operator received non-int type!");
     };
-    ValueExpr::UnOp { operator: UnOp::Cast(CastOp::IntToInt(ty)), operand: GcCow::new(v) }
+    ValueExpr::UnOp { operator: UnOp::Cast(CastOp::IntToInt(t)), operand: GcCow::new(v) }
 }
 
 pub fn compute_size(ty: Type, v: ValueExpr) -> ValueExpr {
@@ -295,7 +295,8 @@ pub fn local(x: u32) -> PlaceExpr {
 
 pub fn global_by_name<T: TypeConv>(name: GlobalName) -> PlaceExpr {
     let relocation = Relocation { name, offset: Size::ZERO };
-    deref(ValueExpr::Constant(Constant::GlobalPointer(relocation), raw_void_ptr_ty()), T::get_type())
+    let ptr_type = Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None });
+    deref(ValueExpr::Constant(Constant::GlobalPointer(relocation), ptr_type), T::get_type())
 }
 
 pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {

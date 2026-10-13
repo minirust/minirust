@@ -14,8 +14,7 @@ impl<'tcx> Ctxt<'tcx> {
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 
-        let Type::Int { ty: discriminant_ty, .. } =
-            self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
         else {
             panic!("Discriminant type is not integer!")
         };
@@ -58,7 +57,7 @@ impl<'tcx> Ctxt<'tcx> {
                 // compute the offset of the tag for the tagger and discriminator construction
                 let tag_offset: Offset =
                     translate_size(layout.fields().offset(tag_field.as_usize()));
-                let Type::Int { ty: tag_ty, .. } =
+                let Type::Int(tag_ty) =
                     self.translate_ty(tag.primitive().to_int_ty(self.tcx), span)
                 else {
                     panic!("enum tag has invalid primitive type")
@@ -225,8 +224,7 @@ impl<'tcx> Ctxt<'tcx> {
             panic!("Getting discriminant for a variant of a non-enum type!")
         };
         assert!(adt_def.is_enum());
-        let Type::Int { ty: discriminant_ty, .. } =
-            self.translate_ty(ty.discriminant_ty(self.tcx), span)
+        let Type::Int(discriminant_ty) = self.translate_ty(ty.discriminant_ty(self.tcx), span)
         else {
             panic!("Discriminant type is not integer!")
         };

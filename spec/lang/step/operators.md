@@ -30,7 +30,7 @@ impl<M: Memory> Machine<M> {
         })
     }
     fn eval_un_op(&self, UnOp::Int(op): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
-        let Type::Int { ty: int_ty, .. } = op_ty else { panic!("non-integer input to integer operation") };
+        let Type::Int(int_ty) = op_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(operand) = operand else { panic!("non-integer input to integer operation") };
 
         let ret_ty = match op {
@@ -41,9 +41,9 @@ impl<M: Memory> Machine<M> {
         let result = Value::Int(Self::eval_int_un_op(op, operand, int_ty)?);
 
         // Sanity-check that the result of `eval_int_un_op` is in-bounds.
-        self.check_value(result, Type::Int { ty: ret_ty, niches: list![] })
+        self.check_value(result, Type::Int(ret_ty))
             .expect("sanity check: result of UnOp::Int does not fit in the return type");
-        ret((result, Type::Int { ty: ret_ty, niches: list![] }))
+        ret((result, Type::Int(ret_ty)))
     }
 }
 ```
@@ -80,7 +80,7 @@ impl<M: Memory> Machine<M> {
             IntToInt(int_ty) => {
                 let Value::Int(operand) = operand else { panic!("non-integer input to int-to-int cast") };
                 let result = int_ty.bring_in_bounds(operand);
-                ret((Value::Int(result), Type::Int { ty: int_ty, niches: list![] }))
+                ret((Value::Int(result), Type::Int(int_ty)))
             }
             Transmute(new_ty) => {
                 if old_ty.layout::<M::T>().expect_size("WF ensures transmutes are sized")
@@ -107,7 +107,7 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(ptr) = operand else { panic!("non-pointer GetThinPointer") };
 
         let thin_ptr = Pointer { metadata: None, ..ptr };
-        let thin_ptr_ty = PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true };
+        let thin_ptr_ty = PtrType::Raw { meta_kind: PointerMetaKind::None };
         ret((Value::Ptr(thin_ptr), Type::Ptr(thin_ptr_ty)))
     }
     
@@ -131,13 +131,13 @@ impl<M: Memory> Machine<M> {
     fn eval_un_op(&self, UnOp::ComputeSize(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let meta = ty.meta_kind().decode_value::<M>(operand);
         let size = self.compute_size(ty.layout::<M::T>(), meta);
-        ret((Value::Int(size.bytes()), Type::Int { ty: IntType::usize_ty::<M::T>(), niches: list![] }))
+        ret((Value::Int(size.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 
     fn eval_un_op(&self, UnOp::ComputeAlign(ty): UnOp, (operand, op_ty): (Value<M>, Type)) -> Result<(Value<M>, Type)> {
         let meta = ty.meta_kind().decode_value::<M>(operand);
         let align = self.compute_align(ty.layout::<M::T>(), meta);
-        ret((Value::Int(align.bytes()), Type::Int { ty: IntType::usize_ty::<M::T>(), niches: list![] }))
+        ret((Value::Int(align.bytes()), Type::Int(IntType::usize_ty::<M::T>())))
     }
 }
 ```
@@ -276,7 +276,7 @@ impl<M: Memory> Machine<M> {
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Type::Int { ty: int_ty, .. } = l_ty else { panic!("non-integer input to integer operation") };
+        let Type::Int(int_ty) = l_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
@@ -284,7 +284,7 @@ impl<M: Memory> Machine<M> {
         let result = Self::eval_int_bin_op(op, left, right, int_ty)?;
         // Put the result into the right range (in case of overflow).
         let result = int_ty.bring_in_bounds(result);
-        ret((Value::Int(result), Type::Int { ty: int_ty, niches: list![] }))
+        ret((Value::Int(result), Type::Int(int_ty)))
     }
 
     fn eval_bin_op(
@@ -293,7 +293,7 @@ impl<M: Memory> Machine<M> {
         (left, l_ty): (Value<M>, Type),
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
-        let Type::Int { ty: int_ty, .. } = l_ty else { panic!("non-integer input to integer operation") };
+        let Type::Int(int_ty) = l_ty else { panic!("non-integer input to integer operation") };
         let Value::Int(left) = left else { panic!("non-integer input to integer operation") };
         let Value::Int(right) = right else { panic!("non-integer input to integer operation") };
 
@@ -334,7 +334,7 @@ impl<M: Memory> Machine<M> {
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
                 };
-                (Value::Int(Int::from(val)), Type::Int { ty: IntType::I8, niches: list![] })
+                (Value::Int(Int::from(val)), Type::Int(IntType::I8))
             }
         }
     }
@@ -358,7 +358,7 @@ impl<M: Memory> Machine<M> {
         (right, _r_ty): (Value<M>, Type)
     ) -> Result<(Value<M>, Type)> {
         let ord = match (l_ty, left, right) {
-            (Type::Int { .. }, Value::Int(left), Value::Int(right)) => {
+            (Type::Int(_), Value::Int(left), Value::Int(right)) => {
                 left.cmp(&right)
             }
             (Type::Bool, Value::Bool(left), Value::Bool(right)) => {
@@ -447,7 +447,7 @@ impl<M: Memory> Machine<M> {
         }
 
         let isize_int = IntType { signed: Signed, size: M::T::PTR_SIZE };
-        ret((Value::Int(distance), Type::Int { ty: isize_int, niches: list![] }))
+        ret((Value::Int(distance), Type::Int(isize_int)))
     }
 }
 ```

@@ -72,17 +72,13 @@ Note, in particular, that `bool` just entirely ignored provenance; we discuss th
 
 ```rust
 impl Type {
-    fn decode<M: Memory>(Type::Int { ty: IntType { signed, size }, niches }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+    fn decode<M: Memory>(Type::Int(IntType { signed, size }): Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
         if bytes.len() != size.bytes() { panic!("decode of Type::Int with invalid length"); }
         // Fails if any byte is `Uninit`.
         let bytes_data: List<u8> = bytes.try_map(|b| b.data())?;
-        let val = M::T::ENDIANNESS.decode(signed, bytes_data);
-        if niches.any(|(start, end)| start <= val && val < end) {
-            throw!();
-        }
-        ret(Value::Int(val))
+        ret(Value::Int(M::T::ENDIANNESS.decode(signed, bytes_data)))
     }
-    fn encode<M: Memory>(Type::Int { ty: IntType { signed, size }, niches: _ }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+    fn encode<M: Memory>(Type::Int(IntType { signed, size }): Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
         let Value::Int(i) = val else { panic!() };
         // `Endianness::encode` will do the integer's bound check.
         let bytes_data = M::T::ENDIANNESS.encode(signed, size, i).unwrap();
@@ -150,7 +146,7 @@ impl PointerMetaKind {
     pub fn ty<T: Target>(self) -> Type {
         match self {
             PointerMetaKind::None => unit_type(),
-            PointerMetaKind::ElementCount => Type::Int { ty: IntType::usize_ty::<T>(), niches: list![] },
+            PointerMetaKind::ElementCount => Type::Int(IntType::usize_ty::<T>()),
             PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTablePtr(trait_name)),
         }
     }
@@ -165,7 +161,7 @@ impl PtrType {
         let meta_ty = self.meta_kind().ty::<T>();
         assert_eq!(meta_ty.layout::<T>().expect_size("metadata is always sized"), T::PTR_SIZE, "metadata is assumed to be pointer-sized");
         assert_eq!(meta_ty.layout::<T>().expect_align("metadata is always sized"), T::PTR_ALIGN, "metadata is assumed to be pointer-aligned");
-        let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true }));
+        let thin_pointer_field = (Offset::ZERO, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let metadata_field = (T::PTR_SIZE, meta_ty);
         ret(Type::Tuple {
             sized_fields: list![thin_pointer_field, metadata_field],
@@ -245,6 +241,33 @@ impl Type {
 
 - TODO: This definition says that when multiple provenances are mixed, the pointer has `None` provenance, i.e., it is "invalid".
   Is that the semantics we want? Also see [this discussion](https://github.com/rust-lang/unsafe-code-guidelines/issues/286#issuecomment-1136948796).
+
+### Patterned primitives
+
+```rust
+impl Type {
+    fn decode<M: Memory>(Type::PatternedPrim { ty, pat }: Self, bytes: List<AbstractByte<M::Provenance>>) -> Option<Value<M>> {
+        let val = ty.decode::<M>(bytes)?;
+        match (val, pat) {
+            (Value::Int(i), PrimPattern::PatternedInt { niches }) => {
+                if niches.any(|(start, end)| start <= i && i < end) {
+                    throw!();
+                }
+            }
+            (Value::Ptr(ptr), PrimPattern::PatternedPtrNonNull) => {
+                if ptr.thin_pointer.addr == 0 {
+                    throw!();
+                }
+            }
+            _ => panic!("PatternedPrim: decoded value does not match pattern"),
+        }
+        ret(val)
+    }
+    fn encode<M: Memory>(Type::PatternedPrim { ty, pat: _ }: Self, val: Value<M>) -> List<AbstractByte<M::Provenance>> {
+        return ty.encode::<M>(val);
+    }
+}
+```
 
 ### Tuples (and structs, ...)
 
@@ -368,7 +391,7 @@ fn decode_discriminant<M: Memory>(mut accessor: impl FnMut(Offset, Size) -> Resu
         Discriminator::Invalid => ret(None),
         Discriminator::Branch { offset, value_type, children, fallback } => {
             let bytes = accessor(offset, value_type.size)?;
-            let Some(Value::Int(val)) = Type::Int { ty: value_type, niches: list![] }.decode::<M>(bytes)
+            let Some(Value::Int(val)) = Type::Int(value_type).decode::<M>(bytes)
                 else { return ret(None); };
             let next_discriminator = children.iter()
                 .find_map(|((start, end), child)| if start <= val && val < end { Some(child) } else { None })
@@ -388,7 +411,7 @@ fn encode_discriminant<M: Memory>(
     tagger: Map<Offset, (IntType, Int)>
 ) -> Result<()> {
     for (offset, (value_type, value)) in tagger.iter() {
-        let bytes = Type::Int { ty: value_type, niches: list![] }.encode::<M>(Value::Int(value));
+        let bytes = Type::Int(value_type).encode::<M>(Value::Int(value));
         accessor(offset, bytes)?;
     }
     ret(())
@@ -495,7 +518,7 @@ impl<M: Memory> Machine<M> {
         match (meta, kind) {
             (None, PointerMetaKind::None) => {}
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
-                self.check_value(Value::Int(num), Type::Int { ty: IntType::usize_ty::<M::T>(), niches: list![] })?,
+                self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
             (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
                 self.check_ptr(ptr.widen(None), PtrType::VTablePtr(trait_name))?;
             }
@@ -535,8 +558,6 @@ impl<M: Memory> Machine<M> {
             // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
             let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
             ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
-        } else if let PtrType::Raw { may_be_null: false, .. } = ptr_ty {
-            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null non-null raw pointer")?;
         }
 
         Ok(())
@@ -546,12 +567,23 @@ impl<M: Memory> Machine<M> {
     /// The specification must not call this function otherwise.
     fn check_value(&self, value: Value<M>, ty: Type) -> Result {
         match (value, ty) {
-            (Value::Int(i), Type::Int { ty, niches }) => {
-                ensure_else_ub(ty.can_represent(i), "Value::Int: invalid integer value")?;
-                ensure_else_ub(!niches.any(|(start, end)| start <= i && i < end), "Value::Int: integer value in niche")?;
+            (Value::Int(i), Type::Int(int_ty)) => {
+                ensure_else_ub(int_ty.can_represent(i), "Value::Int: invalid integer value")?;
             }
             (Value::Bool(_), Type::Bool) => {},
             (Value::Ptr(ptr), Type::Ptr(ptr_ty)) => self.check_ptr(ptr, ptr_ty)?,
+            (val, Type::PatternedPrim { ty, pat }) => {
+                self.check_value(val, ty)?;
+                match (val, pat) {
+                    (Value::Int(i), PrimPattern::PatternedInt { niches }) => {
+                        ensure_else_ub(!niches.any(|(start, end)| start <= i && i < end), "Value::Int: integer value in niche")?;
+                    }
+                    (Value::Ptr(ptr), PrimPattern::PatternedPtrNonNull) => {
+                        ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null non-null raw pointer")?;
+                    }
+                    _ => panic!("Value: value does not match pattern"),
+                }
+            }
             (Value::Tuple(vals), Type::Tuple { sized_fields, unsized_field, .. }) => {
                 assert!(unsized_field.is_none(), "Value: unsized structs cannot be represented as values");
                 ensure_else_ub(vals.len() == sized_fields.len(), "Value::Tuple: invalid number of fields")?;

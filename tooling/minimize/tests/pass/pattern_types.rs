@@ -2,7 +2,7 @@
 #![feature(pattern_type_macro)]
 #![feature(pattern_type_range_trait)]
 #![feature(const_trait_impl)]
-#![allow(internal_features)]
+#![allow(internal_features, unnecessary_transmutes)]
 
 extern crate intrinsics;
 use intrinsics::*;
@@ -53,6 +53,7 @@ fn main() {
     print(nzu.get());
     print(nzi.get());
 
-    let c: char = 'A';
-    print(c as u32);
+    let c: char = unsafe { transmute(65u32) };
+    let c_back: u32 = unsafe { transmute(c) };
+    print(c_back);
 }

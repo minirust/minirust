@@ -2,17 +2,20 @@ use super::*;
 
 pub(super) fn fmt_type(t: Type, comptypes: &mut Vec<CompType>) -> FmtExpr {
     match t {
-        Type::Int { ty, niches } => {
-            let s = fmt_int_type(ty);
-            if niches.is_empty() {
-                FmtExpr::Atomic(s)
-            } else {
-                let niches: Vec<_> =
-                    niches.iter().map(|(start, end)| format!("{start}..{end}")).collect();
-                FmtExpr::NonAtomic(format!("{s} (niches: {})", niches.join(", ")))
+        Type::Int(int_ty) => FmtExpr::Atomic(fmt_int_type(int_ty)),
+        Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
+        Type::PatternedPrim { ty, pat } => {
+            let ty_str = fmt_type(ty.extract(), comptypes).to_string();
+            match pat {
+                PrimPattern::PatternedInt { niches } => {
+                    let niches: Vec<_> =
+                        niches.iter().map(|(start, end)| format!("{start}..{end}")).collect();
+                    FmtExpr::NonAtomic(format!("{ty_str} (niches: {})", niches.join(", ")))
+                }
+                PrimPattern::PatternedPtrNonNull =>
+                    FmtExpr::NonAtomic(format!("{ty_str} (non_null)")),
             }
         }
-        Type::Ptr(ptr_ty) => fmt_ptr_type(ptr_ty),
         Type::Bool => FmtExpr::Atomic(format!("bool")),
         Type::Tuple { .. } | Type::Union { .. } | Type::Enum { .. } => {
             let comp_ty = CompType(t);
@@ -56,12 +59,9 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let pointee_info_str = fmt_pointee_info(pointee);
             FmtExpr::Atomic(format!("Box<{pointee_info_str}>"))
         }
-        PtrType::Raw { meta_kind, may_be_null } => {
+        PtrType::Raw { meta_kind } => {
             let meta_kind_str = fmt_meta_kind(meta_kind);
-            FmtExpr::NonAtomic(format!(
-                "*raw({meta_kind_str}{})",
-                if may_be_null { "" } else { ", non_null" }
-            ))
+            FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
         PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
         PtrType::VTablePtr(_) => FmtExpr::Atomic("{vtable}".into()),

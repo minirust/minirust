@@ -187,19 +187,22 @@ impl<'tcx> Ctxt<'tcx> {
             rs::TyKind::Bool => Type::Bool,
             rs::TyKind::Int(t) => {
                 let sz = rs::abi::Integer::from_int_ty(&self.tcx, *t).size();
-                build::int_ty(Signedness::Signed, translate_size(sz))
+                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Signed })
             }
             rs::TyKind::Uint(t) => {
                 let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
-                build::int_ty(Signedness::Unsigned, translate_size(sz))
+                Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
             rs::TyKind::Char => {
-                let ty = IntType { size: Size::from_bytes_const(4), signed: Signedness::Unsigned };
+                let ty = GcCow::new(Type::Int(IntType {
+                    size: Size::from_bytes_const(4),
+                    signed: Signedness::Unsigned,
+                }));
                 let niches = list![
                     (Int::from(0xD800), Int::from(0xE000)),
                     (Int::from(0x110000), Int::from(u32::MAX) + Int::ONE)
                 ];
-                Type::Int { ty, niches }
+                Type::PatternedPrim { ty, pat: PrimPattern::PatternedInt { niches } }
             }
             rs::TyKind::Pat(inner, pat) => {
                 let inner = self.translate_ty(*inner, span);
@@ -232,7 +235,7 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::RawPtr(ty, _mutbl) => {
                 let pointee = self.pointee_info_of(*ty, span);
-                Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind(), may_be_null: true })
+                Type::Ptr(PtrType::Raw { meta_kind: pointee.layout.meta_kind() })
             }
             rs::TyKind::Array(ty, c) => {
                 let count = Int::from(c.try_to_target_usize(self.tcx).unwrap());
@@ -257,10 +260,10 @@ impl<'tcx> Ctxt<'tcx> {
             }
             rs::TyKind::Str => {
                 // Treat `str` like `[u8]`.
-                let elem = GcCow::new(build::int_ty(
-                    Signedness::Unsigned,
-                    Size::from_bytes_const(1),
-                ));
+                let elem = GcCow::new(Type::Int(IntType {
+                    size: Size::from_bytes_const(1),
+                    signed: Signedness::Unsigned,
+                }));
                 Type::Slice { elem }
             }
             rs::TyKind::Dynamic(_, _) => Type::TraitObject(self.get_trait_name(ty)),
@@ -328,15 +331,25 @@ impl<'tcx> Ctxt<'tcx> {
 
     fn apply_pat(&mut self, ty: Type, pat: rs::Pattern<'tcx>, span: rs::Span) -> Type {
         match *pat {
-            rs::PatternKind::NotNull => {
-                let Type::Ptr(PtrType::Raw { meta_kind, may_be_null: _ }) = ty else {
-                    rs::span_bug!(span, "`!null` pattern applied to non-raw-pointer type: {ty:?}");
-                };
-                Type::Ptr(PtrType::Raw { meta_kind, may_be_null: false })
-            }
+            rs::PatternKind::NotNull => match ty {
+                Type::Ptr(PtrType::Raw { .. }) => Type::PatternedPrim {
+                    ty: GcCow::new(ty),
+                    pat: PrimPattern::PatternedPtrNonNull,
+                },
+                Type::PatternedPrim { ty: _, pat: PrimPattern::PatternedPtrNonNull } => ty,
+                _ => rs::span_bug!(span, "`!null` pattern applied to non-raw-pointer type: {ty:?}"),
+            },
             rs::PatternKind::Range { start, end } => {
-                let Type::Int { ty: int_ty, niches: inner_niches } = ty else {
-                    rs::span_bug!(span, "range pattern applied to non-integer type: {ty:?}");
+                let (int_ty, inner_niches) = match ty {
+                    Type::Int(int_ty) => (int_ty, List::new()),
+                    Type::PatternedPrim {
+                        ty,
+                        pat: PrimPattern::PatternedInt { niches },
+                    } => {
+                        let Type::Int(int_ty) = ty.extract() else { unreachable!() };
+                        (int_ty, niches)
+                    }
+                    _ => rs::span_bug!(span, "range pattern applied to non-integer type: {ty:?}"),
                 };
                 let eval_const = |c: rustc_middle::ty::Const<'tcx>| -> Int {
                     let c = self
@@ -362,26 +375,38 @@ impl<'tcx> Ctxt<'tcx> {
                     niches.push((min_val, max_val_excl));
                 }
                 let niches = merge_intervals(&mut niches).into_iter().collect();
-                Type::Int { ty: int_ty, niches }
+                Type::PatternedPrim {
+                    ty: GcCow::new(Type::Int(int_ty)),
+                    pat: PrimPattern::PatternedInt { niches },
+                }
             }
             rs::PatternKind::Or(pats) => pats
                 .iter()
                 .map(|p| self.apply_pat(ty, p, span))
                 .reduce(|t1, t2| match (t1, t2) {
                     (
-                        Type::Int { ty: ty1, niches: n1 },
-                        Type::Int { ty: ty2, niches: n2 },
+                        Type::PatternedPrim {
+                            ty: ty1,
+                            pat: PrimPattern::PatternedInt { niches: n1 },
+                        },
+                        Type::PatternedPrim {
+                            ty: ty2,
+                            pat: PrimPattern::PatternedInt { niches: n2 },
+                        },
                     ) => {
                         assert_eq!(ty1, ty2);
                         let niches = intersect_intervals(&n1, &n2).into_iter().collect();
-                        Type::Int { ty: ty1, niches }
+                        Type::PatternedPrim {
+                            ty: ty1,
+                            pat: PrimPattern::PatternedInt { niches },
+                        }
                     }
                     (
-                        Type::Ptr(PtrType::Raw { meta_kind: m1, may_be_null: n1 }),
-                        Type::Ptr(PtrType::Raw { meta_kind: m2, may_be_null: n2 }),
+                        Type::PatternedPrim { ty: ty1, pat: PrimPattern::PatternedPtrNonNull },
+                        Type::PatternedPrim { ty: ty2, pat: PrimPattern::PatternedPtrNonNull },
                     ) => {
-                        assert_eq!(m1, m2);
-                        Type::Ptr(PtrType::Raw { meta_kind: m1, may_be_null: n1 || n2 })
+                        assert_eq!(ty1, ty2);
+                        Type::PatternedPrim { ty: ty1, pat: PrimPattern::PatternedPtrNonNull }
                     }
                     _ => rs::span_bug!(span, "incompatible types in or-pattern: {t1:?} and {t2:?}"),
                 })

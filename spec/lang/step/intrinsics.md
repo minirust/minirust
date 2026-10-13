@@ -45,7 +45,7 @@ impl<M: Memory> Machine<M> {
         let Value::Ptr(Pointer { thin_pointer: ptr, metadata: None }) = arguments[0].0 else {
             throw_ub!("invalid argument for `PointerExposeProvenance` intrinsic: not a thin pointer");
         };
-        if ret_ty != (Type::Int { ty: IntType::usize_ty::<M::T>(), niches: list![] }) {
+        if ret_ty != Type::Int(IntType { signed: Unsigned, size: M::T::PTR_SIZE }) {
             throw_ub!("invalid return type for `PointerExposeProvenance` intrinsic")
         }
 
@@ -315,7 +315,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid second argument to `Spawn` intrinsic: not a pointer");
         }
 
-        if !matches!(ret_ty, Type::Int { niches, .. } if niches.is_empty()) {
+        if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `Spawn` intrinsic")
         }
 
@@ -513,7 +513,7 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid third argument to `AtomicCompareExchange` intrinsic: not same type as return value");
         }
 
-        if !matches!(ret_ty, Type::Int { .. }) {
+        if !matches!(ret_ty, Type::Int(_)) {
             throw_ub!("invalid return type for `Intrinis::AtomicCompareExchange`: only works with integers");
         }
 
@@ -559,10 +559,9 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid second argument to `AtomicFetchAndOp` intrinsic: not same type as return value");
         }
 
-        let Type::Int { ty: int_ty, niches } = ret_ty else {
+        let Type::Int(int_ty) = ret_ty else {
             throw_ub!("invalid return type for `AtomicFetchAndOp` intrinsic: only works with integers");
         };
-        ensure_else_ub(niches.is_empty(), "invalid return type for `AtomicFetchAndOp` intrinsic: integer type must not have niches")?;
 
         // All integers are sized with a power of two size.
         let size = ret_ty.layout::<M::T>().expect_size("`ret_ty` is an integer");

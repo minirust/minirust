@@ -1,7 +1,7 @@
 use crate::build::*;
 
 pub fn int_ty(signed: Signedness, size: Size) -> Type {
-    Type::Int { ty: IntType { signed, size }, niches: list![] }
+    Type::Int(IntType { signed, size })
 }
 
 pub fn bool_ty() -> Type {
@@ -53,7 +53,7 @@ pub fn box_ty(pointee: PointeeInfo) -> Type {
 }
 
 pub fn raw_ptr_ty(meta_kind: PointerMetaKind) -> Type {
-    Type::Ptr(PtrType::Raw { meta_kind, may_be_null: true })
+    Type::Ptr(PtrType::Raw { meta_kind })
 }
 
 pub fn raw_void_ptr_ty() -> Type {
@@ -109,7 +109,7 @@ pub fn enum_ty<DiscriminantTy: TypeConv + Into<Int> + Copy>(
     size: Size,
     align: Align,
 ) -> Type {
-    let Type::Int { ty: discriminant_ty, .. } = DiscriminantTy::get_type() else {
+    let Type::Int(discriminant_ty) = DiscriminantTy::get_type() else {
         panic!("Discriminant Type needs to be an integer type.");
     };
     Type::Enum {
@@ -135,7 +135,7 @@ pub fn discriminator_branch<T: ToInt + TypeConv + Copy>(
     fallback: Discriminator,
     children: &[((T, T), Discriminator)],
 ) -> Discriminator {
-    let Type::Int { ty: value_type, .. } = T::get_type() else { unreachable!() };
+    let Type::Int(value_type) = T::get_type() else { unreachable!() };
     Discriminator::Branch {
         offset,
         value_type,

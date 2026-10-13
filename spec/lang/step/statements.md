@@ -105,6 +105,8 @@ impl<M: Memory> Machine<M> {
                 let val = self.mutate_cur_frame(|frame, mem| { mem.retag_ptr(&mut frame.extra, ptr, ptr_type, fn_entry, frame.func.implicit_writes, lookup) })?;
                 Value::Ptr(val)
             }
+            (val, Type::PatternedPrim { ty, .. }) =>
+                self.retag_val(val, ty, fn_entry)?,
             // recurse into tuples/arrays/enums
             (Value::Tuple(vals), Type::Tuple { sized_fields, .. }) =>
                 Value::Tuple(vals.zip(sized_fields).try_map(|(val, (_offset, ty))| self.retag_val(val, ty, fn_entry))?),

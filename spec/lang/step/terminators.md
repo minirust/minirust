@@ -77,7 +77,7 @@ fn check_abi_compatibility(
     // FIXME: we also reject too much here, e.g. we do not reflect `repr(transparent)`,
     // let alone `Option<&T>` being compatible with `*const T`.
     match (caller_ty, callee_ty) {
-        (Type::Int { ty: caller_ty, niches: _ }, Type::Int { ty: callee_ty, niches: _ }) =>
+        (Type::Int(caller_ty), Type::Int(callee_ty)) =>
             // The sign *does* matter for some ABIs, so we compare it as well.
             caller_ty == callee_ty,
         (Type::Bool, Type::Bool) =>
@@ -86,6 +86,11 @@ fn check_abi_compatibility(
             // The kind of pointer and pointee details do not matter for ABI,
             // however, the metadata kind does.
             caller_ty.meta_kind() == callee_ty.meta_kind(),
+        // TODO: figure out the precise ABI compatibility rules for pattern types.
+        (Type::PatternedPrim { ty: caller_ty, .. }, callee_ty) =>
+            check_abi_compatibility(caller_ty, callee_ty),
+        (caller_ty, Type::PatternedPrim { ty: callee_ty, .. }) =>
+            check_abi_compatibility(caller_ty, callee_ty),
         (Type::Tuple { sized_fields: caller_fields, sized_head_layout: caller_head_layout, unsized_field: caller_unsized_field },
          Type::Tuple { sized_fields: callee_fields, sized_head_layout: callee_head_layout, unsized_field: callee_unsized_field }) => {
             let (caller_size, caller_align) = caller_head_layout.head_size_and_align();
@@ -384,7 +389,7 @@ This will then eventually invoke `ResumeUnwind` and thus propagate upwards throu
 ```rust
 impl<M: Memory> Machine<M> {
     fn eval_terminator(&mut self, Terminator::StartUnwind { unwind_payload, unwind_block }: Terminator) -> NdResult {
-        let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None, .. })) =
+        let (Value::Ptr(unwind_payload), Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })) =
             self.eval_value(unwind_payload)?
         else {
             panic!("StartUnwind: the unwind payload is not a raw pointer");

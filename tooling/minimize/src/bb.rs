@@ -163,11 +163,17 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let (value, int_ty) = match ty {
                     Type::Bool => {
                         // If the value is a boolean we need to cast it to an integer first as MiniRust switch only operates on ints.
-                        let u8_ty = <u8>::get_type();
-                        let Type::Int { ty: u8_inttype, .. } = u8_ty else { unreachable!() };
-                        (build::transmute(discr_op, u8_ty), u8_inttype)
+                        let Type::Int(u8_inttype) = <u8>::get_type() else { unreachable!() };
+                        (
+                            ValueExpr::UnOp {
+                                operator: UnOp::Cast(CastOp::Transmute(Type::Int(u8_inttype))),
+                                operand: GcCow::new(discr_op),
+                            },
+                            u8_inttype,
+                        )
                     }
-                    Type::Int { ty: ity, .. } => (discr_op, ity),
+                    Type::Int(ity) => (discr_op, ity),
+                    // FIXME: add support for switching on `char`
                     _ =>
                         rs::span_bug!(
                             span,
@@ -322,15 +328,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         // generate temporary locals to store the arguments, `ret`, and `payload`
         let ret_tmp = self.fresh_local_name();
-        self.locals.insert(ret_tmp, build::raw_void_ptr_ty());
+        self.locals.insert(ret_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let try_fn_tmp = self.fresh_local_name();
         self.locals.insert(try_fn_tmp, Type::Ptr(PtrType::FnPtr));
         let data_tmp = self.fresh_local_name();
-        self.locals.insert(data_tmp, build::raw_void_ptr_ty());
+        self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let catch_fn_tmp = self.fresh_local_name();
         self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
         let unwind_payload_tmp = self.fresh_local_name();
-        self.locals.insert(unwind_payload_tmp, build::raw_void_ptr_ty());
+        self.locals.insert(
+            unwind_payload_tmp,
+            Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }),
+        );
 
         // generate the try block
         let try_bb = BasicBlock {
@@ -343,7 +352,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     destination: PlaceExpr::Local(ret_tmp),
                     source: ValueExpr::AddrOf {
                         target: GcCow::new(destination),
-                        ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true }
+                        ptr_ty: PtrType::Raw { meta_kind: PointerMetaKind::None }
                     }
                 },
                 Statement::Assign { destination: PlaceExpr::Local(try_fn_tmp), source: try_fn },
@@ -369,7 +378,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             statements: list![
                 Statement::Assign {
                     destination: PlaceExpr::Deref {
-                        ty: i32::get_type(),
+                        ty: Type::Int(IntType::I32),
                         operand: GcCow::new(ValueExpr::Load {
                             source: GcCow::new(PlaceExpr::Local(ret_tmp))
                         })
@@ -403,7 +412,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let catch_bb = BasicBlock {
             statements: list![Statement::Assign {
                 destination: PlaceExpr::Deref {
-                    ty: i32::get_type(),
+                    ty: Type::Int(IntType::I32),
                     operand: GcCow::new(ValueExpr::Load {
                         source: GcCow::new(PlaceExpr::Local(ret_tmp))
                     })

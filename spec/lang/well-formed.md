@@ -140,20 +140,29 @@ impl Type {
         use Type::*;
 
         match self {
-            Int { ty, niches } => {
-                ty.check_wf()?;
-                for (start, end) in niches {
-                    ensure_wf(start < end, "Type::Int: Niches must be non-empty intervals!")?;
-                    ensure_wf(ty.can_represent(start), "Type::Int: Niches must be contained in possible values of type!")?;
-                    // End-exclusive ranges: The end can be one past the largest allowed value.
-                    // This also forbids an empty interval at the smallest possible value, but we already
-                    // ban empty intervals in general.
-                    ensure_wf(ty.can_represent(end - 1), "Type::Int: Niches must be contained in possible values of type!")?;
-                }
+            Int(int_type) => {
+                int_type.check_wf()?;
             }
             Bool => (),
             Ptr(ptr_type) => {
                 ptr_type.check_wf::<T>(prog)?;
+            }
+            PatternedPrim { ty, pat } => {
+                ty.check_wf::<T>(prog)?;
+                match (ty, pat) {
+                    (Int(int_ty), PrimPattern::PatternedInt { niches }) => {
+                        for (start, end) in niches {
+                            ensure_wf(start < end, "Type::PatternedPrim: Niches must be non-empty intervals!")?;
+                            ensure_wf(int_ty.can_represent(start), "Type::PatternedPrim: Niches must be contained in possible values of type!")?;
+                            // End-exclusive ranges: The end can be one past the largest allowed value.
+                            // This also forbids an empty interval at the smallest possible value, but we already
+                            // ban empty intervals in general.
+                            ensure_wf(int_ty.can_represent(end - 1), "Type::PatternedPrim: Niches must be contained in possible values of type!")?;
+                        }
+                    }
+                    (Ptr(PtrType::Raw { .. }), PrimPattern::PatternedPtrNonNull) => (),
+                    _ => throw_ill_formed!("Type::PatternedPrim: pattern does not match inner type"),
+                }
             }
             Tuple { mut sized_fields, unsized_field, sized_head_layout } => {
                 // The fields must not overlap.
@@ -304,9 +313,8 @@ impl Constant {
         // For now, we only support integer and boolean literals and pointers.
         // TODO: add more.
         match (self, ty) {
-            (Constant::Int(i), Type::Int { ty, niches }) => {
-                ensure_wf(ty.can_represent(i), "Constant::Int: invalid int value")?;
-                ensure_wf(!niches.any(|(start, end)| start <= i && i < end), "Constant::Int: invalid int value")?;
+            (Constant::Int(i), Type::Int(int_type)) => {
+                ensure_wf(int_type.can_represent(i), "Constant::Int: invalid int value")?;
             }
             (Constant::Bool(_), Type::Bool) => (),
             (Constant::GlobalPointer(relocation), Type::Ptr(_)) => {
@@ -322,14 +330,11 @@ impl Constant {
                 };
                 ensure_wf(ptr_ty == PtrType::VTablePtr(vtable.trait_name), "Constant::VTablePointer: non or wrong vtable pointer type")?;
             }
-            (Constant::PointerWithoutProvenance(addr), Type::Ptr(ptr_ty)) => {
+            (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
                     addr.in_bounds(Signedness::Unsigned, T::PTR_SIZE),
                     "Constant::PointerWithoutProvenance: pointer out-of-bounds"
                 )?;
-                if let PtrType::Raw { may_be_null: false, .. } = ptr_ty {
-                    ensure_wf(addr != 0, "Constant::PointerWithoutProvenance: null pointer")?;
-                }
             }
             _ => throw_ill_formed!("Constant: value does not match type"),
         }
@@ -404,7 +409,7 @@ impl ValueExpr {
                 let Type::Enum { discriminant_ty, .. } = place.check_wf::<T>(locals, prog)? else {
                     throw_ill_formed!("ValueExpr::GetDiscriminant: invalid type");
                 };
-                Type::Int { ty: discriminant_ty, niches: list![] }
+                Type::Int(discriminant_ty)
             }
             Load { source } => {
                 let val_ty = source.check_wf::<T>(locals, prog)?;
@@ -424,7 +429,7 @@ impl ValueExpr {
                 let operand = operand.check_wf::<T>(locals, prog)?;
                 match operator {
                     Int(int_op) => {
-                        let Type::Int { ty: int_ty, .. } = operand else {
+                        let Type::Int(int_ty) = operand else {
                             throw_ill_formed!("UnOp::Int: invalid operand");
                         };
 
@@ -433,14 +438,14 @@ impl ValueExpr {
                             _ => int_ty,
                         };
 
-                        Type::Int { ty: ret_ty, niches: list![] }
+                        Type::Int(ret_ty)
                     }
                     Cast(cast_op) => {
                         use lang::CastOp::*;
                         match cast_op {
                             IntToInt(int_ty) => {
-                                ensure_wf(matches!(operand, Type::Int { .. }), "Cast::IntToInt: invalid operand")?;
-                                Type::Int { ty: int_ty, niches: list![] }
+                                ensure_wf(matches!(operand, Type::Int(_)), "Cast::IntToInt: invalid operand")?;
+                                Type::Int(int_ty)
                             }
                             Transmute(new_ty) => {
                                 ensure_wf(operand.layout::<T>().is_sized(), "Cast::Transmute: unsized source type")?;
@@ -451,7 +456,7 @@ impl ValueExpr {
                     }
                     GetThinPointer => {
                         ensure_wf(matches!(operand, Type::Ptr(_)), "UnOp::GetThinPointer: invalid operand: not a pointer")?;
-                        Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true })
+                        Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None })
                     }
                     GetMetadata => {
                         let Type::Ptr(ptr_ty) = operand else {
@@ -467,7 +472,7 @@ impl ValueExpr {
                         if operand != meta_ty {
                             throw_ill_formed!("UnOp::ComputeSize|ComputeAlign: invalid operand type: not metadata of type");
                         }
-                        Type::Int { ty: IntType::usize_ty::<T>(), niches: list![] }
+                        Type::Int(IntType::usize_ty::<T>())
                     }
                     VTableMethodLookup(method) => {
                         let Type::Ptr(PtrType::VTablePtr(trait_name)) = operand else {
@@ -489,10 +494,10 @@ impl ValueExpr {
                 let right = right.check_wf::<T>(locals, prog)?;
                 match operator {
                     Int(int_op) => {
-                        let Type::Int { ty: left, .. } = left else {
+                        let Type::Int(left) = left else {
                             throw_ill_formed!("BinOp::Int: invalid left type");
                         };
-                        let Type::Int { ty: right, .. } = right else {
+                        let Type::Int(right) = right else {
                             throw_ill_formed!("BinOp::Int: invalid right type");
                         };
                         use IntBinOp::*;
@@ -500,23 +505,20 @@ impl ValueExpr {
                         if !matches!(int_op, Shl | Shr | ShlUnchecked | ShrUnchecked) {
                             ensure_wf(left == right, "BinOp:Int: right and left type are not equal")?;
                         }
-                        Type::Int { ty: left, niches: list![] }
+                        Type::Int(left)
                     }
                     IntWithOverflow(_int_op) => {
-                        let Type::Int { ty: int_ty, .. } = left else {
+                        let Type::Int(int_ty) = left else {
                             throw_ill_formed!("BinOp::IntWithOverflow: invalid left type");
                         };
-                        let Type::Int { ty: right_int_ty, .. } = right else {
-                            throw_ill_formed!("BinOp::IntWithOverflow: invalid right type");
-                        };
-                        ensure_wf(int_ty == right_int_ty, "BinOp::IntWithOverflow: invalid right type")?;
+                        ensure_wf(right == Type::Int(int_ty), "BinOp::IntWithOverflow: invalid right type")?;
                         int_ty.with_overflow::<T>()
                     }
                     Rel(rel_op) => {
-                        ensure_wf(matches!(left, Type::Int { .. } | Type::Bool | Type::Ptr(_)), "BinOp::Rel: invalid left type")?;
+                        ensure_wf(matches!(left, Type::Int(_) | Type::Bool | Type::Ptr(_)), "BinOp::Rel: invalid left type")?;
                         ensure_wf(right == left, "BinOp::Rel: invalid right type")?;
                         match rel_op {
-                            RelOp::Cmp => Type::Int { ty: IntType::I8, niches: list![] },
+                            RelOp::Cmp => Type::Int(IntType::I8),
                             _ => Type::Bool,
                         }
                     }
@@ -527,7 +529,7 @@ impl ValueExpr {
                         if left_ptr_ty.meta_kind() != PointerMetaKind::None {
                             throw_ill_formed!("BinOp::PtrOffset: invalid left type: unsized pointee");
                         }
-                        ensure_wf(matches!(right, Type::Int { .. }), "BinOp::PtrOffset: invalid right type")?;
+                        ensure_wf(matches!(right, Type::Int(_)), "BinOp::PtrOffset: invalid right type")?;
                         left
                     }
                     PtrOffsetFrom { inbounds: _, nonneg: _ } => {
@@ -544,7 +546,7 @@ impl ValueExpr {
                             throw_ill_formed!("BinOp::PtrOffsetFrom: invalid right type: unsized pointee");
                         }
                         let isize_int = IntType { signed: Signed, size: T::PTR_SIZE };
-                        Type::Int { ty: isize_int, niches: list![] }
+                        Type::Int(isize_int)
                     }
                     ConstructWidePointer(ptr_ty) => {
                         let Type::Ptr(thin_ptr_ty) = left else {
@@ -616,7 +618,7 @@ impl PlaceExpr {
             Index { root, index } => {
                 let root = root.check_wf::<T>(locals, prog)?;
                 let index = index.check_wf::<T>(locals, prog)?;
-                ensure_wf(matches!(index, Type::Int { .. }), "PlaceExpr::Index: invalid index type")?;
+                ensure_wf(matches!(index, Type::Int(_)), "PlaceExpr::Index: invalid index type")?;
                 match root {
                     Type::Array { elem, .. } | Type::Slice { elem } => elem,
                     _ => throw_ill_formed!("PlaceExpr::Index: expression type is not indexable"),
@@ -735,7 +737,7 @@ impl Terminator {
             }
             Switch { value, cases, fallback } => {
                 let ty = value.check_wf::<T>(func.locals, prog)?;
-                let Type::Int { ty: switch_ty, .. } = ty else {
+                let Type::Int(switch_ty) = ty else {
                     // We only switch on integers.
                     // This is in contrast to Rust MIR where switch can work on `char`s and booleans as well.
                     // However since those are trivial casts we chose to only accept integers.
@@ -801,7 +803,7 @@ impl Terminator {
             StartUnwind { unwind_payload, unwind_block } => {
                 let payload_type = unwind_payload.check_wf::<T>(func.locals, prog)?;
                 ensure_wf(
-                    payload_type == Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None, may_be_null: true }),
+                    payload_type == Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }),
                     "Terminator::StartUnwind: the unwind payload should be a raw pointer",
                 )?;
                 

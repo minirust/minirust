@@ -164,8 +164,6 @@ pub enum PtrType {
     Raw {
         /// Indicates what kind of metadata this pointer carries.
         meta_kind: PointerMetaKind,
-        /// Indicates if this pointer may be `null`. Used to model `NonNull`.
-        may_be_null: bool,
     },
     FnPtr,
     /// This is a "stand-alone" vtable pointer, something that does not exist in surface Rust.
