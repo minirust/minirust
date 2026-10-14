@@ -193,14 +193,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let sz = rs::abi::Integer::from_uint_ty(&self.tcx, *t).size();
                 Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
-            rs::TyKind::Char => {
-                let ty = GcCow::new(Type::Int(IntType::U32));
-                let niches = list![
-                    (Int::from(0xD800), Int::from(0xE000)),
-                    (Int::from(0x110000), Int::from(u32::MAX) + Int::ONE)
-                ];
-                Type::PatternedPrim { ty, pat: PrimPattern::PatternedInt { niches } }
-            }
+            rs::TyKind::Char => IntType::char_type(),
             rs::TyKind::Pat(inner, pat) => {
                 let inner = self.translate_ty(*inner, span);
                 self.apply_pat(inner, *pat, span)

@@ -314,6 +314,21 @@ impl IntType {
     pub const I32: IntType = IntType { signed: Signedness::Signed, size: Size::from_bytes_const(4) };
     pub const U32: IntType = IntType { signed: Signedness::Unsigned, size: Size::from_bytes_const(4) };
 
+
+    pub fn char_type() -> Type {
+        // this can not be a constant, because list![] does not work in const contexts.
+        Type::PatternedPrim { 
+            ty: Type::Int(IntType::U32), 
+            pat: PrimPattern::PatternedInt {
+                niches:  list![
+                    //TODO why are the Int::from wrappers needed here?
+                    (Int::from(0xD800), Int::from(0xE000)), 
+                    (Int::from(0x110000), Int::from_u64(0x1_0000_0000)) // 0x1_0000_0000 is u32::MAX + 1
+                ]
+            }
+        }
+    }
+
     pub fn usize_ty<T: Target>() -> Self {
         IntType { signed: Signedness::Unsigned, size: T::PTR_SIZE }
     }
