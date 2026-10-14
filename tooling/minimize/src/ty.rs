@@ -194,10 +194,7 @@ impl<'tcx> Ctxt<'tcx> {
                 Type::Int(IntType { size: translate_size(sz), signed: Signedness::Unsigned })
             }
             rs::TyKind::Char => {
-                let ty = GcCow::new(Type::Int(IntType {
-                    size: Size::from_bytes_const(4),
-                    signed: Signedness::Unsigned,
-                }));
+                let ty = GcCow::new(Type::Int(IntType::U32));
                 let niches = list![
                     (Int::from(0xD800), Int::from(0xE000)),
                     (Int::from(0x110000), Int::from(u32::MAX) + Int::ONE)
@@ -480,4 +477,66 @@ fn intersect_intervals(a: &List<(Int, Int)>, b: &List<(Int, Int)>) -> Vec<(Int, 
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn iv(s: i64, e: i64) -> (Int, Int) {
+        (Int::from(s), Int::from(e))
+    }
+
+    #[test]
+    fn test_merge_intervals() {
+        // Empty and degenerate intervals.
+        assert_eq!(merge_intervals(&mut vec![]), vec![]);
+        assert_eq!(merge_intervals(&mut vec![iv(5, 5), iv(8, 3)]), vec![]);
+
+        // Unsorted disjoint intervals.
+        assert_eq!(
+            merge_intervals(&mut vec![iv(10, 15), iv(1, 5)]),
+            vec![iv(1, 5), iv(10, 15)]
+        );
+
+        // Overlapping, adjacent, and nested intervals (including negative values).
+        assert_eq!(
+            merge_intervals(&mut vec![
+                iv(4, 10),
+                iv(1, 6),
+                iv(10, 12),
+                iv(2, 5),
+                iv(-10, -5),
+                iv(-5, -1),
+                iv(5, 5),
+            ]),
+            vec![iv(-10, -1), iv(1, 12)]
+        );
+    }
+
+    #[test]
+    fn test_intersect_intervals() {
+        let to_list = |v: Vec<(Int, Int)>| -> List<(Int, Int)> { v.into_iter().collect() };
+
+        // Empty and touching half-open intervals.
+        assert_eq!(intersect_intervals(&to_list(vec![]), &to_list(vec![iv(1, 5)])), vec![]);
+        assert_eq!(
+            intersect_intervals(&to_list(vec![iv(0, 5)]), &to_list(vec![iv(5, 10)])),
+            vec![]
+        );
+
+        // Signed OR-range complements (e.g. `i8 is ..0 | 1..` -> niche `0..1`).
+        assert_eq!(
+            intersect_intervals(&to_list(vec![iv(0, 128)]), &to_list(vec![iv(-128, 1)])),
+            vec![iv(0, 1)]
+        );
+
+        // Multi-interval overlap across boundaries.
+        let a = to_list(vec![iv(0, 10), iv(20, 30)]);
+        let b = to_list(vec![iv(2, 5), iv(7, 25), iv(28, 35)]);
+        assert_eq!(
+            intersect_intervals(&a, &b),
+            vec![iv(2, 5), iv(7, 10), iv(20, 25), iv(28, 30)]
+        );
+    }
 }

@@ -23,6 +23,16 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         span: rs::Span,
     ) -> ValueExpr {
         let ty = self.translate_ty(val.layout.ty, span);
+        self.translate_const_val_with_ty(val, ty, ecx, span)
+    }
+
+    fn translate_const_val_with_ty(
+        &mut self,
+        val: rs::OpTy<'tcx>,
+        ty: Type,
+        ecx: &mut rs::CompileTimeInterpCx<'tcx>,
+        span: rs::Span,
+    ) -> ValueExpr {
         match ty {
             Type::Int(int_ty) => {
                 let scalar = ecx.read_scalar(&val).unwrap();
@@ -121,8 +131,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             }
             Type::Union { .. } =>
                 rs::span_bug!(span, "Constant Unions are currently not supported!"),
-            Type::PatternedPrim { .. } =>
-                rs::span_bug!(span, "Constant PatternedPrims are currently not supported!"),
+            Type::PatternedPrim { ty: inner_ty, .. } => {
+                let inner = self.translate_const_val_with_ty(val, inner_ty.extract(), ecx, span);
+                build::transmute(inner, ty)
+            }
             Type::Slice { .. } | Type::TraitObject(..) =>
                 rs::span_bug!(span, "constant unsized values do not exist!"),
         }

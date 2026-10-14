@@ -173,11 +173,19 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         )
                     }
                     Type::Int(ity) => (discr_op, ity),
-                    // FIXME: add support for switching on `char`
+                    Type::PatternedPrim { ty, .. } => {
+                        let Type::Int(ity) = ty.extract() else {
+                            rs::span_bug!(
+                                span,
+                                "SwitchInt terminator on non-integer PatternedPrim."
+                            );
+                        };
+                        (build::transmute(discr_op, Type::Int(ity)), ity)
+                    }
                     _ =>
                         rs::span_bug!(
                             span,
-                            "SwitchInt terminator currently only supports int and bool."
+                            "SwitchInt terminator currently only supports int, bool, and char."
                         ),
                 };
 

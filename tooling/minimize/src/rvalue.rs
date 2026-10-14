@@ -1,3 +1,5 @@
+use std::assert_matches;
+
 use crate::*;
 
 impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
@@ -18,6 +20,18 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 let r = self.translate_operand_smir(r, span);
 
                 use smir::BinOp::*;
+                // handle pattern types by unwrapping them. This is needed for `char` support.
+                let (l, r) = match (bin_op, lty) {
+                    (
+                        Lt | Le | Gt | Ge | Eq | Ne | Cmp,
+                        Type::PatternedPrim { ty, .. },
+                    ) => {
+                        let ty = ty.extract();
+                        (build::transmute(l, ty), build::transmute(r, ty))
+                    }
+                    _ => (l, r),
+                };
+
                 match (bin_op, lty) {
                     (Offset, Type::Ptr(_)) => {
                         // We have to convert the units.
@@ -225,14 +239,36 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                         let operand_ty = operand.ty(&self.locals_smir).unwrap();
                         let operand_ty = self.translate_ty_smir(operand_ty, span);
                         let operand = self.translate_operand_smir(operand, span);
-                        let Type::Int(int_ty) = self.translate_ty_smir(*cast_ty, span) else {
-                            rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!");
+                        let int_ty = match self.translate_ty_smir(*cast_ty, span) {
+                            Type::Int(int_ty) => int_ty,
+                            char_ty @ Type::PatternedPrim { ty, .. } => {
+                                // We can cast `u8` into `char`. We handle this by first casting to `u32` and then transmuting into `char`.
+                                // We ensure we're casting into a char, which is a spicy u32.
+                                assert_matches!(ty.extract(), Type::Int(IntType { signed: Signedness::Unsigned, size }) if size.bytes() == 4 );
+                                // We ensure we're casting from a u8.
+                                assert_matches!(operand_ty, Type::Int(IntType { signed: Signedness::Unsigned, size }) if size.bytes() == 1 );
+                                let as_u32 = ValueExpr::UnOp {
+                                    operator: UnOp::Cast(CastOp::IntToInt(IntType::U32)),
+                                    operand: GcCow::new(operand),
+                                };
+                                return build::transmute(as_u32, char_ty);
+                            }
+                            _ =>
+                                rs::span_bug!(span, "Attempting to IntToInt-Cast to non-int type!"),
                         };
 
                         let operand = match operand_ty {
                             Type::Int(_) => operand,
                             // bool2int casts first go to u8, and then to the final type.
                             Type::Bool => build::transmute(operand, u8::get_type()),
+                            // We can cast from chars to various integer types. To handle this, we first transmute the char to `u32`.
+                            Type::PatternedPrim { ty, .. }
+                                if matches!(ty.extract(), Type::Int(_)) =>
+                            {
+                                // We ensure we're casting from a char, which is a spicy u32.
+                                assert_matches!(ty.extract(), Type::Int(IntType { signed: Signedness::Unsigned, size }) if size.bytes() == 4 );
+                                build::transmute(operand, u32::get_type())
+                            }
                             _ =>
                                 rs::span_bug!(
                                     span,
