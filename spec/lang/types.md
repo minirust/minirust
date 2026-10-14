@@ -317,12 +317,12 @@ impl IntType {
 
     pub fn char_type() -> Type {
         // this can not be a constant, because list![] does not work in const contexts.
-        Type::PatternedPrim { 
-            ty: Type::Int(IntType::U32), 
+        Type::PatternedPrim {
+            ty: Type::Int(IntType::U32),
             pat: PrimPattern::PatternedInt {
                 niches:  list![
                     //TODO why are the Int::from wrappers needed here?
-                    (Int::from(0xD800), Int::from(0xE000)), 
+                    (Int::from(0xD800), Int::from(0xE000)),
                     (Int::from(0x110000), Int::from_u64(0x1_0000_0000)) // 0x1_0000_0000 is u32::MAX + 1
                 ]
             }
