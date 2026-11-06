@@ -141,7 +141,7 @@ impl<'tcx> Ctxt<'tcx> {
                     let layout = self.rs_layout_of(*elem_ty);
                     let size = translate_size(layout.size);
                     let count = c.try_to_target_usize(self.tcx).unwrap();
-                    let ranges = vec![0, count];
+                    let ranges = vec![0; count as usize];
 
                     ranges
                         .iter()
