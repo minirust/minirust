@@ -54,7 +54,7 @@ impl UnsafeCellStrategy {
         self,
         layout: LayoutStrategy,
         ptr_metadata: Option<PointerMeta<TreeBorrowsProvenance>>,
-        vtable_lookup: impl Fn(ThinPointer<TreeBorrowsProvenance>) -> crate::lang::VTable + 'static,
+        vtable_lookup: impl Fn(ThinPointer<TreeBorrowsProvenance>) -> crate::lang::VTable + Copy,
     ) -> List<bool> {
         match (self, layout, ptr_metadata) {
             (UnsafeCellStrategy::Sized { cells }, LayoutStrategy::Sized(size, _align), ..) => {
@@ -95,7 +95,7 @@ impl ReborrowSettings {
         fn_entry: bool,
         params: TreeBorrowsParams,
         fn_implicit_writes: bool, // wether implicit_writes are enabled for the currently evaluated function, or not
-        vtable_lookup: impl Fn(ThinPointer<TreeBorrowsProvenance>) -> crate::lang::VTable + 'static,
+        vtable_lookup: impl Fn(ThinPointer<TreeBorrowsProvenance>) -> crate::lang::VTable + Copy,
     ) -> Option<Self> {
         // Returns None for `Raw`, `FnPtr` and `VTablePtr`, so `ptr_type` can only be `Ref` and `Box` from here.
         let Some(pointee_info) = ptr_type.safe_pointee() else {

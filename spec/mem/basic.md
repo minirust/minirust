@@ -147,7 +147,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         kind: AllocationKind,
         size: Size,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra) -> Result,
+        mut handle_extra: impl FnMut(&mut AllocExtra, ProvExtra) -> Result,
     ) -> Result {
         let Some((id, prov_extra)) = ptr.provenance else {
             throw_ub!("deallocating invalid pointer")
@@ -229,7 +229,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         ptr: ThinPointer<Provenance<ProvExtra>>,
         bytes: List<AbstractByte<Provenance<ProvExtra>>>,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset) -> Result,
+        mut handle_extra: impl FnMut(&mut AllocExtra, ProvExtra, Offset) -> Result,
     ) -> Result {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("store to a misaligned pointer");
@@ -255,7 +255,7 @@ impl<T: Target, ProvExtra, AllocExtra> BasicMemory<T, ProvExtra, AllocExtra> {
         ptr: ThinPointer<Provenance<ProvExtra>>,
         len: Size,
         align: Align,
-        handle_extra: impl FnOnce(&mut AllocExtra, ProvExtra, Offset) -> Result,
+        mut handle_extra: impl FnMut(&mut AllocExtra, ProvExtra, Offset) -> Result,
     ) -> Result<List<AbstractByte<Provenance<ProvExtra>>>> {
         if !align.is_aligned(ptr.addr) {
             throw_ub!("load from a misaligned pointer");

@@ -259,7 +259,7 @@ impl LayoutStrategy {
     pub fn compute_size_and_align<Provenance>(
         self,
         meta: Option<PointerMeta<Provenance>>, 
-        vtables: impl FnOnce(ThinPointer<Provenance>) -> VTable,
+        mut vtables: impl FnMut(ThinPointer<Provenance>) -> VTable,
     ) -> (Size, Align) {
         match (self, meta) {
             (LayoutStrategy::Sized(size, align), None) => (size, align),
