@@ -5,10 +5,10 @@ use crate::*;
 // Some Rust features are not supported, and are ignored by `minimize`.
 // Those can be found by grepping "IGNORED".
 
-/// A MIR statement becomes either a MiniRust statement or an intrinsic with some arguments, which
+/// A MIR statement becomes either one or more MiniRust statements or an intrinsic with some arguments, which
 /// then starts a new basic block.
 enum StatementResult {
-    Statement(Statement),
+    Statements(List<Statement>),
     Intrinsic { intrinsic: IntrinsicOp, destination: PlaceExpr, arguments: List<ValueExpr> },
 }
 
@@ -30,9 +30,10 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
         for stmt in bb.statements.iter() {
             match self.translate_stmt(stmt) {
-                StatementResult::Statement(stmt) => {
-                    cur_block_statements.push(stmt);
-                }
+                StatementResult::Statements(stmts) =>
+                    for stmt in stmts.iter() {
+                        cur_block_statements.push(stmt);
+                    },
                 StatementResult::Intrinsic { intrinsic, destination, arguments } => {
                     // Generate a fresh bb name.
                     let next_bb = self.fresh_bb_name();
@@ -68,7 +69,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
 
     fn translate_stmt(&mut self, stmt: &rs::Statement<'tcx>) -> StatementResult {
         let span = stmt.source_info.span;
-        StatementResult::Statement(match &stmt.kind {
+        let statement = match &stmt.kind {
             rs::StatementKind::Assign(operands) => {
                 let (place, rval) = &**operands;
                 let destination = self.translate_place(place, span);
@@ -92,6 +93,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                             arguments: list![operand],
                         };
                     }
+                    rs::Rvalue::Use(_, rs::WithRetag::Yes) => {
+                        let source = self.translate_rvalue(rval, span);
+                        return StatementResult::Statements(list![
+                            Statement::Assign { destination, source },
+                            Statement::Validate { place: destination, fn_entry: false }
+                        ]);
+                    }
                     _ => {}
                 }
                 let source = self.translate_rvalue(rval, span);
@@ -101,11 +109,6 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 Statement::StorageLive(self.local_name_map[&local]),
             rs::StatementKind::StorageDead(local) =>
                 Statement::StorageDead(self.local_name_map[&local]),
-            rs::StatementKind::Retag(kind, place) => {
-                let place = self.translate_place(place, span);
-                let fn_entry = matches!(kind, rs::RetagKind::FnEntry);
-                Statement::Validate { place, fn_entry }
-            }
             rs::StatementKind::SetDiscriminant { place, variant_index } => {
                 let place_ty =
                     rs::Place::ty_from(place.local, place.projection, &self.body, self.tcx).ty;
@@ -144,7 +147,8 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             | rs::StatementKind::BackwardIncompatibleDropHint { .. } => {
                 rs::span_bug!(span, "Statement not supported: {:?}", stmt.kind);
             }
-        })
+        };
+        StatementResult::Statements(list![statement])
     }
 
     fn translate_terminator(&mut self, bb: &rs::BasicBlockData<'tcx>) -> TerminatorResult {
@@ -246,7 +250,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                     }
                     // For other types we can just get the drop instance statically
                     _ => {
-                        let drop_in_place_fn = rs::Instance::resolve_drop_in_place(self.tcx, ty);
+                        let drop_in_place_fn = rs::Instance::resolve_drop_glue(self.tcx, ty);
                         let ptr_to_drop = build::addr_of(place, build::raw_void_ptr_ty());
                         let drop_fn = build::fn_ptr(self.cx.get_fn_name(drop_in_place_fn));
                         (drop_fn, ptr_to_drop)
@@ -291,14 +295,14 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
     ///     try_fn_tmp(data_tmp) -> [return: bb1, unwind: bb2]
     /// // return block
     /// bb1:
-    ///     *ret_tmp = 0;
+    ///     *ret_tmp = false;
     ///     goTo -> bb5
     /// // get_payload block
     /// bb2 (Catch):
     ///     let unwind_payload_tmp = get_unwind_payload() -> return: bb3
     /// // catch block
     /// bb3 (Catch):
-    ///     *ret_tmp = 1;
+    ///     *ret_tmp = true;
     ///     catch_fn_tmp(data_tmp, unwind_payload_tmp) -> return: bb4
     /// // stop_unwind block
     /// bb4 (Catch):
@@ -378,12 +382,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
             statements: list![
                 Statement::Assign {
                     destination: PlaceExpr::Deref {
-                        ty: Type::Int(IntType::I32),
+                        ty: Type::Bool,
                         operand: GcCow::new(ValueExpr::Load {
                             source: GcCow::new(PlaceExpr::Local(ret_tmp))
                         })
                     },
-                    source: build::const_int(0)
+                    source: build::const_bool(false)
                 },
                 Statement::StorageDead(ret_tmp),
                 Statement::StorageDead(try_fn_tmp),
@@ -412,12 +416,12 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let catch_bb = BasicBlock {
             statements: list![Statement::Assign {
                 destination: PlaceExpr::Deref {
-                    ty: Type::Int(IntType::I32),
+                    ty: Type::Bool,
                     operand: GcCow::new(ValueExpr::Load {
                         source: GcCow::new(PlaceExpr::Local(ret_tmp))
                     })
                 },
-                source: build::const_int(1)
+                source: build::const_bool(true)
             }],
             terminator: Terminator::Call {
                 callee: ValueExpr::Load { source: GcCow::new(PlaceExpr::Local(catch_fn_tmp)) },
@@ -706,7 +710,9 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         // FIXME: func operand still needs to be evaluated in some way
         let fn_ty = func.ty(&self.body, self.tcx);
         let (f, substs_ref) = match *fn_ty.kind() {
-            rs::TyKind::FnDef(id, substs) => (id, substs),
+            // So far it seems there are never bound vars there. This may change as the late-bound
+            // regions rework progresses.
+            rs::TyKind::FnDef(id, substs) => (id, substs.no_bound_vars().unwrap()),
             rs::TyKind::FnPtr(signature, header) => {
                 let func = self.translate_operand(func, span);
 

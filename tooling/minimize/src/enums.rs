@@ -10,7 +10,8 @@ impl<'tcx> Ctxt<'tcx> {
         sref: rs::GenericArgsRef<'tcx>,
         span: rs::Span,
     ) -> Type {
-        let layout = self.rs_layout_of(ty).layout;
+        let ty_layout = self.rs_layout_of(ty);
+        let layout = ty_layout.layout;
         let size = translate_size(layout.size());
         let align = translate_align(layout.align().abi);
 
@@ -53,7 +54,7 @@ impl<'tcx> Ctxt<'tcx> {
                 });
                 (translated_variants, discriminator)
             }
-            rs::Variants::Multiple { tag, tag_encoding, tag_field, variants } => {
+            rs::Variants::Multiple { tag, tag_encoding, tag_field, .. } => {
                 // compute the offset of the tag for the tagger and discriminator construction
                 let tag_offset: Offset =
                     translate_size(layout.fields().offset(tag_field.as_usize()));
@@ -68,7 +69,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let mut discriminator_branches = Map::new();
                 for (variant_idx, variant_def) in adt_def.variants().iter_enumerated() {
                     let fields = self.translate_adt_variant_fields(
-                        Some(&variants[variant_idx].fields),
+                        Some(ty_layout.for_variant(&*self, variant_idx).layout.fields()),
                         &variant_def,
                         sref,
                         span,
@@ -101,8 +102,7 @@ impl<'tcx> Ctxt<'tcx> {
                             niche_start,
                         } => {
                             let discr_int = int_from_bits(discr.val, tag_ty);
-                            let tag_int = (discr_int
-                                - Int::from(niche_variants.start().as_usize())
+                            let tag_int = (discr_int - Int::from(niche_variants.start.as_usize())
                                 + Int::from(*niche_start))
                             .bring_in_bounds(tag_ty.signed, tag_ty.size);
                             if *untagged_variant != variant_idx {

@@ -1,4 +1,3 @@
-#![feature(never_type)]
 #![feature(decl_macro)]
 #![feature(try_blocks)]
 #![feature(freeze)]

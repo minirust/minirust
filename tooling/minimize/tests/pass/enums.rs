@@ -1,5 +1,3 @@
-#![feature(never_type)]
-
 fn test_int_cast() {
     #[repr(i16)]
     enum ReprEnum {

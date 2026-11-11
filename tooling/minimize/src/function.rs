@@ -55,7 +55,7 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let body = cx.tcx.instantiate_and_normalize_erasing_regions(
             instance.args,
             cx.typing_env(),
-            rs::EarlyBinder::bind(body.clone()),
+            rs::EarlyBinder::bind(cx.tcx, body.clone()),
         );
         let abi = cx
             .tcx
@@ -159,6 +159,13 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
                 args.push(LocalName(Name::from_internal(i as _)));
             }
         }
+
+        // MIR retags function arguments implicitly at function entry.
+        init_statements.splice(
+            0..0,
+            args.iter()
+                .map(|arg| Statement::Validate { place: PlaceExpr::Local(arg), fn_entry: true }),
+        );
 
         // the number of locals which are implicitly storage live.
         let free_argc = self.body.arg_count + 1;

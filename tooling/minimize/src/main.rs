@@ -4,7 +4,7 @@
 
 // Imports for the rest of the crate
 
-extern crate rustc_abi;
+pub extern crate rustc_abi;
 extern crate rustc_const_eval;
 extern crate rustc_driver;
 extern crate rustc_hir;
@@ -25,11 +25,11 @@ mod rs {
     pub use rustc_const_eval::const_eval::mk_eval_cx_for_const_val;
     pub use rustc_const_eval::interpret::{InterpCx, OpTy};
     pub use rustc_middle::mir::{self, interpret::*, *};
-    pub use rustc_middle::span_bug;
     pub use rustc_middle::ty::layout::{FnAbiError, FnAbiRequest, LayoutError, TyAndLayout};
     pub use rustc_middle::ty::*;
     pub use rustc_mir_dataflow::impls::always_storage_live_locals;
     pub use rustc_span::Spanned;
+    pub use rustc_span::span_bug;
     pub use rustc_span::{DUMMY_SP, Span, sym};
     pub use rustc_target::callconv::FnAbi;
 
@@ -108,7 +108,6 @@ const DEFAULT_ARGS: &[&str] = &[
     "--cfg=miri",
     "-Zalways-encode-mir",
     "-Zextra-const-ub-checks",
-    "-Zmir-emit-retag",
     "-Zmir-opt-level=0",
     "-Zmir-enable-passes=-CheckAlignment",
     "-Zmir-preserve-ub",
