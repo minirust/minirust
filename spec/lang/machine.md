@@ -248,7 +248,7 @@ impl<M: Memory> Machine<M> {
         self.threads[self.active_thread]
     }
 
-    fn mutate_active_thread<O>(&mut self, f: impl FnOnce(&mut Thread<M>) -> O) -> O {
+    fn mutate_active_thread<O>(&mut self, f: impl FnMut(&mut Thread<M>) -> O) -> O {
         self.threads.mutate_at(self.active_thread, f)
     }
 
@@ -256,15 +256,15 @@ impl<M: Memory> Machine<M> {
         self.active_thread().cur_frame()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> O) -> O {
+    fn mutate_cur_frame<O>(&mut self, mut f: impl FnMut(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> O) -> O {
         self.threads.mutate_at(self.active_thread, |thread| thread.mutate_cur_frame(|frame| f(frame, &mut self.mem)))
     }
 
-    fn try_mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> NdResult<O>) -> NdResult<O> {
+    fn try_mutate_cur_frame<O>(&mut self, mut f: impl FnMut(&mut StackFrame<M>, &mut ConcurrentMemory<M>) -> NdResult<O>) -> NdResult<O> {
         self.threads.try_mutate_at(self.active_thread, |thread| thread.try_mutate_cur_frame(|frame| f(frame, &mut self.mem)))
     }
 
-    fn mutate_cur_stack<O>(&mut self, f: impl FnOnce(&mut List<StackFrame<M>>) -> O) -> O {
+    fn mutate_cur_stack<O>(&mut self, mut f: impl FnMut(&mut List<StackFrame<M>>) -> O) -> O {
         self.threads.mutate_at(self.active_thread, |thread| f(&mut thread.stack))
     }
 }
@@ -274,7 +274,7 @@ impl<M: Memory> Thread<M> {
         self.stack.last().unwrap()
     }
 
-    fn mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> O) -> O {
+    fn mutate_cur_frame<O>(&mut self, f: impl FnMut(&mut StackFrame<M>) -> O) -> O {
         if self.stack.is_empty() {
             panic!("`mutate_cur_frame` called on empty stack!");
         }
@@ -283,7 +283,7 @@ impl<M: Memory> Thread<M> {
         self.stack.mutate_at(last_idx, f)
     }
 
-    fn try_mutate_cur_frame<O>(&mut self, f: impl FnOnce(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
+    fn try_mutate_cur_frame<O>(&mut self, f: impl FnMut(&mut StackFrame<M>) -> NdResult<O>) -> NdResult<O> {
         if self.stack.is_empty() {
             panic!("`try_mutate_cur_frame` called on empty stack!");
         }
@@ -369,7 +369,7 @@ impl<M: Memory> Machine<M> {
     }
 
     /// All vtable lookups must have well-defined pointers. If this panics it is a spec bug.
-    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable + 'static {
+    fn vtable_lookup(&self) -> impl Fn(ThinPointer<M::Provenance>) -> VTable + Copy + 'static {
         // This copies the data to return a static closure, as it is used in mutate functions, which mutably borrow self.
         let ptrs = self.vtable_ptrs;
         let vtables = self.prog.vtables;
