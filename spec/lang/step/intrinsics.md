@@ -161,7 +161,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `PrintStdout` intrinsic")
         }
 
-        self.eval_print(self.stdout, arguments)?;
+        let stream = self.stdout; // avoid two-phased borrow
+        self.eval_print(stream, arguments)?;
 
         ret(unit_value())
     }
@@ -176,7 +177,8 @@ impl<M: Memory> Machine<M> {
             throw_ub!("invalid return type for `PrintStderr` intrinsic")
         }
 
-        self.eval_print(self.stderr, arguments)?;
+        let stream = self.stderr; // avoid two-phased borrow
+        self.eval_print(stream, arguments)?;
 
         ret(unit_value())
     }
