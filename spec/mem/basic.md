@@ -69,7 +69,7 @@ impl<ProvExtra, AllocExtra> Allocation<ProvExtra, AllocExtra> {
     }
 
     fn overlaps(self, other_addr: Address, other_size: Size) -> bool {
-        let end_addr = self.addr + self.size().bytes();
+        let end_addr = self.addr + self.data.len(); // data.len() is our size in bytes.
         let other_end_addr = other_addr + other_size.bytes();
         if end_addr <= other_addr || other_end_addr <= self.addr {
             // Our end is before their beginning, or vice versa -- we do not overlap.
