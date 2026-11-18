@@ -51,10 +51,17 @@ The memory itself largely reuses the basic memory infrastructure, with the tree 
 
 ```rust
 /// Global parameters controlling Tree Borrows behavior.
-#[derive(Default)]
 pub struct TreeBorrowsParams {
     /// Whether implicit writes are enabled or not.
     pub implicit_writes: bool,
+}
+
+impl Default for TreeBorrowsParams {
+    fn default() -> TreeBorrowsParams {
+        TreeBorrowsParams {
+            implicit_writes: false,
+        }
+    }
 }
 ```
 
