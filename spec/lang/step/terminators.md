@@ -333,7 +333,7 @@ impl<M: Memory> Machine<M> {
         let ret_val = self.typed_load(frame.locals[frame.func.ret], callee_ty, align, Atomicity::None)?;
 
         // Deallocate everything.
-        while let Some(local) = frame.locals.keys().next() {
+        for local in frame.locals.keys() {
             frame.storage_dead(&mut self.mem, local)?;
         }
 
@@ -427,7 +427,7 @@ impl<M: Memory> Machine<M> {
         );
 
         // Deallocate everything.
-        while let Some(local) = frame.locals.keys().next() {
+        for local in frame.locals.keys() {
             frame.storage_dead(&mut self.mem, local)?;
         }
 

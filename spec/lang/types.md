@@ -18,6 +18,7 @@ In the future, we might want to separate a type from its layout, and consider th
 
 ```rust
 /// The types of MiniRust.
+// #[special_serde]
 pub enum Type {
     Int(IntType),
     Bool,
