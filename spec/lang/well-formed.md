@@ -125,9 +125,9 @@ impl PtrType {
             PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
                 pointee.check_wf::<T>(prog)?;
             }
-            PtrType::Raw { .. } | PtrType::FnPtr => (),
-            PtrType::VTablePtr(trait_name) => {
-                ensure_wf(prog.traits.contains_key(trait_name), "PtrType::VTablePtr: trait name doesn't exist")?;
+            PtrType::Raw { .. } | PtrType::Fn => (),
+            PtrType::VTable(trait_name) => {
+                ensure_wf(prog.traits.contains_key(trait_name), "PtrType::VTable: trait name doesn't exist")?;
             }
         }
 
@@ -304,14 +304,14 @@ impl Constant {
                 relocation.check_wf(prog.globals)?;
             }
             (Constant::FnPointer(fn_name), Type::Ptr(ptr_ty)) => {
-                ensure_wf(matches!(ptr_ty, PtrType::FnPtr), "Constant::FnPointer: non function pointer type")?;
+                ensure_wf(matches!(ptr_ty, PtrType::Fn), "Constant::FnPointer: non function pointer type")?;
                 ensure_wf(prog.functions.contains_key(fn_name), "Constant::FnPointer: invalid function name")?;
             }
             (Constant::VTablePointer(vtable_name), Type::Ptr(ptr_ty)) => {
                 let Some(vtable) = prog.vtables.get(vtable_name) else {
                     throw_ill_formed!("Constant::VTablePointer: invalid vtable name");
                 };
-                ensure_wf(ptr_ty == PtrType::VTablePtr(vtable.trait_name), "Constant::VTablePointer: non or wrong vtable pointer type")?;
+                ensure_wf(ptr_ty == PtrType::VTable(vtable.trait_name), "Constant::VTablePointer: non or wrong vtable pointer type")?;
             }
             (Constant::PointerWithoutProvenance(addr), Type::Ptr(_)) => {
                 ensure_wf(
@@ -458,7 +458,7 @@ impl ValueExpr {
                         Type::Int(IntType::usize_ty::<T>())
                     }
                     VTableMethodLookup(method) => {
-                        let Type::Ptr(PtrType::VTablePtr(trait_name)) = operand else {
+                        let Type::Ptr(PtrType::VTable(trait_name)) = operand else {
                             throw_ill_formed!("UnOp::VTableMethodLookup: invalid operand: not a vtable pointer");
                         };
 
@@ -466,7 +466,7 @@ impl ValueExpr {
                         let trait_methods = prog.traits[trait_name];
                         ensure_wf(trait_methods.contains(method), "UnOp::VTableMethodLookup: invalid operand: method doesn't exist in trait")?;
 
-                        Type::Ptr(PtrType::FnPtr)
+                        Type::Ptr(PtrType::Fn)
                     }
                 }
             }
@@ -762,7 +762,7 @@ impl Terminator {
             }
             Call { callee, calling_convention: _, arguments, ret, next_block, unwind_block } => {
                 let ty = callee.check_wf::<T>(func.locals, prog)?;
-                ensure_wf(matches!(ty, Type::Ptr(PtrType::FnPtr)), "Terminator::Call: invalid type")?;
+                ensure_wf(matches!(ty, Type::Ptr(PtrType::Fn)), "Terminator::Call: invalid type")?;
 
                 // Return and argument expressions must all typecheck with some sized type.
                 let ret_ty = ret.check_wf::<T>(func.locals, prog)?;

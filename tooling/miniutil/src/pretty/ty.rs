@@ -51,8 +51,8 @@ pub(super) fn fmt_ptr_type(ptr_ty: PtrType) -> FmtExpr {
             let meta_kind_str = fmt_meta_kind(meta_kind);
             FmtExpr::NonAtomic(format!("*raw({meta_kind_str})"))
         }
-        PtrType::FnPtr => FmtExpr::Atomic(format!("fn()")),
-        PtrType::VTablePtr(_) => FmtExpr::Atomic("{vtable}".into()),
+        PtrType::Fn => FmtExpr::Atomic(format!("fn()")),
+        PtrType::VTable(_) => FmtExpr::Atomic("{vtable}".into()),
     }
 }
 

@@ -210,7 +210,7 @@ fn ub_dangling_vtable_in_wide_pointer() {
         f.storage_live(x);
 
         let dangling_vtable_ptr =
-            transmute(const_int(1_usize), Type::Ptr(PtrType::VTablePtr(trait_name)));
+            transmute(const_int(1_usize), Type::Ptr(PtrType::VTable(trait_name)));
         let ptr_with_dangling_vtable = construct_wide_pointer(
             addr_of(x, <&u8>::get_type()),
             dangling_vtable_ptr,
@@ -249,7 +249,7 @@ fn ub_wrong_vtable_ty() {
             addr_of(x, <&u8>::get_type()),
             ptr_to_ptr(
                 const_vtable(vtable1_name, trait1_name),
-                Type::Ptr(PtrType::VTablePtr(trait2_name)),
+                Type::Ptr(PtrType::VTable(trait2_name)),
             ),
             raw_ptr_ty(PointerMetaKind::VTablePointer(trait2_name)),
         );
@@ -274,10 +274,10 @@ fn ub_dangling_standalone_vtable_ptr() {
     let main = {
         let mut f = p.declare_function();
         let x = f.declare_local::<i32>();
-        let y = f.declare_local_with_ty(Type::Ptr(PtrType::VTablePtr(trait_name)));
+        let y = f.declare_local_with_ty(Type::Ptr(PtrType::VTable(trait_name)));
         f.storage_live(x);
         f.storage_live(y);
-        f.assign(y, addr_of(x, Type::Ptr(PtrType::VTablePtr(trait_name))));
+        f.assign(y, addr_of(x, Type::Ptr(PtrType::VTable(trait_name))));
         f.exit();
         p.finish_function(f)
     };
@@ -288,7 +288,7 @@ fn ub_dangling_standalone_vtable_ptr() {
 
 // Ill-formed tests
 
-/// A vtable constant must have type `PtrType::VTablePtr`.
+/// A vtable constant must have type `PtrType::VTable`.
 #[test]
 fn ill_const_wrong_ty() {
     let mut p = ProgramBuilder::new();
@@ -323,7 +323,7 @@ fn ill_const_undef_vtable() {
 
     let f = {
         let mut f = p.declare_function();
-        let y = f.declare_local_with_ty(Type::Ptr(PtrType::VTablePtr(trait_name)));
+        let y = f.declare_local_with_ty(Type::Ptr(PtrType::VTable(trait_name)));
         f.storage_live(y);
         f.assign(y, const_vtable(fake_vtable_name, trait_name));
         f.exit();
@@ -342,16 +342,16 @@ fn ill_undef_trait_name() {
     let f = {
         let mut f = p.declare_function();
         // the trait name is undefined
-        f.declare_arg_with_ty(Type::Ptr(PtrType::VTablePtr(TraitName(Name::from_internal(0)))));
+        f.declare_arg_with_ty(Type::Ptr(PtrType::VTable(TraitName(Name::from_internal(0)))));
         f.exit();
         p.finish_function(f)
     };
 
     let p = p.finish_program(f);
-    assert_ill_formed::<BasicMem>(p, "PtrType::VTablePtr: trait name doesn't exist");
+    assert_ill_formed::<BasicMem>(p, "PtrType::VTable: trait name doesn't exist");
 }
 
-/// A VTableLookup only works on `PtrType::VTablePtr` (in particular not wide pointers with a vtable metadata).
+/// A VTableLookup only works on `PtrType::VTable` (in particular not wide pointers with a vtable metadata).
 #[test]
 fn ill_lookup_wrong_ty() {
     let mut p = ProgramBuilder::new();
@@ -373,7 +373,7 @@ fn ill_lookup_wrong_ty() {
     let f = {
         let mut f = p.declare_function();
         let x = f.declare_local_with_ty(wrong_vtable_ptr_ty);
-        let y = f.declare_local_with_ty(Type::Ptr(PtrType::FnPtr));
+        let y = f.declare_local_with_ty(Type::Ptr(PtrType::Fn));
         f.storage_live(x);
         f.storage_live(y);
         // Fails, x isn't a VTablePtr
@@ -404,7 +404,7 @@ fn ill_lookup_wrong_method() {
 
     let f = {
         let mut f = p.declare_function();
-        let y = f.declare_local_with_ty(Type::Ptr(PtrType::FnPtr));
+        let y = f.declare_local_with_ty(Type::Ptr(PtrType::Fn));
         f.storage_live(y);
         // Ill formed since the vtable doesn't declare the meth2.
         // (Or more accuratly, it doesn't declare a method with the same name as `meth2`,

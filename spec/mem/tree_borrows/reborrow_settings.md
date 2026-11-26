@@ -150,7 +150,7 @@ impl ReborrowSettings {
                         )
                     },
                 // Cannot occur: `safe_pointee()` returns `None` for these variants.
-                PtrType::Raw { .. } | PtrType::FnPtr | PtrType::VTablePtr(_) => unreachable!("safe_pointee() returns None for Raw, FnPtr, and VTablePtr; should have returned early on function entry"),
+                PtrType::Raw { .. } | PtrType::Fn | PtrType::VTable(_) => unreachable!("safe_pointee() returns None for Raw, FnPtr, and VTablePtr; should have returned early on function entry"),
             }
         };
 

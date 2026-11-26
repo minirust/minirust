@@ -235,7 +235,7 @@ impl<'tcx> Ctxt<'tcx> {
                 let elem = GcCow::new(self.translate_ty(*ty, span));
                 Type::Array { elem, count }
             }
-            rs::TyKind::FnPtr(..) => Type::Ptr(PtrType::FnPtr),
+            rs::TyKind::FnPtr(..) => Type::Ptr(PtrType::Fn),
             rs::TyKind::FnDef(..) => {
                 // FnDef types don't carry data, everything relevant is in the type
                 // (which we handle when translating calls).

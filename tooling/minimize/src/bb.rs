@@ -330,11 +330,11 @@ impl<'cx, 'tcx> FnCtxt<'cx, 'tcx> {
         let ret_tmp = self.fresh_local_name();
         self.locals.insert(ret_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let try_fn_tmp = self.fresh_local_name();
-        self.locals.insert(try_fn_tmp, Type::Ptr(PtrType::FnPtr));
+        self.locals.insert(try_fn_tmp, Type::Ptr(PtrType::Fn));
         let data_tmp = self.fresh_local_name();
         self.locals.insert(data_tmp, Type::Ptr(PtrType::Raw { meta_kind: PointerMetaKind::None }));
         let catch_fn_tmp = self.fresh_local_name();
-        self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::FnPtr));
+        self.locals.insert(catch_fn_tmp, Type::Ptr(PtrType::Fn));
         let unwind_payload_tmp = self.fresh_local_name();
         self.locals.insert(
             unwind_payload_tmp,

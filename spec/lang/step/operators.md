@@ -160,7 +160,7 @@ impl<M: Memory> Machine<M> {
         // and hence the method exists.
         let fn_name = vtable.methods[method];
         let fn_ptr = Value::Ptr(self.fn_ptrs[fn_name].widen(None));
-        ret((fn_ptr, Type::Ptr(PtrType::FnPtr)))
+        ret((fn_ptr, Type::Ptr(PtrType::Fn)))
     }
 }
 ```

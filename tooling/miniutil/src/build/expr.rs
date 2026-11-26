@@ -306,7 +306,7 @@ pub fn global<T: TypeConv>(x: u32) -> PlaceExpr {
 pub fn const_vtable(vtable_name: VTableName, trait_name: TraitName) -> ValueExpr {
     ValueExpr::Constant(
         Constant::VTablePointer(vtable_name),
-        Type::Ptr(PtrType::VTablePtr(trait_name)),
+        Type::Ptr(PtrType::VTable(trait_name)),
     )
 }
 

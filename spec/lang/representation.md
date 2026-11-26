@@ -147,7 +147,7 @@ impl PointerMetaKind {
         match self {
             PointerMetaKind::None => unit_type(),
             PointerMetaKind::ElementCount => Type::Int(IntType::usize_ty::<T>()),
-            PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTablePtr(trait_name)),
+            PointerMetaKind::VTablePointer(trait_name) => Type::Ptr(PtrType::VTable(trait_name)),
         }
     }
 }
@@ -493,7 +493,7 @@ impl<M: Memory> Machine<M> {
             (Some(PointerMeta::ElementCount(num)), PointerMetaKind::ElementCount) =>
                 self.check_value(Value::Int(num), Type::Int(IntType::usize_ty::<M::T>()))?,
             (Some(PointerMeta::VTablePointer(ptr)), PointerMetaKind::VTablePointer(trait_name)) => {
-                self.check_ptr(ptr.widen(None), PtrType::VTablePtr(trait_name))?;
+                self.check_ptr(ptr.widen(None), PtrType::VTable(trait_name))?;
             }
             _ => throw_ub!("Value::Ptr: invalid metadata"),
         };
@@ -527,13 +527,13 @@ impl<M: Memory> Machine<M> {
 
                 // However, we do not care about the data stored wherever this pointer points to.
             }
-            PtrType::VTablePtr(trait_name) => {
+            PtrType::VTable(trait_name) => {
                 // This is a "stand-alone" vtable pointer, something that does not exist
                 // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
                 let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
                 ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
             }
-            PtrType::FnPtr => {
+            PtrType::Fn => {
                 ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null function pointer")?;
             }
             PtrType::Raw { .. } => {

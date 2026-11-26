@@ -6,7 +6,7 @@ pub fn fn_ptr_internal(fn_name: u32) -> ValueExpr {
 
 pub fn fn_ptr(name: FnName) -> ValueExpr {
     let c = Constant::FnPointer(name);
-    let t = Type::Ptr(PtrType::FnPtr);
+    let t = Type::Ptr(PtrType::Fn);
     ValueExpr::Constant(c, t)
 }
 
