@@ -531,6 +531,8 @@ impl<M: Memory> Machine<M> {
             // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
             let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
             ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
+        }  else if let PtrType::FnPtr = ptr_ty {
+            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null function pointer")?;
         }
 
         Ok(())
