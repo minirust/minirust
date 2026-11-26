@@ -26,7 +26,7 @@ fn test_no_panic() {
     let ret = unsafe { core::intrinsics::catch_unwind(try_fn, data_ptr, catch_unreachable) };
 
     assert!(data == 10);
-    assert!(ret == 0);
+    assert!(!ret);
 }
 
 /// Test `catch_unwind` when `try_fn` panics.
@@ -53,7 +53,7 @@ fn test_panic_in_try_fn() {
     let ret = unsafe { core::intrinsics::catch_unwind(try_fn, data_ptr, catch_fn) };
 
     assert!(data == 11);
-    assert!(ret == 1);
+    assert!(ret);
 }
 
 /// This test triggers a panic inside `try_fn`. However, the panic is caught within `try_fn`,
@@ -89,7 +89,7 @@ fn test_nested_catch_in_try_fn() {
     let ret = unsafe { core::intrinsics::catch_unwind(outer_try, data_ptr, catch_unreachable) };
 
     assert!(data == 161);
-    assert!(ret == 0);
+    assert!(!ret);
 }
 
 /// This test triggers a panic inside `catch_fn`. However, the panic is caught within `catch_fn`,
@@ -135,7 +135,7 @@ fn test_nested_catch_in_catch_fn() {
     let ret = unsafe { core::intrinsics::catch_unwind(outer_try, data_ptr, outer_catch) };
 
     assert!(data == 231);
-    assert!(ret == 1);
+    assert!(ret);
 }
 
 /// Test the order in which the arguments and the return place of `catch_unwind` are evaluated.
@@ -143,7 +143,7 @@ fn test_evaluation_order() {
     // Functions to simulate the evaluation of the arguments and the return value of `catch_unwind`.
     // Print statements are used to log the order of evaluation.
 
-    fn eval_ret(ret_ptr: *mut i32) -> *mut i32 {
+    fn eval_ret(ret_ptr: *mut bool) -> *mut bool {
         print(4);
         ret_ptr
     }
@@ -178,8 +178,8 @@ fn test_evaluation_order() {
 
     let mut data: u8 = 0;
     let data_ptr = &mut data as *mut u8;
-    let mut ret: i32 = 0;
-    let ret_ptr = &mut ret as *mut i32;
+    let mut ret: bool = false;
+    let ret_ptr = &mut ret as *mut bool;
 
     print(0);
     unsafe {
@@ -192,7 +192,7 @@ fn test_evaluation_order() {
     print(5);
 
     assert!(data == 11);
-    assert!(ret == 1);
+    assert!(ret);
 }
 
 fn main() {

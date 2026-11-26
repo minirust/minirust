@@ -1,6 +1,6 @@
 This folder contains various tools built on top of MiniRust:
 
-- `minituil`: general utilities for interacting with MiniRust programs from Rust code, mainly to more
+- `miniutil`: general utilities for interacting with MiniRust programs from Rust code, mainly to more
   easily construct MiniRust programs and to debug-print constructed MiniRust programs.
 - `minitest`: test suite of MiniRust programs.
 - `minimize`: generates MiniRust from Rust (via MIR). Also helps test MiniRust, by having test cases
