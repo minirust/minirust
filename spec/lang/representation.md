@@ -508,33 +508,38 @@ impl<M: Memory> Machine<M> {
         // This has to be checked first, to ensure we can e.g. compute size/align below.
         self.check_ptr_metadata(ptr.metadata, ptr_ty.meta_kind())?;
 
-        // Safe pointer, i.e. references, boxes
-        if let Some(pointee) = ptr_ty.safe_pointee() {
-            let size = self.compute_size(pointee.layout, ptr.metadata);
-            let align = self.compute_align(pointee.layout, ptr.metadata);
-            // The total size must be at most `isize::MAX`.
-            ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
+        match ptr_ty {
+            PtrType::Ref { pointee, .. } | PtrType::Box { pointee } => {
+                 let size = self.compute_size(pointee.layout, ptr.metadata);
+                let align = self.compute_align(pointee.layout, ptr.metadata);
+                // The total size must be at most `isize::MAX`.
+                ensure_else_ub(size.bytes().in_bounds(Signed, M::T::PTR_SIZE), "Value::Ptr: total size exeeds isize::MAX")?;
 
-            // Safe pointers need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
-            // (Think: uninhabited types have impossible alignment.)
-            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
-            ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
-            ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
-            ensure_else_ub(
-                self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
-                "Value::Ptr: non-dereferenceable safe pointer"
-            )?;
+                // Safe pointers need to be non-null, aligned, dereferenceable, and not point to an uninhabited type.
+                // (Think: uninhabited types have impossible alignment.)
+                ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null safe pointer")?;
+                ensure_else_ub(align.is_aligned(ptr.thin_pointer.addr), "Value::Ptr: unaligned safe pointer")?;
+                ensure_else_ub(pointee.inhabited, "Value::Ptr: safe pointer to uninhabited type")?;
+                ensure_else_ub(
+                    self.mem.dereferenceable(ptr.thin_pointer, size).is_ok(),
+                    "Value::Ptr: non-dereferenceable safe pointer"
+                )?;
 
-            // However, we do not care about the data stored wherever this pointer points to.
-        } else if let PtrType::VTablePtr(trait_name) = ptr_ty {
-            // This is a "stand-alone" vtable pointer, something that does not exist
-            // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
-            let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
-            ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
-        }  else if let PtrType::FnPtr = ptr_ty {
-            ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null function pointer")?;
+                // However, we do not care about the data stored wherever this pointer points to.
+            }
+            PtrType::VTablePtr(trait_name) => {
+                // This is a "stand-alone" vtable pointer, something that does not exist
+                // in surface Rust. Ensure that it points to an allocated vtable for the correct trait.
+                let vtable = self.vtable_from_ptr(ptr.thin_pointer)?;
+                ensure_else_ub(vtable.trait_name == trait_name, "Value::Ptr: invalid vtable in metadata")?;
+            }
+            PtrType::FnPtr => {
+                ensure_else_ub(ptr.thin_pointer.addr != 0, "Value::Ptr: null function pointer")?;
+            }
+            PtrType::Raw { .. } => {
+                // Nothing to check.
+            }
         }
-
         Ok(())
     }
 
