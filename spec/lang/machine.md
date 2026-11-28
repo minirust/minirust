@@ -248,7 +248,7 @@ impl<M: Memory> Machine<M> {
         self.threads[self.active_thread]
     }
 
-    fn mutate_active_thread<O>(&mut self, f: impl FnMut(&mut Thread<M>) -> O) -> O {
+    fn mutate_active_thread<O>(&mut self, f: impl Fn(&mut Thread<M>) -> O) -> O {
         self.threads.mutate_at(self.active_thread, f)
     }
 
