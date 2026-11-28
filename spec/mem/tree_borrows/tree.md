@@ -132,7 +132,7 @@ We also implement some helper methods for manipulating Trees.
 impl Node {
     /// Apply `f` to a child node of `self`
     /// `path` is the path from `self` to the target child node.
-    fn access_node<O>(&mut self, path: Path, f: impl FnOnce(&mut Self) -> O) -> O {
+    fn access_node<O>(&mut self, path: Path, mut f: impl FnMut(&mut Self) -> O) -> O {
         // `sub_root_id` indicates which node to access next; call it the sub-root.
         // `sub_path` is the path from the sub-root to the target node.
         let Some((sub_root_id, sub_path)) = path.split_first() else {

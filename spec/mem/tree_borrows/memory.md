@@ -51,10 +51,17 @@ The memory itself largely reuses the basic memory infrastructure, with the tree 
 
 ```rust
 /// Global parameters controlling Tree Borrows behavior.
-#[derive(Default)]
 pub struct TreeBorrowsParams {
     /// Whether implicit writes are enabled or not.
     pub implicit_writes: bool,
+}
+
+impl Default for TreeBorrowsParams {
+    fn default() -> TreeBorrowsParams {
+        TreeBorrowsParams {
+            implicit_writes: false,
+        }
+    }
 }
 ```
 
@@ -245,7 +252,7 @@ impl<T: Target> Memory for TreeBorrowsMemory<T> {
         ptr_type: PtrType,
         fn_entry: bool,
         fn_implicit_writes: bool, // wether implicit_writes are enabled for the currently evaluated function, or not
-        vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + 'static,
+        vtable_lookup: impl Fn(ThinPointer<Self::Provenance>) -> crate::lang::VTable + Copy,
     ) -> Result<Pointer<Self::Provenance>> {
         ret(if let Some(perms) = ReborrowSettings::new(ptr, ptr_type, fn_entry, self.params, fn_implicit_writes, vtable_lookup) {
             self.reborrow(ptr.thin_pointer, perms, frame_extra)?.widen(ptr.metadata)
